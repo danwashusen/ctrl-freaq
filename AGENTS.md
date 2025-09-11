@@ -1,0 +1,1 @@
+@memory/constitution.md
