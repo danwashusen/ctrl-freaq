@@ -1,0 +1,45 @@
+# Ctrl Freaq Architecture Template (Minimal Skeleton)
+
+template:
+  id: architecture
+  name: Architecture Document
+  version: 0.1.0
+  decisionAggressivenessDefault: balanced # conservative|balanced|yolo
+
+workflow:
+  mode: interactive
+  elicitation: advanced-elicitation
+
+sections:
+  - id: introduction
+    title: Introduction
+    assumptions:
+      checklist:
+        - docs/prd.md exists and is current
+      guidance: |
+        Review available documents (PRD/Brief). Keep scope to provided inputs.
+    content: |
+      This document outlines the overall project architecture for {{project_name}}.
+    sections:
+      - id: starter-template
+        title: Starter Template or Existing Project
+        assumptions:
+          checklist:
+            - Starter template or greenfield decision
+          guidance: Confirm project foundation (starter vs greenfield).
+        instruction: |
+          Summarize the chosen foundation and key implications.
+
+  - id: high-level-architecture
+    title: High Level Architecture
+    decisionAggressivenessDefault: conservative
+    instruction: |
+      Describe the overall style, components, and flows aligning to the PRD.
+    sections:
+      - id: technical-summary
+        title: Technical Summary
+        instruction: Provide a concise (3–5 sentences) overview.
+      - id: high-level-overview
+        title: High Level Overview
+        instruction: Address style, repo, services, flows, and key decisions.
+
