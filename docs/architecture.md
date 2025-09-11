@@ -3,6 +3,28 @@
 ## Introduction
 This document outlines the overall project architecture for CRTL FreaQ, including backend systems, shared services, and non‑UI concerns. It serves as the guiding architectural blueprint for AI‑driven development, ensuring consistency and adherence to chosen patterns and technologies.
 
+### Document Organization
+This architecture document includes both **MVP implementation details** and **Phase 2 planning content**:
+
+- **MVP Focus**: Core sections describe the local development architecture using SQLite, SvelteKit, and library-first design
+- **Phase 2 References**: Throughout the document, Phase 2 mentions indicate future cloud deployment plans (AWS, DynamoDB, etc.)
+- **Appendix A**: Contains detailed Phase 2 planning information for future reference
+
+**Key for Readers**: 
+- Focus on MVP sections for immediate implementation
+- Phase 2 content provides context for DynamoDB-compatible patterns in current SQLite implementation
+- All current development maintains Phase 2 compatibility without implementing cloud services
+
+### Constitutional Compliance
+This architecture implements the CTRL FreaQ Constitution requirements:
+- ✅ **Library-First Architecture**: Each feature as standalone library with CLI
+- ✅ **CLI Interface Standard**: All libraries expose command-line interfaces  
+- ✅ **Test-First Development**: Mandatory TDD with Red-Green-Refactor cycle
+- ✅ **Integration Testing**: DynamoDB-compatible patterns verified in tests
+- ✅ **Observability Standards**: Structured logging, metrics, health checks
+- ✅ **Versioning & Breaking Changes**: Semantic versioning with migration docs
+- ✅ **Simplicity & Minimalism**: MVP-focused with Phase 2 as future reference
+
 Relationship to Frontend Architecture
 - Frontend specifics are documented separately in a Frontend Architecture document and must be used alongside this document for full‑stack implementation.
 
@@ -14,7 +36,7 @@ Compliance/SLO Stance
 - Phase 2: Plan for SOC 2 alignment and stronger SLOs; introduce AWS serverless and managed services per PRD.
 
 Terminology & Conventions
-- When referring to a specific document, suffix with the word “document” (e.g., “Architecture document”, “PRD document”).
+- When referring to a specific document, suffix with the word "document" (e.g., "Architecture document", "PRD document").
 
 Change Log
 | Date       | Version | Description                       | Author |
@@ -22,6 +44,122 @@ Change Log
 | 2025-09-11 | 0.3     | Remove MCP from MVP; add Spec Kit export flow; terminology updates | Architect |
 | 2025-09-09 | 0.1     | Initial architecture draft (MVP)  | Architect |
 | 2025-09-10 | 0.2     | Add Projects-lite MVP architecture (personal project) | Architect |
+
+## Library-First Architecture Implementation (Constitution §I)
+
+### Constitutional Requirements
+Every feature begins as a standalone library with clear boundaries and responsibilities per Constitution requirements:
+
+#### Library Principles
+- **Self-contained**: Minimal external dependencies, can function independently
+- **Independently testable**: Complete test suite with TDD compliance
+- **Purpose-driven**: Explicit functionality scope, solves concrete problems
+- **Reusable**: Usable across different contexts and projects
+- **CLI-enabled**: Command-line interface for all core functions
+
+#### Library Responsibilities Matrix
+
+| Library | Concrete Problem Solved | CLI Commands | Key Dependencies |
+|---------|------------------------|--------------|------------------|
+| `packages/shared-data` | Repository pattern with DynamoDB constraints | `query`, `create-doc`, `list-sections` | better-sqlite3, zod |
+| `packages/templates` | Template validation and expansion | `validate`, `expand`, `check-migration` | yaml, zod |
+| `packages/ai` | LLM integration with streaming | `chat`, `propose`, `stream-test` | @vercel/ai, openai |
+| `packages/qa` | Quality gates validation | `run-gates`, `check-gate`, `validate-traceability` | zod |
+| `packages/exporter` | Document export with versioning | `export`, `export-shards`, `diff` | markdown-it |
+
+#### Forbidden Organizational Libraries
+These would violate Constitution requirements:
+- ❌ `packages/shared-types` (organizational only)  
+- ❌ `packages/shared-utils` (grab bag of utilities)
+- ❌ `packages/common` (unclear purpose)
+
+#### Library Boundaries and Composition
+
+```typescript
+// Good: Libraries compose at application layer
+// apps/web/src/lib/services/document-service.ts
+import { DocumentRepository } from '@packages/shared-data';
+import { TemplateEngine } from '@packages/templates';
+import { QualityGates } from '@packages/qa';
+import { Exporter } from '@packages/exporter';
+
+export class DocumentService {
+  constructor(
+    private documentRepo: DocumentRepository,
+    private templateEngine: TemplateEngine,
+    private qualityGates: QualityGates,
+    private exporter: Exporter
+  ) {}
+
+  async createDocument(templateId: string, data: any) {
+    // Compose library functions without libraries depending on each other
+    const template = await this.templateEngine.load(templateId);
+    const document = await this.documentRepo.create(template.expand(data));
+    const gateResults = await this.qualityGates.run(document.id);
+    
+    if (gateResults.hasBlockers) {
+      throw new Error('Quality gates failed');
+    }
+    
+    return document;
+  }
+}
+```
+
+#### Library Independence Verification
+
+Each library must pass these independence tests:
+
+```bash
+# Test 1: Library can be used standalone
+cd packages/templates
+npm test  # Should pass without other packages
+
+# Test 2: CLI works independently  
+npx templates validate --file test/fixtures/valid.yaml
+npx templates --help  # Should show all commands
+
+# Test 3: No circular dependencies
+npx madge --circular src/  # Should report no circular dependencies
+
+# Test 4: Minimal dependency footprint
+npm ls --depth=0  # Should show only essential dependencies
+```
+
+#### Package Structure Standard
+
+```
+packages/[library-name]/
+├── src/
+│   ├── cli.ts              # CLI interface (required)
+│   ├── index.ts            # Main library exports
+│   ├── lib/                # Core library code
+│   └── types.ts            # Library-specific types
+├── test/
+│   ├── cli.test.ts         # CLI interface tests
+│   ├── integration/        # Integration tests
+│   └── unit/               # Unit tests
+├── package.json            # Independent versioning
+├── README.md              # Usage examples and CLI docs
+├── CHANGELOG.md           # Version history
+└── tsconfig.json          # Library-specific TS config
+```
+
+#### Shared Types Strategy (Revised)
+Instead of organizational `shared-types` package, use:
+
+1. **Library-owned types**: Each library exports its own types
+2. **Protocol types**: Minimal interface contracts in consuming applications
+3. **Schema sharing**: Use zod schemas as the source of truth, exported from owning library
+
+```typescript
+// packages/shared-data/src/index.ts - exports its own types
+export type { Document, Section, Assumption } from './types';
+export { DocumentSchema, SectionSchema } from './schemas';
+
+// apps/web uses protocol interfaces, not shared types
+import type { Document } from '@packages/shared-data';
+```
 
 ## High Level Architecture
 
@@ -274,6 +412,109 @@ Notes on Access Control (Phase 2)
 - Organization membership governs access to Projects and their Documents.
 - Optional ProjectMembership can grant finer‑grained per‑project roles if needed; otherwise inherit from OrganizationMembership.
 
+## CLI Interface Standard Implementation (Constitution §II)
+
+### Overview
+Every library package exposes core functionality through command-line interfaces following Constitution requirements:
+- **Input**: Command-line arguments and/or stdin
+- **Output**: Results to stdout, errors to stderr  
+- **Formats**: Support both JSON and human-readable output
+- **Behavior**: Consistent flag patterns and error codes
+
+### CLI Commands by Package
+
+#### packages/shared-data CLI
+```bash
+# Document operations
+shared-data query --type document --id DOC123 --output json
+shared-data create-doc --type architecture --title "My Project" --user-id USER123
+shared-data list-docs --user-id USER123 --status draft --limit 10
+
+# Section operations  
+shared-data list-sections --doc-id DOC123 --parent-id SEC456 --output human
+shared-data get-section --id SEC123 --include-content --output json
+
+# Knowledge operations
+shared-data query-knowledge --type pattern --slug "microservices" --output json
+shared-data list-assumptions --doc-id DOC123 --scope section --section-id SEC456
+```
+
+#### packages/templates CLI
+```bash
+# Template validation and processing
+templates validate --file templates/architecture.yaml --schema-version 1.0
+templates list --type architecture --output json  
+templates expand --template architecture --doc-id DOC123 --output markdown
+templates check-migration --from-version 1.0 --to-version 1.1 --doc-id DOC123
+```
+
+#### packages/ai CLI
+```bash
+# AI operations for testing and debugging
+ai chat --prompt "Explain microservices" --model gpt-4o-mini --output json
+ai propose --section-id SEC123 --mode improve --temperature 0.2 --dry-run
+ai stream-test --prompt "Hello" --verify-sse --timeout 30s
+ai validate-context --doc-id DOC123 --section-id SEC456 --token-budget 4000
+```
+
+#### packages/qa CLI  
+```bash
+# Quality gates operations
+qa run-gates --doc-id DOC123 --gates all --output json
+qa check-gate --name "schema-completeness" --doc-id DOC123 --verbose
+qa list-gates --type blocker --output human
+qa validate-traceability --doc-id DOC123 --check-citations --output json
+```
+
+#### packages/exporter CLI
+```bash
+# Export operations
+exporter export --doc-id DOC123 --format markdown --output-dir docs/
+exporter export-shards --doc-id DOC123 --base-path docs/architecture/ --dry-run
+exporter validate-export --file docs/architecture.md --check-frontmatter
+exporter diff --doc-id DOC123 --target docs/architecture.md --show-changes
+```
+
+### Common CLI Patterns
+
+#### Output Formats
+All CLI commands support:
+```bash
+--output json    # Machine-readable JSON output
+--output human   # Human-readable formatted output (default)
+--verbose        # Include debug information
+--quiet          # Suppress non-error output
+```
+
+#### Error Handling
+Consistent exit codes across all CLI tools:
+- `0` - Success
+- `1` - General error  
+- `2` - Invalid arguments
+- `3` - Resource not found
+- `4` - Permission denied
+- `5` - Network/external service error
+
+#### Input/Output Patterns
+```bash
+# stdin/stdout for piping
+shared-data query --type document --user-id USER123 | qa run-gates --input stdin
+templates validate --file - < architecture.yaml
+exporter export --doc-id DOC123 --format json | jq '.sections[].title'
+
+# File input/output
+ai chat --prompt-file prompts/explain.txt --output-file response.json
+qa run-gates --doc-id DOC123 --report-file quality-report.json
+```
+
+### Development Standards for CLI
+- Each package includes `src/cli.ts` as entry point
+- CLI functionality accessible programmatically via library APIs
+- Unit tests for all CLI commands with different output formats
+- Integration tests verify stdin/stdout/stderr behavior
+- Help text and examples for all commands
+- Shell completion support where applicable
+
 ## Components
 
 ### apps/web — Web Application (SvelteKit)
@@ -391,6 +632,358 @@ stateDiagram-v2
 - Streaming: Use Web Streams/SSE in MVP; Phase 2: AWS Lambda Response Streaming over HTTPS.
 - Performance: Client P95 <3s; server P95 ≤300ms; TTFMP ≤2s; streaming for long generations.
 
+## Observability Standards Implementation (Constitution §V)
+
+### Constitutional Requirements
+All systems must provide comprehensive observability through structured logging, multi-tier streaming, performance metrics, error tracking, and health checks per Constitution mandate.
+
+### Structured Logging Implementation
+
+#### Library-Level Loggers
+Each library maintains its own logger with consistent format:
+
+```typescript
+// packages/shared-data/src/logger.ts
+interface LogContext {
+  timestamp: string;
+  level: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+  library: string;
+  operation: string;
+  duration?: number;
+  requestId?: string;
+  userId?: string;
+  error?: {
+    message: string;
+    stack?: string;
+    code?: string;
+  };
+  metadata?: Record<string, any>;
+}
+
+export class DataLogger {
+  private context: Partial<LogContext> = { library: 'shared-data' };
+
+  info(operation: string, metadata?: Record<string, any>) {
+    this.log('INFO', operation, metadata);
+  }
+
+  error(operation: string, error: Error, metadata?: Record<string, any>) {
+    this.log('ERROR', operation, { ...metadata, error: {
+      message: error.message,
+      stack: error.stack,
+      code: (error as any).code
+    }});
+  }
+
+  private log(level: LogContext['level'], operation: string, metadata?: Record<string, any>) {
+    const entry: LogContext = {
+      timestamp: new Date().toISOString(),
+      level,
+      library: this.context.library!,
+      operation,
+      requestId: this.context.requestId,
+      userId: this.context.userId,
+      ...metadata
+    };
+
+    // Multi-tier output
+    console.log(JSON.stringify(entry)); // Console (development)
+    this.writeToFile(entry);             // File (local persistence)
+    // TODO Phase 2: Remote streaming
+  }
+}
+```
+
+#### CLI Logging Support
+All CLI commands support verbose logging:
+
+```bash
+# Standard operation
+shared-data query --type document --id DOC123
+
+# Verbose logging
+shared-data query --type document --id DOC123 --verbose
+# Output includes:
+# {"timestamp":"...","level":"DEBUG","library":"shared-data","operation":"query.start","metadata":{"args":{"type":"document","id":"DOC123"}}}
+# {"timestamp":"...","level":"INFO","library":"shared-data","operation":"query.complete","duration":45,"metadata":{"resultCount":1}}
+
+# Trace-level debugging
+shared-data query --type document --id DOC123 --log-level trace
+```
+
+### Multi-Tier Log Streaming
+
+#### Development (Console + File)
+```typescript
+// packages/shared/src/logging/console-logger.ts
+export class ConsoleLogger implements Logger {
+  log(entry: LogContext) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(this.formatForHuman(entry));
+    } else {
+      console.log(JSON.stringify(entry));
+    }
+  }
+
+  private formatForHuman(entry: LogContext): string {
+    const time = new Date(entry.timestamp).toTimeString().slice(0, 8);
+    const duration = entry.duration ? ` (${entry.duration}ms)` : '';
+    return `${time} [${entry.level}] ${entry.library}.${entry.operation}${duration}`;
+  }
+}
+```
+
+#### File Rotation (Local Persistence)
+```typescript
+// packages/shared/src/logging/file-logger.ts
+export class FileLogger implements Logger {
+  private logPath = '.data/logs';
+  private maxFileSize = 10 * 1024 * 1024; // 10MB
+  private maxFiles = 5;
+
+  async log(entry: LogContext) {
+    const logFile = path.join(this.logPath, `ctrl-freaq-${this.getDateString()}.log`);
+    await this.ensureDirectory();
+    await this.appendToFile(logFile, JSON.stringify(entry) + '\n');
+    await this.rotateIfNeeded(logFile);
+  }
+
+  private async rotateIfNeeded(logFile: string) {
+    const stats = await fs.stat(logFile);
+    if (stats.size > this.maxFileSize) {
+      await this.rotateLogFiles();
+    }
+  }
+}
+```
+
+### Performance Metrics Collection
+
+#### Operation Timing
+```typescript
+// Automatic timing wrapper for all library operations
+export function withTiming<T>(
+  operation: string,
+  logger: Logger
+) {
+  return function(target: any, propertyName: string, descriptor: PropertyDescriptor) {
+    const method = descriptor.value;
+    
+    descriptor.value = async function (...args: any[]) {
+      const start = performance.now();
+      const requestId = this.context?.requestId || 'unknown';
+      
+      try {
+        logger.debug(`${operation}.start`, { requestId, args: args.slice(0, 2) }); // Don't log all args
+        const result = await method.apply(this, args);
+        const duration = performance.now() - start;
+        
+        logger.info(`${operation}.complete`, { requestId, duration, success: true });
+        return result;
+      } catch (error) {
+        const duration = performance.now() - start;
+        logger.error(`${operation}.error`, error as Error, { requestId, duration });
+        throw error;
+      }
+    };
+  };
+}
+
+// Usage in repository
+export class DocumentRepository {
+  @withTiming('document.getById', logger)
+  async getById(id: string): Promise<Document> {
+    // Implementation
+  }
+
+  @withTiming('document.listByOwner', logger)
+  async listByOwner(ownerId: string, options: PaginationOptions): Promise<Page<Document>> {
+    // Implementation - timing will catch slow queries indicating non-DynamoDB patterns
+  }
+}
+```
+
+#### DynamoDB Performance Monitoring
+```typescript
+// Monitor query patterns to ensure DynamoDB compatibility
+export class QueryPerformanceMonitor {
+  monitor(query: string, params: any[], duration: number) {
+    const analysis = this.analyzeQuery(query);
+    
+    if (analysis.hasTableScan) {
+      logger.error('query.table_scan_detected', new Error('Table scan detected'), {
+        query: this.sanitizeQuery(query),
+        duration,
+        queryPattern: analysis.pattern
+      });
+    }
+
+    if (analysis.hasJoin) {
+      logger.error('query.join_detected', new Error('JOIN operation detected'), {
+        query: this.sanitizeQuery(query),
+        duration
+      });
+    }
+
+    if (duration > 100) { // Slow query threshold
+      logger.warn('query.slow', {
+        query: this.sanitizeQuery(query),
+        duration,
+        threshold: 100
+      });
+    }
+  }
+}
+```
+
+### Error Tracking with Context
+
+#### Structured Error Information
+```typescript
+// Enhanced error tracking with full context
+export class ErrorTracker {
+  trackError(error: Error, context: {
+    operation: string;
+    library: string;
+    requestId?: string;
+    userId?: string;
+    metadata?: Record<string, any>;
+  }) {
+    const errorInfo = {
+      timestamp: new Date().toISOString(),
+      error: {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        code: (error as any).code
+      },
+      context,
+      environment: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        memory: process.memoryUsage()
+      }
+    };
+
+    logger.error('system.error', error, errorInfo);
+
+    // In production: send to error tracking service
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToErrorService(errorInfo);
+    }
+  }
+}
+```
+
+### Health Checks Implementation
+
+#### Library Health Status
+```typescript
+// Each library exposes health status
+export interface LibraryHealth {
+  library: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  checks: HealthCheck[];
+  timestamp: string;
+}
+
+export interface HealthCheck {
+  name: string;
+  status: 'pass' | 'fail' | 'warn';
+  duration: number;
+  message?: string;
+}
+
+// packages/shared-data/src/health.ts
+export class DataHealthChecker {
+  async checkHealth(): Promise<LibraryHealth> {
+    const checks: HealthCheck[] = [];
+    
+    // Database connectivity
+    checks.push(await this.checkDatabaseConnection());
+    
+    // Query performance
+    checks.push(await this.checkQueryPerformance());
+    
+    // Disk space for SQLite
+    checks.push(await this.checkDiskSpace());
+
+    const status = this.determineOverallStatus(checks);
+    
+    return {
+      library: 'shared-data',
+      status,
+      checks,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  private async checkDatabaseConnection(): Promise<HealthCheck> {
+    const start = performance.now();
+    try {
+      await this.db.prepare('SELECT 1').get();
+      return {
+        name: 'database_connection',
+        status: 'pass',
+        duration: performance.now() - start
+      };
+    } catch (error) {
+      return {
+        name: 'database_connection',
+        status: 'fail',
+        duration: performance.now() - start,
+        message: (error as Error).message
+      };
+    }
+  }
+}
+```
+
+#### CLI Health Commands
+```bash
+# Check specific library health
+shared-data --health
+templates --health
+ai --health
+qa --health
+exporter --health
+
+# Check all libraries (from web app)
+curl http://localhost:5173/api/health
+
+# Verbose health check with timing
+shared-data --health --verbose
+```
+
+#### Aggregated Health Endpoint
+```typescript
+// apps/web/src/routes/api/health/+server.ts
+export async function GET({ locals }) {
+  const healthChecks = await Promise.all([
+    dataHealth.checkHealth(),
+    templatesHealth.checkHealth(),
+    aiHealth.checkHealth(),
+    qaHealth.checkHealth(),
+    exporterHealth.checkHealth()
+  ]);
+
+  const overall = {
+    status: healthChecks.every(h => h.status === 'healthy') ? 'healthy' : 
+            healthChecks.some(h => h.status === 'unhealthy') ? 'unhealthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    libraries: healthChecks
+  };
+
+  const status = overall.status === 'healthy' ? 200 : 
+                overall.status === 'degraded' ? 200 : 503;
+
+  return new Response(JSON.stringify(overall), { 
+    status,
+    headers: { 'content-type': 'application/json' }
+  });
+}
+```
+
 ### Observability Targets & Timers (MVP)
 - Provisional targets (local):
   - Chat time-to-first-token (TTF): P95 < 500ms; proposal generation duration: P95 < 3s (section-sized prompts)
@@ -399,6 +992,8 @@ stateDiagram-v2
 - Logging timers:
   - Record `ms` for: chat:read end-to-end, proposals:generate duration, gates:run duration, export duration
   - Include `requestId`, `userId` (if available), endpoint, and sizes (prompt chars, tokens if available)
+- **DynamoDB Query Performance**: All repository operations logged with duration to identify non-key-based patterns
+- **CLI Operation Timing**: All CLI commands report execution time with `--verbose` flag
 
 ## Service Locator & Factories
 
@@ -443,7 +1038,11 @@ Source Tree
   - `src/node.ts` — Node/SvelteKit implementation to derive per‑request locators
   - `src/test.ts` — test locator helpers and fakes
 
-### Phase 2 Data Mapping (DynamoDB Plan)
+# APPENDIX A: Phase 2 Planning and Future Architecture
+
+> **Note**: The following sections contain Phase 2 planning details that are not part of the MVP scope. They are included for future reference and to maintain DynamoDB-compatible patterns in the current SQLite implementation.
+
+## Phase 2 Data Mapping (DynamoDB Plan)
 - Single‑table design with `pk`, `sk`, and `entity` type; additional GSIs for common lookups. MVP SQLite simulates patterns with indexes and key‑first queries.
 - Primary Access Patterns
   - List a document's sections in order, by parent
@@ -1113,7 +1712,411 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 ### Docs & Markdown
 - Use fenced code blocks with language tags; mermaid for diagrams.
 - Keep lines ≤ 120 chars; wrap long lists thoughtfully.
-- Every exported function that isn’t obvious gets a brief JSDoc (purpose, params, returns, errors).
+- Every exported function that isn't obvious gets a brief JSDoc (purpose, params, returns, errors).
+
+## Library Versioning Policy (Constitution §VI)
+
+### Semantic Versioning Requirements
+Each library package maintains independent semantic versioning following MAJOR.MINOR.PATCH format per Constitution mandate:
+
+#### Version Components
+- **MAJOR**: Breaking API changes require migration documentation
+- **MINOR**: New features with backward compatibility  
+- **PATCH**: Bug fixes and internal improvements only
+
+#### MVP Versioning Strategy
+```json
+// All libraries start at 0.1.0 for MVP
+{
+  "packages/shared-data": "0.1.0",
+  "packages/templates": "0.1.0", 
+  "packages/ai": "0.1.0",
+  "packages/qa": "0.1.0",
+  "packages/exporter": "0.1.0"
+}
+```
+
+#### Breaking Change Management
+
+##### Pre-1.0 Breaking Changes (MVP Phase)
+Even in 0.x versions, breaking changes require:
+
+```typescript
+// packages/shared-data/CHANGELOG.md
+## [0.2.0] - 2025-09-15
+### BREAKING CHANGES
+- `DocumentRepository.listByOwner()` now requires `PaginationOptions` parameter
+- Removed deprecated `DocumentRepository.getAll()` method (table scan violation)
+
+### Migration Guide
+```typescript
+// Before (0.1.x)
+const docs = await repo.listByOwner('user123');
+
+// After (0.2.x) 
+const docs = await repo.listByOwner('user123', { limit: 10 });
+```
+
+### Added
+- Cursor-based pagination support
+- DynamoDB compatibility verification
+
+### Fixed
+- Query performance issues with large datasets
+```
+
+##### Post-1.0 Breaking Change Process
+1. **Deprecation Period**: Mark API as deprecated for 2 minor versions
+2. **Migration Documentation**: Provide clear upgrade path
+3. **CLI Warnings**: Deprecated CLI commands show warnings
+4. **Version Dependencies**: Track and manage library interdependencies
+
+```typescript
+// Example deprecation in 1.2.0
+export class DocumentRepository {
+  /**
+   * @deprecated Use listByOwner() with pagination options instead. 
+   * Will be removed in 2.0.0
+   */
+  async getAll(): Promise<Document[]> {
+    console.warn('DocumentRepository.getAll() is deprecated. Use listByOwner() with pagination.');
+    throw new Error('Method removed for DynamoDB compatibility');
+  }
+}
+```
+
+#### Version Lock Files and Dependencies
+
+##### Package Version Tracking
+```json
+// package-lock.json equivalent for internal dependencies
+{
+  "dependencies": {
+    "@packages/shared-data": "0.1.0",
+    "@packages/templates": "0.1.0",
+    "@packages/qa": "0.1.0"
+  },
+  "devDependencies": {
+    "@packages/shared-data": "file:../packages/shared-data"
+  }
+}
+```
+
+##### CLI Version Compatibility
+```bash
+# CLI tools check version compatibility
+shared-data --version
+# Output: shared-data v0.1.0 (compatible with templates ^0.1.0, qa ^0.1.0)
+
+# Version mismatch warnings
+templates validate --file architecture.yaml
+# Warning: shared-data v0.2.0 detected, templates v0.1.0 requires ^0.1.0
+# Recommendation: Update templates to v0.2.0
+```
+
+#### Changelog Requirements
+
+##### Mandatory CHANGELOG.md Format
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.2.0] - 2025-09-15
+### Breaking Changes
+- Repository methods now enforce DynamoDB constraints
+
+### Added
+- CLI interface with JSON/human output
+- Health check endpoints
+- Performance monitoring
+
+### Changed
+- Query interface for pagination compatibility
+
+### Deprecated
+- `getAll()` methods (table scan violations)
+
+### Removed
+- Complex query methods incompatible with DynamoDB
+
+### Fixed
+- Memory leaks in long-running operations
+
+### Security
+- Input validation for all CLI commands
+```
+
+#### Version Release Process
+
+##### Automated Version Management
+```bash
+# Version bump script for each library
+cd packages/shared-data
+
+# Patch release (bug fixes)
+npm version patch
+# Updates package.json: 0.1.0 -> 0.1.1
+# Updates CHANGELOG.md with date
+# Creates git tag: shared-data-v0.1.1
+
+# Minor release (new features)
+npm version minor  
+# Updates package.json: 0.1.1 -> 0.2.0
+
+# Major release (breaking changes)
+npm version major
+# Updates package.json: 0.2.0 -> 1.0.0
+# Requires migration guide in CHANGELOG.md
+```
+
+##### Version Verification in CI
+```yaml
+# .github/workflows/version-check.yml
+name: Version Consistency Check
+
+on: [pull_request]
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Check version consistency
+        run: |
+          # Verify CHANGELOG.md updated for version changes
+          ./scripts/check-changelog-updated.sh
+          
+          # Verify breaking changes have migration docs
+          ./scripts/check-migration-docs.sh
+          
+          # Verify CLI version compatibility
+          ./scripts/check-cli-compatibility.sh
+```
+
+#### Version Dependencies Tracking
+
+##### Inter-Library Compatibility Matrix
+```typescript
+// packages/shared-data/src/version-check.ts
+export const COMPATIBLE_VERSIONS = {
+  templates: '^0.1.0',
+  qa: '^0.1.0', 
+  exporter: '^0.1.0'
+};
+
+export function checkVersionCompatibility() {
+  // Runtime check for version mismatches
+  const installedVersions = getInstalledVersions();
+  const incompatible = findIncompatibleVersions(installedVersions, COMPATIBLE_VERSIONS);
+  
+  if (incompatible.length > 0) {
+    console.warn('Version compatibility issues detected:', incompatible);
+  }
+}
+```
+
+##### Migration Documentation Template
+```markdown
+# Migration Guide: shared-data v0.1.x to v0.2.x
+
+## Breaking Changes Summary
+1. Repository pagination API changes
+2. Removed table scan methods
+3. New DynamoDB constraint enforcement
+
+## Step-by-Step Migration
+
+### 1. Update Repository Calls
+**Before:**
+```typescript
+const docs = await repo.listByOwner('user123');
+```
+
+**After:**
+```typescript
+const docs = await repo.listByOwner('user123', { limit: 10 });
+```
+
+### 2. Replace Deprecated Methods
+**Before:**
+```typescript
+const allDocs = await repo.getAll(); // Table scan
+```
+
+**After:**
+```typescript
+const users = await userRepo.list(); 
+const allDocs = await Promise.all(
+  users.map(user => repo.listByOwner(user.id, { limit: 100 }))
+);
+```
+
+### 3. Update CLI Commands
+**Before:**
+```bash
+shared-data query --all-documents
+```
+
+**After:**
+```bash
+shared-data query --type document --user-id USER123 --limit 100
+```
+
+## Automated Migration Tools
+```bash
+# Run migration script
+npx shared-data migrate --from 0.1.x --to 0.2.x --dry-run
+npx shared-data migrate --from 0.1.x --to 0.2.x --apply
+```
+```
+
+#### Version Compliance Verification
+- All pull requests must include version impact assessment
+- Breaking changes blocked without migration documentation
+- CLI tools enforce version compatibility warnings
+- Integration tests verify cross-library version compatibility
+
+## Test-First Development Requirements (Constitution §III)
+
+### Mandatory TDD Process
+Test-driven development is **NON-NEGOTIABLE** and strictly enforced per Constitution requirements:
+
+#### 1. Tests Written First
+- **No implementation without failing tests** - This rule has no exceptions
+- Tests define requirements and acceptance criteria
+- All stakeholders must approve tests before any implementation begins
+- Tests serve as executable specifications
+
+#### 2. Red-Green-Refactor Cycle
+Must be followed without exception for all new code:
+
+1. **RED Phase**: Write failing test
+   - Test must fail for the right reason (not due to syntax errors)
+   - Verify test failure before proceeding
+   - Document what the test verifies
+
+2. **GREEN Phase**: Minimal implementation to pass
+   - Write only enough code to make the test pass
+   - No optimization or "nice-to-have" features
+   - Focus on satisfying the test requirements exactly
+
+3. **REFACTOR Phase**: Improve code quality
+   - Improve design without changing behavior
+   - All tests must continue to pass
+   - Consider patterns, performance, readability
+
+#### 3. Workflow Implementation
+```bash
+# Example TDD workflow for new feature
+git checkout -b feature/assumption-resolver
+
+# 1. Write failing test first
+echo "Writing test for assumption resolver..."
+# Create test file with failing test
+npm test -- assumption-resolver  # Should fail
+
+# 2. Get stakeholder approval on test
+git add tests/
+git commit -m "test: add failing test for assumption resolver
+
+- Defines expected behavior for assumption resolution
+- Covers edge cases: empty input, invalid format
+- Ready for implementation review"
+
+# Submit PR for test review BEFORE implementation
+gh pr create --title "TEST ONLY: Assumption resolver requirements"
+
+# 3. After approval, implement minimal solution
+# 4. Refactor for quality
+# 5. Submit implementation PR
+```
+
+#### 4. Coverage and Quality Requirements
+- **New code**: 100% test coverage required - no exceptions
+- **Edge cases**: Mandatory test coverage for error conditions
+- **Integration points**: All library interactions must have tests
+- **DynamoDB patterns**: Tests verify key-based access patterns only
+
+#### 5. Enforcement Mechanisms
+```json
+// package.json scripts for enforcement
+{
+  "scripts": {
+    "test:coverage": "vitest --coverage --coverage-threshold=100",
+    "pre-commit": "npm run test:coverage && npm run lint",
+    "ci:test": "npm run test:coverage -- --reporter=verbose"
+  }
+}
+```
+
+#### 6. Git Hooks for TDD Enforcement
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit
+echo "Enforcing TDD requirements..."
+
+# Check if new .ts/.js files have corresponding test files
+new_source_files=$(git diff --cached --name-only --diff-filter=A | grep -E '\.(ts|js)$' | grep -v '\.test\.' | grep -v '\.spec\.')
+
+for file in $new_source_files; do
+    test_file1="${file%.*}.test.${file##*.}"
+    test_file2="${file%.*}.spec.${file##*.}"
+    
+    if [ ! -f "$test_file1" ] && [ ! -f "$test_file2" ]; then
+        echo "ERROR: No test file found for $file"
+        echo "TDD requires tests before implementation"
+        echo "Create $test_file1 or $test_file2"
+        exit 1
+    fi
+done
+
+# Run tests to ensure they pass
+npm run test:coverage
+if [ $? -ne 0 ]; then
+    echo "ERROR: Tests must pass before commit"
+    exit 1
+fi
+```
+
+#### 7. DynamoDB-Compatible Test Patterns
+When testing data access, ensure tests verify DynamoDB constraints:
+
+```typescript
+// Good: Tests key-based access
+describe('DocumentRepository', () => {
+  it('should query documents by user ID (key-based)', async () => {
+    const docs = await repo.listByUser('user123', { limit: 10 });
+    expect(docs).toHaveLength(2);
+    // Verify no table scans occurred
+    expect(mockDb.scan).not.toHaveBeenCalled();
+  });
+
+  it('should fail on attempted JOIN operation', async () => {
+    // Test that repository prevents complex queries
+    await expect(
+      repo.listDocumentsWithAuthorNames() // This would require JOIN
+    ).rejects.toThrow('Cross-entity queries not supported');
+  });
+});
+```
+
+#### 8. Exception Handling for Legacy Code
+- **Existing code**: Must have tests added before any modifications
+- **Bug fixes**: Write failing test that reproduces bug, then fix
+- **Refactoring**: Full test coverage required before refactoring begins
+
+### Integration with Development Workflow
+- PR templates include TDD checklist
+- Code review requires test review first
+- CI/CD blocks deployment without 100% test coverage
+- All library APIs require contract tests
 
 ## Test Strategy
 
@@ -1127,13 +2130,149 @@ Test Layers
   - Packages: shared‑types (schema invariants), shared‑data (repos with SQLite in‑memory), exporter, qa gates logic, templates loader/validator.
   - Services: controllers/services pure logic with fakes for I/O.
   - Web: isolated utilities and store logic.
-- Integration (Local):
+- Integration (Local) - **DynamoDB Compatibility Required**:
   - Authoring API: spin up SvelteKit route handlers in test mode; hit `/api/v1` routes end‑to‑end with an in‑memory SQLite file.
   - MCP Read API: start Node server (or supertest) and call `/v1/knowledge*` routes with seeded data.
   - Streaming: assert SSE endpoints emit `token` chunks and terminal `done` event; verify abort/resume semantics.
+  - **Repository Integration Tests (MANDATORY)**: All data access patterns must be tested with DynamoDB constraints:
+    - **No cross-entity JOINs**: Test composition in application layer only
+    - **Key-based access only**: All queries use primary key (pk) or sort key (sk) patterns
+    - **Pagination with cursors**: Test limit/cursor patterns, never offset-based pagination
+    - **No LIKE queries or table scans**: Repository must reject or throw on table scan operations
+    - **Optimistic concurrency**: Test version field updates and conflict resolution
+    - **Composite key ordering**: Verify proper sort key construction for hierarchical data (sections, assumptions)
+### DynamoDB Integration Test Examples
+
+```typescript
+// packages/shared-data/test/integration/repository.test.ts
+describe('Repository DynamoDB Compatibility', () => {
+  let db: BetterSQLite3Database;
+  let documentRepo: DocumentRepository;
+
+  beforeEach(() => {
+    db = new Database(':memory:');
+    documentRepo = new DocumentRepository(db);
+  });
+
+  describe('Key-based access patterns', () => {
+    it('should query documents by owner (partition key)', async () => {
+      const docs = await documentRepo.listByOwner('user123', { limit: 10 });
+      
+      // Verify query uses indexed access
+      expect(mockQueryStats.indexUsed).toBe(true);
+      expect(mockQueryStats.fullTableScan).toBe(false);
+    });
+
+    it('should get document by ID (single key lookup)', async () => {
+      const doc = await documentRepo.getById('doc123');
+      
+      // Should be O(1) lookup
+      expect(mockQueryStats.rowsExamined).toBe(1);
+    });
+
+    it('should list sections by document and parent (composite key)', async () => {
+      const sections = await sectionRepo.listByDocAndParent('doc123', 'parent456', { limit: 5 });
+      
+      // Should use compound index
+      expect(mockQueryStats.indexKeys).toEqual(['doc_id', 'parent_section_id', 'order_index']);
+    });
+  });
+
+  describe('Pagination patterns', () => {
+    it('should use cursor-based pagination', async () => {
+      const page1 = await documentRepo.listByOwner('user123', { limit: 2 });
+      expect(page1.nextCursor).toBeDefined();
+      
+      const page2 = await documentRepo.listByOwner('user123', { 
+        limit: 2, 
+        cursor: page1.nextCursor 
+      });
+      
+      // Verify no overlap and continuation
+      expect(page2.items[0].id).not.toBe(page1.items[1].id);
+    });
+
+    it('should reject offset-based pagination', async () => {
+      await expect(
+        documentRepo.listByOwner('user123', { offset: 10, limit: 5 })
+      ).rejects.toThrow('Offset pagination not supported for DynamoDB compatibility');
+    });
+  });
+
+  describe('Forbidden operations', () => {
+    it('should prevent cross-entity joins', async () => {
+      await expect(
+        documentRepo.getDocumentsWithUserNames() // Would require JOIN
+      ).rejects.toThrow('Cross-entity queries not supported');
+    });
+
+    it('should prevent full-text search operations', async () => {
+      await expect(
+        documentRepo.searchByContent('microservices') // Would require LIKE/FTS
+      ).rejects.toThrow('Full-text search not supported');
+    });
+
+    it('should prevent table scans', async () => {
+      await expect(
+        documentRepo.getAllDocuments() // No WHERE clause
+      ).rejects.toThrow('Table scans not supported');
+    });
+  });
+
+  describe('Optimistic concurrency', () => {
+    it('should handle version conflicts', async () => {
+      const doc = await documentRepo.getById('doc123');
+      const updatedDoc = { ...doc, title: 'New Title', version: doc.version };
+      
+      // Simulate concurrent update
+      await documentRepo.update('doc123', { title: 'Other Title', version: doc.version });
+      
+      // Should detect version conflict
+      await expect(
+        documentRepo.update('doc123', updatedDoc)
+      ).rejects.toThrow('Version conflict');
+    });
+  });
+});
+```
+
+### CLI Integration Tests
+
+```typescript
+// Each package must test CLI interfaces
+describe('CLI Integration Tests', () => {
+  it('should output valid JSON format', async () => {
+    const result = await runCLI(['shared-data', 'query', '--type', 'document', '--id', 'doc123', '--output', 'json']);
+    
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    
+    const output = JSON.parse(result.stdout);
+    expect(output).toHaveProperty('id', 'doc123');
+  });
+
+  it('should support stdin/stdout piping', async () => {
+    const input = JSON.stringify({ type: 'document', userId: 'user123' });
+    const result = await runCLI(['shared-data', 'query', '--input', 'stdin'], { stdin: input });
+    
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('doc123');
+  });
+
+  it('should enforce DynamoDB patterns in CLI', async () => {
+    const result = await runCLI(['shared-data', 'query', '--type', 'document', '--search-content', 'test']);
+    
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Full-text search not supported');
+  });
+});
+```
+
 - Contract Tests:
   - Request/response must round‑trip zod schemas from `packages/shared-types`.
   - Golden JSON for KnowledgeItem and Authoring API responses; CI diff if shapes change.
+  - **CLI Contract Tests**: All CLI commands must support required output formats and error codes.
+  - **DynamoDB Constraint Tests**: Repository integration tests must verify DynamoDB compatibility.
 - Live Integration (External) — opt‑in:
   - OpenAI via Vercel AI SDK: minimal prompt that exercises streaming; assert first chunk < 1.5s locally; guard tokens via `LIVE_OPENAI=1` and `OPENAI_API_KEY`.
   - Clerk: verify session retrieval and token introspection using test keys (`LIVE_CLERK=1` + clerk test env); do not run full browser login in MVP.
@@ -1435,7 +2574,7 @@ Notes on DynamoDB Alignment
 - Denormalized `doc_id` on proposals/activity aligns with partition key access patterns.
 
 
-## Infrastructure & Deployment
+## Phase 2 Infrastructure & Deployment
 
 MVP (Local‑only)
 - Runtime: SvelteKit app and MCP service run locally via `pnpm dev` with `.env.local` providing Clerk and OpenAI keys.
