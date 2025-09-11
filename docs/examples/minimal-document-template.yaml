@@ -1,0 +1,327 @@
+template:
+  id: simple-architecture-example
+  name: Simple Architecture Example
+  version: 1.0
+  assumptions:
+    assertions:
+      - This is a simple web application
+      - The team has basic technical skills
+    checklist:
+      - Project requirements are defined
+      - Technology preferences are known
+    guidance: |
+      Review any existing project documentation before starting.
+      Keep the architecture simple and maintainable.
+  output:
+    format: markdown
+    filename: docs/simple-architecture.md
+    title: "{{project_name}} Simple Architecture"
+
+sections:
+  - id: overview
+    title: Project Overview
+    instruction: |
+      Provide a brief overview of the project, its main purpose, and key requirements.
+      Ask the user about their specific needs and constraints.
+    sections:
+      - id: project-description
+        title: Project Description
+        template: |
+          {{project_name}} is a {{project_type}} that {{main_purpose}}.
+          
+          **Key Features:**
+          - {{feature_1}}
+          - {{feature_2}}
+          - {{feature_3}}
+      
+      - id: constraints
+        title: Project Constraints
+        template: |
+          - **Budget:** {{budget_constraint}}
+          - **Timeline:** {{timeline_constraint}}
+          - **Team Size:** {{team_size}}
+          - **Technical Constraints:** {{tech_constraints}}
+
+  - id: technology-choices
+    title: Technology Stack
+    assumptions:
+      checklist:
+        - Programming language preference identified
+        - Database type selected
+        - Hosting platform chosen
+    instruction: |
+      Select the core technologies for this project:
+      
+      1. Present 2-3 options for each category
+      2. Get user preferences and rationale
+      3. Document final choices with versions
+      
+      Focus on simplicity and team expertise.
+    sections:
+      - id: core-stack
+        title: Core Technology Stack
+        type: table
+        columns: [Category, Technology, Version, Reason]
+        examples:
+          - "| **Language** | JavaScript | ES2022 | Team familiarity, rich ecosystem |"
+          - "| **Framework** | Express.js | 4.18.0 | Simple, well-documented, fast setup |"
+          - "| **Database** | PostgreSQL | 15.0 | Reliable, supports complex queries |"
+      
+      - id: development-tools
+        title: Development Tools
+        template: |
+          - **Code Editor:** {{editor_choice}}
+          - **Version Control:** {{vcs_choice}}
+          - **Package Manager:** {{package_manager}}
+          - **Testing Framework:** {{test_framework}}
+
+  - id: architecture-design
+    title: Architecture Design
+    instruction: |
+      Design the high-level architecture:
+      
+      1. Choose an architectural pattern (monolith, microservices, etc.)
+      2. Define main components and their responsibilities
+      3. Show how components interact
+      4. Create a simple diagram
+    sections:
+      - id: architectural-pattern
+        title: Architectural Pattern
+        template: |
+          **Selected Pattern:** {{pattern_name}}
+          
+          **Rationale:** {{pattern_rationale}}
+          
+          **Key Benefits:**
+          - {{benefit_1}}
+          - {{benefit_2}}
+      
+      - id: system-components
+        title: System Components
+        repeatable: true
+        sections:
+          - id: component
+            title: "{{component_name}}"
+            template: |
+              **Purpose:** {{component_purpose}}
+              
+              **Responsibilities:**
+              - {{responsibility_1}}
+              - {{responsibility_2}}
+              
+              **Technologies:** {{component_tech}}
+              
+              **Interfaces:** {{component_interfaces}}
+      
+      - id: architecture-diagram
+        title: Architecture Diagram
+        type: mermaid
+        mermaid_type: graph
+        instruction: |
+          Create a simple diagram showing:
+          - Main components
+          - Data flow
+          - External dependencies
+          - User interactions
+
+  - id: data-design
+    title: Data Design
+    condition: Project requires data storage
+    instruction: |
+      Design the data layer:
+      
+      1. Identify main data entities
+      2. Define relationships between entities
+      3. Choose appropriate data storage patterns
+      4. Consider data access patterns
+    sections:
+      - id: data-entities
+        title: Data Entities
+        repeatable: true
+        sections:
+          - id: entity
+            title: "{{entity_name}}"
+            template: |
+              **Purpose:** {{entity_purpose}}
+              
+              **Key Fields:**
+              - {{field_1}}: {{type_1}} - {{description_1}}
+              - {{field_2}}: {{type_2}} - {{description_2}}
+              
+              **Relationships:**
+              - {{relationship_description}}
+      
+      - id: database-schema
+        title: Database Schema
+        type: code
+        language: sql
+        instruction: Create basic schema definitions for the main entities
+
+  - id: api-design
+    title: API Design
+    condition: Project includes an API
+    instruction: |
+      Design the API structure:
+      
+      1. Choose API style (REST, GraphQL, etc.)
+      2. Define main endpoints
+      3. Specify request/response formats
+      4. Document authentication approach
+    sections:
+      - id: api-style
+        title: API Style and Standards
+        template: |
+          **API Type:** {{api_type}}
+          **Base URL:** {{base_url}}
+          **Authentication:** {{auth_method}}
+          **Response Format:** {{response_format}}
+      
+      - id: endpoints
+        title: API Endpoints
+        repeatable: true
+        sections:
+          - id: endpoint
+            title: "{{endpoint_name}}"
+            template: |
+              **Method:** {{http_method}}
+              **Path:** {{endpoint_path}}
+              **Purpose:** {{endpoint_purpose}}
+              
+              **Request:**
+              ```json
+              {{request_example}}
+              ```
+              
+              **Response:**
+              ```json
+              {{response_example}}
+              ```
+
+  - id: deployment
+    title: Deployment Strategy
+    assumptions:
+      checklist:
+        - Hosting platform selected
+        - Budget for hosting considered
+        - Scaling requirements understood
+    instruction: |
+      Plan the deployment approach:
+      
+      1. Select hosting platform
+      2. Define deployment process
+      3. Plan for different environments
+      4. Consider monitoring and backups
+    sections:
+      - id: hosting-platform
+        title: Hosting Platform
+        template: |
+          **Platform:** {{hosting_platform}}
+          **Rationale:** {{hosting_rationale}}
+          **Cost Estimate:** {{cost_estimate}}
+      
+      - id: environments
+        title: Environments
+        repeatable: true
+        template: "- **{{env_name}}:** {{env_purpose}} - {{env_url}}"
+      
+      - id: deployment-process
+        title: Deployment Process
+        type: code
+        language: text
+        template: |
+          {{deployment_steps}}
+
+  - id: project-structure
+    title: Project Structure
+    type: code
+    language: plaintext
+    instruction: |
+      Create a folder structure that reflects:
+      - The chosen technology stack
+      - Separation of concerns
+      - Easy navigation for developers
+      - Best practices for the selected frameworks
+    examples:
+      - |
+        simple-app/
+        ├── src/
+        │   ├── components/       # Reusable UI components
+        │   ├── pages/           # Page components
+        │   ├── services/        # API and business logic
+        │   ├── utils/           # Helper functions
+        │   └── app.js           # Main application file
+        ├── public/              # Static assets
+        ├── tests/               # Test files
+        ├── docs/                # Documentation
+        ├── package.json         # Dependencies and scripts
+        └── README.md            # Project overview
+
+  - id: development-workflow
+    title: Development Workflow
+    instruction: |
+      Define how the team will work together:
+      
+      1. Code organization and standards
+      2. Testing approach
+      3. Code review process
+      4. Release management
+    sections:
+      - id: coding-standards
+        title: Basic Coding Standards
+        template: |
+          - **Code Style:** {{code_style}}
+          - **Naming Conventions:** {{naming_conventions}}
+          - **File Organization:** {{file_organization}}
+          - **Comment Standards:** {{comment_standards}}
+      
+      - id: testing-approach
+        title: Testing Approach
+        template: |
+          **Testing Framework:** {{test_framework}}
+          **Test Types:**
+          - Unit tests for {{unit_test_scope}}
+          - Integration tests for {{integration_test_scope}}
+          
+          **Coverage Goal:** {{coverage_target}}
+      
+      - id: git-workflow
+        title: Git Workflow
+        template: |
+          **Branching Strategy:** {{branching_strategy}}
+          **Commit Standards:** {{commit_standards}}
+          **Code Review:** {{review_process}}
+
+  - id: next-steps
+    title: Implementation Plan
+    instruction: |
+      Create a high-level implementation plan:
+      
+      1. Break down into major phases
+      2. Identify dependencies between tasks
+      3. Estimate effort for each phase
+      4. Define success criteria
+    sections:
+      - id: development-phases
+        title: Development Phases
+        repeatable: true
+        sections:
+          - id: phase
+            title: "Phase {{phase_number}}: {{phase_name}}"
+            template: |
+              **Duration:** {{phase_duration}}
+              **Goals:** {{phase_goals}}
+              
+              **Key Tasks:**
+              - {{task_1}}
+              - {{task_2}}
+              - {{task_3}}
+              
+              **Success Criteria:** {{success_criteria}}
+      
+      - id: risk-mitigation
+        title: Risk Mitigation
+        repeatable: true
+        template: "- **{{risk_name}}:** {{risk_description}} - _Mitigation:_ {{mitigation_strategy}}"
+        examples:
+          - "**Technical Complexity:** New framework learning curve - _Mitigation:_ Start with tutorials and proof of concepts"
+          - "**Timeline Pressure:** Scope creep during development - _Mitigation:_ Clear requirements documentation and change control process"

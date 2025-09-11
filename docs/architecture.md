@@ -41,9 +41,14 @@ Terminology & Conventions
 Change Log
 | Date       | Version | Description                       | Author |
 |------------|---------|-----------------------------------|--------|
+| 2025-09-12 | 0.8     | Specify Milkdown v7.15.5 as WYSIWYG editor implementation with integration architecture details | Architect |
+| 2025-09-12 | 0.7     | Rename packages/persistence to packages/editor-persistence for clarity and consistency with editor-core package naming | Architect |
+| 2025-09-12 | 0.6     | Section content generation API with backend template resolution; Template Resolver Service; comprehensive caching and template hierarchy navigation | Architect |
+| 2025-09-12 | 0.5     | Enhanced assumption resolution API with pending changes support; Document State Synchronization architecture; updated data models | Architect |
+| 2025-09-11 | 0.4     | Epic 2 redesign: shift from wizard to Document Editor paradigm; add WYSIWYG, Git-style patching, section-based navigation | Architect |
 | 2025-09-11 | 0.3     | Remove MCP from MVP; add Spec Kit export flow; terminology updates | Architect |
-| 2025-09-09 | 0.1     | Initial architecture draft (MVP)  | Architect |
 | 2025-09-10 | 0.2     | Add Projects-lite MVP architecture (personal project) | Architect |
+| 2025-09-09 | 0.1     | Initial architecture draft (MVP)  | Architect |
 
 ## Library-First Architecture Implementation (Constitution §I)
 
@@ -66,6 +71,9 @@ Every feature begins as a standalone library with clear boundaries and responsib
 | `packages/ai` | LLM integration with streaming | `chat`, `propose`, `stream-test` | @vercel/ai, openai |
 | `packages/qa` | Quality gates validation | `run-gates`, `check-gate`, `validate-traceability` | zod |
 | `packages/exporter` | Document export with versioning | `export`, `export-shards`, `diff` | markdown-it |
+| `packages/editor-core` | WYSIWYG Markdown editing with Git-style patching | `patch-create`, `patch-apply`, `patch-preview` | milkdown@7.15.5, diff-match-patch |
+| `packages/editor-persistence` | Client-side pending changes with patch diff storage | `store-pending`, `replay-changes`, `batch-save` | localforage, diff-match-patch |
+| `packages/template-resolver` | Template hierarchy navigation and config extraction | `resolve-template`, `extract-config`, `cache-invalidate` | yaml, lodash |
 
 #### Forbidden Organizational Libraries
 These would violate Constitution requirements:
@@ -164,13 +172,13 @@ import type { Document } from '@packages/shared-data';
 ## High Level Architecture
 
 ### Technical Summary
-CRTL FreaQ MVP runs locally with a modular monorepo: a SvelteKit web app authenticated via Clerk. The UI provides a guided Architecture document authoring flow with section‑aware conversational co‑authoring and diff‑based approvals. LLM integration uses the Vercel AI SDK (OpenAI). Responses stream to the UI via Node streams/SSE for near real‑time UX. Phase 2 targets adding an MCP read service alongside AWS serverless (API Gateway + Lambda), DynamoDB, and AWS Lambda Response Streaming over HTTPS while retaining the same logical component boundaries.
+CRTL FreaQ MVP runs locally with a modular monorepo: a SvelteKit web app authenticated via Clerk. The UI provides a comprehensive Document Editor with section-based navigation, WYSIWYG Markdown editing, Git-style patching, and conversational co‑authoring with diff‑based approvals. LLM integration uses the Vercel AI SDK (OpenAI). Responses stream to the UI via Node streams/SSE for near real‑time UX. Phase 2 targets adding an MCP read service alongside AWS serverless (API Gateway + Lambda), DynamoDB, and AWS Lambda Response Streaming over HTTPS while retaining the same logical component boundaries.
 
 ### High Level Overview
 1) Architecture style: Modular monolith (local MVP) with a web app; evolution path to serverless micro‑services and MCP read service in Phase 2.
 2) Repository: Monorepo using pnpm workspaces + Turborepo (`apps/web`, `packages/*`, `docs/*`). A `services/mcp` workspace is planned for Phase 2.
 3) Services: Web (authoring, chat, export). Phase 2 adds MCP (read endpoints for knowledge registry). Local DB is SQLite via an abstraction for future DynamoDB migration.
-4) Core flows: User authenticates (Clerk) → authoring wizard + section‑aware chat → proposals/diffs → validates via quality gates → exports `docs/architecture.md` and shards under `docs/architecture/` → downstream tools (e.g., Spec Kit) consume exported documents. MCP reads are Phase 2.
+4) Core flows: User authenticates (Clerk) → document editor with section-based editing + conversational co‑authoring → proposals/diffs with Git-style patching → validates via quality gates → exports `docs/architecture.md` and shards under `docs/architecture/` → downstream tools (e.g., Spec Kit) consume exported documents. MCP reads are Phase 2.
 5) Key decisions: Local‑first MVP; streaming UX; repository/data abstraction (Repository pattern) to enable DB swap; Phase 2: AWS serverless + DynamoDB + Lambda streaming + MCP read.
 
 ### High Level Project Diagram
@@ -518,11 +526,11 @@ qa run-gates --doc-id DOC123 --report-file quality-report.json
 ## Components
 
 ### apps/web — Web Application (SvelteKit)
-- Responsibilities: Authentication, document authoring, assumptions resolution, section‑aware chat (read/write proposals), QA/traceability, export, collaboration indicators, streaming UX.
+- Responsibilities: Authentication, comprehensive document editing (WYSIWYG, Git-style patching, section-based navigation), assumptions resolution, conversational co‑authoring (read/write proposals), QA/traceability, export, collaboration indicators, streaming UX.
   - Projects‑lite (MVP): personal project bootstrap on first login; track `activeProjectId` in session; expose minimal Projects API (GET list/detail; PATCH rename) with owner‑only guards.
 - Key Modules:
   - Auth (Clerk): login/logout, session, user profile fetch; gate authoring routes.
-  - Document Authoring: document UI; section status; form validation; save/resume.
+  - Document Editor: comprehensive editing UI with ToC navigation; section read/edit mode toggles; WYSIWYG Markdown editor; Git-style diff patching; local pending changes; save/resume.
   - Assumptions Engine: per‑section assumption lifecycle (status, Q&A/options, approvals); stores on Section/Assumption models.
   - Assumptions Policy Controls: document‑level aggressiveness selector (Conservative/Balanced/YOLO) and per‑section override.
   - Context Builder: composes section + knowledge context; token budgeting; redaction; section/doc IDs.
@@ -563,16 +571,21 @@ Validation & NFRs (MVP)
 - Idempotent rename operations; repeated requests yield the same stored state.
 - Performance: Single-row lookups by `ownerUserId`; ensure indexes on (`ownerUserId`) and (`slug`).
 
-Authoring Wizard — State Diagram
+Document Editor — Section Lifecycle
 ```mermaid
 stateDiagram-v2
   [*] --> idle
-  idle --> assumptions: select section
-  assumptions --> drafting: critical assumptions resolved
-  drafting --> review: proposal ready
-  review --> ready: approved + gates pass
-  review --> assumptions: adjust assumptions
-  ready --> idle: select another section
+  idle --> read_mode: navigate to section
+  read_mode --> edit_mode: click edit
+  edit_mode --> assumptions: start new content
+  edit_mode --> drafting: modify existing content
+  assumptions --> drafting: assumptions resolved
+  drafting --> diff_preview: generate changes
+  diff_preview --> ready: approve changes + gates pass
+  diff_preview --> drafting: reject/modify
+  ready --> read_mode: save complete
+  read_mode --> idle: navigate away
+  edit_mode --> read_mode: cancel
 ```
 
 ### services/mcp — MCP Read Service (Node/TS) [Phase 2]
@@ -624,6 +637,16 @@ stateDiagram-v2
 ### packages/exporter — Markdown Export
 - Responsibilities: Deterministic rendering for full doc and shards; include version header, schema version, changelog; idempotent output.
 - Paths: `docs/architecture.md`, `docs/architecture/*.md`.
+
+### packages/template-resolver — Template Resolution Service
+- Responsibilities: Extract section templates from document templates; resolve generation configuration; cache resolved templates per document version.
+- Key Functions:
+  - `loadDocumentTemplate(templateId): Promise<DocumentTemplate>` — Load and cache document templates
+  - `findSectionTemplate(documentTemplate, sectionId): TemplateSection | null` — Navigate template hierarchy to find section
+  - `extractGenerationConfig(sectionTemplate, documentTemplate): GenerationConfig` — Extract all generation-relevant configuration
+  - `invalidateCache(templateId): void` — Clear cached templates when updated
+- Caching Strategy: LRU cache with template version-based invalidation; cache resolved configs per section for performance
+- Error Handling: Graceful degradation when templates not found; validation of template syntax before LLM processing
 
 ### Cross‑Cutting Concerns
 - Error Handling: Standard error envelope `{ code, message, details?, requestId }`; user‑friendly messages in UI; log stack traces server‑side.
@@ -1079,57 +1102,74 @@ Source Tree
 - Rollback: Allow one-click revert to the pre-migration snapshot.
 - Audit: Log ActivityLog entry with summary and counts (moved/added/renamed/flagged).
 
-## Core Authoring Workflow (MVP Focus)
+## Core Document Editor Workflow (MVP Focus)
 
 Purpose
-- The MVP’s primary objective is to guide the user to create and manage the Architecture document section‑by‑section with AI assistance. The MCP server is secondary and non‑blocking.
+- The MVP's primary objective is to provide a comprehensive Document Editor enabling users to create and manage Architecture documents with flexible section-based editing and AI assistance. The MCP server is secondary and non‑blocking.
 
 Overview
 1) Load Template: App loads the Architecture template from repository YAML (e.g., `templates/architecture.yaml`). If absent, seed from `.bmad-core/templates/architecture-tmpl.yaml` and persist as `templates/architecture.yaml` for ongoing source‑of‑truth editing.
 2) Document‑Level Assumptions: Run a top‑level assumptions loop for the entire document (scope = document) to establish global decisions (e.g., starter vs. greenfield, compliance stance, streaming, db strategy). These decisions seed section flows.
-3) Render TOC: Build a table‑of‑contents (sections and sub‑sections) with per‑section status badges (idle, assumptions, drafting, review, ready).
-4) Render Document: Below the TOC, render the full document with placeholders where content is missing and current content where present.
-5) Resolve Section Assumptions: Before drafting each section, run a comprehensive assumptions loop (status, intent, decision) until clear or explicitly skipped. Section decisions may override document‑level defaults where relevant.
-6) Run Instructions: Execute the section’s instructions via AI in read (explain/suggest) and write‑proposal modes; stream output; present diffs for approval.
-7) Review + Iterate: Before approval, the user may chat with the AI to clarify, adjust, or expand the draft and request new proposals; upon approval, apply changes, record citations/trace links, re‑run gates, and update statuses.
-8) Export: Idempotently export to `docs/architecture.md` and shards `docs/architecture/*.md` on publish.
+3) Render Document Editor: Build a comprehensive editor with navigable Table of Contents and full document rendering. Sections display as read-only previews with edit mode toggles, or placeholders for missing content.
+4) Section-Based Editing: Users can navigate to any section and toggle between read mode (preview) and edit mode (WYSIWYG Markdown editor). Local pending changes stored as Git-style patch diffs.
+5) New Section Content Flow: For blank sections, trigger assumption resolution loop before drafting. For existing content, allow direct WYSIWYG editing with diff tracking.
+6) Conversational Co-Authoring: Integrated chat within editor context for AI assistance in read (explain/suggest) and write‑proposal modes with streaming output and diff previews.
+7) Git-Style Patching: All changes managed as patch diffs, enabling review, approval/rejection, and replay of pending changes on reload.
+8) Save & Export: Batch save all modified sections to document repository. Export to `docs/architecture.md` and shards `docs/architecture/*.md` is available on-demand via explicit user action (export button/command).
 
 State Machine (per Section)
-- States: `idle → assumptions → drafting → review → ready`
+- States: `idle → read_mode → edit_mode → [assumptions] → drafting → diff_preview → ready`
 - Transitions:
-  - idle→assumptions: user selects section; begins assumptions mode
-  - assumptions→drafting: all critical assumptions clear or explicitly skipped
-  - drafting→review: write proposal generated; diff ready
-  - review→ready: user approves; content applied; gates pass
-  - review→assumptions: user adjusts assumptions and retries (loop)
+  - idle→read_mode: navigate to section; display read-only preview
+  - read_mode→edit_mode: click edit button; enter WYSIWYG editor
+  - edit_mode→assumptions: start new content for blank section
+  - edit_mode→drafting: modify existing content or post-assumptions drafting
+  - drafting→diff_preview: generate Git-style patch diffs for changes
+  - diff_preview→ready: approve changes and quality gates pass
+  - diff_preview→drafting: reject/modify changes and continue editing
+  - ready→read_mode: save complete, return to preview
+  - edit_mode→read_mode: cancel editing, discard pending changes
 
-Sequence (authoring a section)
+Sequence (document editor section editing)
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant W as Web (Wizard)
+  participant E as Document Editor
+  participant W as WYSIWYG Editor
   participant A as Assumptions Engine
   participant L as LLM (Vercel AI SDK)
-  participant P as Proposal Engine
+  participant P as Patch Engine
   participant Q as QA/Gates
-  U->>W: Open Section
-  W->>A: Start assumptions loop
-  A-->>U: Focused Qs / options (stream)
-  U-->>A: Decisions
-  A-->>W: Assumptions clear
-  W->>L: Run instruction (read → write proposal)
-  L-->>P: Suggested draft (stream)
-  P-->>W: Diff preview
-  loop Iterate via chat (clarify / adjust / expand)
-    U-->>W: Ask for changes / refinements
-    W->>L: Generate revised proposal
-    L-->>P: Updated suggestion (stream)
-    P-->>W: Updated diff preview
+  U->>E: Navigate to section
+  E-->>U: Display read-only preview
+  U->>E: Click edit
+  E->>W: Enter WYSIWYG mode
+  alt New content (blank section)
+    W->>A: Start assumptions loop
+    A-->>U: Focused Qs / options (stream)
+    U-->>A: Decisions
+    A-->>W: Assumptions resolved
   end
-  U-->>W: Approve changes
-  W->>Q: Run quality gates
-  Q-->>W: Pass (or issues)
-  W-->>U: Section marked ready
+  U->>W: Edit content (WYSIWYG)
+  W-->>E: Track local changes
+  alt AI assistance requested
+    U->>L: Ask for suggestions/proposals
+    L-->>P: Generate suggestions (stream)
+    P-->>W: Show diff preview in editor
+  end
+  U->>W: Complete editing
+  W->>P: Generate Git-style patch diffs
+  P-->>U: Show diff preview
+  loop Review and iterate
+    U-->>W: Modify changes
+    W->>P: Update patch diffs
+    P-->>U: Updated diff preview
+  end
+  U-->>P: Approve changes
+  P->>Q: Run quality gates
+  Q-->>P: Pass (or issues)
+  P-->>E: Apply changes + save
+  E-->>U: Return to read mode
 ```
 
 Additional Sequences
@@ -1248,6 +1288,355 @@ UI Controls
 - Section header: Optional override dropdown showing effective policy; reset to inherit.
 - Audit: Record policy used for each assumption decision in ActivityLog.
 
+## Document Editor Architecture
+
+### Core Components
+
+#### WYSIWYG Markdown Editor
+- **Purpose**: Provide rich text editing experience while maintaining Markdown compatibility
+- **Implementation**: Milkdown v7.15.5 (https://github.com/Milkdown/milkdown) - Plugin-based WYSIWYG markdown editor built on ProseMirror
+- **Features**: 
+  - Real-time WYSIWYG editing with Markdown source compatibility
+  - Extensible plugin system for custom functionality
+  - Built-in support for tables, code blocks, math equations
+  - Theme system with customizable styling
+  - Collaborative editing capabilities via Yjs integration
+  - Command system for keyboard shortcuts and toolbar actions
+  - TypeScript support with comprehensive type definitions
+
+**Milkdown Integration Architecture**:
+- **Core Editor**: Milkdown editor instance per section with isolated state
+- **Plugin Configuration**: Custom plugins for section-specific behavior (status indicators, assumptions integration)
+- **Theme Integration**: Custom theme aligned with application design system
+- **Change Tracking**: Integration with Git-style patch engine via Milkdown's onChange API
+- **Collaborative Features**: Yjs integration for real-time collaboration (Phase 2)
+- **Performance**: Editor instance pooling for memory management across sections
+
+#### Git-Style Patch Engine (`packages/editor-core`)
+- **Purpose**: Track document changes as atomic patch operations
+- **Key Functions**:
+  - `createPatch(original: string, modified: string): Patch[]`
+  - `applyPatch(content: string, patches: Patch[]): string`
+  - `previewPatch(content: string, patches: Patch[]): DiffView`
+- **Benefits**: Granular change tracking, conflict resolution, undo/redo capabilities
+
+#### Local Persistence Layer (`packages/editor-persistence`)
+- **Purpose**: Manage pending changes before server persistence
+- **Storage Strategy**: 
+  - Client-side storage (localStorage/IndexedDB via localforage)
+  - Per-section patch diffs with timestamps
+  - Automatic replay on page reload
+- **Conflict Resolution**: Last-write-wins with user notification
+
+#### Section Navigation & State Management
+- **Table of Contents**: Interactive navigation with section status indicators
+- **Section States**: 
+  - `idle` (not selected)
+  - `read_mode` (viewing content)
+  - `edit_mode` (WYSIWYG editing)
+  - `has_pending` (unsaved changes)
+  - `saving` (persistence in progress)
+- **State Transitions**: Managed through centralized state machine
+
+#### Document State Manager (`packages/editor-persistence`)
+- **Purpose**: Manages document state including both saved content and pending changes
+- **Core Functions**:
+  - `getCurrentState(): DocumentState` - Merge saved content with pending patches
+  - `prepareForAssumptionResolution(sectionId: string): AssumptionContext` - Prepare state for assumption APIs
+  - `applyPendingPatches(savedContent: string, patches: PatchDiff[]): string` - Apply patches to content
+  - `trackSectionChanges(sectionId: string, patches: PatchDiff[])` - Track pending changes per section
+  - `hasUnsavedChanges(sectionId?: string): boolean` - Check for unsaved changes
+- **State Tracking**:
+  - Per-section pending patches with timestamps
+  - Automatic replay on page load
+  - Delta compression for large documents
+  - Conflict detection for collaborative editing
+
+#### Integration Points
+- **AI Assistance**: Conversational co-authoring within editor context with full document state
+- **Quality Gates**: Real-time validation during editing with pending changes context
+- **Export System**: Batch conversion of pending changes to final document format
+- **Collaboration**: Section-level editing indicators and conflict warnings
+- **Assumption Resolution**: Full document state including unsaved changes for context-aware assumptions
+
+### Data Flow Architecture
+
+```mermaid
+graph TD
+    A[User Action] --> B[WYSIWYG Editor]
+    B --> C[Patch Engine]
+    C --> D[Local Persistence]
+    D --> E[State Manager]
+    E --> F[UI Updates]
+    
+    G[AI Chat] --> H[Proposal Generator]
+    H --> C
+    
+    I[Save Action] --> J[Batch Processor]
+    J --> K[Server API]
+    K --> L[Document Repository]
+    
+    M[Page Load] --> N[Pending Changes Loader]
+    N --> O[Patch Replayer]
+    O --> B
+    
+    P[Assumption Resolution Trigger] --> Q[Document State Manager]
+    Q --> R[Merge Saved + Pending]
+    R --> S[Assumption API with Full State]
+    S --> T[LLM Analysis with Context]
+    T --> U[Generated Assumptions + Inferences]
+    U --> V[Assumption Resolution UI]
+    
+    W[Related Section Changes] --> Q
+    X[Template Analysis] --> S
+    
+    Y[Content Generation Request] --> Z[Template Resolver Service]
+    Z --> AA[Load Document Template]
+    Z --> BB[Find Section Template]
+    Z --> CC[Extract Generation Config]
+    CC --> DD[Content Generation API]
+    DD --> EE[LLM with Instructions + Template]
+    EE --> FF[Stream Generated Content]
+    
+    Q --> DD
+    V --> Y
+```
+
+### Performance Considerations
+- **Incremental Loading**: Load document sections on-demand as user navigates
+- **Debounced Persistence**: Batch local changes to reduce storage operations
+- **Diff Optimization**: Use efficient diff algorithms to minimize patch size
+- **Memory Management**: Clear unused editor instances when navigating between sections
+
+### Document State Synchronization
+
+#### State Management Strategy
+The Document Editor maintains multiple layers of state to support real-time editing while ensuring data consistency:
+
+1. **Server State**: Last saved version of each section stored in database
+2. **Client Cache**: Local copy of saved state for offline capability
+3. **Pending Changes**: Git-style patch diffs for each modified section
+4. **Merged State**: Real-time combination of saved state + pending patches
+
+#### State Synchronization Patterns
+
+**For AI Operations** (Assumptions, Chat, Proposals):
+- Always send complete merged state including pending changes
+- Use delta compression for large documents (>100KB)
+- Include section dependency graph for context understanding
+- Cache merged state to avoid recomputation per API call
+
+**For Collaborative Editing**:
+- Broadcast pending changes to other users in real-time
+- Implement operational transformation for conflict resolution
+- Use section-level locking to prevent simultaneous edits
+- Maintain activity log for audit and rollback capability
+
+**For Persistence Operations**:
+- Batch multiple section changes into single save operation
+- Use optimistic updates with rollback on server errors
+- Implement automatic save with user-configurable intervals
+- Preserve patch history for undo/redo functionality
+
+#### API Integration Patterns
+
+```typescript
+// Example: Preparing document state for assumption resolution
+interface DocumentState {
+  sections: Array<{
+    id: string;
+    savedContent: string;        // Last saved version
+    pendingPatches: PatchDiff[]; // Unsaved changes
+    mergedContent: string;       // Computed: savedContent + patches
+    lastModified: timestamp;
+    hasConflicts: boolean;
+  }>;
+  metadata: {
+    documentVersion: string;
+    lastSyncTime: timestamp;
+    conflictResolution: 'last-write-wins' | 'manual';
+  };
+}
+
+// Usage in assumption resolution
+POST /api/v1/documents/{docId}/assumptions/query
+{
+  "sectionId": "SEC123",
+  "currentState": {
+    "sections": [
+      {
+        "id": "SEC123",
+        "content": "merged content with pending changes",
+        "hasUnsavedChanges": true
+      },
+      // Include related sections for context
+      ...relatedSections
+    ]
+  }
+}
+```
+
+#### Performance Optimizations
+
+- **State Compression**: Use diff-based compression for large documents
+- **Selective Synchronization**: Only send changed sections to APIs
+- **Smart Caching**: Cache assumption results per document state hash
+- **Background Processing**: Pre-compute assumptions for likely next sections
+- **Network Optimization**: Batch API calls and use HTTP/2 multiplexing
+
+#### Error Handling & Recovery
+
+- **Connection Loss**: Queue pending changes locally, sync on reconnect
+- **Merge Conflicts**: Present diff view with manual resolution options
+- **Server Errors**: Rollback optimistic updates, preserve user changes
+- **Data Corruption**: Automatic backup creation before major operations
+
+### Template Resolution & Content Generation
+
+#### Template Hierarchy Traversal
+The Template Resolver Service navigates complex document template hierarchies to find section-specific configuration:
+
+```typescript
+interface TemplateSection {
+  id: string;                 // e.g., "introduction", "high-level-architecture"
+  title?: string;
+  instruction?: string;       // LLM instructions for content generation
+  template?: string;          // Template text for LLM to render/fill
+  type?: 'paragraphs'|'bullet-list'|'numbered-list'|'table'|'mermaid'|'custom';
+  sections?: TemplateSection[]; // nested sub-sections
+  decisionAggressivenessDefault?: 'conservative'|'balanced'|'yolo';
+}
+
+// Traversal algorithm
+function findSectionTemplate(documentTemplate: DocumentTemplate, sectionId: string): TemplateSection | null {
+  // Breadth-first search through nested sections
+  const queue = [...documentTemplate.sections];
+  
+  while (queue.length > 0) {
+    const section = queue.shift();
+    if (section.id === sectionId) {
+      return section;
+    }
+    if (section.sections) {
+      queue.push(...section.sections);
+    }
+  }
+  
+  return null;
+}
+```
+
+#### Generation Configuration Extraction
+Extract all generation-relevant configuration with proper inheritance:
+
+```typescript
+interface GenerationConfig {
+  instruction?: string;
+  template?: string;
+  type?: string;
+  aggressivenessPolicy: 'Conservative' | 'Balanced' | 'YOLO';
+  maxTokens?: number;
+  temperature?: number;
+}
+
+function extractGenerationConfig(
+  sectionTemplate: TemplateSection, 
+  documentTemplate: DocumentTemplate
+): GenerationConfig {
+  return {
+    instruction: sectionTemplate.instruction,
+    template: sectionTemplate.template,
+    type: sectionTemplate.type,
+    // Inheritance: section -> document -> system default
+    aggressivenessPolicy: 
+      sectionTemplate.decisionAggressivenessDefault || 
+      documentTemplate.decisionAggressivenessDefault || 
+      'Balanced',
+    maxTokens: sectionTemplate.maxTokens || documentTemplate.maxTokens || 4000,
+    temperature: sectionTemplate.temperature || documentTemplate.temperature || 0.7
+  };
+}
+```
+
+#### Template Caching Strategy
+
+**Cache Structure**:
+```typescript
+interface TemplateCache {
+  templates: Map<string, CachedTemplate>;     // templateId -> template
+  sections: Map<string, CachedSection>;       // sectionKey -> resolved config
+  lruOrder: string[];                         // LRU tracking
+  maxSize: number;                           // Cache size limit
+}
+
+interface CachedTemplate {
+  template: DocumentTemplate;
+  version: string;
+  loadedAt: timestamp;
+  accessCount: number;
+}
+
+interface CachedSection {
+  templateId: string;
+  sectionId: string;
+  config: GenerationConfig;
+  templateVersion: string;
+  resolvedAt: timestamp;
+}
+```
+
+**Cache Operations**:
+- **Cache Key**: `${templateId}:${sectionId}:${templateVersion}` for section configs
+- **Invalidation**: Version-based - clear all entries when template version changes
+- **LRU Eviction**: Remove least recently used templates when cache size exceeded
+- **Background Refresh**: Pre-load commonly used templates during low traffic
+- **Cache Warming**: Load document template when first section is accessed
+
+#### Content Generation Pipeline
+
+```typescript
+async function generateSectionContent(sectionId: string, request: ContentGenerationRequest) {
+  // 1. Resolve template with caching
+  const cacheKey = `${request.documentId}:${sectionId}`;
+  let config = templateCache.get(cacheKey);
+  
+  if (!config || config.templateVersion !== currentTemplateVersion) {
+    const documentTemplate = await templateResolver.loadDocumentTemplate(request.templateId);
+    const sectionTemplate = templateResolver.findSectionTemplate(documentTemplate, sectionId);
+    
+    if (!sectionTemplate) {
+      throw new Error(`Section template not found: ${sectionId}`);
+    }
+    
+    config = templateResolver.extractGenerationConfig(sectionTemplate, documentTemplate);
+    templateCache.set(cacheKey, config);
+  }
+  
+  // 2. Build context-aware prompt
+  const prompt = buildContentGenerationPrompt({
+    instruction: config.instruction,
+    template: config.template,
+    documentState: request.currentDocumentState,
+    resolvedAssumptions: request.resolvedAssumptions,
+    sectionType: config.type
+  });
+  
+  // 3. Stream LLM generation with progress events
+  return streamLLMGeneration(prompt, {
+    maxTokens: config.maxTokens,
+    temperature: config.temperature
+  });
+}
+```
+
+#### Error Handling & Fallbacks
+
+- **Template Not Found**: Use default generation strategy with basic instructions
+- **Invalid Template Syntax**: Validate before sending to LLM, fall back to instruction-only mode  
+- **Cache Corruption**: Rebuild cache from source templates on validation failure
+- **Network Failures**: Use cached templates during template service outages
+- **LLM Errors**: Retry with simplified prompt if generation fails
+
 ## Source Tree
 
 Monorepo (root)
@@ -1279,7 +1668,7 @@ apps/web (SvelteKit)
 - `src/routes/(app)/login/+page.svelte` — Clerk login
 - `src/lib/components/` — UI components (TOC, AssumptionsPanel, DiffViewer, GateResults)
 - `src/lib/features/assumptions/` — assumptions engine UI logic
-- `src/lib/features/authoring/` — wizard/section state machine
+- `src/lib/features/editor/` — document editor with section management
 - `src/lib/features/chat/` — section‑aware chat orchestrator (read/write proposals)
 - `src/lib/features/chat/document-chat.svelte` — global document QA panel (context selection from TOC, citations)
 - `src/lib/features/exporter/` — trigger exports, progress UI
@@ -1559,7 +1948,19 @@ interface DocumentMeta {
 
 interface SectionSummary { id: string; parentSectionId?: string; key: string; title: string; status: 'idle'|'assumptions'|'drafting'|'review'|'ready'; order: number; depth: number; assumptionsResolved: boolean; }
 
-interface AssumptionItem { id: string; scope: 'document'|'section'; sectionId?: string; title: string; intent: string; status: 'clear'|'unclear'|'unanswered'|'ambiguous'|'conflicting'|'tradeoffs'; decision: string; order: number; }
+interface AssumptionItem { 
+  id: string; 
+  scope: 'document'|'section'; 
+  sectionId?: string; 
+  title: string; 
+  intent: string; 
+  status: 'clear'|'unclear'|'unanswered'|'ambiguous'|'conflicting'|'tradeoffs'; 
+  decision: string; 
+  order: number; 
+  responseType: 'free_text'|'selection';
+  suggestedOptions?: Array<{ id: string; label: string; description?: string; rationale?: string; }>;
+  inferredFrom?: { sectionId: string; confidence: 'high'|'medium'|'low'; excerpt?: string; };
+}
 
 interface Proposal { id: string; sectionId: string; state: 'proposed'|'applied'|'rejected'; diffPatch: string; reason?: string; createdAt: string; }
 ```
@@ -1582,9 +1983,23 @@ Sections
 
 Assumptions
 - GET `/api/v1/documents/{docId}/assumptions?scope=document|section&sectionId?` → `AssumptionItem[]`
+  - Note: Only returns cached assumptions based on last saved state
+- POST `/api/v1/documents/{docId}/assumptions/query` → `AssumptionItem[]`
+  - Body: `{ scope: 'document'|'section', sectionId?, currentState: { sections: Array<{ id: string, content: string, patches?: PatchDiff[] }> }, aggressivenessPolicy?: 'Conservative'|'Balanced'|'YOLO' }`
+  - Purpose: Generate assumptions considering current document state including pending changes
+- POST `/api/v1/documents/{docId}/assumptions/generate` → `{ assumptions: AssumptionItem[], inferredDecisions: Array<{ assumptionId: string, inferredFrom: string, confidence: 'high'|'medium'|'low' }> }`
+  - Body: `{ sectionId: string, sectionTemplate: object, currentDocumentState: { sections: Array<{ id: string, content: string, status: string }> }, previousAssumptions?: AssumptionItem[], aggressivenessPolicy?: 'Conservative'|'Balanced'|'YOLO' }`
+  - Purpose: Generate assumptions for a specific section based on template and current document state, with inference of decisions from existing content
 - POST `/api/v1/documents/{docId}/assumptions/resolve`
-  - Body: `{ scope: 'document'|'section', sectionId?, decisions: Array<{ id: string, decision: string }> }`
+  - Body: `{ scope: 'document'|'section', sectionId?, decisions: Array<{ id: string, decision: string, selectedOptionId?: string }> }`
   - 200: `{ updated: AssumptionItem[] }`
+
+Content Generation
+- POST `/api/v1/sections/{sectionId}/content:generate` (SSE) → Streaming section content generation
+  - Body: `{ currentDocumentState: { sections: Array<{ id: string, content: string, status: string, hasUnsavedChanges: boolean }> }, resolvedAssumptions: Array<{ id: string, title: string, decision: string, selectedOptionId?: string, confidence?: 'high'|'medium'|'low' }>, history?: ChatMessage[], threadId?: string }`
+  - Stream events: `progress` (template_loaded|analyzing|generating|formatting), `template_loaded` (config info), `rationale` (explanation), `token` (content), `diff` (patch), `done` (final result), `error`
+  - Purpose: Generate section content using backend-resolved template, instructions, and full document context including assumptions
+  - Note: Backend extracts section template, instructions, and generation config from document template
 
 Chat (Read‑only analysis)
 - POST `/api/v1/sections/{sectionId}/chat:read` (SSE)
@@ -1595,8 +2010,9 @@ Chat (Read‑only analysis)
 
 Proposals (Write intents)
 - POST `/api/v1/sections/{sectionId}/proposals:generate` (SSE)
-  - Body: `{ mode: 'improve'|'expand'|'clarify'|'applyTemplate', notes?: string, history?: ChatMessage[], threadId?: string }`
+  - Body: `{ mode: 'improve'|'expand'|'clarify'|'applyTemplate'|'fromTemplate', currentDocumentState?: { sections: Array<{ id: string, content: string }> }, resolvedAssumptions?: AssumptionItem[], notes?: string, history?: ChatMessage[], threadId?: string }`
   - Stream events: `token` (proposal text), `diff` (periodic unified diff), `done { proposalId }`, `error`
+  - Note: When mode='fromTemplate', backend extracts section template and uses currentDocumentState + resolvedAssumptions for context
 
 Document Chat (QA)
 - POST `/api/v1/documents/{docId}/chat:read` (SSE)

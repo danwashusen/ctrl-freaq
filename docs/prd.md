@@ -17,7 +17,8 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 ### Change Log
 | Date       | Version | Description                 | Author |
 |------------|---------|-----------------------------|--------|
-| 2025-09-11 | 0.3     | Pivot to spec-driven documents; clarify export/frontmatter; de-scope MCP to Phase 2; enforce “document” terminology | PM     |
+| 2025-09-12 | 0.4     | Add Core Document Editor Workflow section with 8-step process, section state machine, user interaction flow, and technical implementation details | PM     |
+| 2025-09-11 | 0.3     | Pivot to spec-driven documents; clarify export/frontmatter; de-scope MCP to Phase 2; enforce "document" terminology | PM     |
 | 2025-09-10 | 0.2     | Align with Architecture: add FR11–FR13, authoring API notes, Phase 2 note, lifecycle/QA context/citation ACs | PM     |
 | 2025-09-09 | 0.1     | Initial PRD draft created   | PM     |
 
@@ -107,9 +108,8 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 
 ## Epics (MVP)
 - Epic 1: Foundation & Authenticated UI — Monorepo, CI, infra baseline; Clerk auth; authenticated App Layout with Dashboard; Personal Project foundation (single project per user) with minimal API/UI.
-- Epic 2: Architecture Document Creation Flow + Conversational Co-Authoring — Guided architecture document steps with section-aware chat and approvals.
-- Epic 3: Quality Gates, Traceability, Versioning — Validation checks, acceptance checklist, traceability matrix, export/versioning.
-- Epic 4: Collaboration Basics & Update Existing Docs — Basic concurrency model and flows to open/edit existing docs with diff + changelog.
+- Epic 2: Document Editor Core — Comprehensive document editor with section-based navigation, WYSIWYG Markdown editing, Git-style patching, conversational co-authoring, and local persistence.
+- Epic 3: Advanced Features & Collaboration — Quality assurance, comprehensive export capabilities, and multi-user collaboration features.
 
 <!-- Detailed epic stories will be elaborated interactively in subsequent steps. -->
 
@@ -147,68 +147,118 @@ Establish monorepo, CI, local dev runtime, and minimal auth via Clerk, then deli
 
 Note: Terraform/AWS infra bootstrap is deferred to Phase 2 per MVP local-only constraint. MCP server, knowledge registry, MCP read endpoints, and MCP observability moved to Phase 2.
 
-## Epic 2 Details — Architecture Document Creation Flow + Conversational Co-Authoring
+## Epic 2 Details — Document Editor Core
 ### Goal
-Deliver a guided authoring flow for an AI-optimized Architecture document with section-aware chat, proposal diffs, approval gating, and traceability — all running locally with Clerk auth. Provide near real-time streamed responses in the UI; for production (Phase 2) use AWS Lambda Response Streaming over HTTPS.
+Deliver a comprehensive Document Editor that serves as the central component for creating and editing documents. The editor provides flexible section-based navigation, WYSIWYG Markdown editing, Git-style patching, conversational co-authoring, and local persistence with pending changes.
 
 ### Stories
-1) Architecture Schema & Validation
-- AC1: JSON schema defines sections/fields, required/optional, and types.
-- AC2: Runtime validation enforces schema in UI and on save/export.
-- AC3: Schema version recorded in doc metadata.
+1) Document Schema & Template System
+- AC1: JSON schema defines sections/fields, required/optional, and types with version tracking.
+- AC2: Document Template YAML system (e.g., Architecture Document Template, PRD Template) drives editor rendering.
+- AC3: Runtime validation enforces schema in UI and on save/export.
 
-2) Authoring Wizard (Guided Flow + Assumptions Resolution)
-- AC1: Stepper UI with save/resume; section statuses (draft/ready).
-- AC2: Field-level validation messages; cannot publish with blockers.
-- AC3: Draft persists locally (SQLite) under user account (Clerk).
-- AC4: Comprehensive “Resolve Assumptions” process before drafting each section: per-assumption status (✅/❔/❌), focused Q&A/options, explicit approvals, and a final ordered assumptions list captured to metadata.
- - AC5: Section lifecycle states and transitions: idle → assumptions → drafting → review → ready; transitions are visible in the UI.
+2) Document Editor Core Infrastructure  
+- AC1: Table of Contents (ToC) provides navigable overview of all sections and sub-sections with jump-to functionality.
+- AC2: Section rendering displays existing content in read-only preview with edit mode toggle.
+- AC3: Missing content sections show placeholder with abstract description of section's purpose.
+- AC4: Users can edit sections sequentially or in any preferred order via Section Editor.
 
-3) Section-Aware Context Builder
-- AC1: Context includes current section, approved prior sections, and selected knowledge items; token budget limits applied.
-- AC2: Redacts secrets; adds doc/section IDs for grounding.
-- AC3: Configurable model params via Vercel AI SDK.
- - AC4: User can select sections from the TOC as explicit context; a "Chat about selected" action opens/updates the Document QA panel with those sections.
+3) Section Editor & WYSIWYG Capabilities
+- AC1: WYSIWYG Markdown editor for content authoring integrated per section.
+- AC2: Git-style patching via diff-match-patch for applying/creating patch diffs.
+- AC3: Section Editor transitions: read-only preview ↔ edit mode ↔ draft preview.
 
-4) Conversational Co‑Authoring (Read)
-- AC1: Section-scoped chat can “explain, outline, suggest” without writing.
-- AC2: Responses include citations to doc sections and knowledge sources.
-- AC3: [Phase 2] Chat transcript stored with section (user, timestamp, refs).
+4) New Section Content Flow
+- AC1: Identify assumptions from section checklist and contextual inputs, ordered by priority.
+- AC2: Interactive assumption resolution loop before content drafting.
+- AC3: Draft content according to section instructions with AI assistance.
+- AC4: Present draft content with rationale for review and editing approval.
 
-5) Conversational Co‑Authoring (Write Proposals)
-- AC1: Chat can propose edits; diff preview shows insertions/deletions.
-- AC2: User must approve to apply; decline discards with reason.
-- AC3: On approve, draft updated and changelog entry added.
+5) Persistence Model & Local Changes
+- AC1: Local pending changes stored client-side (local storage) as patch diffs per section.
+- AC2: Save operation batches all modified sections into single backend request with patch diffs.
+- AC3: Reload behavior replays pending diffs on top of server-side state.
+- AC4: Draft persists locally (SQLite) under user account (Clerk) with section-level granularity.
 
-6) Streaming UX for Near Real-Time Responses
-- AC1: UI renders streamed model output incrementally with <300ms time-to-first-chunk in local dev.
-- AC2: Local dev uses Node streams/SSE or Web Streams; Phase 2 production targets AWS Lambda Response Streaming over HTTPS.
-- AC3: Graceful fallback to non-streamed responses retains functional parity.
+6) Conversational Co-Authoring Integration
+- AC1: Section-scoped chat can "explain, outline, suggest" without writing, integrated within editor.
+- AC2: Chat proposals generate diff previews showing insertions/deletions within editor context.
+- AC3: User approval applies changes and updates draft with changelog entry.
+- AC4: Context includes current section, approved prior sections, selected knowledge items.
 
-7) Citations & Traceability
-- AC1: Each applied AI change records source refs (doc sections, knowledge IDs).
-- AC2: Traceability matrix updates links: requirement ↔ section ↔ decision.
-- AC3: View renders back-links from sections to cited sources.
- - AC4: Clicking a citation navigates to and highlights the referenced range in the document when available.
+7) Streaming UX for Editor
+- AC1: Streamed model responses render incrementally within editor context <300ms TTFC.
+- AC2: Local dev uses Node streams/SSE integrated with WYSIWYG editor components.
+- AC3: Graceful fallback maintains functional parity without streaming.
 
-8) Export to Markdown + Versioning
-- AC1: Export renders full doc to `docs/architecture.md`; sharded sections to `docs/architecture/*.md` (e.g., `docs/architecture/introduction.md`).
-- AC2: Includes version header, schema version, and changelog delta.
-- AC3: Idempotent export (unchanged content yields no diff).
+8) Quality Gates Integration
+- AC1: Section-level validation during editing with real-time feedback.
+- AC2: Document-level quality gates prevent publish; show pass/fail in editor UI.
+- AC3: Traceability matrix updates automatically when changes applied via editor.
 
-9) Quality Gates & Pre‑Publish Checklist
-- AC1: Checklist runs blockers/non-blockers; shows pass/fail summary.
-- AC2: Blockers prevent publish; non-blockers logged.
-- AC3: Publish action records QA snapshot.
+9) Export & Versioning from Editor
+- AC1: Export full document to `docs/architecture.md`; sharded sections to `docs/architecture/*.md`.
+- AC2: Version headers, schema version, changelog delta included in exports.
+- AC3: Idempotent export from editor state (unchanged content yields no diff).
 
-10) Collaboration Hooks (MVP)
-- AC1: Section “editing by <user>” indicator using Clerk identity.
-- AC2: Conflict warning if another save occurs within 30s window.
-- AC3: Events logged for potential upgrade in Epic 4.
+### Core Document Editor Workflow
 
-## Epic 3 Details — Quality Gates, Traceability, Versioning
+#### Overview
+The Document Editor follows an 8-step workflow for comprehensive document creation and editing:
+
+1. **Load Template**: App loads the Architecture template from repository YAML. If absent, seed from `.bmad-core/templates/architecture-tmpl.yaml` and persist as `templates/architecture.yaml`.
+
+2. **Document-Level Assumptions**: Run top-level assumptions loop for the entire document to establish global decisions (e.g., starter vs. greenfield, compliance stance, streaming, db strategy).
+
+3. **Render Document Editor**: Build comprehensive editor with navigable Table of Contents and full document rendering. Sections display as read-only previews with edit mode toggles, or placeholders for missing content.
+
+4. **Section-Based Editing**: Users navigate to any section and toggle between read mode (preview) and edit mode (WYSIWYG Markdown editor using Milkdown v7.15.5). Local pending changes stored as Git-style patch diffs.
+
+5. **New Section Content Flow**: For blank sections, trigger assumption resolution loop before drafting. For existing content, allow direct WYSIWYG editing with diff tracking.
+
+6. **Conversational Co-Authoring**: Integrated chat within editor context for AI assistance in read (explain/suggest) and write-proposal modes with streaming output and diff previews.
+
+7. **Git-Style Patching**: All changes managed as patch diffs, enabling review, approval/rejection, and replay of pending changes on reload.
+
+8. **Save & Export**: Batch save all modified sections to document repository. Export to `docs/architecture.md` and shards `docs/architecture/*.md` on-demand via explicit user action.
+
+#### Section State Machine
+Each section follows this state progression:
+- **States**: `idle → read_mode → edit_mode → [assumptions] → drafting → diff_preview → ready`
+- **Key Transitions**:
+  - Navigate to section → Display read-only preview
+  - Click edit → Enter WYSIWYG editor
+  - Blank section → Start assumptions loop
+  - Existing content → Direct editing with diff tracking
+  - Generate patches → Show diff preview
+  - Approve changes → Run quality gates → Save
+  - Cancel → Discard pending changes
+
+#### User Interaction Flow
+1. User navigates to section → Read-only preview displayed
+2. User clicks edit → WYSIWYG editor activated
+3. For new content:
+   - Assumptions engine presents questions/options
+   - User provides decisions
+   - AI generates draft based on assumptions
+4. For existing content:
+   - Direct editing in WYSIWYG mode
+   - Optional AI assistance for improvements
+5. Changes tracked as Git-style patches
+6. User reviews diff preview
+7. Approval triggers quality gates
+8. Save completes, return to read mode
+
+#### Technical Implementation Notes
+- **Editor**: Milkdown v7.15.5 for WYSIWYG Markdown editing
+- **Persistence**: Client-side patch storage via `packages/editor-persistence`
+- **Templates**: Backend template resolution via `packages/template-resolver`
+- **AI Integration**: Vercel AI SDK for LLM interactions
+- **Quality Gates**: Real-time validation during editing
+
+## Epic 3 Details — Advanced Features & Collaboration
 ### Goal
-Ensure documents meet AI-ready standards before publish, maintain traceability, and manage versions/diffs reliably.
+Enhance the Document Editor with advanced quality assurance, comprehensive export capabilities, and basic collaboration features for multi-user scenarios.
 
 ### Stories
 1) Quality Gates Definition
@@ -241,37 +291,13 @@ Ensure documents meet AI-ready standards before publish, maintain traceability, 
 - AC2: Thresholds configurable; results attached to QA snapshot.
 - AC3: Failures flagged as non-blockers in MVP (informational).
 
-## Epic 4 Details — Collaboration Basics & Update Existing Docs
-### Goal
-Let users open, review, and update existing docs safely with basic concurrency protection and clear diffs.
+7) Advanced Collaboration Features
+- AC1: Section "editing by <user>" indicator using Clerk identity.
+- AC2: Conflict warning if another save occurs within 30s window with merge view options.
+- AC3: Last-write-wins with conflict warning; comprehensive activity logging.
 
-### Stories
-1) Open Existing Doc
-- AC1: Load docs/architecture.md (and shards) into structured model.
-- AC2: Show section mapping status; highlight unmapped/unknown blocks.
-- AC3: Migration step if schema version changed (preview + apply).
+8) Comments & Annotations
+- AC1: Per-section notes capability (author, timestamp) within editor.
+- AC2: Notes are non-blocking and export-excluded but visible in editor.
+- AC3: Notes included in QA snapshot context for internal tracking.
 
-2) Edit Existing Sections
-- AC1: Edit in wizard or via chat proposals; always diff-preview before apply.
-- AC2: Approved changes update draft and changelog.
-- AC3: Re-run quality gates on changed sections.
-
-3) Concurrency Basics
-- AC1: Section “editing by <user>” indicator from Clerk identity.
-- AC2: Warn on potential conflicts (save within 30s window); offer merge view.
-- AC3: Last-write-wins with conflict warning; events logged.
-
-4) Comments/Annotations (MVP-lite)
-- AC1: Add per-section notes (author, timestamp).
-- AC2: Notes are non-blocking and export-excluded.
-- AC3: Notes included in QA snapshot context (internal only).
-
-5) Audit & Activity Log
-- AC1: Record who changed what, when, and why (commit-like entry).
-- AC2: Include source (wizard vs. chat proposal).
-- AC3: Activity filterable by section and user.
-
-6) Publish Updated Doc
-- AC1: Re-export full and shards; preserve stable anchors/IDs.
-- AC2: Version bump with migration note; QA snapshot attached.
-- AC3: Post-publish summary view with links to diffs.
