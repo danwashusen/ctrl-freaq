@@ -6,7 +6,7 @@
 
 After analyzing the existing codebase and project requirements, this architecture adopts a **decoupled frontend approach** using React as the primary UI framework while maintaining SvelteKit as the backend API server. This decision is based on:
 
-1. **Existing UI Investment**: Substantial React-based UI foundation exists in `/tmp/ctrl-freaq-ui` with established patterns, components, and routing
+1. **Existing UI Investment**: Substantial React-based UI foundation exists in `docs/examples/ctrl-freaq-ui` with established patterns, components, and routing
 2. **Ecosystem Alignment**: React's extensive ecosystem for WYSIWYG editors (Milkdown), real-time features, and component libraries (shadcn/ui)
 3. **Team Expertise**: React's widespread adoption ensures easier onboarding and AI agent compatibility
 4. **Clear Separation of Concerns**: Decoupling frontend from backend enables independent scaling and deployment
@@ -16,7 +16,7 @@ The SvelteKit application will transition to a **pure API server role**, exposin
 ### Frontend Starter Analysis
 
 **Foundation Used**: Custom React + TypeScript setup based on lovable.ai generated code
-- **Location**: `/tmp/ctrl-freaq-ui`
+- **Location**: `docs/examples/ctrl-freaq-ui`
 - **Key Technologies**: React 18, TypeScript, Vite, React Router v6, Clerk, shadcn/ui, TanStack Query
 - **Constraints**: Must maintain compatibility with existing component patterns and routing structure
 
