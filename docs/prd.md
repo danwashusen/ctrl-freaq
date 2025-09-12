@@ -5,21 +5,21 @@
 - Accelerate high-quality AI-assisted development by generating AI-optimized product and architecture documentation.
 - Increase successful LLM-driven implementation rate via AI-ready Architecture specs for MVP projects.
 - Reduce PR churn and rework caused by unclear requirements/architecture.
-- Establish an MCP-native knowledge base (coding standards, patterns, decisions) to improve agent retrieval quality.
 - Maintain near-zero baseline platform cost using AWS serverless.
 - Deliver MVP outcomes: AI-optimized Architecture document; authenticated App Layout + Dashboard; conversational co-authoring; update existing documents; basic collaboration; quality gates and traceability.
 
 ### Background Context
-CRTL FreaQ is an interactive system leveraging AI with human-in-the-loop flows to produce the documentation required to build software, from Product Brief document and PRD document through the Architecture document family (e.g., Frontend Architecture document, Backend Architecture document) and Front-End Spec document; it explicitly excludes Epics/Stories tooling. The MVP focuses on a deeply detailed, AI-optimized Architecture document (assuming Brief/PRD exist) and an authenticated App Layout with a Dashboard and basic Projects UI. An MCP server that allows LLMs to query authoritative product/architecture knowledge is deferred to Phase 2. Generated documents are intended inputs to Spec Kit or similar downstream tools.
+CRTL FreaQ is an interactive system leveraging AI with human-in-the-loop flows to produce the documentation required to build software, from Product Brief document and PRD document through the Architecture document family (e.g., Frontend Architecture document, Backend Architecture document) and Front-End Spec document; it explicitly excludes Epics/Stories tooling. The MVP focuses on a deeply detailed, AI-optimized Architecture document (assuming Brief/PRD exist) and an authenticated App Layout with a Dashboard and basic Projects UI. Generated documents are intended inputs to Spec Kit or similar downstream tools.
 
-The problem: experienced developers often deprioritize rigorous documentation, leading to inconsistent, low-quality LLM outputs and "vibe coding." Existing instruction-heavy LLM approaches produce variable results; static templates and scattered knowledge bases are not machine-consumable or MCP/query-friendly. CRTL FreaQ addresses this by enforcing structured, validated, machine-consumable artifacts and exposing them via MCP for deterministic grounding.
+The problem: experienced developers often deprioritize rigorous documentation, leading to inconsistent, low-quality LLM outputs and "vibe coding." Existing instruction-heavy LLM approaches produce variable results; static templates and scattered knowledge bases are not machine-consumable. CRTL FreaQ addresses this by enforcing structured, validated, machine-consumable artifacts for deterministic grounding.
 
 ### Change Log
 | Date       | Version | Description                 | Author |
 |------------|---------|-----------------------------|--------|
+| 2025-09-12 | 0.5     | Expand Epic 1 Story 1 scope to include full development environment bootstrap with frontend (lovable.ai prototype), backend, libraries, and test infrastructure | PM     |
 | 2025-09-12 | 0.4     | Add Core Document Editor Workflow section with 8-step process, section state machine, user interaction flow, and technical implementation details | PM     |
-| 2025-09-11 | 0.3     | Pivot to spec-driven documents; clarify export/frontmatter; de-scope MCP to Phase 2; enforce "document" terminology | PM     |
-| 2025-09-10 | 0.2     | Align with Architecture: add FR11–FR13, authoring API notes, Phase 2 note, lifecycle/QA context/citation ACs | PM     |
+| 2025-09-11 | 0.3     | Pivot to spec-driven documents; clarify export/frontmatter; enforce "document" terminology | PM     |
+| 2025-09-10 | 0.2     | Align with Architecture: add FR11–FR13, authoring API notes, lifecycle/QA context/citation ACs | PM     |
 | 2025-09-09 | 0.1     | Initial PRD draft created   | PM     |
 
 ## Requirements
@@ -29,11 +29,9 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 - FR3: Support Document QA Chat to discuss existing docs (explain, gap analysis, challenge) with citations to relevant sections and knowledge sources.
 - FR4: Enable updating existing Architecture documents through guided steps or chat, with diff preview and changelog/version bump.
 - FR5: Enforce quality gates (validation checks, acceptance checklist) and maintain a lightweight traceability matrix (requirements ↔ architecture components ↔ decisions).
-- [Phase 2] FR6: Expose MCP read endpoints to query architecture, coding standards, patterns, and decisions; return structured, authoritative responses.
-- [Phase 2] FR7: Allow registration/import of canonical knowledge sources (coding standards, patterns, ADRs) and reference them in outputs and MCP answers.
 - FR8: Export as Markdown with frontmatter; write full Architecture document to `docs/architecture.md` and sharded sections to `docs/architecture/*.md`; idempotent/diff-aware with version markers and changelog.
 - FR9: Provide basic multi-user concurrency for document editing (e.g., section locks or last-write-wins with conflict warnings).
-- FR10: Developer-first UI in SvelteKit with guided steps, inline AI suggestions, and HITL approvals; AWS serverless backend with low/no base cost.
+- FR10: Developer-first UI in React with Express.js API, guided steps, inline AI suggestions, and HITL approvals; low/no base cost local development.
 - FR11: Provide a decision aggressiveness policy for assumption resolution (Conservative | Balanced | YOLO) with per-section overrides; record the effective policy per decision in the audit log.
 - FR12: Document QA chat supports selecting sections from the TOC as explicit context and a "Chat about selected" action; clicking citations navigates to and highlights the referenced ranges in the document.
 - FR13: Expose section lifecycle with states and transitions (idle → assumptions → drafting → review → ready) visible in the UI.
@@ -41,10 +39,10 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 ### Non Functional (NFR)
 - NFR1: Performance — TTFMP ≤ 2s on broadband; client P95 < 3s; server P95 ≤ 300ms.
 - NFR2: Availability — 99.9% monthly (serverless baseline).
-- NFR3: Scalability — Support ≥ 10 concurrent document sessions; [Phase 2] ≥ 100 MCP QPS baseline.
+- NFR3: Scalability — Support ≥ 10 concurrent document sessions.
 - NFR4: Security — Least-privilege IAM; user-provided LLM API keys; secrets stored in AWS SSM Parameter Store.
 - NFR5: Privacy/Compliance — No regulated PII; SOC 2 aspirational and non-blocking for MVP.
-- NFR6: Observability — Collect logs, metrics, and traces; [Phase 2] maintain MCP access audit logs.
+- NFR6: Observability — Collect logs, metrics, and traces.
 
 ### Terminology & Conventions
 - When referring to a specific document, suffix with the word “document” (e.g., “Architecture document”, “PRD document”).
@@ -68,9 +66,6 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 - Complex model routing/orchestration; custom plugin marketplace.
 - Deep repo scanning/indexing across large monorepos (beyond targeted doc I/O).
 
-### Phase 2 Note
-- Introduce Project and Organization models with OrganizationMembership for multi-tenant access control; out of scope for MVP.
-- Add MCP read endpoints and knowledge registry for querying documents/knowledge sources.
 
 ## Users and Stakeholders
 - Primary Users: Senior/Staff+ Engineers and Tech Leads adopting AI-assisted development.
@@ -81,20 +76,19 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 - Time to first usable Architecture draft ≤ 60 minutes from kickoff.
 - Revision cycles to “architecture approved” ≤ 2 iterations (MVP scope).
 - Developers report ≥ 30% reduction in prompt crafting time using the spec.
-- [Phase 2] MCP answer precision@1 ≥ 0.85 on seed architecture Q&A; ≥ 90% answer coverage.
 - PR churn (LLM-output-related) ≤ 10% due to missing/ambiguous architecture.
 - Cost: <$10/month baseline infra target; ≤ $0.25 per completed architecture draft variable cost at MVP scale.
 
 ## Technical & Constraints Summary
-- Platform: Web (SvelteKit) desktop + mobile browsers; latest Chrome/Edge/Safari/Firefox.
-- Frontend: SvelteKit + TypeScript; UI: Skeleton/Tailwind.
-- Backend: MVP runs locally (SvelteKit + Node services). AWS serverless + Terraform move to Phase 2.
-- Database: SQLite (MVP) with storage abstraction; migrate to DynamoDB in Phase 2.
+- Platform: Web (React) desktop + mobile browsers; latest Chrome/Edge/Safari/Firefox.
+- Frontend: React + TypeScript; UI: shadcn/ui/Tailwind.
+- Backend: Local Express.js API server.
+- Database: SQLite for local development.
 - Authentication: Clerk (clerk.com) for MVP login/logout and basic profile.
 - Monorepo: pnpm workspaces + Turborepo; docs under `docs/` with changelog/version markers.
 - LLM Integration: OpenAI via Vercel AI SDK (ai-sdk.dev); user-provided API keys per account.
 - Constraints: <$50/mo baseline; 6-week MVP; solo dev with AI assistants.
-- Priority: Authoring flow is primary for MVP; MCP read endpoints deferred to Phase 2.
+- Priority: Authoring flow is primary focus for MVP.
 - Authoring API Endpoints (MVP): Versioned under `/api/v1/*` including `/api/v1/sections/[sectionId]/chat.read` (SSE), `/api/v1/sections/[sectionId]/proposals.generate` (SSE), `/api/v1/proposals/[proposalId]/apply`, `/api/v1/proposals/[proposalId]/reject`, `/api/v1/documents/[docId]/gates.run`, and `/api/v1/documents/[docId]/export`.
 - Export format: Markdown + frontmatter; full document at `docs/architecture.md`; sharded sections under `docs/architecture/*.md`; manual export in MVP.
 
@@ -115,13 +109,117 @@ The problem: experienced developers often deprioritize rigorous documentation, l
 
 ## Epic 1 Details — Foundation & Authenticated UI
 ### Goal
-Establish monorepo, CI, local dev runtime, and minimal auth via Clerk, then deliver an authenticated two‑column App Layout with a Dashboard and basic Projects UI — all runnable locally for MVP. MCP server and knowledge registry are deferred to Phase 2.
+Establish monorepo, CI, local dev runtime, and minimal auth via Clerk, then deliver an authenticated two‑column App Layout with a Dashboard and basic Projects UI — all runnable locally for MVP.
 
 ### Stories
-1) Monorepo Scaffold (pnpm + Turborepo)
-- AC1: Repo contains `apps/web`, `services/mcp`, `packages/*`, `infra/` (placeholder), `docs/*`.
-- AC2: pnpm workspaces configured; Turbo pipelines for lint, type-check, build.
-- AC3: Dev scripts run locally for web and mcp services.
+1) Development Environment Bootstrap (Monorepo + Foundation Setup)
+
+**Part A: Monorepo Structure**
+- AC1: Repo contains complete structure per architecture:
+  - `apps/web` (React frontend - adapted from lovable.ai prototype)
+  - `apps/api` (Express.js backend)
+  - `packages/shared-data`, `packages/templates`, `packages/ai`, `packages/qa`, `packages/exporter`, `packages/editor-core`, `packages/editor-persistence`, `packages/template-resolver`
+  - `infra/` (placeholder)
+  - `docs/`, `templates/`, `.bmad-core/`
+- AC2: pnpm workspaces configured with all packages; Turbo pipelines for lint, type-check, build, test
+- AC3: Root package.json scripts: `dev`, `dev:web`, `dev:api`, `test`, `lint`, `typecheck`, `build`
+
+**Part B: Frontend Foundation (Adapt lovable.ai Prototype)**
+- AC4: Move lovable.ai prototype from `docs/examples/ctrl-freaq-ui` to `apps/web` as foundation
+  - Copy entire directory structure preserving existing setup
+  - Update package.json name to "@ctrl-freaq/web"
+  - Verify existing dependencies align with ui-architecture.md requirements
+  
+- AC5: Evaluate and enhance existing setup per ui-architecture.md:
+  - ✅ TypeScript configuration (already strict mode)
+  - ✅ Vite build tool (already configured)
+  - ✅ React Router v6 (already has routes)
+  - ✅ Tailwind CSS + shadcn/ui (already configured)
+  - ✅ TanStack Query (already integrated)
+  - ✅ Clerk authentication (already integrated)
+  - ADD: Pino browser logging integration
+  - ADD: Path aliases for @/features, @/stores, @/types per architecture
+  
+- AC6: Restructure to match architectural patterns:
+  - Move `src/App.tsx` to `src/app/App.tsx`
+  - Create `src/app/providers/` directory and refactor providers
+  - Create `src/app/router/` directory with routing logic
+  - Adapt existing pages to new structure
+  
+- AC7: Enhance API integration layer:
+  - Create `src/lib/api/client.ts` with proper error handling
+  - Configure for local backend connection (http://localhost:5001)
+  
+- AC8: Add missing architectural components:
+  - Create `src/features/` directory structure
+  - Create `src/stores/` for Zustand stores
+  - Create `src/lib/streaming/` for SSE utilities
+  - Add logging setup with Pino browser config
+  
+- AC9: Environment configuration with `.env.development`
+
+**Part C: Backend Foundation (Express.js)**
+- AC10: Express.js server bootstrapped in `apps/api` following architecture.md
+- AC11: Core middleware and structure:
+  - Express 5.1.0 with TypeScript
+  - Pino logging with structured JSON output (Constitutional requirement)
+  - Request ID propagation middleware
+  - Error handling middleware with standard envelope
+  - CORS configuration for local development
+  - Basic health check endpoint (/health)
+- AC12: API structure established:
+  - `/api/v1/` base path routing
+  - Placeholder routes for documents, sections, auth
+  - Service locator pattern foundation
+  - SQLite connection setup with better-sqlite3
+
+**Part D: Library Package Foundations**
+- AC13: Each package includes Constitutional requirements:
+  - `src/cli.ts` entry point (even if placeholder)
+  - `src/index.ts` with main exports
+  - Independent package.json with version 0.1.0
+  - README.md with purpose statement
+  - TypeScript configuration extending base
+- AC14: Minimal implementation for core packages:
+  - `packages/shared-data`: SQLite connection and base repository pattern
+  - `packages/templates`: YAML loader stub
+  - `packages/ai`: Vercel AI SDK wrapper stub
+
+**Part E: Test Infrastructure**
+- AC15: Test framework setup across monorepo:
+  - Vitest configuration in each package
+  - Test scripts in package.json files
+  - `test/` directories created
+- AC16: Placeholder tests demonstrating patterns:
+  - Unit test: `packages/shared-data/test/unit/repository.test.ts`
+  - Integration test: `packages/shared-data/test/integration/db.test.ts`
+  - Component test: `apps/web/src/components/__tests__/Dashboard.test.tsx` (testing existing component)
+  - API test: `apps/api/test/health.test.ts`
+  - CLI test: `packages/shared-data/test/cli.test.ts`
+- AC17: Test utilities and helpers:
+  - Test database setup/teardown helpers
+  - React Testing Library configuration (may already be partially setup)
+  - Mock service locator for testing
+
+**Part F: Development Scripts & Documentation**
+- AC18: Development environment validation:
+  - Script to verify all services start correctly
+  - Health check script for frontend and backend
+  - Database migration runner (even if no initial migrations)
+- AC19: Initial documentation:
+  - `README.md` with setup instructions
+  - `DEVELOPMENT.md` with architecture overview
+  - Constitutional compliance checklist
+  - Document how lovable.ai prototype was adapted
+
+**Verification Criteria:**
+- `pnpm dev` starts both frontend (port 5173) and backend (port 5001)
+- Frontend displays existing Dashboard with Clerk auth at http://localhost:5173
+- Backend health check responds at http://localhost:5001/health
+- `pnpm test` runs all placeholder tests successfully
+- `pnpm typecheck` passes with strict mode
+- All Constitutional requirements met (CLI interfaces, structured logging, library independence)
+- Existing lovable.ai features (auth, dashboard, routing) continue working
 
 2) CI Pipeline Setup
 - AC1: GitHub Actions workflow runs on PR and main.
@@ -145,7 +243,7 @@ Establish monorepo, CI, local dev runtime, and minimal auth via Clerk, then deli
 - AC3: Data sourced from Personal Project Bootstrap + Projects API; avatars from Clerk profile data where available.
 - AC4: Basic responsive behavior; layout aligns with coding standards; empty states included.
 
-Note: Terraform/AWS infra bootstrap is deferred to Phase 2 per MVP local-only constraint. MCP server, knowledge registry, MCP read endpoints, and MCP observability moved to Phase 2.
+Note: MVP maintains local-only constraint for simplified development and testing.
 
 ## Epic 2 Details — Document Editor Core
 ### Goal

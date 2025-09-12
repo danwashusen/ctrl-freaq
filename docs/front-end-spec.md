@@ -4,7 +4,7 @@ This document defines the user experience goals, information architecture, user 
 
 ## Introduction
 
-Based on analysis of the existing Lovable.ai implementation, this specification documents CTRL FreaQ's current state as a document/content management system for teams and provides an improvement roadmap for developers implementing UI enhancements. The current implementation demonstrates a solid foundation with React 18, TypeScript, Tailwind CSS, and shadcn/ui components, integrated with Clerk authentication and featuring a responsive dashboard layout with project management capabilities.
+Based on analysis of the existing Lovable.ai implementation, this specification documents CTRL FreaQ's current state as a document/content management system for teams and provides an improvement roadmap for developers implementing UI enhancements. The current implementation demonstrates a solid foundation with React 18, TypeScript, Tailwind CSS, and shadcn/ui components, integrated with JWT authentication and featuring a responsive dashboard layout with project management capabilities.
 
 Key improvement opportunities identified include enhanced document editing workflows, advanced collaboration features, improved mobile responsiveness, and expanded accessibility compliance.
 
@@ -517,7 +517,7 @@ graph TD
 
 #### Document Export Interface
 
-**Purpose:** Export workflow component extending shadcn/ui Progress and Preview patterns
+**Purpose:** Export workflow component extending shadcn/ui Progress patterns
 
 **Variants:**
 - `export-preview` - Document preview with format options

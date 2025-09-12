@@ -12,7 +12,7 @@ Every feature begins as a standalone library with clear boundaries and responsib
 No organizational-only libraries—each must solve a concrete problem.
 
 ### II. CLI Interface Standard
-Every library exposes core functionality through a command-line interface following strict protocols:
+Every library (excluding frontend components) exposes core functionality through a command-line interface following strict protocols:
 - **Input**: Command-line arguments and/or stdin
 - **Output**: Results to stdout, errors to stderr
 - **Formats**: Support both JSON and human-readable output
@@ -66,6 +66,199 @@ Complexity must be justified and minimized:
 - **Question every dependency** and abstraction layer
 
 Start simple, evolve incrementally based on real needs.
+
+## SOC 2 Implementation Rules for LLM Code Generation
+
+### Authentication & Authorization Rules
+
+#### Rule 1: All endpoints must verify authentication
+
+- Check for valid JWT/session token before processing any request
+- Return 401 Unauthorized if token is missing or invalid
+- Include token expiration checks
+
+
+#### Rule 2: Implement role-based access control (RBAC)
+
+- Define user roles in database schema (e.g., admin, user, viewer)
+- Check user permissions before executing any data operation
+- Return 403 Forbidden for unauthorized access attempts
+- Use least-privilege principle: default to no access
+
+
+#### Rule 3: Support multi-factor authentication hooks
+
+- Add 'mfa_enabled' and 'mfa_secret' fields to user schema
+- Include 'requires_mfa' flag in authentication responses
+- Implement token refresh mechanism with shorter expiry for non-MFA sessions
+
+
+### Logging Requirements
+
+#### Rule 4: Log all authentication events
+
+- Successful login: timestamp, user_id, ip_address, user_agent
+- Failed login: timestamp, attempted_username, ip_address, reason
+- Logout: timestamp, user_id, session_duration
+- Token refresh: timestamp, user_id, old_token_id, new_token_id
+
+
+#### Rule 5: Log all data access and modifications
+
+- CREATE: timestamp, user_id, resource_type, resource_id, new_values
+- READ: timestamp, user_id, resource_type, resource_id, fields_accessed
+- UPDATE: timestamp, user_id, resource_type, resource_id, old_values, new_values
+- DELETE: timestamp, user_id, resource_type, resource_id, deleted_values
+
+
+#### Rule 6: Log all authorization failures
+
+- timestamp, user_id, attempted_action, resource_type, resource_id, required_permission, user_permission
+
+
+#### Rule 7: Log administrative and configuration changes
+
+- User role changes: timestamp, admin_id, target_user_id, old_role, new_role
+- System settings: timestamp, admin_id, setting_name, old_value, new_value
+- Permission changes: timestamp, admin_id, resource, old_permissions, new_permissions
+
+
+#### Rule 8: Use structured JSON logging
+```json
+{
+  "timestamp": "ISO-8601",
+  "level": "INFO|WARN|ERROR",
+  "event_type": "auth|data_access|admin_action|system",
+  "user_id": "uuid",
+  "session_id": "uuid",
+  "ip_address": "string",
+  "action": "string",
+  "resource": "string",
+  "result": "success|failure",
+  "metadata": {}
+}
+```
+
+### Data Protection Rules
+
+#### Rule 9: Encrypt sensitive data at rest
+
+- Use field-level encryption for PII (SSN, credit cards, health data)
+- Apply database-level encryption for all tables
+- Never store passwords in plaintext - use bcrypt/scrypt/argon2
+- Encryption key references should be stored, not the keys themselves
+
+
+#### Rule 10: Enforce HTTPS/TLS for all communications
+
+- Reject non-HTTPS requests in production
+- Use TLS 1.2 minimum for all connections
+- Include HSTS headers in responses
+- Validate SSL certificates for third-party API calls
+
+
+#### Rule 11: Implement secure session management
+
+- Generate cryptographically secure session tokens (min 128 bits)
+- Set secure cookie flags: Secure, HttpOnly, SameSite
+- Implement session timeout (default: 30 minutes inactive)
+- Invalidate sessions on logout and password change
+
+
+### Input Validation & Error Handling
+
+#### Rule 12: Validate and sanitize all inputs
+
+- Parameterize all database queries (prevent SQL injection)
+- HTML-encode user content before display (prevent XSS)
+- Validate data types, lengths, and formats
+- Reject requests with unexpected fields
+
+
+#### Rule 13: Implement safe error handling
+
+- Never expose stack traces to users
+- Log detailed errors server-side with unique error IDs
+- Return generic error messages to clients
+- Include error_id in user-facing messages for support correlation
+
+
+### Database Schema Requirements
+
+#### Rule 14: Include audit fields in all tables
+```sql
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+created_by UUID NOT NULL REFERENCES users(id),
+updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+updated_by UUID NOT NULL REFERENCES users(id),
+deleted_at TIMESTAMP NULL,  -- for soft deletes
+deleted_by UUID NULL REFERENCES users(id)
+```
+
+#### Rule 15: Implement soft deletes for audit trail
+
+- Add 'deleted_at' timestamp field instead of hard DELETE
+- Filter soft-deleted records in normal queries
+- Retain deleted records for audit purposes
+
+
+### API Design Rules
+
+#### Rule 16: Version all APIs
+
+- Include version in URL path (/api/v1/) or header
+- Never break existing API contracts
+- Deprecate old versions with advance notice
+
+
+#### Rule 17: Implement rate limiting
+
+- Track requests per user/IP
+- Return 429 Too Many Requests when exceeded
+- Include rate limit headers in responses
+- Log rate limit violations
+
+
+#### Rule 18: Add request IDs for traceability
+
+- Generate unique request_id for each API call
+- Include request_id in all log entries
+- Return request_id in response headers
+- Pass request_id to downstream services
+
+
+### Third-Party Integration Rules
+
+#### Rule 19: Secure credential storage
+
+- Never hardcode credentials in source code
+- Use environment variables or secret management services
+- Rotate API keys regularly
+- Log credential usage but never log the credentials themselves
+
+
+#### Rule 20: Validate third-party responses
+
+- Verify SSL certificates
+- Validate response schemas
+- Implement timeout and retry logic
+- Log all third-party API interactions
+
+
+### Implementation Checklist for Each Feature
+
+When implementing any feature, ensure:
+
+1. **Authentication**: User is authenticated before accessing the feature
+2. **Authorization**: User has permission to perform the requested action
+3. **Logging**: All actions are logged with sufficient detail
+4. **Encryption**: Sensitive data is encrypted in transit and at rest
+5. **Input Validation**: All inputs are validated and sanitized
+6. **Error Handling**: Errors are logged server-side, generic messages sent to client
+7. **Audit Trail**: Database changes include who/when information
+8. **Rate Limiting**: API endpoints have appropriate rate limits
+9. **Request Tracking**: Each request has a unique ID for tracing
+10. **Testing**: Security tests are included (auth failures, invalid inputs, rate limits)
 
 ## Development Standards
 

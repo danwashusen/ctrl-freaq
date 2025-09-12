@@ -2,31 +2,31 @@
 
 ## Template and Framework Selection
 
-### Architectural Decision: React Frontend with SvelteKit Backend
+### Architectural Decision: React Frontend with Express.js Backend
 
-After analyzing the existing codebase and project requirements, this architecture adopts a **decoupled frontend approach** using React as the primary UI framework while maintaining SvelteKit as the backend API server. This decision is based on:
+After analyzing the existing codebase and project requirements, this architecture adopts a **decoupled frontend approach** using React as the primary UI framework with Express.js as the backend API server. This decision is based on:
 
 1. **Existing UI Investment**: Substantial React-based UI foundation exists in `docs/examples/ctrl-freaq-ui` with established patterns, components, and routing
 2. **Ecosystem Alignment**: React's extensive ecosystem for WYSIWYG editors (Milkdown), real-time features, and component libraries (shadcn/ui)
 3. **Team Expertise**: React's widespread adoption ensures easier onboarding and AI agent compatibility
 4. **Clear Separation of Concerns**: Decoupling frontend from backend enables independent scaling and deployment
 
-The SvelteKit application will transition to a **pure API server role**, exposing REST endpoints and SSE streams consumed by the React frontend. This maintains the backend architecture's integrity while leveraging React's strengths for complex UI interactions.
+The Express.js server serves as a **pure API server**, exposing REST endpoints and SSE streams consumed by the React frontend. This provides a clear separation of concerns while leveraging React's strengths for complex UI interactions.
 
 ### Frontend Starter Analysis
 
 **Foundation Used**: Custom React + TypeScript setup based on lovable.ai generated code
 - **Location**: `docs/examples/ctrl-freaq-ui`
-- **Key Technologies**: React 18, TypeScript, Vite, React Router v6, Clerk, shadcn/ui, TanStack Query
+- **Key Technologies**: React 18, TypeScript, Vite, React Router v6, JWT Auth, shadcn/ui, TanStack Query
 - **Constraints**: Must maintain compatibility with existing component patterns and routing structure
 
 ### Assumptions and Resolutions
 
 | Assumption | Resolution |
 |------------|------------|
-| Frontend framework choice conflicts with backend | Use React for UI, SvelteKit for API only |
+| Frontend framework choice conflicts with backend | Use React for UI, Express.js for API only |
 | Document Editor complexity requires framework alignment | Milkdown works excellently with React |
-| Authentication must be consistent | Clerk SDK available for both React and SvelteKit |
+| Authentication must be consistent | JWT tokens work seamlessly with both React and Express.js |
 | Streaming AI responses need special handling | React supports SSE/WebStreams natively |
 | Library-first architecture applies to frontend | Create React component libraries with Storybook documentation |
 
@@ -34,7 +34,7 @@ The SvelteKit application will transition to a **pure API server role**, exposin
 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
-| 2025-09-12 | 1.0 | Initial frontend architecture with React/SvelteKit decoupling | Architect |
+| 2025-09-12 | 1.0 | Initial frontend architecture with React/Express.js decoupling | Architect |
 
 ## Frontend Tech Stack
 
@@ -43,15 +43,16 @@ The SvelteKit application will transition to a **pure API server role**, exposin
 | Category | Technology | Version | Purpose | Rationale |
 |----------|------------|---------|---------|-----------|
 | Framework | React | 18.3.x | UI framework | Existing investment, ecosystem, AI agent familiarity |
-| UI Library | shadcn/ui | latest | Component library | Radix UI based, fully customizable, TypeScript native |
+| UI Library | shadcn/ui | latest | Component library | Accessible, customizable, TypeScript native |
 | State Management | TanStack Query + Zustand | 5.x / 4.5.x | Server + client state | Excellent DX, built-in caching, minimal boilerplate |
 | Routing | React Router | 6.x | Client-side routing | Industry standard, existing implementation |
 | Build Tool | Vite | 5.x | Build and dev server | Fast HMR, ESM native, excellent DX |
 | Styling | Tailwind CSS | 3.4.x | Utility-first CSS | Rapid development, consistent design system |
 | Testing | Vitest + React Testing Library | 1.x / 14.x | Unit and integration testing | Vite native, excellent React support |
-| Component Library | shadcn/ui | latest | UI components | Accessible, customizable, TypeScript first |
+| Component Library | shadcn/ui | latest | UI components | Accessible, customizable components, TypeScript first |
 | Form Handling | React Hook Form + Zod | 7.x / 3.x | Form state and validation | Performance, TypeScript integration |
 | Animation | Framer Motion | 11.x | Animations and transitions | Declarative API, gesture support |
+| Logging | Pino | 9.5.0 | Browser logging with backend transmission | High-performance JSON logging, browser-optimized |
 | Dev Tools | React DevTools + Vite Plugin | latest | Development experience | Debugging, performance profiling |
 
 ## Project Structure
@@ -949,6 +950,25 @@ describe('DocumentEditor', () => {
 5. **Test Structure**: Arrange-Act-Assert pattern
 6. **Mock External Dependencies**: API calls, routing, state management
 
+## Browser Logging with Pino
+
+### Logging Architecture
+- **Technology**: Pino for browser-optimized structured logging
+- **Backend Transmission**: Automatic error transmission to `/api/v1/logs` endpoint
+- **Context Management**: Component and feature-specific child loggers
+- **Performance Tracking**: Web Vitals and component render timing integration
+- **Environment Configuration**: 
+  - Development: Console output with pretty formatting
+  - Production: Error-only transmission to backend
+  - Test: Silent mode with mocked transmission
+
+### Browser-Specific Considerations
+- Serialization of browser objects (Events, Errors) for backend compatibility
+- RequestId correlation between frontend and backend logs
+- User context (userId, sessionId) attached to all log entries
+- Automatic URL and user agent capture for debugging
+- Graceful fallback to console when backend transmission fails
+
 ## Environment Configuration
 
 ```bash
@@ -1099,9 +1119,9 @@ useEffect(() => {
 
 ---
 
-## Integration with SvelteKit Backend
+## Integration with Express.js Backend
 
-The React frontend communicates with the SvelteKit backend through:
+The React frontend communicates with the Express.js backend through:
 
 1. **REST APIs** at `/api/v1/*` endpoints
 2. **Server-Sent Events (SSE)** for streaming AI responses

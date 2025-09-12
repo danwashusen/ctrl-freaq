@@ -1,3 +1,13 @@
+# Environment config
+.env*
+
 # BMAD (local only)
 .bmad-core/
 .bmad-*/
+
+# OS Specific files
+.DS_Store
+
+# Misc files
+.CLAUDE.md.bak
+.idea/vcs.xml

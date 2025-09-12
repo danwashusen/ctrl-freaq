@@ -4,16 +4,7 @@
 This document outlines the overall project architecture for CRTL FreaQ, including backend systems, shared services, and non‑UI concerns. It serves as the guiding architectural blueprint for AI‑driven development, ensuring consistency and adherence to chosen patterns and technologies.
 
 ### Document Organization
-This architecture document includes both **MVP implementation details** and **Phase 2 planning content**:
-
-- **MVP Focus**: Core sections describe the local development architecture using SQLite, SvelteKit, and library-first design
-- **Phase 2 References**: Throughout the document, Phase 2 mentions indicate future cloud deployment plans (AWS, DynamoDB, etc.)
-- **Appendix A**: Contains detailed Phase 2 planning information for future reference
-
-**Key for Readers**: 
-- Focus on MVP sections for immediate implementation
-- Phase 2 content provides context for DynamoDB-compatible patterns in current SQLite implementation
-- All current development maintains Phase 2 compatibility without implementing cloud services
+This architecture document focuses on **MVP implementation details** using local development architecture with SQLite, Express.js, and library-first design patterns.
 
 ### Constitutional Compliance
 This architecture implements the CTRL FreaQ Constitution requirements:
@@ -23,7 +14,7 @@ This architecture implements the CTRL FreaQ Constitution requirements:
 - ✅ **Integration Testing**: DynamoDB-compatible patterns verified in tests
 - ✅ **Observability Standards**: Structured logging, metrics, health checks
 - ✅ **Versioning & Breaking Changes**: Semantic versioning with migration docs
-- ✅ **Simplicity & Minimalism**: MVP-focused with Phase 2 as future reference
+- ✅ **Simplicity & Minimalism**: MVP-focused with YAGNI compliance
 
 Relationship to Frontend Architecture
 - Frontend specifics are documented separately in a Frontend Architecture document and must be used alongside this document for full‑stack implementation.
@@ -33,7 +24,7 @@ Starter Template or Existing Project
 
 Compliance/SLO Stance
 - MVP: Follow PRD NFRs; no regulated PII; SOC 2 is aspirational.
-- Phase 2: Plan for SOC 2 alignment and stronger SLOs; introduce AWS serverless and managed services per PRD.
+- Future: SOC 2 aspirational for production deployment.
 
 Terminology & Conventions
 - When referring to a specific document, suffix with the word "document" (e.g., "Architecture document", "PRD document").
@@ -172,61 +163,52 @@ import type { Document } from '@packages/shared-data';
 ## High Level Architecture
 
 ### Technical Summary
-CRTL FreaQ MVP runs locally with a modular monorepo: a SvelteKit web app authenticated via Clerk. The UI provides a comprehensive Document Editor with section-based navigation, WYSIWYG Markdown editing, Git-style patching, and conversational co‑authoring with diff‑based approvals. LLM integration uses the Vercel AI SDK (OpenAI). Responses stream to the UI via Node streams/SSE for near real‑time UX. Phase 2 targets adding an MCP read service alongside AWS serverless (API Gateway + Lambda), DynamoDB, and AWS Lambda Response Streaming over HTTPS while retaining the same logical component boundaries.
+CRTL FreaQ MVP runs locally with a modular monorepo: an Express.js API server with a React frontend authenticated via stateless JWT. The UI provides a comprehensive Document Editor with section-based navigation, WYSIWYG Markdown editing, Git-style patching, and conversational co‑authoring with diff‑based approvals. LLM integration uses the Vercel AI SDK (OpenAI). Responses stream to the UI via Node streams/SSE for near real‑time UX.
 
 ### High Level Overview
-1) Architecture style: Modular monolith (local MVP) with a web app; evolution path to serverless micro‑services and MCP read service in Phase 2.
-2) Repository: Monorepo using pnpm workspaces + Turborepo (`apps/web`, `packages/*`, `docs/*`). A `services/mcp` workspace is planned for Phase 2.
-3) Services: Web (authoring, chat, export). Phase 2 adds MCP (read endpoints for knowledge registry). Local DB is SQLite via an abstraction for future DynamoDB migration.
-4) Core flows: User authenticates (Clerk) → document editor with section-based editing + conversational co‑authoring → proposals/diffs with Git-style patching → validates via quality gates → exports `docs/architecture.md` and shards under `docs/architecture/` → downstream tools (e.g., Spec Kit) consume exported documents. MCP reads are Phase 2.
-5) Key decisions: Local‑first MVP; streaming UX; repository/data abstraction (Repository pattern) to enable DB swap; Phase 2: AWS serverless + DynamoDB + Lambda streaming + MCP read.
+1) Architecture style: Modular monolith (local MVP) with a web app.
+2) Repository: Monorepo using pnpm workspaces + Turborepo (`apps/web`, `packages/*`, `docs/*`).
+3) Services: Web (authoring, chat, export). Local DB is SQLite.
+4) Core flows: User authenticates (Clerk) → document editor with section-based editing + conversational co‑authoring → proposals/diffs with Git-style patching → validates via quality gates → exports `docs/architecture.md` and shards under `docs/architecture/` → downstream tools (e.g., Spec Kit) consume exported documents.
+5) Key decisions: Local‑first MVP; streaming UX; document-focused architecture.
 
 ### High Level Project Diagram
 ```mermaid
 graph TD
-  user[User (Clerk Auth)] --> web[Web App (SvelteKit)]
+  user[User (JWT Auth)] --> web[React Frontend]
+  web --> api[Express.js API]
   web -->|Section-aware chat (Vercel AI SDK)| openai[(OpenAI Provider)]
   web -->|Proposals/Diffs, Export| files[(docs/architecture.md + shards)]
 
-  %% Phase 2 (dashed)
-  subgraph phase2[Phase 2]
-    mcp[MCP Read Service (Node/TS)] -.-> sqlite[(SQLite DB — Knowledge Registry)]
-    apigw[[API Gateway]] -.-> lambda[[Lambda (MCP)]]
-    lambda -.-> dynamo[(DynamoDB)]
-    lambda -.->|Response Streaming| web
-  end
 ```
 
 ### Architectural and Design Patterns
 - Serverless Evolution: Start local modular services; evolve to AWS API Gateway + Lambda. Rationale: cost efficiency, scale, aligns with PRD.
 - Repository Pattern: Abstract data access (SQLite → DynamoDB). Rationale: portability and testability.
 - Dependency Injection/Modules: Encapsulate services and boundaries. Rationale: clearer seams, easier testing.
-- REST over HTTP: Simple MCP read endpoints (deterministic JSON). Rationale: clarity and AI/agent compatibility.
-- Streaming Responses: Node streams/SSE (MVP); AWS Lambda Response Streaming (Phase 2). Rationale: near real‑time UX.
+- REST over HTTP: Simple endpoints (deterministic JSON). Rationale: clarity and compatibility.
+- Streaming Responses: Node streams/SSE for real‑time UX.
 
 ## Tech Stack (Approved)
 
-Cloud Infrastructure (Phase 2 plan)
-- Provider: AWS
-- Key Services: API Gateway, Lambda (Node 20), DynamoDB, SSM Parameter Store, CloudWatch
-- Regions: us‑east‑1 (default)
 
 Technology Stack Table
 | Category      | Technology                | Version  | Purpose                              | Rationale |
 |---------------|---------------------------|----------|--------------------------------------|-----------|
 | Language      | TypeScript                | 5.4.x    | Primary language                     | Strong typing, tooling |
-| Runtime       | Node.js                   | 20.x     | JS runtime (web/MCP)                 | LTS, performance |
-| Web Framework | SvelteKit                 | 2.x      | Web app                              | Fast, SSR, DX |
+| Runtime       | Node.js                   | 20.x     | JS runtime (web)                     | LTS, performance |
+| Backend Framework | Express.js             | 5.1.0    | API server                           | Mature, flexible, middleware |
 | UI            | Tailwind CSS + Skeleton   | 3.4.x/2.x| Styling + components                  | Speed, consistency |
 | Auth          | Clerk                     | latest   | Authentication (MVP)                 | Simple hosted auth |
 | LLM SDK       | Vercel AI SDK             | 3.x      | Model access/streaming               | Provider abstraction |
 | Database      | SQLite                    | 3.x      | Local storage (MVP)                  | Simple, embedded |
 | Data Layer    | better‑sqlite3            | 9.x      | DB access/abstraction                | Fast, lightweight local DB access |
-| HTTP Server   | SvelteKit/Node            | 2.x/20.x | API endpoints                        | Simplicity |
+| HTTP Server   | Express.js                | 5.1.0    | API endpoints                        | Simplicity |
 | Testing       | Vitest                    | 1.x      | Unit testing                         | Fast TS testing |
 | Monorepo      | pnpm + Turborepo          | 9.x/1.x  | Workspaces + pipelines               | Speed, caching |
 | CI            | GitHub Actions            | n/a      | Lint, type‑check, build              | Ubiquitous |
-| Observability | Local logging (MVP); AWS CloudWatch (Phase 2) | n/a | Logs/metrics/traces                  | Simple locally; CloudWatch in Phase 2 |
+| Logging       | Pino                     | 9.5.0    | Structured logging with transports  | High-performance JSON logging with multi-tier streaming |
+| Observability | Pino + Local logging | 9.5.0/n/a | Logs/metrics/traces                  | High-performance structured logging |
 
 ## Data Models
 
@@ -238,7 +220,7 @@ Model: User
   - name (string, optional)
   - provider (string, e.g., clerk)
   - createdAt (datetime)
-- Relationships: 1‑to‑many with Document, ActivityLog, Proposal; many‑to‑many Organizations via OrganizationMembership (Phase 2).
+- Relationships: 1‑to‑many with Document, ActivityLog, Proposal.
 
 Model: Document
 - Purpose: Root entity for a project document lifecycle (Architecture is the first type).
@@ -299,7 +281,7 @@ Model: Assumption
 - Relationships: Many‑to‑one Document; optional many‑to‑one Section.
 
 Model: KnowledgeItem
-- Purpose: MCP‑queryable canonical knowledge.
+- Purpose: Canonical knowledge for system context.
 - Key Attributes:
   - id (string/uuid)
   - type (enum: standard|pattern|decision)
@@ -378,47 +360,22 @@ Indexes (SQLite)
 - (ownerUserId) UNIQUE — enforces exactly one project per user
 - (slug) UNIQUE — stable link target for dashboards
 
-Model: Project (Phase 2)
+Model: Project
 - Purpose: Group related documents, knowledge, and collaborators under organizations with multi-project support.
 - Key Attributes:
-  - id (string/uuid)
-  - organizationId (FK→Organization.id)
-  - createdByUserId (FK→User.id)
-  - name (string)
-  - slug (string)
-  - createdAt, updatedAt (datetime)
+    - id (string/uuid)
+    - organizationId (FK→Organization.id)
+    - createdByUserId (FK→User.id)
+    - name (string)
+    - slug (string)
+    - createdAt, updatedAt (datetime)
 - Relationships:
-  - Many‑to‑one Organization (owner)
-  - 1‑to‑many Documents (Document.projectId FK)
-  - 1‑to‑many KnowledgeItems
-  - Many‑to‑many Users (collaborators) via ProjectMembership (optional)
+    - Many‑to‑one Organization (owner)
+    - 1‑to‑many Documents (Document.projectId FK)
+    - 1‑to‑many KnowledgeItems
+    - Many‑to‑many Users (collaborators) via ProjectMembership (optional)
 - Notes:
-  - Extends the MVP personal project model to support multiple projects per user and shared access.
-
-Model: Organization (Phase 2)
-- Purpose: Owns projects and controls membership and access.
-- Key Attributes:
-  - id (string/uuid)
-  - name (string)
-  - slug (string)
-  - createdAt, updatedAt (datetime)
-- Relationships:
-  - 1‑to‑many Projects
-  - Many‑to‑many Users via OrganizationMembership
-
-Model: OrganizationMembership (Phase 2)
-- Purpose: Join table for Users in Organizations with roles.
-- Key Attributes:
-  - id (string/uuid)
-  - organizationId (FK→Organization.id)
-  - userId (FK→User.id)
-  - role (enum: owner|admin|member)
-  - createdAt (datetime)
-- Relationships: Many‑to‑one Organization; many‑to‑one User.
-
-Notes on Access Control (Phase 2)
-- Organization membership governs access to Projects and their Documents.
-- Optional ProjectMembership can grant finer‑grained per‑project roles if needed; otherwise inherit from OrganizationMembership.
+    - Extends the MVP personal project model to support multiple projects per user and shared access.
 
 ## CLI Interface Standard Implementation (Constitution §II)
 
@@ -525,7 +482,7 @@ qa run-gates --doc-id DOC123 --report-file quality-report.json
 
 ## Components
 
-### apps/web — Web Application (SvelteKit)
+### apps/api — API Server (Express.js)
 - Responsibilities: Authentication, comprehensive document editing (WYSIWYG, Git-style patching, section-based navigation), assumptions resolution, conversational co‑authoring (read/write proposals), QA/traceability, export, collaboration indicators, streaming UX.
   - Projects‑lite (MVP): personal project bootstrap on first login; track `activeProjectId` in session; expose minimal Projects API (GET list/detail; PATCH rename) with owner‑only guards.
 - Key Modules:
@@ -588,21 +545,11 @@ stateDiagram-v2
   edit_mode --> read_mode: cancel
 ```
 
-### services/mcp — MCP Read Service (Node/TS) [Phase 2]
-- Responsibilities: Expose deterministic read APIs over HTTP for knowledge registry; structured JSON responses for agents/LLMs; apply project scoping (Phase 2).
-- Key Modules:
-  - HTTP Controllers: `GET /knowledge`, `GET /knowledge/{id}`; validation and error mapping.
-  - Knowledge Repository: CRUD for KnowledgeItem using better‑sqlite3 via shared data layer.
-  - Project Scoping (Phase 2): filter knowledge queries by `projectId` derived from caller identity/session (activeProjectId).
-  - Schemas/DTOs: zod/json‑schema for requests/responses; versioned.
-  - Observability: structured logs (requestId, userId), basic counters; audit events per read.
-  - Auth (MVP): optional session/API‑key passthrough; Phase 2 integrate Clerk/JWT or API Gateway auth.
-- External Deps: better‑sqlite3, zod, pino (or equivalent).
 
 ### packages/shared-data — Data Layer (better‑sqlite3)
 - Responsibilities: Provide repository interfaces for Document, Section, Assumption, KnowledgeItem, Citation, TraceLink, Proposal, ActivityLog; hide DB specifics.
 - Features: migrations bootstrap; connection pooling (as needed for better‑sqlite3); transactions; indexes per Data Models section; invariants (e.g., Section depth/order).
-- Dynamo‑Friendly Constraints (applied now to ease Phase 2 migration):
+- Database Design Constraints:
   - No cross‑entity JOINs in repositories; compose in app layer.
   - Avoid table scans/LIKE queries; all reads go through key‑based access patterns with pagination.
   - Repository methods accept explicit pagination (limit + cursor) and projection fields.
@@ -631,7 +578,7 @@ stateDiagram-v2
 - Notes: Do not store secrets in repo; use env for keys.
 
 ### packages/qa — Quality Gates & Evaluation
-- Responsibilities: Define/runtimes for gates (blocker/non‑blocker); export QA snapshot; optional small eval harness for MCP precision.
+- Responsibilities: Define/runtimes for gates (blocker/non‑blocker); export QA snapshot; evaluation harness for document quality.
 - Outputs: pass/fail report; JSON snapshot attached to publish; metrics counters.
 
 ### packages/exporter — Markdown Export
@@ -651,8 +598,8 @@ stateDiagram-v2
 ### Cross‑Cutting Concerns
 - Error Handling: Standard error envelope `{ code, message, details?, requestId }`; user‑friendly messages in UI; log stack traces server‑side.
 - Logging: Pino (or console structured) in MVP; requestId propagation; redact secrets.
-- Security: Clerk session on web; API key/session passthrough to MCP (MVP); Phase 2 JWT/API Gateway auth.
-- Streaming: Use Web Streams/SSE in MVP; Phase 2: AWS Lambda Response Streaming over HTTPS.
+- Security: Clerk session on web; secure API key handling.
+- Streaming: Use Web Streams/SSE for real-time UX.
 - Performance: Client P95 <3s; server P95 ≤300ms; TTFMP ≤2s; streaming for long generations.
 
 ## Observability Standards Implementation (Constitution §V)
@@ -660,363 +607,40 @@ stateDiagram-v2
 ### Constitutional Requirements
 All systems must provide comprehensive observability through structured logging, multi-tier streaming, performance metrics, error tracking, and health checks per Constitution mandate.
 
-### Structured Logging Implementation
+### Logging Architecture
+- **Technology**: Pino v9.5.0 for high-performance structured JSON logging
+- **Multi-Tier Strategy**: Console (development) + File rotation + Error isolation  
+- **Library Independence**: Each library maintains its own logger with consistent configuration
+- **Request Tracing**: RequestId propagation across all operations
+- **Security**: Automatic redaction of secrets and sensitive data
 
-#### Library-Level Loggers
-Each library maintains its own logger with consistent format:
+#### SOC 2 Structured Logging Requirements
 
-```typescript
-// packages/shared-data/src/logger.ts
-interface LogContext {
-  timestamp: string;
-  level: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
-  library: string;
-  operation: string;
-  duration?: number;
-  requestId?: string;
-  userId?: string;
-  error?: {
-    message: string;
-    stack?: string;
-    code?: string;
-  };
-  metadata?: Record<string, any>;
-}
+All logging implementations must enforce the Constitutional JSON structure (Rule 8):
+- **Mandatory fields**: timestamp (ISO-8601), level, event_type, user_id, session_id, ip_address, action, resource, result, metadata
+- **Event categorization**: Automatically classify logs as auth|data_access|admin_action|system
+- **User context**: Attach userId and sessionId to all log entries from authenticated requests
+- **Result tracking**: Set result field to "success" or "failure" based on operation outcome
+- **Metadata standards**: Include request_id, resource_id, and operation-specific details
+- **Security**: Never log passwords, tokens, or sensitive PII in metadata
 
-export class DataLogger {
-  private context: Partial<LogContext> = { library: 'shared-data' };
+### Performance Monitoring
+- **Query Performance**: Monitor SQLite operations for DynamoDB compatibility patterns
+- **API Latency**: Track operation timing with P95 thresholds
+- **Error Rates**: Structured error tracking with severity classification
+- **Health Checks**: Standard endpoints with aggregated status reporting
 
-  info(operation: string, metadata?: Record<string, any>) {
-    this.log('INFO', operation, metadata);
-  }
+### Observability Targets (MVP)
+- Chat time-to-first-token: P95 < 500ms
+- Proposal generation: P95 < 3s 
+- Server error rate: ≤ 1%
+- API reads latency: P95 ≤ 100ms
 
-  error(operation: string, error: Error, metadata?: Record<string, any>) {
-    this.log('ERROR', operation, { ...metadata, error: {
-      message: error.message,
-      stack: error.stack,
-      code: (error as any).code
-    }});
-  }
-
-  private log(level: LogContext['level'], operation: string, metadata?: Record<string, any>) {
-    const entry: LogContext = {
-      timestamp: new Date().toISOString(),
-      level,
-      library: this.context.library!,
-      operation,
-      requestId: this.context.requestId,
-      userId: this.context.userId,
-      ...metadata
-    };
-
-    // Multi-tier output
-    console.log(JSON.stringify(entry)); // Console (development)
-    this.writeToFile(entry);             // File (local persistence)
-    // TODO Phase 2: Remote streaming
-  }
-}
-```
-
-#### CLI Logging Support
-All CLI commands support verbose logging:
-
-```bash
-# Standard operation
-shared-data query --type document --id DOC123
-
-# Verbose logging
-shared-data query --type document --id DOC123 --verbose
-# Output includes:
-# {"timestamp":"...","level":"DEBUG","library":"shared-data","operation":"query.start","metadata":{"args":{"type":"document","id":"DOC123"}}}
-# {"timestamp":"...","level":"INFO","library":"shared-data","operation":"query.complete","duration":45,"metadata":{"resultCount":1}}
-
-# Trace-level debugging
-shared-data query --type document --id DOC123 --log-level trace
-```
-
-### Multi-Tier Log Streaming
-
-#### Development (Console + File)
-```typescript
-// packages/shared/src/logging/console-logger.ts
-export class ConsoleLogger implements Logger {
-  log(entry: LogContext) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(this.formatForHuman(entry));
-    } else {
-      console.log(JSON.stringify(entry));
-    }
-  }
-
-  private formatForHuman(entry: LogContext): string {
-    const time = new Date(entry.timestamp).toTimeString().slice(0, 8);
-    const duration = entry.duration ? ` (${entry.duration}ms)` : '';
-    return `${time} [${entry.level}] ${entry.library}.${entry.operation}${duration}`;
-  }
-}
-```
-
-#### File Rotation (Local Persistence)
-```typescript
-// packages/shared/src/logging/file-logger.ts
-export class FileLogger implements Logger {
-  private logPath = '.data/logs';
-  private maxFileSize = 10 * 1024 * 1024; // 10MB
-  private maxFiles = 5;
-
-  async log(entry: LogContext) {
-    const logFile = path.join(this.logPath, `ctrl-freaq-${this.getDateString()}.log`);
-    await this.ensureDirectory();
-    await this.appendToFile(logFile, JSON.stringify(entry) + '\n');
-    await this.rotateIfNeeded(logFile);
-  }
-
-  private async rotateIfNeeded(logFile: string) {
-    const stats = await fs.stat(logFile);
-    if (stats.size > this.maxFileSize) {
-      await this.rotateLogFiles();
-    }
-  }
-}
-```
-
-### Performance Metrics Collection
-
-#### Operation Timing
-```typescript
-// Automatic timing wrapper for all library operations
-export function withTiming<T>(
-  operation: string,
-  logger: Logger
-) {
-  return function(target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const method = descriptor.value;
-    
-    descriptor.value = async function (...args: any[]) {
-      const start = performance.now();
-      const requestId = this.context?.requestId || 'unknown';
-      
-      try {
-        logger.debug(`${operation}.start`, { requestId, args: args.slice(0, 2) }); // Don't log all args
-        const result = await method.apply(this, args);
-        const duration = performance.now() - start;
-        
-        logger.info(`${operation}.complete`, { requestId, duration, success: true });
-        return result;
-      } catch (error) {
-        const duration = performance.now() - start;
-        logger.error(`${operation}.error`, error as Error, { requestId, duration });
-        throw error;
-      }
-    };
-  };
-}
-
-// Usage in repository
-export class DocumentRepository {
-  @withTiming('document.getById', logger)
-  async getById(id: string): Promise<Document> {
-    // Implementation
-  }
-
-  @withTiming('document.listByOwner', logger)
-  async listByOwner(ownerId: string, options: PaginationOptions): Promise<Page<Document>> {
-    // Implementation - timing will catch slow queries indicating non-DynamoDB patterns
-  }
-}
-```
-
-#### DynamoDB Performance Monitoring
-```typescript
-// Monitor query patterns to ensure DynamoDB compatibility
-export class QueryPerformanceMonitor {
-  monitor(query: string, params: any[], duration: number) {
-    const analysis = this.analyzeQuery(query);
-    
-    if (analysis.hasTableScan) {
-      logger.error('query.table_scan_detected', new Error('Table scan detected'), {
-        query: this.sanitizeQuery(query),
-        duration,
-        queryPattern: analysis.pattern
-      });
-    }
-
-    if (analysis.hasJoin) {
-      logger.error('query.join_detected', new Error('JOIN operation detected'), {
-        query: this.sanitizeQuery(query),
-        duration
-      });
-    }
-
-    if (duration > 100) { // Slow query threshold
-      logger.warn('query.slow', {
-        query: this.sanitizeQuery(query),
-        duration,
-        threshold: 100
-      });
-    }
-  }
-}
-```
-
-### Error Tracking with Context
-
-#### Structured Error Information
-```typescript
-// Enhanced error tracking with full context
-export class ErrorTracker {
-  trackError(error: Error, context: {
-    operation: string;
-    library: string;
-    requestId?: string;
-    userId?: string;
-    metadata?: Record<string, any>;
-  }) {
-    const errorInfo = {
-      timestamp: new Date().toISOString(),
-      error: {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        code: (error as any).code
-      },
-      context,
-      environment: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        memory: process.memoryUsage()
-      }
-    };
-
-    logger.error('system.error', error, errorInfo);
-
-    // In production: send to error tracking service
-    if (process.env.NODE_ENV === 'production') {
-      this.sendToErrorService(errorInfo);
-    }
-  }
-}
-```
-
-### Health Checks Implementation
-
-#### Library Health Status
-```typescript
-// Each library exposes health status
-export interface LibraryHealth {
-  library: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  checks: HealthCheck[];
-  timestamp: string;
-}
-
-export interface HealthCheck {
-  name: string;
-  status: 'pass' | 'fail' | 'warn';
-  duration: number;
-  message?: string;
-}
-
-// packages/shared-data/src/health.ts
-export class DataHealthChecker {
-  async checkHealth(): Promise<LibraryHealth> {
-    const checks: HealthCheck[] = [];
-    
-    // Database connectivity
-    checks.push(await this.checkDatabaseConnection());
-    
-    // Query performance
-    checks.push(await this.checkQueryPerformance());
-    
-    // Disk space for SQLite
-    checks.push(await this.checkDiskSpace());
-
-    const status = this.determineOverallStatus(checks);
-    
-    return {
-      library: 'shared-data',
-      status,
-      checks,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  private async checkDatabaseConnection(): Promise<HealthCheck> {
-    const start = performance.now();
-    try {
-      await this.db.prepare('SELECT 1').get();
-      return {
-        name: 'database_connection',
-        status: 'pass',
-        duration: performance.now() - start
-      };
-    } catch (error) {
-      return {
-        name: 'database_connection',
-        status: 'fail',
-        duration: performance.now() - start,
-        message: (error as Error).message
-      };
-    }
-  }
-}
-```
-
-#### CLI Health Commands
-```bash
-# Check specific library health
-shared-data --health
-templates --health
-ai --health
-qa --health
-exporter --health
-
-# Check all libraries (from web app)
-curl http://localhost:5173/api/health
-
-# Verbose health check with timing
-shared-data --health --verbose
-```
-
-#### Aggregated Health Endpoint
-```typescript
-// apps/web/src/routes/api/health/+server.ts
-export async function GET({ locals }) {
-  const healthChecks = await Promise.all([
-    dataHealth.checkHealth(),
-    templatesHealth.checkHealth(),
-    aiHealth.checkHealth(),
-    qaHealth.checkHealth(),
-    exporterHealth.checkHealth()
-  ]);
-
-  const overall = {
-    status: healthChecks.every(h => h.status === 'healthy') ? 'healthy' : 
-            healthChecks.some(h => h.status === 'unhealthy') ? 'unhealthy' : 'degraded',
-    timestamp: new Date().toISOString(),
-    libraries: healthChecks
-  };
-
-  const status = overall.status === 'healthy' ? 200 : 
-                overall.status === 'degraded' ? 200 : 503;
-
-  return new Response(JSON.stringify(overall), { 
-    status,
-    headers: { 'content-type': 'application/json' }
-  });
-}
-```
-
-### Observability Targets & Timers (MVP)
-- Provisional targets (local):
-  - Chat time-to-first-token (TTF): P95 < 500ms; proposal generation duration: P95 < 3s (section-sized prompts)
-  - Server error rate: ≤ 1% (authoring endpoints)
-  - MCP reads latency: P95 ≤ 100ms (local)
-- Logging timers:
-  - Record `ms` for: chat:read end-to-end, proposals:generate duration, gates:run duration, export duration
-  - Include `requestId`, `userId` (if available), endpoint, and sizes (prompt chars, tokens if available)
-- **DynamoDB Query Performance**: All repository operations logged with duration to identify non-key-based patterns
-- **CLI Operation Timing**: All CLI commands report execution time with `--verbose` flag
+### CLI Observability
+- All CLI commands support `--verbose` and `--quiet` modes
+- JSON and human-readable output formats
+- Consistent exit codes and error handling
+- Health check commands for all libraries
 
 ## Service Locator & Factories
 
@@ -1058,49 +682,8 @@ interface Locator {
 Source Tree
 - packages/locator
   - `src/index.ts` — Locator interface and factory types
-  - `src/node.ts` — Node/SvelteKit implementation to derive per‑request locators
+  - `src/node.ts` — Node/Express.js implementation to derive per‑request locators
   - `src/test.ts` — test locator helpers and fakes
-
-# APPENDIX A: Phase 2 Planning and Future Architecture
-
-> **Note**: The following sections contain Phase 2 planning details that are not part of the MVP scope. They are included for future reference and to maintain DynamoDB-compatible patterns in the current SQLite implementation.
-
-## Phase 2 Data Mapping (DynamoDB Plan)
-- Single‑table design with `pk`, `sk`, and `entity` type; additional GSIs for common lookups. MVP SQLite simulates patterns with indexes and key‑first queries.
-- Primary Access Patterns
-  - List a document's sections in order, by parent
-  - Fetch a section's children
-  - Lookup knowledge by type and slug/id
-  - List trace links for a document
-  - List assumptions for a section (ordered)
-  - List proposals for a section (recent first)
-  - List activity for a document and by user
-- Key Design (illustrative)
-  - Document: pk=`PROJ#{projectId}`, sk=`DOC#{docId}`
-  - Section: pk=`DOC#{docId}`, sk=`SEC#{parentSectionId|ROOT}#${order}#${sectionId}` (enables ordered children); GSI1 pk=`PAR#{parentSectionId}`, sk=`ORD#${order}`
-  - Assumption: pk=`SEC#{sectionId}`, sk=`ASM#${order}`
-  - KnowledgeItem: pk=`KNOW#{type}`, sk=`SLUG#${slug}#${id}`; GSI1 pk=`KNOWID#${id}`, sk=`TYPE#${type}`
-  - Citation: pk=`DOC#{docId}`, sk=`CIT#${sectionId}#${knowledgeId}`
-  - TraceLink: pk=`DOC#{docId}`, sk=`TRC#${sectionId}#${knowledgeId}`
-  - Proposal: pk=`SEC#{sectionId}`, sk=`PRP#${createdAt}#${proposalId}`; GSI1 pk=`DOC#{docId}`, sk=`PRP#${createdAt}`
-  - ActivityLog: pk=`DOC#{docId}`, sk=`ACT#${timestamp}#${id}`; GSI1 pk=`USR#{userId}`, sk=`ACT#${timestamp}`
-- Query Rules
-  - Always query by pk (never Scan); use begins_with on `sk` for ranges.
-  - Use GSIs for secondary lookups only when required; design early to cover access patterns.
-  - Use optimistic concurrency (version on Document/Section) for write safety.
-
-### Template Migration (Phase 2)
-- Detection: On document open, compare `Document.templateId/templateVersion` to current YAML `TemplateDocument.version`.
-- Strategy: If versions differ, compute a migration plan:
-  - Map section keys (template `id`) from old → new; flag renamed/removed/added sections.
-  - Preserve user content; only move/rename containers; never delete content without explicit confirmation.
-  - Generate a preview: before/after TOC and a list of impacted sections.
-- Execution:
-  - Apply structural changes (rename/move sections), keep markdown intact.
-  - For new required fields, create TODO placeholders and add blockers to quality gates until filled.
-  - Record `previousTemplateVersion` in Document metadata; bump `templateVersion` to new.
-- Rollback: Allow one-click revert to the pre-migration snapshot.
-- Audit: Log ActivityLog entry with summary and counts (moved/added/renamed/flagged).
 
 ## Core Document Editor Workflow (MVP Focus)
 
@@ -2182,10 +1765,25 @@ const docs = await repo.listByOwner('user123', { limit: 10 });
 ```
 
 ##### Post-1.0 Breaking Change Process
-1. **Deprecation Period**: Mark API as deprecated for 2 minor versions
-2. **Migration Documentation**: Provide clear upgrade path
-3. **CLI Warnings**: Deprecated CLI commands show warnings
-4. **Version Dependencies**: Track and manage library interdependencies
+1. **Deprecation Period**: 
+   - Minimum 2 minor versions before removal
+   - Add @deprecated JSDoc annotations with removal version
+   - Include migration path in deprecation notice
+2. **Migration Documentation**: 
+   - Provide step-by-step migration guide
+   - Include code examples for before/after
+   - Document breaking changes in CHANGELOG.md
+3. **CLI Warnings**: 
+   - Show deprecation warnings on every use
+   - Include link to migration documentation
+   - Suggest alternative commands
+4. **Version Dependencies**: 
+   - Maintain compatibility matrix between libraries
+   - Validate inter-library version compatibility in CI
+5. **Communication**:
+   - Document deprecation in release notes
+   - Update all examples and documentation
+   - Consider providing automated migration scripts
 
 ```typescript
 // Example deprecation in 1.2.0
@@ -2451,6 +2049,18 @@ gh pr create --title "TEST ONLY: Assumption resolver requirements"
 
 # 3. After approval, implement minimal solution
 # 4. Refactor for quality
+
+#### TDD Enforcement Mechanisms
+
+##### CI Pipeline Enforcement
+- Enforce minimum 80% test coverage for new code (coverage delta)
+- Fail builds where implementation exists without tests
+
+##### Developer Workflow Requirements
+- Tests must fail initially (Red phase verification)
+- Implementation must be minimal to pass tests (Green phase)
+- Refactoring must not break existing tests (Refactor phase)
+- Document test-first approach in PR description template
 # 5. Submit implementation PR
 ```
 
