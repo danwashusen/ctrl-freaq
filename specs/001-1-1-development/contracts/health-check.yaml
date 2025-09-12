@@ -1,0 +1,62 @@
+openapi: 3.0.0
+info:
+  title: Health Check API
+  version: 1.0.0
+  description: Backend health check endpoint
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns server health status
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall health status
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp
+        version:
+          type: string
+          description: API version
+        uptime:
+          type: number
+          description: Server uptime in seconds
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [connected, disconnected]
+            memory:
+              type: object
+              properties:
+                used:
+                  type: number
+                total:
+                  type: number
