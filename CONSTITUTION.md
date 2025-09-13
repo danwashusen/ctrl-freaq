@@ -50,12 +50,19 @@ All systems must provide comprehensive observability through:
 Debugging capability is non-negotiable.
 
 ### VI. Versioning & Breaking Changes
-Semantic versioning (MAJOR.MINOR.PATCH) with strict change management:
-- **MAJOR**: Breaking changes require migration documentation
-- **MINOR**: New features with backward compatibility
-- **PATCH**: Bug fixes and internal improvements
-- **Breaking changes** must include deprecation periods and migration paths
-- **Version dependencies** explicitly tracked and managed
+Does NOT apply during MVP.
+
+[//]: # (Semantic versioning &#40;MAJOR.MINOR.PATCH&#41; with strict change management:)
+
+[//]: # (- **MAJOR**: Breaking changes require migration documentation)
+
+[//]: # (- **MINOR**: New features with backward compatibility)
+
+[//]: # (- **PATCH**: Bug fixes and internal improvements)
+
+[//]: # (- **Breaking changes** must include deprecation periods and migration paths)
+
+[//]: # (- **Version dependencies** explicitly tracked and managed)
 
 ### VII. Simplicity & Minimalism
 Complexity must be justified and minimized:
@@ -264,6 +271,7 @@ When implementing any feature, ensure:
 
 ### Code Quality Requirements
 - All code must pass static analysis and linting
+- All code must comply with any defined Coding Standards
 - Code reviews required for all changes with at least one approval
 - Documentation updated with code changes
 - Performance regression testing for critical paths

@@ -167,7 +167,7 @@
 - Express.js — https://expressjs.com
 - React — https://react.dev
 - Tailwind CSS — https://tailwindcss.com
-- Skeleton UI — https://www.skeleton.dev
+- shadcn/ui — https://ui.shadcn.com
 - AWS Lambda — https://aws.amazon.com/lambda/
 - Amazon DynamoDB — https://aws.amazon.com/dynamodb/
 - Model Context Protocol — https://modelcontextprotocol.io

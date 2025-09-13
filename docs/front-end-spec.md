@@ -1,16 +1,16 @@
-# CTRL FreaQ UI/UX Specification
+# CTRL FreaQ UI/UX Specification {#ui-ux-specification}
 
 This document defines the user experience goals, information architecture, user flows, and visual design specifications for CTRL FreaQ's user interface. It serves as the foundation for visual design and frontend development, ensuring a cohesive and user-centered experience.
 
-## Introduction
+## Introduction {#spec-introduction}
 
 Based on analysis of the existing Lovable.ai implementation, this specification documents CTRL FreaQ's current state as a document/content management system for teams and provides an improvement roadmap for developers implementing UI enhancements. The current implementation demonstrates a solid foundation with React 18, TypeScript, Tailwind CSS, and shadcn/ui components, integrated with JWT authentication and featuring a responsive dashboard layout with project management capabilities.
 
 Key improvement opportunities identified include enhanced document editing workflows, advanced collaboration features, improved mobile responsiveness, and expanded accessibility compliance.
 
-## Overall UX Goals & Principles
+## Overall UX Goals & Principles {#overall-ux-goals-principles}
 
-### Target User Personas
+### Target User Personas {#target-user-personas}
 
 **Senior/Staff+ Engineers & Tech Leads**
 - Technical professionals adopting AI-assisted development workflows
@@ -23,7 +23,7 @@ Key improvement opportunities identified include enhanced document editing workf
 - Need oversight of documentation quality and team collaboration
 - Value traceability between requirements, architecture, and implementation decisions
 
-### Usability Goals
+### Usability Goals {#usability-goals}
 
 **Speed & Quality Balance**: Users can complete first usable architecture draft within 60 minutes while maintaining comprehensive documentation quality
 
@@ -35,7 +35,7 @@ Key improvement opportunities identified include enhanced document editing workf
 
 **Context Preservation**: Maintain conversation context across sections and editing sessions to support coherent document development
 
-### Design Principles
+### Design Principles {#design-principles}
 
 1. **AI as Collaborative Partner** - Design AI interactions as conversation with an intelligent colleague, not tool usage
 2. **Human Agency First** - Users maintain control over all decisions; AI provides suggestions that require explicit approval
@@ -43,14 +43,14 @@ Key improvement opportunities identified include enhanced document editing workf
 4. **Transparent AI Reasoning** - Show rationale behind AI suggestions to build trust and enable informed decision-making
 5. **Seamless Flow Transitions** - Smooth movement between reading, editing, AI consultation, and approval workflows
 
-### Change Log
+### Change Log {#spec-change-log}
 | Date | Version | Description | Author |
 |------|---------|-------------|---------|
 | 2025-09-12 | 1.0 | Initial front-end specification created based on Lovable.ai analysis | Sally (UX Expert) |
 
-## Information Architecture (IA)
+## Information Architecture (IA) {#information-architecture}
 
-### Site Map / Screen Inventory
+### Site Map / Screen Inventory {#site-map-screen-inventory}
 
 ```mermaid
 graph TD
@@ -88,7 +88,7 @@ graph TD
     I --> I3[Git Integration]
 ```
 
-### Navigation Structure
+### Navigation Structure {#navigation-structure}
 
 **Primary Navigation:** 
 - Hybrid project-document approach maintaining familiar project organization
@@ -107,9 +107,146 @@ graph TD
 - "Return to Project" action always available from document editor
 - Document state indicators (Draft, In Review, Published) in breadcrumb area
 
-## User Flows
+## User Flows {#user-flows}
 
-### Document Creation Flow
+### Core Document Editor Workflow (MVP Focus) {#core-document-editor-workflow}
+
+Purpose
+- The MVP's primary objective is to provide a comprehensive Document Editor enabling users to create and manage Architecture documents with flexible section-based editing and AI assistance.
+
+Overview
+1) Load Template: App loads the Architecture template from repository YAML (e.g., `templates/architecture.yaml`). If absent, seed from `.bmad-core/templates/architecture-tmpl.yaml` and persist as `templates/architecture.yaml` for ongoing source‑of‑truth editing.
+2) Document‑Level Assumptions: Run a top‑level assumptions loop for the entire document (scope = document) to establish global decisions (e.g., starter vs. greenfield, compliance stance, streaming, db strategy). These decisions seed section flows.
+3) Render Document Editor: Build a comprehensive editor with navigable Table of Contents and full document rendering. Sections display as read-only previews with edit mode toggles, or placeholders for missing content.
+4) Section-Based Editing: Users can navigate to any section and toggle between read mode (preview) and edit mode (WYSIWYG Markdown editor). Local pending changes stored as Git-style patch diffs.
+5) New Section Content Flow: For blank sections, trigger assumption resolution loop before drafting. For existing content, allow direct WYSIWYG editing with diff tracking.
+6) Conversational Co-Authoring: Integrated chat within editor context for AI assistance in read (explain/suggest) and write‑proposal modes with streaming output and diff previews.
+7) Git-Style Patching: All changes managed as patch diffs, enabling review, approval/rejection, and replay of pending changes on reload.
+8) Save & Export: Batch save all modified sections to document repository. Export to `docs/architecture.md` and shards `docs/architecture/*.md` is available on-demand via explicit user action (export button/command).
+
+Section State Machine
+- States: `idle → read_mode → edit_mode → [assumptions] → drafting → diff_preview → ready`
+- Transitions:
+  - idle→read_mode: navigate to section; display read-only preview
+  - read_mode→edit_mode: click edit button; enter WYSIWYG editor
+  - edit_mode→assumptions: start new content for blank section
+  - edit_mode→drafting: modify existing content or post-assumptions drafting
+  - drafting→diff_preview: generate Git-style patch diffs for changes
+  - diff_preview→ready: approve changes and quality gates pass
+  - diff_preview→drafting: reject/modify changes and continue editing
+  - ready→read_mode: save complete, return to preview
+  - edit_mode→read_mode: cancel editing, discard pending changes
+
+Sequence (document editor section editing)
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant E as Document Editor
+  participant W as WYSIWYG Editor
+  participant A as Assumptions Engine
+  participant L as LLM (Vercel AI SDK)
+  participant P as Patch Engine
+  participant Q as QA/Gates
+  U->>E: Navigate to section
+  E-->>U: Display read-only preview
+  U->>E: Click edit
+  E->>W: Enter WYSIWYG mode
+  alt New content (blank section)
+    W->>A: Start assumptions loop
+    A-->>U: Focused Qs / options (stream)
+    U-->>A: Decisions
+    A-->>W: Assumptions resolved
+  end
+  U->>W: Edit content (WYSIWYG)
+  W-->>E: Track local changes
+  alt AI assistance requested
+    U->>L: Ask for suggestions/proposals
+    L-->>P: Generate suggestions (stream)
+    P-->>W: Show diff preview in editor
+  end
+  U->>W: Complete editing
+  W->>P: Generate Git-style patch diffs
+  P-->>U: Show diff preview
+  loop Review and iterate
+    U-->>W: Modify changes
+    W->>P: Update patch diffs
+    P-->>U: Updated diff preview
+  end
+  U-->>P: Approve changes
+  P->>Q: Run quality gates
+  Q-->>P: Pass (or issues)
+  P-->>E: Apply changes + save
+  E-->>U: Return to read mode
+```
+
+Additional Sequences
+
+Open/Update Existing Document
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant W as Web (Wizard)
+  participant D as DB (SQLite)
+  U->>W: Open document
+  W->>D: Load Document + Sections (ordered)
+  D-->>W: Document meta + Section tree
+  W-->>U: Render TOC + full document
+  U->>W: Select section to edit
+  W-->>U: Show current content + status
+  U->>W: Request improvements (chat/proposal)
+  W-->>U: Show diff preview
+  U->>W: Approve changes
+  W->>D: Update Section content + metadata
+  D-->>W: OK (row_version++)
+  W-->>U: Re-render section; status updated
+```
+
+Publish/Export
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant W as Web (Wizard)
+  participant Q as QA/Gates
+  participant X as Exporter
+  U->>W: Publish Architecture
+  W->>Q: Run quality gates (blockers/non-blockers)
+  Q-->>W: Results (pass or blockers)
+  alt Pass
+    W->>X: Export full + shards
+    X-->>W: Wrote files + unchanged list
+    W-->>U: Publish complete; links to diffs
+  else Blockers
+    W-->>U: Show issues; navigate to sections
+  end
+```
+
+Assumptions Resolution (UX rules)
+- Per assumption show: status, intent, decision; loop with focused Qs or up to 3 options; explicit approvals.
+- Use concise, streaming responses; capture final ordered list to metadata; do not proceed without critical assumptions resolved.
+- Mirrors the rules in `.bmad-core/tasks/create-doc.md`.
+
+### Assumption Resolution Policy (Aggressiveness) {#assumption-resolution-policy}
+
+Modes
+- Conservative: AI never finalizes non‑trivial assumptions; always asks; presents up to 3 options with pros/cons and waits for explicit user choice.
+- Balanced: AI auto‑resolves low‑risk assumptions with clear dominance; asks for ambiguous/trade‑off cases; summarizes auto decisions for review.
+- YOLO: AI decides by default using project context; surfaces key decisions and allows one‑click adjustments; logs rationale and enables quick revert.
+
+Defaults & Overrides
+- The template defines `decisionAggressivenessDefault` at the document level; each section may optionally define its own default.
+- The user can adjust the document‑wide default at any time; sections inherit unless they specify an override or the user adjusts per‑section.
+- Example: Introduction inherits the document default; High Level Architecture defaults to Conservative regardless of document default.
+
+UI Controls
+- Document toolbar: Aggressiveness selector (Conservative | Balanced | YOLO) with helper text and link to preferences.
+- Section header: Optional override dropdown showing effective policy; reset to inherit.
+- Audit: Record policy used for each assumption decision in ActivityLog.
+
+Note: UI data contracts for templates and sections are defined in `docs/architecture.md` (see TemplateDocument, TemplateSection, and SectionInstance); we intentionally avoid duplicating them here.
+
+### Document Creation Flow {#document-creation-flow}
+
+Note: Detailed section editing behavior follows the unified Core Document Editor Workflow above.
 
 **User Goal:** Create a new architecture document from project Brief/PRD with AI assistance
 
@@ -120,7 +257,7 @@ graph TD
 
 **Success Criteria:** Completed architecture document draft ready for review within 60 minutes
 
-#### Flow Diagram
+#### Flow Diagram {#creation-flow-diagram}
 
 ```mermaid
 graph TD
@@ -165,7 +302,9 @@ graph TD
 
 **Notes:** Floating AI assistant available throughout flow for contextual help and suggestions
 
-### Document Editing Flow
+### Document Editing Flow {#document-editing-flow}
+
+Note: Uses the Core Document Editor Workflow state machine and sequence for section-level editing and approvals.
 
 **User Goal:** Update existing architecture document with new information and AI assistance
 
@@ -176,7 +315,7 @@ graph TD
 
 **Success Criteria:** Changes applied with changelog entry, version bump, and quality validation
 
-#### Flow Diagram
+#### Flow Diagram {#editing-flow-diagram}
 
 ```mermaid
 graph TD
@@ -215,7 +354,9 @@ graph TD
 - **Large Document Performance**: Full document always rendered with optimized scrolling performance
 - **Unsaved Changes Navigation**: Prompt user with save/discard/continue options
 
-### Export & Collaboration Flow
+### Export & Collaboration Flow {#export-collaboration-flow}
+
+Note: See the Publish/Export sequence under Core Document Editor Workflow for detailed export steps and quality gate integration.
 
 **User Goal:** Export completed document and handle team collaboration scenarios
 
@@ -226,7 +367,7 @@ graph TD
 
 **Success Criteria:** Document exported to docs/ with proper versioning and team notified of changes
 
-#### Flow Diagram
+#### Flow Diagram {#export-flow-diagram}
 
 ```mermaid
 graph TD
@@ -261,13 +402,13 @@ graph TD
 
 **Notes:** All flows maintain local persistence for state recovery and include comprehensive error messaging aligned with developer-familiar patterns
 
-## Wireframes & Mockups
+## Wireframes & Mockups {#wireframes-mockups}
 
 **Primary Design Files:** Figma workspace building on Lovable.ai foundation - [Design System Link TBD]
 
-### Key Screen Layouts
+### Key Screen Layouts {#key-screen-layouts}
 
-#### Enhanced Dashboard Layout
+#### Enhanced Dashboard Layout {#enhanced-dashboard-layout}
 
 **Purpose:** Evolved dashboard that maintains existing project-centric approach while elevating document creation workflows
 
@@ -281,7 +422,7 @@ graph TD
 **Interaction Notes:** Smooth transitions to document editor, preserved context navigation
 **Design File Reference:** [Figma Frame: Enhanced Dashboard - TBD]
 
-#### Comprehensive Document Editor
+#### Comprehensive Document Editor {#comprehensive-document-editor}
 
 **Purpose:** Central editing interface supporting section-based navigation, WYSIWYG editing, and AI collaboration
 
@@ -296,7 +437,7 @@ graph TD
 **Interaction Notes:** Seamless section navigation, inline editing with diff preview, quality gate real-time feedback
 **Design File Reference:** [Figma Frame: Document Editor Core - TBD]
 
-#### Floating AI Assistant Interface
+#### Floating AI Assistant Interface {#floating-ai-assistant-interface}
 
 **Purpose:** Persistent, repositionable AI chat interface for conversational co-authoring and document QA
 
@@ -310,7 +451,7 @@ graph TD
 **Interaction Notes:** Drag-and-drop positioning, resize handles, context-aware suggestions, streaming response rendering
 **Design File Reference:** [Figma Frames: AI Assistant States - TBD]
 
-#### Assumption Resolution Interface
+#### Assumption Resolution Interface {#assumption-resolution-interface}
 
 **Purpose:** Guided workflow for resolving document and section-level assumptions with AI assistance
 
@@ -325,7 +466,7 @@ graph TD
 **Interaction Notes:** Keyboard navigation support, contextual help integration, progress persistence
 **Design File Reference:** [Figma Frame: Assumption Resolution Flow - TBD]
 
-#### Quality Gates & Validation Panel
+#### Quality Gates & Validation Panel {#quality-gates-validation-panel}
 
 **Purpose:** Real-time validation feedback and quality assurance workflow integration
 
@@ -340,7 +481,7 @@ graph TD
 **Interaction Notes:** Click-to-navigate to problematic sections, inline fix suggestions, validation re-run triggers
 **Design File Reference:** [Figma Frame: Quality Gates Panel - TBD]
 
-#### Export & Versioning Interface
+#### Export & Versioning Interface {#export-versioning-interface}
 
 **Purpose:** Document publication workflow with version control and collaboration features
 
@@ -355,7 +496,7 @@ graph TD
 **Interaction Notes:** Real-time export preview, conflict resolution workflows, progress transparency
 **Design File Reference:** [Figma Frame: Export Interface - TBD]
 
-#### Mobile-Responsive Document Reader
+#### Mobile-Responsive Document Reader {#mobile-responsive-document-reader}
 
 **Purpose:** Mobile-optimized document viewing and light editing capabilities
 
@@ -369,7 +510,7 @@ graph TD
 **Interaction Notes:** Touch gestures for navigation, adaptive UI based on screen size, offline reading support
 **Design File Reference:** [Figma Frame: Mobile Document Reader - TBD]
 
-### AI Interface Component Library
+### AI Interface Component Library {#ai-interface-component-library}
 
 **Conversational Co-authoring Components:**
 - Chat message bubbles with AI/human identification
@@ -399,7 +540,7 @@ graph TD
 - Local vs. server sync status
 - Collaboration presence indicators
 
-### Comprehensive AI Journey Mapping
+### Comprehensive AI Journey Mapping {#comprehensive-ai-journey-mapping}
 
 **Document Creation Journey:**
 1. Template selection → AI assistant introduction
@@ -424,13 +565,13 @@ graph TD
 4. Validation retry → AI learning from previous failures
 5. Alternative approaches → AI fallback recommendations
 
-## Component Library / Design System
+## Component Library / Design System {#component-library-design-system}
 
 **Design System Approach:** Extend existing shadcn/ui + Tailwind CSS foundation with document-specific components, integrating AI functionality as natural extensions of familiar UI patterns rather than standalone interfaces.
 
-### Core Components
+### Core Components {#core-components}
 
-#### AI-Enhanced Button Component
+#### AI-Enhanced Button Component {#ai-enhanced-button-component}
 
 **Purpose:** Standard button component with integrated AI interaction states and streaming response indicators
 
@@ -447,7 +588,7 @@ graph TD
 
 **Usage Guidelines:** Always pair AI actions with clear intent labels. Use loading/streaming states to maintain user engagement during AI processing. Provide immediate visual feedback for AI interactions.
 
-#### Document Section Card
+#### Document Section Card {#document-section-card}
 
 **Purpose:** Container component for document sections with integrated editing states and AI assistance indicators
 
@@ -464,7 +605,7 @@ graph TD
 
 **Usage Guidelines:** Maintain clear state hierarchy. Use AI assistance indicators to show available help without overwhelming interface. Integrate quality feedback contextually within section flow.
 
-#### Floating AI Assistant
+#### Floating AI Assistant {#floating-ai-assistant}
 
 **Purpose:** Repositionable chat interface extending shadcn/ui Dialog and Sheet components
 
@@ -481,7 +622,7 @@ graph TD
 
 **Usage Guidelines:** Maintain persistent availability while respecting user workspace. Use contextual positioning to support current workflow. Provide clear conversation boundaries and context switching.
 
-#### Assumption Resolution Interface
+#### Assumption Resolution Interface {#assumption-resolution-interface-component}
 
 **Purpose:** Guided workflow component extending shadcn/ui Form patterns with AI-driven question presentation
 
@@ -498,7 +639,7 @@ graph TD
 
 **Usage Guidelines:** Maintain conversation flow while providing clear progress indicators. Use contextual help to explain assumption importance. Allow flexible interaction patterns (keyboard, mouse, voice).
 
-#### Quality Gate Validation Panel
+#### Quality Gate Validation Panel {#quality-gate-validation-panel}
 
 **Purpose:** Real-time validation feedback extending shadcn/ui Alert and Badge components
 
@@ -515,7 +656,7 @@ graph TD
 
 **Usage Guidelines:** Provide immediate feedback without disrupting workflow. Use progressive disclosure for error details. Integrate fix suggestions with AI assistance where helpful.
 
-#### Document Export Interface
+#### Document Export Interface {#document-export-interface}
 
 **Purpose:** Export workflow component extending shadcn/ui Progress patterns
 
@@ -532,7 +673,7 @@ graph TD
 
 **Usage Guidelines:** Maintain transparency throughout export process. Provide clear conflict resolution paths. Use success states to guide user toward next logical actions.
 
-#### Section Navigation (Table of Contents)
+#### Section Navigation (Table of Contents) {#section-navigation-toc}
 
 **Purpose:** Document navigation extending shadcn/ui ScrollArea with section state integration
 
@@ -549,7 +690,7 @@ graph TD
 
 **Usage Guidelines:** Provide clear document overview with actionable navigation. Use status indicators to guide user attention. Support both mouse and keyboard navigation patterns.
 
-#### AI Diff Preview Component
+#### AI Diff Preview Component {#ai-diff-preview-component}
 
 **Purpose:** Code diff visualization extending existing syntax highlighting with AI proposal integration
 
@@ -566,12 +707,12 @@ graph TD
 
 **Usage Guidelines:** Make change impact immediately clear. Provide AI explanation for complex modifications. Use familiar diff visualization patterns from developer tools.
 
-## Branding & Style Guide
+## Branding & Style Guide {#branding-style-guide}
 
-### Visual Identity
+### Visual Identity {#visual-identity}
 **Brand Guidelines:** Built on Hamlindigo Theme adaptation with muted, professional color palette. Extends existing CTRL FreaQ branding with AI-collaboration visual language that emphasizes sophisticated partnership between human and artificial intelligence. Logo features blue-to-purple gradient maintaining brand cohesion.
 
-### Color Palette
+### Color Palette {#color-palette}
 | Color Type | HSL Value | Hex Code | Usage |
 |------------|-----------|----------|-------|
 | Primary | `hsl(266, 8%, 80%)` | `#cbc8d0` | Main actions, active states, primary UI elements |
@@ -586,7 +727,7 @@ graph TD
 | AI-Active | `hsl(266, 76%, 48%)` | `#7c3aed` | Active AI processing, streaming responses |
 | AI-Inactive | `hsl(266, 16%, 47%)` | `#706876` | AI unavailable, muted states |
 
-### Dark Mode Color Palette
+### Dark Mode Color Palette {#dark-mode-color-palette}
 | Color Type | HSL Value | Hex Code | Usage |
 |------------|-----------|----------|-------|
 | Background | `hsl(266, 4%, 32%)` | `#504f54` | Main background (dark mode) |
@@ -596,16 +737,16 @@ graph TD
 | Sidebar Dark | `hsl(266, 59%, 10%)` | `#0f0a19` | Sidebar background (dark mode) |
 | Sidebar Primary Dark | `hsl(266, 76%, 48%)` | `#7c3aed` | Sidebar active (dark mode) |
 
-### Typography
+### Typography {#typography}
 
-#### Font Families
+#### Font Families {#font-families}
 - **Primary:** System font stack (uses browser/OS defaults for optimal performance and familiarity)
 - **Secondary:** Same as primary - no custom fonts loaded in current implementation  
 - **Monospace:** `ui-monospace, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace` (for code, diffs, technical content)
 
 **Note:** Current Lovable.ai implementation uses system fonts without custom web font loading, prioritizing performance and native OS appearance.
 
-#### Type Scale
+#### Type Scale {#type-scale}
 | Element | Size | Weight | Line Height |
 |---------|------|--------|-------------|
 | H1 | 2.25rem (36px) | 700 | 1.2 |
@@ -615,26 +756,26 @@ graph TD
 | Small | 0.875rem (14px) | 400 | 1.5 |
 | Code | 0.875rem (14px) | 500 | 1.4 |
 
-### Iconography
+### Iconography {#iconography}
 **Icon Library:** Lucide React (consistent with existing Lovable.ai implementation)
 **Usage Guidelines:** 
 - Use consistent icon sizing (16px, 20px, 24px)
 - Pair AI-specific actions with subtle animation indicators
 - Maintain accessibility with proper aria-labels
 
-### Spacing & Layout
+### Spacing & Layout {#spacing-layout}
 **Grid System:** CSS Grid with Tailwind CSS utilities
 **Spacing Scale:** Tailwind's default scale (0.25rem increments)
 - Component spacing: 1rem (16px) standard
 - Section spacing: 1.5rem (24px) between major elements
 - Document padding: 2rem (32px) for main content areas
 
-## Accessibility Requirements
+## Accessibility Requirements {#accessibility-requirements}
 
-### Compliance Target
+### Compliance Target {#compliance-target}
 **Standard:** WCAG 2.1 AA compliance with progressive enhancement toward AAA where feasible
 
-### Key Requirements
+### Key Requirements {#key-requirements}
 
 **Visual:**
 - Color contrast ratios: 4.5:1 minimum for normal text, 3:1 for large text
@@ -651,15 +792,15 @@ graph TD
 - Heading structure: Proper H1-H6 hierarchy matching document section structure
 - Form labels: Clear labeling for all assumption resolution and input interfaces
 
-### Testing Strategy
+### Testing Strategy {#accessibility-testing-strategy}
 - Automated accessibility testing integrated with CI/CD pipeline
 - Manual keyboard navigation testing for complex AI interaction flows
 - Screen reader testing with NVDA/JAWS for AI conversation interfaces
 - Color contrast validation for all AI-specific visual states
 
-## Responsiveness Strategy
+## Responsiveness Strategy {#responsiveness-strategy}
 
-### Breakpoints
+### Breakpoints {#breakpoints}
 | Breakpoint | Min Width | Max Width | Target Devices |
 |------------|-----------|-----------|----------------|
 | Mobile | 320px | 767px | Smartphones, basic document reading |
@@ -667,7 +808,7 @@ graph TD
 | Desktop | 1024px | 1439px | Laptops, full document creation |
 | Wide | 1440px | - | Large screens, multi-document workflows |
 
-### Adaptation Patterns
+### Adaptation Patterns {#adaptation-patterns}
 
 **Layout Changes:**
 - Mobile: Single column, collapsed sidebar, simplified AI assistant
@@ -693,12 +834,12 @@ graph TD
 - Desktop: Full keyboard shortcuts, drag-and-drop positioning
 - Wide: Advanced keyboard shortcuts, multi-window workflows
 
-## Animation & Micro-interactions
+## Animation & Micro-interactions {#animation-micro-interactions}
 
-### Motion Principles
+### Motion Principles {#motion-principles}
 **AI-Responsive Animation:** Subtle animations that communicate AI processing state and provide feedback for human-AI collaboration. Animations respect `prefers-reduced-motion` accessibility settings and can be globally disabled.
 
-### Key Animations
+### Key Animations {#key-animations}
 - **AI Thinking Indicator:** Subtle pulsing animation during AI processing (Duration: 1.5s, Easing: ease-in-out)
 - **Section State Transitions:** Smooth color/border transitions between section states (Duration: 200ms, Easing: ease-out)
 - **Floating Assistant Movement:** Physics-based positioning with snap-to-grid behavior (Duration: 300ms, Easing: cubic-bezier(0.2, 0, 0, 1))
@@ -706,25 +847,25 @@ graph TD
 - **Quality Gate Feedback:** Status badge color transitions with subtle bounce effect (Duration: 150ms, Easing: ease-bounce)
 - **Diff Highlight Animation:** Subtle highlight fade-in for proposed changes (Duration: 400ms, Easing: ease-in-out)
 
-## Performance Considerations
+## Performance Considerations {#performance-considerations}
 
-### Performance Goals
+### Performance Goals {#performance-goals}
 - **Page Load:** ≤ 2s Time to First Meaningful Paint on broadband
 - **Interaction Response:** ≤ 100ms for local interactions, ≤ 300ms for AI responses
 - **Document Rendering:** Full document render without lazy loading, optimized for documents up to 500 sections
 
-### Design Strategies
+### Design Strategies {#design-strategies}
 **AI Optimization:** Streaming UI updates for AI responses to maintain perceived performance during longer processing times. Use skeleton screens and progressive enhancement for AI-dependent features.
 
-## Next Steps
+## Next Steps {#next-steps}
 
-### Immediate Actions
+### Immediate Actions {#immediate-actions}
 1. **Create Figma Design System** - Build comprehensive component library based on specifications
 2. **Prototype AI Interactions** - Create interactive prototypes for floating assistant and assumption resolution flows  
 3. **Validate Information Architecture** - User testing of navigation structure and document editor workflow
 4. **Technical Architecture Handoff** - Provide detailed specifications to development team for implementation planning
 
-### Design Handoff Checklist
+### Design Handoff Checklist {#design-handoff-checklist}
 - [x] All user flows documented with Mermaid diagrams
 - [x] Component inventory complete with variants and states
 - [x] Accessibility requirements defined with WCAG 2.1 AA compliance

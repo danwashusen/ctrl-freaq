@@ -23,6 +23,28 @@ When this task is invoked:
 
 If a YAML Template has not been provided, list all templates from .bmad-core/templates or ask the user to provide another.
 
+## Documentation Anchor ID Standard
+
+**Requirement:** All markdown headings must include stable anchor IDs using the format `{#anchor-id}`.
+
+**Format:** `# Heading Text {#anchor-id}`
+
+**Naming Convention:**
+- Use kebab-case (lowercase with hyphens)
+- Keep concise but descriptive
+- Include hierarchy context for sub-sections when helpful
+- Ensure uniqueness within each document
+
+**Examples:**
+```markdown
+# Architecture Document {#architecture-document}
+## Library-First Implementation {#library-first-implementation}
+### Constitutional Requirements {#library-constitutional-requirements}
+#### Package Structure {#package-structure-standard}
+```
+
+**Implementation:** When creating or editing documentation, add `{#anchor-id}` immediately after each heading text on the same line. This enables precise cross-referencing, table of contents generation, and stable deep linking.
+
 ## CRITICAL: Resolve Section Assumptions Format
 
 Scoped override: Only within ‘Resolve Section Assumptions’, suspend the ‘Mandatory Elicitation Format’. Outside this section, the standard ‘Mandatory Elicitation Format’ applies.

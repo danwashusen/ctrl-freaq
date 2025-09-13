@@ -301,6 +301,8 @@ Deliver a comprehensive Document Editor that serves as the central component for
 
 ### Core Document Editor Workflow
 
+Authoritative UX workflow and diagrams live in `docs/front-end-spec.md#core-document-editor-workflow`. This section provides a PRD-level summary only.
+
 #### Overview
 The Document Editor follows an 8-step workflow for comprehensive document creation and editing:
 
@@ -398,4 +400,3 @@ Enhance the Document Editor with advanced quality assurance, comprehensive expor
 - AC1: Per-section notes capability (author, timestamp) within editor.
 - AC2: Notes are non-blocking and export-excluded but visible in editor.
 - AC3: Notes included in QA snapshot context for internal tracking.
-

@@ -1,8 +1,8 @@
-# CTRL FreaQ Frontend Architecture Document
+# CTRL FreaQ Frontend Architecture Document {#frontend-architecture-document}
 
-## Template and Framework Selection
+## Template and Framework Selection {#template-framework-selection}
 
-### Architectural Decision: React Frontend with Express.js Backend
+### Architectural Decision: React Frontend with Express.js Backend {#architectural-decision-react-express}
 
 After analyzing the existing codebase and project requirements, this architecture adopts a **decoupled frontend approach** using React as the primary UI framework with Express.js as the backend API server. This decision is based on:
 
@@ -13,14 +13,14 @@ After analyzing the existing codebase and project requirements, this architectur
 
 The Express.js server serves as a **pure API server**, exposing REST endpoints and SSE streams consumed by the React frontend. This provides a clear separation of concerns while leveraging React's strengths for complex UI interactions.
 
-### Frontend Starter Analysis
+### Frontend Starter Analysis {#frontend-starter-analysis}
 
 **Foundation Used**: Custom React + TypeScript setup based on lovable.ai generated code
 - **Location**: `docs/examples/ctrl-freaq-ui`
 - **Key Technologies**: React 18, TypeScript, Vite, React Router v6, JWT Auth, shadcn/ui, TanStack Query
 - **Constraints**: Must maintain compatibility with existing component patterns and routing structure
 
-### Assumptions and Resolutions
+### Assumptions and Resolutions {#assumptions-resolutions}
 
 | Assumption | Resolution |
 |------------|------------|
@@ -30,15 +30,16 @@ The Express.js server serves as a **pure API server**, exposing REST endpoints a
 | Streaming AI responses need special handling | React supports SSE/WebStreams natively |
 | Library-first architecture applies to frontend | Create React component libraries with Storybook documentation |
 
-### Change Log
+### Change Log {#ui-change-log}
 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
+| 2025-09-13 | 1.1 | Recreated from Old UI Architecture Document | Winston AI |
 | 2025-09-12 | 1.0 | Initial frontend architecture with React/Express.js decoupling | Architect |
 
-## Frontend Tech Stack
+## Frontend Tech Stack {#frontend-tech-stack}
 
-### Technology Stack Table
+### Technology Stack Table {#technology-stack-table}
 
 | Category | Technology | Version | Purpose | Rationale |
 |----------|------------|---------|---------|-----------|
@@ -49,13 +50,12 @@ The Express.js server serves as a **pure API server**, exposing REST endpoints a
 | Build Tool | Vite | 5.x | Build and dev server | Fast HMR, ESM native, excellent DX |
 | Styling | Tailwind CSS | 3.4.x | Utility-first CSS | Rapid development, consistent design system |
 | Testing | Vitest + React Testing Library | 1.x / 14.x | Unit and integration testing | Vite native, excellent React support |
-| Component Library | shadcn/ui | latest | UI components | Accessible, customizable components, TypeScript first |
 | Form Handling | React Hook Form + Zod | 7.x / 3.x | Form state and validation | Performance, TypeScript integration |
 | Animation | Framer Motion | 11.x | Animations and transitions | Declarative API, gesture support |
 | Logging | Pino | 9.5.0 | Browser logging with backend transmission | High-performance JSON logging, browser-optimized |
 | Dev Tools | React DevTools + Vite Plugin | latest | Development experience | Debugging, performance profiling |
 
-## Project Structure
+## Project Structure {#project-structure}
 
 ```plaintext
 src/
@@ -163,9 +163,9 @@ src/
     └── fixtures/
 ```
 
-## Component Standards
+## Component Standards {#component-standards}
 
-### Component Template
+### Component Template {#component-template}
 
 ```typescript
 // src/features/[feature]/components/[component-name].tsx
@@ -182,7 +182,7 @@ export interface ComponentNameProps {
 
 /**
  * ComponentName - Brief description of component purpose
- * 
+ *
  * @example
  * ```tsx
  * <ComponentName onAction={handleAction}>
@@ -212,7 +212,7 @@ export const ComponentName: FC<ComponentNameProps> = memo(({
 ComponentName.displayName = 'ComponentName';
 ```
 
-### Naming Conventions
+### Naming Conventions {#naming-conventions}
 
 | Element | Convention | Example |
 |---------|------------|---------|
@@ -226,9 +226,9 @@ ComponentName.displayName = 'ComponentName';
 | CSS classes | kebab-case | `editor-toolbar` |
 | Test files | [name].test.tsx | `DocumentEditor.test.tsx` |
 
-## State Management
+## State Management {#state-management}
 
-### Store Structure
+### Store Architecture {#store-architecture}
 
 ```plaintext
 src/stores/
@@ -239,7 +239,7 @@ src/stores/
 └── ui-store.ts            # UI preferences and state
 ```
 
-### State Management Template
+### State Management Template {#state-management-template}
 
 ```typescript
 // src/stores/document-store.ts
@@ -263,13 +263,13 @@ interface DocumentStore {
 
   // Computed getters
   get activeDocument(): Document | null;
-  
+
   // Actions
   setActiveDocument: (id: string) => void;
   updateDocument: (id: string, updates: Partial<Document>) => void;
   addPendingChange: (documentId: string, patch: PatchDiff) => void;
   clearPendingChanges: (documentId: string) => void;
-  
+
   // Async actions (integrate with API)
   fetchDocument: (id: string) => Promise<void>;
   saveDocument: (id: string) => Promise<void>;
@@ -287,8 +287,8 @@ export const useDocumentStore = create<DocumentStore>()(
         // Computed getters
         get activeDocument() {
           const state = get();
-          return state.activeDocumentId 
-            ? state.documents[state.activeDocumentId] 
+          return state.activeDocumentId
+            ? state.documents[state.activeDocumentId]
             : null;
         },
 
@@ -325,9 +325,9 @@ export const useDocumentStore = create<DocumentStore>()(
         saveDocument: async (id) => {
           const document = get().documents[id];
           const patches = get().pendingChanges[id] || [];
-          
+
           await documentApi.saveDocument(id, { document, patches });
-          
+
           set((state) => {
             state.clearPendingChanges(id);
           });
@@ -344,9 +344,9 @@ export const useDocumentStore = create<DocumentStore>()(
 );
 ```
 
-## API Integration
+## API Integration {#api-integration}
 
-### Service Template
+### Service Template {#service-template}
 
 ```typescript
 // src/lib/api/services/document-service.ts
@@ -450,7 +450,7 @@ class DocumentService {
 export const documentService = new DocumentService();
 ```
 
-### API Client Configuration
+### API Client Configuration {#api-client-configuration}
 
 ```typescript
 // src/lib/api/client.ts
@@ -498,7 +498,7 @@ export class ApiClient {
         code: 'unknown_error',
         message: 'An unexpected error occurred',
       }));
-      
+
       throw new ApiError(
         error.code || 'unknown_error',
         error.message || response.statusText,
@@ -584,9 +584,9 @@ export class ApiError extends Error {
 }
 ```
 
-## Routing
+## Routing {#routing}
 
-### Route Configuration
+### Route Configuration {#route-configuration}
 
 ```typescript
 // src/app/router/routes.tsx
@@ -617,11 +617,11 @@ export const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          
+
           {/* Projects */}
           <Route path="/projects" element={<ProjectList />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
-          
+
           {/* Documents */}
           <Route path="/documents/new" element={<NewDocument />} />
           <Route path="/documents/:documentId" element={<DocumentView />} />
@@ -657,163 +657,358 @@ export const ProtectedRoute = () => {
 };
 ```
 
-## Styling Guidelines
+## Document Editor Architecture {#document-editor-architecture}
 
-### Styling Approach
+### Core Components {#editor-core-components}
 
-The project uses **Tailwind CSS** for utility-first styling combined with **shadcn/ui** components. This approach provides:
+#### WYSIWYG Markdown Editor {#wysiwyg-markdown-editor}
+- **Purpose**: Provide rich text editing experience while maintaining Markdown compatibility
+- **Implementation**: Milkdown v7.15.5 (https://github.com/Milkdown/milkdown) - Plugin-based WYSIWYG markdown editor built on ProseMirror
+- **Features**:
+  - Real-time WYSIWYG editing with Markdown source compatibility
+  - Extensible plugin system for custom functionality
+  - Built-in support for tables, code blocks, math equations
+  - Theme system with customizable styling
+  - Collaborative editing capabilities via Yjs integration
+  - Command system for keyboard shortcuts and toolbar actions
+  - TypeScript support with comprehensive type definitions
 
-1. **Rapid Development**: Utility classes for quick prototyping
-2. **Consistency**: Design tokens enforced through Tailwind config
-3. **Customization**: shadcn/ui components are fully customizable
-4. **Performance**: PurgeCSS removes unused styles in production
-5. **Dark Mode**: Built-in dark mode support with CSS variables
+**Milkdown Integration Architecture**:
+- **Core Editor**: Milkdown editor instance per section with isolated state
+- **Plugin Configuration**: Custom plugins for section-specific behavior (status indicators, assumptions integration)
+- **Theme Integration**: Custom theme aligned with application design system
+- **Change Tracking**: Integration with Git-style patch engine via Milkdown's onChange API
+- **Collaborative Features**: Yjs integration for real-time collaboration (Phase 2)
+- **Performance**: Editor instance pooling for memory management across sections
 
-### Global Theme Variables
+#### Git-Style Patch Engine (`packages/editor-core`) {#git-style-patch-engine}
+- **Purpose**: Track document changes as atomic patch operations
+- **Key Functions**:
+  - `createPatch(original: string, modified: string): Patch[]`
+  - `applyPatch(content: string, patches: Patch[]): string`
+  - `previewPatch(content: string, patches: Patch[]): DiffView`
+- **Benefits**: Granular change tracking, conflict resolution, undo/redo capabilities
 
-```css
-/* src/styles/globals.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+#### Local Persistence Layer (`packages/editor-persistence`) {#local-persistence-layer}
+- **Purpose**: Manage pending changes before server persistence
+- **Storage Strategy**:
+  - Client-side storage (localStorage/IndexedDB via localforage)
+  - Per-section patch diffs with timestamps
+  - Automatic replay on page reload
+- **Conflict Resolution**: Last-write-wins with user notification
 
-@layer base {
-  :root {
-    /* Colors */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    
-    --ring: 222.2 84% 4.9%;
-    
-    /* Spacing */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-    --spacing-2xl: 3rem;
-    --spacing-3xl: 4rem;
-    
-    /* Typography */
-    --font-sans: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-    
-    --text-xs: 0.75rem;
-    --text-sm: 0.875rem;
-    --text-base: 1rem;
-    --text-lg: 1.125rem;
-    --text-xl: 1.25rem;
-    --text-2xl: 1.5rem;
-    --text-3xl: 1.875rem;
-    --text-4xl: 2.25rem;
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-    
-    /* Border Radius */
-    --radius: 0.5rem;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --radius-lg: 0.5rem;
-    --radius-xl: 0.75rem;
-    --radius-2xl: 1rem;
-    --radius-full: 9999px;
-    
-    /* Animation */
-    --animation-fast: 150ms;
-    --animation-base: 250ms;
-    --animation-slow: 350ms;
-  }
-  
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    
-    --ring: 212.7 26.8% 83.9%;
-  }
+#### Section Navigation & State Management {#section-navigation-state-management}
+- **Table of Contents**: Interactive navigation with section status indicators
+- **Section States**:
+  - `idle` (not selected)
+  - `read_mode` (viewing content)
+  - `edit_mode` (WYSIWYG editing)
+  - `has_pending` (unsaved changes)
+  - `saving` (persistence in progress)
+- **State Transitions**: Managed through centralized state machine
+
+#### Document State Manager (`packages/editor-persistence`) {#document-state-manager}
+- **Purpose**: Manages document state including both saved content and pending changes
+- **Core Functions**:
+  - `getCurrentState(): DocumentState` - Merge saved content with pending patches
+  - `prepareForAssumptionResolution(sectionId: string): AssumptionContext` - Prepare state for assumption APIs
+  - `applyPendingPatches(savedContent: string, patches: PatchDiff[]): string` - Apply patches to content
+  - `trackSectionChanges(sectionId: string, patches: PatchDiff[])` - Track pending changes per section
+  - `hasUnsavedChanges(sectionId?: string): boolean` - Check for unsaved changes
+- **State Tracking**:
+  - Per-section pending patches with timestamps
+  - Automatic replay on page load
+  - Delta compression for large documents
+  - Conflict detection for collaborative editing
+
+#### Integration Points {#editor-integration-points}
+- **AI Assistance**: Conversational co-authoring within editor context with full document state
+- **Quality Gates**: Real-time validation during editing with pending changes context
+- **Export System**: Batch conversion of pending changes to final document format
+- **Collaboration**: Section-level editing indicators and conflict warnings
+- **Assumption Resolution**: Full document state including unsaved changes for context-aware assumptions
+
+### Data Flow Architecture {#data-flow-architecture}
+
+```mermaid
+graph TD
+    A[User Action] --> B[WYSIWYG Editor]
+    B --> C[Patch Engine]
+    C --> D[Local Persistence]
+    D --> E[State Manager]
+    E --> F[UI Updates]
+
+    G[AI Chat] --> H[Proposal Generator]
+    H --> C
+
+    I[Save Action] --> J[Batch Processor]
+    J --> K[Server API]
+    K --> L[Document Repository]
+
+    M[Page Load] --> N[Pending Changes Loader]
+    N --> O[Patch Replayer]
+    O --> B
+
+    P[Assumption Resolution Trigger] --> Q[Document State Manager]
+    Q --> R[Merge Saved + Pending]
+    R --> S[Assumption API with Full State]
+    S --> T[LLM Analysis with Context]
+    T --> U[Generated Assumptions + Inferences]
+    U --> V[Assumption Resolution UI]
+
+    W[Related Section Changes] --> Q
+    X[Template Analysis] --> S
+
+    Y[Content Generation Request] --> Z[Template Resolver Service]
+    Z --> AA[Load Document Template]
+    Z --> BB[Find Section Template]
+    Z --> CC[Extract Generation Config]
+    CC --> DD[Content Generation API]
+    DD --> EE[LLM with Instructions + Template]
+    EE --> FF[Stream Generated Content]
+
+    Q --> DD
+    V --> Y
+```
+
+### Performance Considerations {#editor-performance-considerations}
+- **Incremental Loading**: Load document sections on-demand as user navigates
+- **Debounced Persistence**: Batch local changes to reduce storage operations
+- **Diff Optimization**: Use efficient diff algorithms to minimize patch size
+- **Memory Management**: Clear unused editor instances when navigating between sections
+
+### Document State Synchronization {#document-state-synchronization}
+
+#### State Management Strategy {#state-management-strategy}
+The Document Editor maintains multiple layers of state to support real-time editing while ensuring data consistency:
+
+1. **Server State**: Last saved version of each section stored in database
+2. **Client Cache**: Local copy of saved state for offline capability
+3. **Pending Changes**: Git-style patch diffs for each modified section
+4. **Merged State**: Real-time combination of saved state + pending patches
+
+#### State Synchronization Patterns {#state-synchronization-patterns}
+
+**For AI Operations** (Assumptions, Chat, Proposals):
+- Always send complete merged state including pending changes
+- Use delta compression for large documents (>100KB)
+- Include section dependency graph for context understanding
+- Cache merged state to avoid recomputation per API call
+
+**For Collaborative Editing**:
+- Broadcast pending changes to other users in real-time
+- Implement operational transformation for conflict resolution
+- Use section-level locking to prevent simultaneous edits
+- Maintain activity log for audit and rollback capability
+
+**For Persistence Operations**:
+- Batch multiple section changes into single save operation
+- Use optimistic updates with rollback on server errors
+- Implement automatic save with user-configurable intervals
+- Preserve patch history for undo/redo functionality
+
+#### API Integration Patterns {#api-integration-patterns}
+
+```typescript
+// Example: Preparing document state for assumption resolution
+interface DocumentState {
+  sections: Array<{
+    id: string;
+    savedContent: string;        // Last saved version
+    pendingPatches: PatchDiff[]; // Unsaved changes
+    mergedContent: string;       // Computed: savedContent + patches
+    lastModified: timestamp;
+    hasConflicts: boolean;
+  }>;
+  metadata: {
+    documentVersion: string;
+    lastSyncTime: timestamp;
+    conflictResolution: 'last-write-wins' | 'manual';
+  };
 }
 
-@layer utilities {
-  /* Custom utilities */
-  .animate-in {
-    animation-duration: var(--animation-base);
-    animation-fill-mode: both;
-  }
-  
-  .fade-in {
-    animation-name: fadeIn;
-  }
-  
-  .slide-in-from-top {
-    animation-name: slideInFromTop;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  @keyframes slideInFromTop {
-    from { transform: translateY(-10px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+// Usage in assumption resolution
+POST /api/v1/documents/{docId}/assumptions/query
+{
+  "sectionId": "SEC123",
+  "currentState": {
+    "sections": [
+      {
+        "id": "SEC123",
+        "content": "merged content with pending changes",
+        "hasUnsavedChanges": true
+      },
+      // Include related sections for context
+      ...relatedSections
+    ]
   }
 }
 ```
 
-## Testing Requirements
+#### Performance Optimizations {#state-performance-optimizations}
 
-### Component Test Template
+- **State Compression**: Use diff-based compression for large documents
+- **Selective Synchronization**: Only send changed sections to APIs
+- **Smart Caching**: Cache assumption results per document state hash
+- **Background Processing**: Pre-compute assumptions for likely next sections
+- **Network Optimization**: Batch API calls and use HTTP/2 multiplexing
+
+#### Error Handling & Recovery {#state-error-handling-recovery}
+
+- **Connection Loss**: Queue pending changes locally, sync on reconnect
+- **Merge Conflicts**: Present diff view with manual resolution options
+- **Server Errors**: Rollback optimistic updates, preserve user changes
+- **Data Corruption**: Automatic backup creation before major operations
+
+### Template Resolution & Content Generation {#template-resolution-content-generation}
+
+#### Template Hierarchy Traversal {#template-hierarchy-traversal}
+The Template Resolver Service navigates complex document template hierarchies to find section-specific configuration:
+
+```typescript
+interface TemplateSection {
+  id: string;                 // e.g., "introduction", "high-level-architecture"
+  title?: string;
+  instruction?: string;       // LLM instructions for content generation
+  template?: string;          // Template text for LLM to render/fill
+  type?: 'paragraphs'|'bullet-list'|'numbered-list'|'table'|'mermaid'|'custom';
+  sections?: TemplateSection[]; // nested sub-sections
+  decisionAggressivenessDefault?: 'conservative'|'balanced'|'yolo';
+}
+
+// Traversal algorithm
+function findSectionTemplate(documentTemplate: DocumentTemplate, sectionId: string): TemplateSection | null {
+  // Breadth-first search through nested sections
+  const queue = [...documentTemplate.sections];
+
+  while (queue.length > 0) {
+    const section = queue.shift();
+    if (section.id === sectionId) {
+      return section;
+    }
+    if (section.sections) {
+      queue.push(...section.sections);
+    }
+  }
+
+  return null;
+}
+```
+
+#### Generation Configuration Extraction {#generation-configuration-extraction}
+Extract all generation-relevant configuration with proper inheritance:
+
+```typescript
+interface GenerationConfig {
+  instruction?: string;
+  template?: string;
+  type?: string;
+  aggressivenessPolicy: 'Conservative' | 'Balanced' | 'YOLO';
+  maxTokens?: number;
+  temperature?: number;
+}
+
+function extractGenerationConfig(
+  sectionTemplate: TemplateSection,
+  documentTemplate: DocumentTemplate
+): GenerationConfig {
+  return {
+    instruction: sectionTemplate.instruction,
+    template: sectionTemplate.template,
+    type: sectionTemplate.type,
+    // Inheritance: section -> document -> system default
+    aggressivenessPolicy:
+      sectionTemplate.decisionAggressivenessDefault ||
+      documentTemplate.decisionAggressivenessDefault ||
+      'Balanced',
+    maxTokens: sectionTemplate.maxTokens || documentTemplate.maxTokens || 4000,
+    temperature: sectionTemplate.temperature || documentTemplate.temperature || 0.7
+  };
+}
+```
+
+#### Template Caching Strategy {#template-caching-strategy}
+
+**Cache Structure**:
+```typescript
+interface TemplateCache {
+  templates: Map<string, CachedTemplate>;     // templateId -> template
+  sections: Map<string, CachedSection>;       // sectionKey -> resolved config
+  lruOrder: string[];                         // LRU tracking
+  maxSize: number;                           // Cache size limit
+}
+
+interface CachedTemplate {
+  template: DocumentTemplate;
+  version: string;
+  loadedAt: timestamp;
+  accessCount: number;
+}
+
+interface CachedSection {
+  templateId: string;
+  sectionId: string;
+  config: GenerationConfig;
+  templateVersion: string;
+  resolvedAt: timestamp;
+}
+```
+
+**Cache Operations**:
+- **Cache Key**: `${templateId}:${sectionId}:${templateVersion}` for section configs
+- **Invalidation**: Version-based - clear all entries when template version changes
+- **LRU Eviction**: Remove least recently used templates when cache size exceeded
+- **Background Refresh**: Pre-load commonly used templates during low traffic
+- **Cache Warming**: Load document template when first section is accessed
+
+#### Content Generation Pipeline {#content-generation-pipeline}
+
+```typescript
+async function generateSectionContent(sectionId: string, request: ContentGenerationRequest) {
+  // 1. Resolve template with caching
+  const cacheKey = `${request.documentId}:${sectionId}`;
+  let config = templateCache.get(cacheKey);
+
+  if (!config || config.templateVersion !== currentTemplateVersion) {
+    const documentTemplate = await templateResolver.loadDocumentTemplate(request.templateId);
+    const sectionTemplate = templateResolver.findSectionTemplate(documentTemplate, sectionId);
+
+    if (!sectionTemplate) {
+      throw new Error(`Section template not found: ${sectionId}`);
+    }
+
+    config = templateResolver.extractGenerationConfig(sectionTemplate, documentTemplate);
+    templateCache.set(cacheKey, config);
+  }
+
+  // 2. Build context-aware prompt
+  const prompt = buildContentGenerationPrompt({
+    instruction: config.instruction,
+    template: config.template,
+    documentState: request.currentDocumentState,
+    resolvedAssumptions: request.resolvedAssumptions,
+    sectionType: config.type
+  });
+
+  // 3. Stream LLM generation with progress events
+  return streamLLMGeneration(prompt, {
+    maxTokens: config.maxTokens,
+    temperature: config.temperature
+  });
+}
+```
+
+#### Error Handling & Fallbacks {#template-error-handling-fallbacks}
+
+- **Template Not Found**: Use default generation strategy with basic instructions
+- **Invalid Template Syntax**: Validate before sending to LLM, fall back to instruction-only mode
+- **Cache Corruption**: Rebuild cache from source templates on validation failure
+- **Network Failures**: Use cached templates during template service outages
+- **LLM Errors**: Retry with simplified prompt if generation fails
+
+## Testing Requirements {#testing-requirements}
+
+### Component Test Template {#component-test-template}
 
 ```typescript
 // src/features/document-editor/components/__tests__/DocumentEditor.test.tsx
@@ -875,7 +1070,7 @@ describe('DocumentEditor', () => {
 
   it('handles user text input', async () => {
     const user = userEvent.setup();
-    
+
     render(
       <DocumentEditor documentId="doc-1" />,
       { wrapper: createWrapper() }
@@ -941,7 +1136,7 @@ describe('DocumentEditor', () => {
 });
 ```
 
-### Testing Best Practices
+### Testing Best Practices {#testing-best-practices}
 
 1. **Unit Tests**: Test individual components in isolation
 2. **Integration Tests**: Test component interactions
@@ -950,26 +1145,26 @@ describe('DocumentEditor', () => {
 5. **Test Structure**: Arrange-Act-Assert pattern
 6. **Mock External Dependencies**: API calls, routing, state management
 
-## Browser Logging with Pino
+## Browser Logging with Pino {#browser-logging-pino}
 
-### Logging Architecture
+### Logging Architecture {#frontend-logging-architecture}
 - **Technology**: Pino for browser-optimized structured logging
 - **Backend Transmission**: Automatic error transmission to `/api/v1/logs` endpoint
 - **Context Management**: Component and feature-specific child loggers
 - **Performance Tracking**: Web Vitals and component render timing integration
-- **Environment Configuration**: 
+- **Environment Configuration**:
   - Development: Console output with pretty formatting
   - Production: Error-only transmission to backend
   - Test: Silent mode with mocked transmission
 
-### Browser-Specific Considerations
+### Browser-Specific Considerations {#browser-specific-considerations}
 - Serialization of browser objects (Events, Errors) for backend compatibility
 - RequestId correlation between frontend and backend logs
 - User context (userId, sessionId) attached to all log entries
 - Automatic URL and user agent capture for debugging
 - Graceful fallback to console when backend transmission fails
 
-## Environment Configuration
+## Environment Configuration {#environment-configuration}
 
 ```bash
 # .env.development
@@ -1000,9 +1195,9 @@ VITE_MAX_FILE_SIZE=1048576
 VITE_ENABLE_DEV_TOOLS=false
 ```
 
-## Frontend Developer Standards
+## Frontend Developer Standards {#frontend-developer-standards}
 
-### Critical Coding Rules
+### Critical Coding Rules {#critical-coding-rules}
 
 1. **Never commit sensitive data** - Use environment variables for all secrets
 2. **Always use TypeScript** - No `any` types except when absolutely necessary
@@ -1017,9 +1212,9 @@ VITE_ENABLE_DEV_TOOLS=false
 11. **Use semantic HTML** - Proper ARIA labels and keyboard navigation
 12. **Optimize bundle size** - Monitor with Bundle Analyzer, tree-shake imports
 
-### Quick Reference
+### Quick Reference {#quick-reference}
 
-#### Common Commands
+#### Common Commands {#common-commands}
 ```bash
 # Development
 npm run dev              # Start dev server (Vite)
@@ -1039,7 +1234,7 @@ npm run generate:feature    # Generate feature module
 npm run generate:api        # Generate API service
 ```
 
-#### Key Import Patterns
+#### Key Import Patterns {#key-import-patterns}
 ```typescript
 // Components
 import { Button } from '@/components/ui/button';
@@ -1060,23 +1255,23 @@ import { formatDate } from '@/lib/utils/format';
 import type { Document } from '@/types/models';
 ```
 
-#### File Naming Conventions
+#### File Naming Conventions {#file-naming-conventions}
 ```
 components/
   Button.tsx              # Component
   button.test.tsx        # Test
   button.stories.tsx     # Storybook
-  
+
 hooks/
   use-auth.ts            # Hook
   use-auth.test.ts       # Test
-  
+
 services/
   document-service.ts    # Service
   document-service.test.ts # Test
 ```
 
-#### Project-Specific Patterns
+#### Project-Specific Patterns {#project-specific-patterns}
 ```typescript
 // Feature module export pattern
 // features/document-editor/index.ts
@@ -1119,7 +1314,7 @@ useEffect(() => {
 
 ---
 
-## Integration with Express.js Backend
+## Integration with Express.js Backend {#integration-express-backend}
 
 The React frontend communicates with the Express.js backend through:
 
@@ -1129,7 +1324,7 @@ The React frontend communicates with the Express.js backend through:
 
 All API calls include Clerk authentication tokens and follow the error handling patterns defined in the backend architecture document.
 
-## Constitutional Compliance
+## Constitutional Compliance {#constitutional-compliance-frontend}
 
 This frontend architecture maintains alignment with Constitutional requirements:
 
