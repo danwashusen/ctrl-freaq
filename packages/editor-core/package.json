@@ -1,0 +1,51 @@
+{
+  "name": "@ctrl-freaq/editor-core",
+  "version": "0.1.0",
+  "description": "WYSIWYG editor core library for CTRL FreaQ documentation editing",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "ctrl-freaq-editor-core": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist",
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "zod": "^3.23.0",
+    "@tiptap/core": "^2.0.0",
+    "@tiptap/pm": "^2.0.0",
+    "@tiptap/extension-document": "^2.0.0",
+    "@tiptap/extension-paragraph": "^2.0.0",
+    "@tiptap/extension-text": "^2.0.0",
+    "prosemirror-state": "^1.4.0",
+    "prosemirror-view": "^1.32.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./editor/*": {
+      "import": "./dist/editor/*.js",
+      "types": "./dist/editor/*.d.ts"
+    },
+    "./extensions/*": {
+      "import": "./dist/extensions/*.js",
+      "types": "./dist/extensions/*.d.ts"
+    }
+  }
+}

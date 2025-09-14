@@ -1,0 +1,155 @@
+openapi: 3.0.0
+info:
+  title: Health Check API
+  version: 0.1.0
+  description: Health check endpoint for CTRL FreaQ API server
+
+servers:
+  - url: http://localhost:5001
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns server health status and basic metadata
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - timestamp
+                  - version
+                  - service
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                    description: Health status
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server timestamp
+                    example: "2025-09-13T10:00:00.000Z"
+                  version:
+                    type: string
+                    description: Application version
+                    example: "0.1.0"
+                  service:
+                    type: string
+                    description: Service name
+                    example: "ctrl-freaq-api"
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+                    example: 3600
+                  environment:
+                    type: string
+                    description: Current environment
+                    example: "development"
+                  database:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [connected, disconnected]
+                        example: connected
+                      type:
+                        type: string
+                        example: "sqlite"
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - error
+                  - timestamp
+                properties:
+                  status:
+                    type: string
+                    enum: [unhealthy]
+                    example: unhealthy
+                  error:
+                    type: string
+                    description: Error description
+                    example: "Database connection failed"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-13T10:00:00.000Z"
+
+  /api/v1/health:
+    get:
+      summary: Versioned health check endpoint
+      description: Returns server health status via versioned API path
+      operationId: getVersionedHealth
+      tags:
+        - System
+      responses:
+        '200':
+          $ref: '#/paths/~1health/get/responses/200'
+        '503':
+          $ref: '#/paths/~1health/get/responses/503'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - service
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        service:
+          type: string
+        uptime:
+          type: number
+        environment:
+          type: string
+        database:
+          type: object
+          properties:
+            status:
+              type: string
+            type:
+              type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - requestId
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        requestId:
+          type: string
+          description: Request correlation ID
+        timestamp:
+          type: string
+          format: date-time

@@ -1,0 +1,48 @@
+{
+  "name": "@ctrl-freaq/template-resolver",
+  "version": "0.1.0",
+  "description": "Template resolution and dependency management library for CTRL FreaQ",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "ctrl-freaq-template-resolver": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist",
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "zod": "^3.23.0",
+    "yaml": "^2.3.0",
+    "glob": "^10.0.0",
+    "path-to-regexp": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./resolvers/*": {
+      "import": "./dist/resolvers/*.js",
+      "types": "./dist/resolvers/*.d.ts"
+    },
+    "./dependencies/*": {
+      "import": "./dist/dependencies/*.js",
+      "types": "./dist/dependencies/*.d.ts"
+    }
+  }
+}

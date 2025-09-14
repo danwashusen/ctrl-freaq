@@ -1,0 +1,375 @@
+openapi: 3.0.0
+info:
+  title: Projects API
+  version: 0.1.0
+  description: Project management endpoints for CTRL FreaQ MVP
+
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local development server
+
+paths:
+  /projects:
+    get:
+      summary: Get user's project
+      description: Returns the current user's project (single project per user in MVP)
+      operationId: getUserProject
+      tags:
+        - Projects
+      security:
+        - ClerkAuth: []
+      responses:
+        '200':
+          description: User's project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Create user's project
+      description: Creates the initial project for the user (auto-called on first login)
+      operationId: createUserProject
+      tags:
+        - Projects
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Project name
+                  example: "My Project"
+                description:
+                  type: string
+                  maxLength: 500
+                  description: Optional project description
+                  example: "AI-optimized documentation project"
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/{projectId}:
+    get:
+      summary: Get project by ID
+      description: Retrieves a specific project by ID (user must be owner)
+      operationId: getProjectById
+      tags:
+        - Projects
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project ID
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      summary: Update project
+      description: Updates project properties (name, description)
+      operationId: updateProject
+      tags:
+        - Projects
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: New project name
+                description:
+                  type: string
+                  maxLength: 500
+                  description: New project description
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/config:
+    get:
+      summary: Get user configuration
+      description: Retrieves all configuration settings for the current user
+      operationId: getUserConfig
+      tags:
+        - Configuration
+      security:
+        - ClerkAuth: []
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                example:
+                  theme: "dark"
+                  logLevel: "info"
+                  editorPreferences: '{"fontSize": 14, "tabSize": 2}'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      summary: Update user configuration
+      description: Updates configuration settings for the current user
+      operationId: updateUserConfig
+      tags:
+        - Configuration
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+              example:
+                theme: "dark"
+                logLevel: "debug"
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    Project:
+      type: object
+      required:
+        - id
+        - ownerUserId
+        - name
+        - slug
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Project ID
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        ownerUserId:
+          type: string
+          description: Clerk user ID
+          example: "user_2abc123def456"
+        name:
+          type: string
+          description: Project name
+          example: "My Project"
+        slug:
+          type: string
+          description: URL-friendly identifier
+          example: "my-project"
+        description:
+          type: string
+          nullable: true
+          description: Project description
+          example: "AI-optimized documentation project"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-09-13T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-09-13T10:00:00.000Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - requestId
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Project name is required"
+        requestId:
+          type: string
+          description: Request correlation ID
+          example: "req_abc123"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-09-13T10:00:00.000Z"
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "VALIDATION_ERROR"
+            message: "Invalid request parameters"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Authentication required"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "FORBIDDEN"
+            message: "You do not have permission to access this resource"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "NOT_FOUND"
+            message: "Project not found"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "CONFLICT"
+            message: "Project already exists for this user"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "INTERNAL_ERROR"
+            message: "An unexpected error occurred"
+            requestId: "req_abc123"
+            timestamp: "2025-09-13T10:00:00.000Z"
+
+  securitySchemes:
+    ClerkAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk JWT authentication token
