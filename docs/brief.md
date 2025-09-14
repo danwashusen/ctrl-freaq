@@ -191,7 +191,7 @@ This Project Brief provides the full context for CRTL FreaQ. Please start in “
 
 -### Key Assumptions
 - Brief document and PRD document are available (or minimally captured) and serve as inputs to the MVP Architecture document flow.
-- Local MVP development environment available; Node 20 support assumed; low/no baseline cost is acceptable.
+- Local MVP development environment available; Node 22 support assumed; low/no baseline cost is acceptable.
 - Access to chosen LLM(s) for drafting/co‑authoring; no offline requirement.
 - Monorepo uses pnpm workspaces + Turborepo with GitHub Actions CI; documentation lives under `docs/` with git/changelog versioning.
 - No regulated PII processed; logs/telemetry are non‑sensitive; SOC 2 is aspirational and not a blocker for MVP.

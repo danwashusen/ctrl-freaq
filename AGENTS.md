@@ -9,7 +9,7 @@ CTRL FreaQ is an AI-optimized documentation system built as a monorepo with Reac
 **Focus**: All 62 tasks completed including monorepo infrastructure, security fixes, and frontend integration
 
 ## Technical Stack
-- **Languages**: TypeScript 5.4.x, Node.js 20.x
+- **Languages**: TypeScript 5.4.x, Node.js 22.x
 - **Frontend**: React 18.3.x, Vite 5.x, shadcn/ui, Tailwind CSS
 - **Backend**: Express.js 5.1.0, SQLite with better-sqlite3
 - **Testing**: Vitest 1.x, React Testing Library
