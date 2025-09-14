@@ -23,7 +23,7 @@
     "zod": "^3.23.0",
     "yaml": "^2.3.0",
     "glob": "^10.0.0",
-    "path-to-regexp": "^7.0.0"
+    "path-to-regexp": "^8.3.0"
   },
   "devDependencies": {
     "@types/glob": "^8.0.0",

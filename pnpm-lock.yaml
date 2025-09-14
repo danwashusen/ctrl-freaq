@@ -392,8 +392,8 @@ importers:
         specifier: ^10.0.0
         version: 10.4.5
       path-to-regexp:
-        specifier: ^7.0.0
-        version: 7.2.0
+        specifier: ^8.3.0
+        version: 8.3.0
       yaml:
         specifier: ^2.3.0
         version: 2.8.1
@@ -3261,10 +3261,6 @@ packages:
   path-scurry@1.11.1:
     resolution: {integrity: sha512-Xa4Nw17FS9ApQFJ9umLiJS4orGjm7ZzwUrwamcGQuHSzDyth9boKDaycYdDcZDuqYATXw4HFXgaqWTctW/v1HA==}
     engines: {node: '>=16 || 14 >=14.18'}
-
-  path-to-regexp@7.2.0:
-    resolution: {integrity: sha512-0W4AcUxPpFlcS8ql8ZEmFwaI0X5WshUVAFdXe3PBurrt18DK8bvSS+UKHvJUAfGILco/nTtc/E4LcPNfVysfwQ==}
-    engines: {node: '>=16'}
 
   path-to-regexp@8.3.0:
     resolution: {integrity: sha512-7jdwVIRtsP8MYpdXSwOS0YdD0Du+qOoF/AEPIt88PcCFrZCzx41oxku1jD88hZBwbNUIEfpqvuhjFaMAqMTWnA==}
@@ -7335,8 +7331,6 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
       minipass: 7.1.2
-
-  path-to-regexp@7.2.0: {}
 
   path-to-regexp@8.3.0: {}
 
