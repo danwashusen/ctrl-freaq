@@ -1,0 +1,118 @@
+{
+  "timestamp": "2025-09-14T05:28:01.898Z",
+  "version": "1.0.0",
+  "github": {
+    "workflow": "Unknown",
+    "runNumber": "0",
+    "runId": "0",
+    "ref": "unknown",
+    "sha": "unknown",
+    "actor": "unknown",
+    "eventName": "unknown",
+    "repository": "unknown"
+  },
+  "system": {
+    "nodeVersion": "v22.18.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "memory": 32
+  },
+  "project": {
+    "name": "ctrl-freaq",
+    "version": "0.1.0",
+    "workspaces": {
+      "apps": 2,
+      "packages": 8,
+      "total": 10
+    },
+    "engines": {
+      "node": ">=22.0.0",
+      "pnpm": ">=9.0.0"
+    },
+    "packageManager": "pnpm@9.0.0"
+  },
+  "filesystem": {
+    "totalFiles": 459,
+    "totalSize": 4186999,
+    "fileTypes": {
+      "bak": 1,
+      "DS_Store": 4,
+      "yaml": 46,
+      "md": 136,
+      "json": 31,
+      "example": 2,
+      "yml": 4,
+      "gitignore": 3,
+      "gitmodules": 1,
+      "iml": 1,
+      "xml": 3,
+      "nvmrc": 1,
+      "sh": 10,
+      "db": 1,
+      "sql": 1,
+      "ts": 84,
+      "tsbuildinfo": 9,
+      "html": 2,
+      "js": 18,
+      "tsx": 72,
+      "css": 3,
+      "lockb": 1,
+      "ico": 1,
+      "svg": 1,
+      "txt": 1,
+      "map": 22
+    },
+    "largestFiles": [
+      {
+        "path": "BMAD_CODEX.md",
+        "size": 298312,
+        "sizeKB": 291
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "size": 273307,
+        "sizeKB": 267
+      },
+      {
+        "path": "docs/examples/ctrl-freaq-ui/package-lock.json",
+        "size": 246915,
+        "sizeKB": 241
+      },
+      {
+        "path": "docs/examples/ctrl-freaq-ui/bun.lockb",
+        "size": 197327,
+        "sizeKB": 193
+      }
+    ],
+    "totalSizeMB": 3.99
+  },
+  "jobs": {
+    "jobs": {
+      "setup": "unknown",
+      "lint": "unknown",
+      "typecheck": "unknown",
+      "build": "unknown",
+      "test": "unknown",
+      "workspace-validation": "unknown"
+    },
+    "timing": {
+      "setup": 0,
+      "lint": 0,
+      "typecheck": 0,
+      "build": 0,
+      "test": 0,
+      "workspace-validation": 0
+    }
+  },
+  "performance": {
+    "total": 60,
+    "breakdown": {
+      "success": 0,
+      "speed": 30,
+      "size": 20,
+      "organization": 10
+    },
+    "grade": "D"
+  }
+}

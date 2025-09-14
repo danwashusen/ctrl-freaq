@@ -1,0 +1,158 @@
+# PR Validation Workflow Contract
+# This defines the expected structure and behavior of PR-specific validation
+
+name: PR Validation
+description: Pull request specific checks and validations
+
+triggers:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  pull_request_review:
+    types:
+      - submitted
+  issue_comment:
+    types:
+      - created  # For commands like /rerun-ci
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true  # Cancel previous runs on same PR
+
+permissions:
+  contents: read
+  pull-requests: write  # For posting comments
+  statuses: write      # For updating commit status
+  checks: write        # For creating check runs
+
+jobs:
+  auto-cancel-previous:
+    name: Cancel Previous Runs
+    if: github.event.action == 'synchronize'
+    steps:
+      - cancel-workflow-action
+
+  validate-pr-metadata:
+    name: Validate PR Metadata
+    checks:
+      - title_format: conventional commits or descriptive
+      - description_exists: true
+      - linked_issue: recommended
+      - labels: auto-apply based on paths
+
+  changed-files-detection:
+    name: Detect Changed Files
+    outputs:
+      - changed_packages: list of affected packages
+      - requires_frontend_checks: boolean
+      - requires_backend_checks: boolean
+      - requires_docs_update: boolean
+    steps:
+      - uses: dorny/paths-filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/web/**'
+              - 'packages/editor-*/**'
+            backend:
+              - 'apps/api/**'
+              - 'packages/shared-data/**'
+            docs:
+              - '*.md'
+              - 'docs/**'
+
+  run-affected-only:
+    name: Run Checks on Affected Packages
+    needs: changed-files-detection
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.changed-files-detection.outputs.changed_packages) }}
+    commands:
+      - pnpm --filter ${{ matrix.package }} lint
+      - pnpm --filter ${{ matrix.package }} typecheck
+      - pnpm --filter ${{ matrix.package }} test
+
+  pr-size-check:
+    name: Check PR Size
+    metrics:
+      - lines_added: numeric
+      - lines_deleted: numeric
+      - files_changed: numeric
+    thresholds:
+      warning:
+        lines_changed: 500
+        files_changed: 20
+      error:
+        lines_changed: 1000
+        files_changed: 50
+
+  dependency-review:
+    name: Review Dependency Changes
+    if: contains(github.event.pull_request.files, 'pnpm-lock.yaml')
+    checks:
+      - no_vulnerabilities: critical and high
+      - license_compatibility: true
+      - size_impact: report delta
+
+  comment-results:
+    name: Post Results Comment
+    needs: [run-affected-only, pr-size-check]
+    if: always()
+    comment_template: |
+      ## CI Results for PR #${{ pr.number }}
+
+      ### Status: ${{ overall_status }}
+
+      #### Checks Summary:
+      - ✅ Lint: ${{ lint.status }}
+      - ✅ TypeCheck: ${{ typecheck.status }}
+      - ✅ Tests: ${{ test.status }} (${{ test.passed }}/${{ test.total }})
+      - ✅ Build: ${{ build.status }}
+
+      #### Affected Packages:
+      ${{ affected_packages_list }}
+
+      #### Metrics:
+      - Duration: ${{ duration }}
+      - Warnings: ${{ warnings_count }}
+
+      <details>
+      <summary>View Details</summary>
+
+      ${{ detailed_results }}
+
+      </details>
+
+  update-pr-status:
+    name: Update PR Status
+    needs: [run-affected-only]
+    if: always()
+    actions:
+      - set_commit_status
+      - update_pr_labels
+      - request_review_if_ready
+
+status_checks:
+  required:
+    - validate-pr-metadata
+    - run-affected-only
+  optional:
+    - pr-size-check
+    - dependency-review
+    - comment-results
+
+auto_merge:
+  enabled: false  # For MVP
+  conditions:
+    - all_checks_passed
+    - approved_reviews >= 1
+    - no_changes_requested
+    - up_to_date_with_base
+
+performance:
+  target_duration: < 3 minutes  # Faster for PR validation
+  use_cache: aggressive
+  skip_unchanged: true

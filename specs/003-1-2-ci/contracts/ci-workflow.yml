@@ -1,0 +1,141 @@
+# CI Workflow Contract
+# This defines the expected structure and behavior of the main CI pipeline
+
+name: CI Pipeline
+description: Main continuous integration pipeline for CTRL FreaQ monorepo
+
+triggers:
+  push:
+    branches:
+      - main
+      - development
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+environment:
+  node_version: '22'
+  pnpm_version: '9'
+  timeout_minutes: 5
+
+jobs:
+  setup:
+    name: Setup and Cache
+    outputs:
+      - pnpm-store-path
+      - turbo-cache-hit
+    steps:
+      - checkout
+      - setup-node-with-cache
+      - install-dependencies
+
+  lint:
+    name: Lint Check
+    needs: setup
+    strategy:
+      fail-fast: true
+    commands:
+      - pnpm lint
+      - pnpm lint:fix --dry-run
+    expected_outputs:
+      - exit_code: 0 for success
+      - warnings_count: numeric
+      - errors_count: 0 for success
+
+  typecheck:
+    name: TypeScript Check
+    needs: setup
+    strategy:
+      fail-fast: true
+    commands:
+      - pnpm typecheck
+    expected_outputs:
+      - exit_code: 0 for success
+      - type_errors: 0 for success
+
+  build:
+    name: Build All Packages
+    needs: setup
+    strategy:
+      fail-fast: true
+    commands:
+      - pnpm build
+      - turbo run build
+    expected_outputs:
+      - exit_code: 0 for success
+      - built_packages: array of package names
+      - build_time: duration in seconds
+
+  test:
+    name: Run Tests
+    needs: setup
+    strategy:
+      fail-fast: false  # Let all tests run to see full results
+    commands:
+      - pnpm test
+      - pnpm test:coverage (optional)
+    expected_outputs:
+      - exit_code: 0 for success
+      - tests_passed: numeric
+      - tests_failed: 0 for success
+      - coverage_percentage: numeric (if coverage enabled)
+
+  workspace-validation:
+    name: Validate Monorepo Workspace
+    needs: setup
+    commands:
+      - pnpm install --frozen-lockfile
+      - custom script to check dependency versions
+    expected_outputs:
+      - exit_code: 0 for success
+      - version_conflicts: 0 for success
+      - workspace_integrity: valid
+
+  generate-metrics:
+    name: Generate CI Metrics
+    needs: [lint, typecheck, build, test]
+    if: always()
+    artifacts:
+      - name: ci-metrics
+        path: .ci/metrics/
+        retention: 30 days
+    outputs:
+      - total_duration: sum of all job durations
+      - warnings_count: aggregate from all jobs
+      - success_rate: percentage
+
+status_checks:
+  required:
+    - lint
+    - typecheck
+    - build
+    - test
+    - workspace-validation
+  optional:
+    - generate-metrics
+
+artifacts:
+  on_failure:
+    - logs: .ci/logs/
+    - test_results: .ci/test-results/
+  on_success:
+    - metrics: .ci/metrics/
+    - build_outputs: dist/ (if needed for debugging)
+
+caching:
+  pnpm_store:
+    key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+    restore_keys:
+      - pnpm-store-${{ runner.os }}-
+  turbo_cache:
+    key: turbo-${{ runner.os }}-${{ hashFiles('turbo.json') }}
+    restore_keys:
+      - turbo-${{ runner.os }}-
+
+performance_requirements:
+  total_pipeline_duration: < 5 minutes
+  individual_job_timeout: 5 minutes
+  parallel_execution: true
+  fail_fast: true (except tests)
