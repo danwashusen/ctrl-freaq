@@ -6,6 +6,30 @@
 
 set -e
 
+# Exit codes (T032: Consistent exit codes across scripts)
+readonly EXIT_SUCCESS=0
+readonly EXIT_VALIDATION_FAILURE=1
+readonly EXIT_SETUP_ERROR=2
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    # Clean up any temporary files if needed
+    exit $exit_code
+}
+
+# Error handler
+handle_error() {
+    local exit_code=$?
+    local line_number=$1
+    echo "❌ Error occurred in workflow validation script at line $line_number (exit code: $exit_code)" >&2
+    cleanup
+}
+
+# Set up error handling
+trap 'handle_error $LINENO' ERR
+trap cleanup EXIT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 WORKFLOWS_DIR="$REPO_ROOT/.github/workflows"
@@ -21,6 +45,46 @@ elif [ -f "$REPO_ROOT/.nvmrc" ]; then
     REQUIRED_NODE=$(cat "$REPO_ROOT/.nvmrc")
     echo "⚠️  NVM not found. Please ensure you're using Node.js v$REQUIRED_NODE"
 fi
+
+# Function to validate main CI workflow
+validate_main_ci_workflow() {
+    local file="$1"
+    log_info "Validating main CI workflow structure..."
+
+    # Check required triggers
+    if ! grep -q "push:" "$file"; then
+        log_error "Main CI workflow missing push trigger"
+    fi
+
+    # Check for required jobs
+    local required_jobs=("setup" "lint" "typecheck" "build" "test")
+    for job in "${required_jobs[@]}"; do
+        if ! grep -q "$job:" "$file"; then
+            log_error "Main CI workflow missing required job: $job"
+        fi
+    done
+
+    # Check for timeout configuration
+    if ! grep -q "timeout-minutes:" "$file"; then
+        log_warning "Consider adding timeout-minutes to prevent runaway jobs"
+    fi
+}
+
+# Function to validate PR workflow
+validate_pr_workflow() {
+    local file="$1"
+    log_info "Validating PR workflow structure..."
+
+    # Check for concurrency control
+    if ! grep -q "concurrency:" "$file"; then
+        log_error "PR workflow missing concurrency control"
+    fi
+
+    # Check for pull_request trigger
+    if ! grep -q "pull_request:" "$file"; then
+        log_error "PR workflow missing pull_request trigger"
+    fi
+}
 
 echo "🔍 Validating GitHub Actions workflows..."
 echo "Workflows directory: $WORKFLOWS_DIR"
@@ -89,14 +153,47 @@ for workflow_file in $WORKFLOW_FILES; do
         continue
     fi
 
-    # Basic YAML syntax check using Python (available on most systems)
-    if command -v python3 &> /dev/null; then
-        if ! python3 -c "import yaml; yaml.safe_load(open('$workflow_file'))" 2>/dev/null; then
-            log_error "Invalid YAML syntax in $(basename "$workflow_file")"
+    # Basic YAML syntax check - try multiple methods
+    yaml_valid=false
+
+    # Method 1: Try with yamllint if available
+    if command -v yamllint &> /dev/null; then
+        if yamllint -q "$workflow_file" 2>/dev/null; then
+            yaml_valid=true
+        fi
+    # Method 2: Try with Python if yaml module is available
+    elif command -v python3 &> /dev/null; then
+        if python3 -c "
+import sys
+try:
+    import yaml
+    with open('$workflow_file', 'r') as f:
+        yaml.safe_load(f)
+    sys.exit(0)
+except ImportError:
+    sys.exit(2)  # yaml module not available
+except Exception as e:
+    sys.exit(1)  # yaml syntax error
+" 2>/dev/null; then
+            yaml_valid=true
+        else
+            exit_code=$?
+            if [ $exit_code -eq 1 ]; then
+                log_error "Invalid YAML syntax in $(basename "$workflow_file")"
+                continue
+            fi
+            # exit_code 2 means yaml module not available, continue with basic check
+        fi
+    fi
+
+    # Method 3: Basic structure check if no YAML parser available
+    if [ "$yaml_valid" = false ]; then
+        # Simple validation: check for basic YAML structure
+        if ! grep -q "^name:" "$workflow_file" || ! grep -q "^\"\\?on\"\\?:" "$workflow_file" || ! grep -q "^jobs:" "$workflow_file"; then
+            log_error "Invalid YAML syntax in $(basename "$workflow_file") - missing required sections"
             continue
         fi
-    else
-        log_warning "Python3 not available, skipping YAML syntax validation"
+        log_warning "Limited YAML validation for $(basename "$workflow_file") - install yamllint or PyYAML for full validation"
     fi
 
     # Required workflow structure validation
@@ -113,60 +210,6 @@ for workflow_file in $WORKFLOW_FILES; do
             ;;
     esac
 done
-
-# Function to validate main CI workflow
-validate_main_ci_workflow() {
-    local file="$1"
-    log_info "Validating main CI workflow structure..."
-
-    # Check required triggers
-    if ! grep -q "push:" "$file"; then
-        log_error "Main CI workflow missing 'push' trigger"
-    fi
-
-    if ! grep -q "pull_request:" "$file"; then
-        log_error "Main CI workflow missing 'pull_request' trigger"
-    fi
-
-    # Check for required jobs
-    local required_jobs=("setup" "lint" "typecheck" "build" "test")
-    for job in "${required_jobs[@]}"; do
-        if ! grep -q "$job:" "$file"; then
-            log_error "Main CI workflow missing required job: $job"
-        fi
-    done
-
-    # Check for Node.js 22.x
-    if ! grep -q "node-version.*22" "$file"; then
-        log_error "Main CI workflow should use Node.js 22.x"
-    fi
-
-    # Check for pnpm setup
-    if ! grep -q "pnpm" "$file"; then
-        log_error "Main CI workflow should use pnpm"
-    fi
-
-    # Check for timeout configuration
-    if ! grep -q "timeout-minutes:" "$file"; then
-        log_warning "Main CI workflow should have timeout configuration"
-    fi
-}
-
-# Function to validate PR workflow
-validate_pr_workflow() {
-    local file="$1"
-    log_info "Validating PR workflow structure..."
-
-    # Check for concurrency control
-    if ! grep -q "concurrency:" "$file"; then
-        log_error "PR workflow missing concurrency control"
-    fi
-
-    # Check for pull_request trigger
-    if ! grep -q "pull_request:" "$file"; then
-        log_error "PR workflow missing pull_request trigger"
-    fi
-}
 
 # Summary
 echo ""

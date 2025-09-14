@@ -13,6 +13,9 @@
 # - Uses pnpm 9.x with workspace support
 # - Node.js 22.x for latest features and performance
 # - Turborepo integration for optimized builds
+#
+# T030: Cache optimization opportunity - consider composite action for repeated cache restoration
+# Current implementation uses repeated cache steps across jobs for clarity and reliability
 # - Comprehensive caching strategy for dependencies and build artifacts
 # - 5-minute timeout per job to prevent runaway processes
 #
@@ -524,4 +527,97 @@ jobs:
         with:
           name: ci-metrics
           path: .ci/metrics/
+          retention-days: 30
+
+  # ==============================================================================
+  # Security scanning job (T033: Add security scanning to CI pipeline)
+  # ==============================================================================
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [setup]
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ needs.setup.outputs.cache-dir }}
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run dependency audit
+        run: |
+          echo "Running security audit..."
+          pnpm audit --audit-level moderate || true
+
+          # Generate audit report
+          mkdir -p .ci/security
+          pnpm audit --json > .ci/security/audit-report.json 2>/dev/null || echo '{"vulnerabilities": "audit_failed"}' > .ci/security/audit-report.json
+
+          echo "Audit report saved to .ci/security/audit-report.json"
+
+      - name: Check for high-severity vulnerabilities
+        run: |
+          # Check for critical and high severity vulnerabilities
+          if pnpm audit --audit-level high; then
+            echo "✅ No high-severity vulnerabilities found"
+          else
+            echo "⚠️ High-severity vulnerabilities detected"
+            echo "Run 'pnpm audit fix' to address issues"
+            # Don't fail the build for now in MVP, just warn
+          fi
+
+      - name: Scan for secrets in code
+        run: |
+          echo "Scanning for potential secrets..."
+
+          # Simple secret detection patterns
+          secret_patterns=(
+            "password\s*=\s*['\"][^'\"]{8,}['\"]"
+            "api[_-]?key\s*=\s*['\"][^'\"]{20,}['\"]"
+            "secret\s*=\s*['\"][^'\"]{16,}['\"]"
+            "token\s*=\s*['\"][^'\"]{16,}['\"]"
+            "-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----"
+          )
+
+          found_secrets=false
+          for pattern in "${secret_patterns[@]}"; do
+            if grep -r -i -E "$pattern" src/ apps/ packages/ 2>/dev/null | grep -v node_modules | grep -v ".test." | head -5; then
+              found_secrets=true
+            fi
+          done
+
+          if [ "$found_secrets" = true ]; then
+            echo "⚠️ Potential secrets detected in code"
+            echo "Please review the matches above and ensure no sensitive data is committed"
+          else
+            echo "✅ No obvious secrets detected in code"
+          fi
+
+      - name: Upload security scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: .ci/security/
           retention-days: 30

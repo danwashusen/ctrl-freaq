@@ -1,0 +1,569 @@
+---
+# PR Validation Pipeline
+# Validates pull requests with concurrency control, change detection, and feedback
+
+name: PR Validation
+
+"on":
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ['**']
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
+  issues: read
+
+jobs:
+  # ==============================================================================
+  # T015: Create PR validation workflow with concurrency control
+  # ==============================================================================
+
+  auto-cancel:
+    name: Cancel Previous Runs
+    runs-on: ubuntu-latest
+    if: github.event.action == 'synchronize'
+    timeout-minutes: 5
+    steps:
+      - name: Cancel Previous Workflow Runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+  # ==============================================================================
+  # T016: Add changed files detection using paths-filter
+  # ==============================================================================
+
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      docs: ${{ steps.filter.outputs.docs }}
+      config: ${{ steps.filter.outputs.config }}
+      packages: ${{ steps.packages.outputs.result }}
+      requires-frontend-checks: ${{ steps.filter.outputs.frontend == 'true' }}
+      requires-backend-checks: ${{ steps.filter.outputs.backend == 'true' }}
+      requires-docs-update: ${{ steps.filter.outputs.docs == 'true' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Changed Files
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/web/**'
+              - 'packages/editor-*/**'
+              - '*.tsx'
+              - '*.jsx'
+            backend:
+              - 'apps/api/**'
+              - 'packages/shared-data/**'
+              - 'packages/templates/**'
+              - 'packages/ai/**'
+              - 'packages/qa/**'
+              - 'packages/exporter/**'
+            docs:
+              - '*.md'
+              - 'docs/**'
+              - 'specs/**'
+            config:
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'eslint.config.js'
+              - 'prettier.config.js'
+              - '.github/**'
+
+      - name: Extract Changed Packages
+        id: packages
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const { execSync } = require('child_process');
+
+            try {
+              // Get changed files
+              const changedFiles = execSync('git diff --name-only origin/${{ github.base_ref }}...HEAD',
+                { encoding: 'utf8', cwd: process.cwd() }
+              ).trim().split('\n').filter(Boolean);
+
+              console.log('Changed files:', changedFiles);
+
+              // Extract package names from changed files
+              const packages = new Set();
+
+              for (const file of changedFiles) {
+                // Match apps/* or packages/*
+                const match = file.match(/^(apps|packages)\/([^\/]+)/);
+                if (match) {
+                  const [, type, name] = match;
+                  if (type === 'apps') {
+                    packages.add(`@ctrl-freaq/${name}`);
+                  } else {
+                    packages.add(`@ctrl-freaq/${name}`);
+                  }
+                }
+              }
+
+              const packageList = Array.from(packages);
+              console.log('Affected packages:', packageList);
+
+              return JSON.stringify(packageList);
+            } catch (error) {
+              console.error('Error detecting packages:', error);
+              return JSON.stringify([]);
+            }
+
+  # ==============================================================================
+  # T017: Add PR metadata validation and auto-labeling
+  # ==============================================================================
+
+  validate-metadata:
+    name: Validate PR Metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate PR Title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context } = require('@actions/github');
+            const title = context.payload.pull_request.title;
+
+            // Check for conventional commit format or descriptive format
+            const conventionalRegex = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: .+/;
+            const descriptiveRegex = /^[A-Z].{10,}/; // At least 10 chars starting with capital
+
+            const isValid = conventionalRegex.test(title) || descriptiveRegex.test(title);
+
+            if (!isValid) {
+              core.setFailed(`PR title "${title}" should follow conventional commits format (feat: description) or be descriptive (minimum 10 characters, start with capital letter)`);
+              return;
+            }
+
+            console.log(`✅ PR title format is valid: "${title}"`);
+
+      - name: Check PR Description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context } = require('@actions/github');
+            const body = context.payload.pull_request.body || '';
+
+            if (body.trim().length < 20) {
+              core.setFailed('PR description must be at least 20 characters long and provide meaningful context');
+              return;
+            }
+
+            console.log('✅ PR description length is adequate');
+
+      - name: Auto-label PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context, getOctokit } = require('@actions/github');
+            const octokit = getOctokit(context.repo.token);
+
+            const prNumber = context.payload.pull_request.number;
+            const title = context.payload.pull_request.title;
+            const labels = [];
+
+            // Add labels based on title
+            if (title.includes('feat')) labels.push('enhancement');
+            if (title.includes('fix')) labels.push('bug');
+            if (title.includes('docs')) labels.push('documentation');
+            if (title.includes('test')) labels.push('testing');
+            if (title.includes('ci') || title.includes('build')) labels.push('ci/cd');
+            if (title.includes('perf')) labels.push('performance');
+            if (title.includes('security')) labels.push('security');
+
+            // Add size labels based on changes (will be updated by size check job)
+            labels.push('awaiting-review');
+
+            if (labels.length > 0) {
+              try {
+                await octokit.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: labels
+                });
+
+                console.log(`✅ Added labels: ${labels.join(', ')}`);
+              } catch (error) {
+                console.error('Failed to add labels:', error);
+              }
+            }
+
+  # ==============================================================================
+  # Run affected package checks
+  # ==============================================================================
+
+  check-affected:
+    name: Check Affected Packages
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    timeout-minutes: 5
+    if: needs.detect-changes.outputs.packages != '[]'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.packages) }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint Package
+        run: pnpm --filter "${{ matrix.package }}" lint
+        continue-on-error: false
+
+      - name: Type Check Package
+        run: pnpm --filter "${{ matrix.package }}" typecheck
+        continue-on-error: false
+
+      - name: Test Package
+        run: pnpm --filter "${{ matrix.package }}" test
+        continue-on-error: false
+
+  # ==============================================================================
+  # PR size and complexity check
+  # ==============================================================================
+
+  pr-size-check:
+    name: Check PR Size
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    outputs:
+      size-label: ${{ steps.size.outputs.label }}
+      lines-changed: ${{ steps.size.outputs.lines }}
+      files-changed: ${{ steps.size.outputs.files }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate PR Size
+        id: size
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const { execSync } = require('child_process');
+
+            try {
+              // Get diff stats
+              const diffStat = execSync(
+                'git diff --shortstat origin/${{ github.base_ref }}...HEAD',
+                { encoding: 'utf8', cwd: process.cwd() }
+              ).trim();
+
+              console.log('Diff stat:', diffStat);
+
+              // Parse the output like "5 files changed, 123 insertions(+), 45 deletions(-)"
+              const filesMatch = diffStat.match(/(\d+) files? changed/);
+              const insertionsMatch = diffStat.match(/(\d+) insertions?/);
+              const deletionsMatch = diffStat.match(/(\d+) deletions?/);
+
+              const filesChanged = filesMatch ? parseInt(filesMatch[1]) : 0;
+              const insertions = insertionsMatch ? parseInt(insertionsMatch[1]) : 0;
+              const deletions = deletionsMatch ? parseInt(deletionsMatch[1]) : 0;
+              const totalLines = insertions + deletions;
+
+              console.log(`Files: ${filesChanged}, Lines: ${totalLines} (+${insertions}/-${deletions})`);
+
+              // Determine size label
+              let sizeLabel = 'size/XS';
+              if (totalLines > 1000 || filesChanged > 50) {
+                sizeLabel = 'size/XXL';
+              } else if (totalLines > 500 || filesChanged > 20) {
+                sizeLabel = 'size/XL';
+              } else if (totalLines > 200 || filesChanged > 10) {
+                sizeLabel = 'size/L';
+              } else if (totalLines > 50 || filesChanged > 5) {
+                sizeLabel = 'size/M';
+              } else if (totalLines > 20 || filesChanged > 2) {
+                sizeLabel = 'size/S';
+              }
+
+              core.setOutput('label', sizeLabel);
+              core.setOutput('lines', totalLines);
+              core.setOutput('files', filesChanged);
+
+              // Set warning for large PRs
+              if (totalLines > 500 || filesChanged > 20) {
+                core.warning(`Large PR detected: ${totalLines} lines changed across ${filesChanged} files. Consider breaking into smaller PRs.`);
+              }
+
+              return sizeLabel;
+            } catch (error) {
+              console.error('Error calculating PR size:', error);
+              core.setOutput('label', 'size/unknown');
+              core.setOutput('lines', 0);
+              core.setOutput('files', 0);
+              return 'size/unknown';
+            }
+
+  # ==============================================================================
+  # T018: Add comment results job for PR feedback
+  # ==============================================================================
+
+  comment-results:
+    name: Post PR Results
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate-metadata, check-affected, pr-size-check]
+    timeout-minutes: 5
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Generate Results Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context, getOctokit } = require('@actions/github');
+            const octokit = getOctokit(context.repo.token);
+
+            const prNumber = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+
+            // Collect job results
+            const jobs = {
+              'detect-changes': '${{ needs.detect-changes.result }}',
+              'validate-metadata': '${{ needs.validate-metadata.result }}',
+              'check-affected': '${{ needs.check-affected.result }}',
+              'pr-size-check': '${{ needs.pr-size-check.result }}'
+            };
+
+            const outputs = {
+              packages: JSON.parse('${{ needs.detect-changes.outputs.packages }}' || '[]'),
+              sizeLabel: '${{ needs.pr-size-check.outputs.size-label }}',
+              linesChanged: '${{ needs.pr-size-check.outputs.lines-changed }}',
+              filesChanged: '${{ needs.pr-size-check.outputs.files-changed }}'
+            };
+
+            // Determine overall status
+            const failed = Object.values(jobs).some(result => result === 'failure');
+            const cancelled = Object.values(jobs).some(result => result === 'cancelled');
+
+            let overallStatus = '✅ Passed';
+            if (failed) overallStatus = '❌ Failed';
+            else if (cancelled) overallStatus = '⏹️ Cancelled';
+
+            // Generate status icons
+            const getStatusIcon = (result) => {
+              switch(result) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'cancelled': return '⏹️';
+                case 'skipped': return '⏭️';
+                default: return '⏳';
+              }
+            };
+
+            // Create comment body
+            const commentBody = [
+              '## 🤖 PR Validation Results',
+              '',
+              `### Status: ${overallStatus}`,
+              '',
+              '#### Validation Summary:',
+              `- ${getStatusIcon(jobs['validate-metadata'])} **Metadata**: ${jobs['validate-metadata']}`,
+              `- ${getStatusIcon(jobs['detect-changes'])} **Change Detection**: ${jobs['detect-changes']}`,
+              `- ${getStatusIcon(jobs['check-affected'])} **Package Checks**: ${jobs['check-affected']}`,
+              `- ${getStatusIcon(jobs['pr-size-check'])} **Size Check**: ${jobs['pr-size-check']}`,
+              '',
+              '#### PR Information:',
+              `- **Size**: ${outputs.sizeLabel} (${outputs.linesChanged} lines changed, ${outputs.filesChanged} files)`,
+              `- **Affected Packages**: ${outputs.packages.length > 0 ? outputs.packages.join(', ') : 'None detected'}`,
+              '',
+              '#### Workflow Details:',
+              '- **Run ID**: ${{ github.run_id }}',
+              '- **Commit**: `${{ github.event.pull_request.head.sha }}`',
+              `- **Duration**: Started at ${new Date().toISOString()}`,
+              '',
+              '<details>',
+              '<summary>🔍 View Job Details</summary>',
+              '',
+              '| Job | Status | Result |',
+              '|-----|--------|--------|',
+              `| Change Detection | ${getStatusIcon(jobs['detect-changes'])} | ${jobs['detect-changes']} |`,
+              `| Metadata Validation | ${getStatusIcon(jobs['validate-metadata'])} | ${jobs['validate-metadata']} |`,
+              `| Package Checks | ${getStatusIcon(jobs['check-affected'])} | ${jobs['check-affected']} |`,
+              `| Size Check | ${getStatusIcon(jobs['pr-size-check'])} | ${jobs['pr-size-check']} |`,
+              '',
+              '**Detected Changes:**',
+              '- Frontend: ${{ needs.detect-changes.outputs.frontend }}',
+              '- Backend: ${{ needs.detect-changes.outputs.backend }}',
+              '- Docs: ${{ needs.detect-changes.outputs.docs }}',
+              '- Config: ${{ needs.detect-changes.outputs.config }}',
+              '',
+              '</details>',
+              '',
+              '---',
+              '*Generated by CTRL-FreaQ CI Pipeline • [Troubleshooting Guide](../docs/ci-troubleshooting.md)*'
+            ].join('\n');
+
+            try {
+              // Look for existing comment to update
+              const { data: comments } = await octokit.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: prNumber
+              });
+
+              const botComment = comments.find(comment =>
+                comment.user.type === 'Bot' &&
+                comment.body.includes('PR Validation Results')
+              );
+
+              if (botComment) {
+                // Update existing comment
+                await octokit.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: botComment.id,
+                  body: commentBody
+                });
+                console.log('✅ Updated existing PR validation comment');
+              } else {
+                // Create new comment
+                await octokit.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: commentBody
+                });
+                console.log('✅ Posted PR validation results comment');
+              }
+
+              // Update PR labels with size
+              if (outputs.sizeLabel && outputs.sizeLabel !== 'size/unknown') {
+                await octokit.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  labels: [outputs.sizeLabel]
+                });
+                console.log(`✅ Added size label: ${outputs.sizeLabel}`);
+              }
+
+            } catch (error) {
+              console.error('Failed to post comment:', error);
+              core.setFailed(`Failed to post PR results: ${error.message}`);
+            }
+
+  # ==============================================================================
+  # Final status update
+  # ==============================================================================
+
+  update-status:
+    name: Update PR Status
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate-metadata, check-affected, pr-size-check, comment-results]
+    timeout-minutes: 5
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Set Commit Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context, getOctokit } = require('@actions/github');
+            const octokit = getOctokit(context.repo.token);
+
+            const { owner, repo } = context.repo;
+            const sha = context.payload.pull_request.head.sha;
+
+            // Determine overall status
+            const jobs = {
+              'validate-metadata': '${{ needs.validate-metadata.result }}',
+              'check-affected': '${{ needs.check-affected.result }}',
+              'pr-size-check': '${{ needs.pr-size-check.result }}'
+            };
+
+            const failed = Object.values(jobs).some(result => result === 'failure');
+            const cancelled = Object.values(jobs).some(result => result === 'cancelled');
+
+            let state = 'success';
+            let description = 'All PR validation checks passed';
+
+            if (failed) {
+              state = 'failure';
+              description = 'One or more PR validation checks failed';
+            } else if (cancelled) {
+              state = 'error';
+              description = 'PR validation was cancelled';
+            }
+
+            try {
+              await octokit.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'pr-validation/overall',
+                description,
+                target_url: `https://github.com/${owner}/${repo}/actions/runs/${{ github.run_id }}`
+              });
+
+              console.log(`✅ Set commit status: ${state} - ${description}`);
+            } catch (error) {
+              console.error('Failed to set commit status:', error);
+            }

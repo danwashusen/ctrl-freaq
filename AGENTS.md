@@ -107,6 +107,8 @@ pnpm build      # Build all packages
 pnpm typecheck  # TypeScript checking
 pnpm lint       # ESLint checking
 
+yamllint        # Validate YAML files
+
 # Library CLIs
 pnpm --filter @ctrl-freaq/shared-data cli --help
 pnpm --filter @ctrl-freaq/templates cli --help

@@ -6,6 +6,32 @@
 
 set -e
 
+# Exit codes
+readonly EXIT_SUCCESS=0
+readonly EXIT_VALIDATION_FAILURE=1
+readonly EXIT_SETUP_ERROR=2
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    if [ -n "$TEMP_FILE" ] && [ -f "$TEMP_FILE" ]; then
+        rm -f "$TEMP_FILE" 2>/dev/null || true
+    fi
+    exit $exit_code
+}
+
+# Error handler
+handle_error() {
+    local exit_code=$?
+    local line_number=$1
+    echo "❌ Error occurred in script at line $line_number (exit code: $exit_code)" >&2
+    cleanup
+}
+
+# Set up error handling
+trap 'handle_error $LINENO' ERR
+trap cleanup EXIT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 

@@ -157,6 +157,27 @@ else
     log_test_fail "Workflows validation" "Workflow validation failed (expected - no workflows exist yet)"
 fi
 
+# Test 11: Local GitHub Actions simulation with act (T034)
+log_test_start "Local GitHub Actions test with act"
+if command -v act &> /dev/null; then
+    if [ -f ".github/workflows/ci.yml" ]; then
+        echo "Testing CI workflow locally with act..."
+        # Run act in dry-run mode to test workflow syntax
+        if act --dryrun --workflow=.github/workflows/ci.yml 2>/dev/null; then
+            log_test_pass "Local GitHub Actions test"
+            echo "✅ Act can successfully parse and dry-run CI workflow"
+        else
+            log_test_fail "Local GitHub Actions test" "Act failed to parse CI workflow"
+        fi
+    else
+        log_test_fail "Local GitHub Actions test" "CI workflow not found"
+    fi
+else
+    # Don't fail if act is not installed - just warn
+    echo "⚠️ WARNING: 'act' tool not installed - cannot test GitHub Actions locally"
+    echo "   Install act: brew install act (macOS) or https://github.com/nektos/act"
+fi
+
 # Calculate duration
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
