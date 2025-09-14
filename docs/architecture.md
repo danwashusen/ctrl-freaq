@@ -87,7 +87,7 @@ graph TD
 | Category           | Technology        | Version  | Purpose                              | Rationale                                    |
 |--------------------|-------------------|----------|--------------------------------------|----------------------------------------------|
 | **Language**       | TypeScript        | 5.4.x    | Primary development language        | Strong typing, excellent tooling, team standard |
-| **Runtime**        | Node.js           | 20.x     | JavaScript runtime                  | LTS version, stable performance              |
+| **Runtime**        | Node.js           | 22.x     | JavaScript runtime                  | LTS version, stable performance              |
 | **Backend Framework** | Express.js     | 5.1.0    | API server framework                | Mature, flexible middleware ecosystem        |
 | **Database**       | SQLite            | 3.x      | Local data storage (MVP)            | Zero-config, embedded, easy migration path   |
 | **DB Access**      | better-sqlite3    | 9.x      | SQLite driver                       | Fast synchronous API, type-safe              |
@@ -260,7 +260,7 @@ graph TD
 
 **Dependencies:** All library packages, Clerk SDK, Express middleware
 
-**Technology Stack:** Express.js 5.1.0, TypeScript, Node.js 20.x
+**Technology Stack:** Express.js 5.1.0, TypeScript, Node.js 22.x
 
 **Key Modules:**
 - Auth Module: Clerk integration, session management
@@ -777,7 +777,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 ### Core Standards {#core-standards}
 
-- **Languages & Runtimes:** TypeScript 5.4.x, Node.js 20.x
+- **Languages & Runtimes:** TypeScript 5.4.x, Node.js 22.x
 - **Style & Linting:** ESLint with strict TypeScript rules
 - **Test Organization:** `*.test.ts` files colocated with source
 

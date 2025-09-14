@@ -1,0 +1,61 @@
+CTRL FreaQ CI Pipeline Metrics Report
+=====================================
+
+Generated: 14/09/2025, 3:28:01 pm
+Run: Unknown #0
+Commit: unknown
+Branch: unknown
+
+📦 Project Overview
+-------------------
+Name: ctrl-freaq v0.1.0
+Workspaces: 10 (2 apps, 8 packages)
+Package Manager: pnpm@9.0.0
+Files: 459
+Size: 3.99 MB
+
+🚀 Job Results
+---------------
+⚠️ setup: unknown
+⚠️ lint: unknown
+⚠️ typecheck: unknown
+⚠️ build: unknown
+⚠️ test: unknown
+⚠️ workspace-validation: unknown
+
+📊 Performance Score
+--------------------
+Overall Grade: D (60/100)
+
+Breakdown:
+  Success Rate: 0/40
+  Speed: 30/30
+  Size Efficiency: 20/20
+  Organization: 10/10
+
+📁 File Types (Top 10)
+----------------------
+  .md: 136 files
+  .ts: 84 files
+  .tsx: 72 files
+  .yaml: 46 files
+  .json: 31 files
+  .map: 22 files
+  .js: 18 files
+  .sh: 10 files
+  .tsbuildinfo: 9 files
+  .DS_Store: 4 files
+
+📄 Largest Files
+----------------
+  BMAD_CODEX.md (291 KB)
+  pnpm-lock.yaml (267 KB)
+  docs/examples/ctrl-freaq-ui/package-lock.json (241 KB)
+  docs/examples/ctrl-freaq-ui/bun.lockb (193 KB)
+
+💻 System Information
+---------------------
+Node.js: v22.18.0
+Platform: darwin arm64
+CPUs: 10
+Memory: 32 GB
