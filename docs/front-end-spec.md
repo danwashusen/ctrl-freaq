@@ -798,6 +798,73 @@ graph TD
 - Screen reader testing with NVDA/JAWS for AI conversation interfaces
 - Color contrast validation for all AI-specific visual states
 
+## Visual Testing Implementation {#visual-testing-implementation}
+
+### Testing Framework {#visual-testing-framework}
+**Primary Tool:** Playwright Test Framework
+**Purpose:** Verify actual visual rendering across browsers, viewports, and states
+
+### Visual Test Categories {#visual-test-categories}
+
+#### Screenshot-based Visual Regression {#screenshot-regression}
+- **Baseline Management:** Store reference screenshots in `tests/e2e/__screenshots__/`
+- **Comparison Strategy:** Pixel-by-pixel diff with configurable thresholds
+- **Update Process:** `npm run test:visual:update` to accept new baselines
+- **CI Integration:** Fail builds on visual regressions exceeding threshold
+
+#### Cross-Browser Rendering Verification {#cross-browser-verification}
+- **Browsers Tested:** Chromium, Firefox, WebKit (Safari)
+- **Rendering Checks:** Font consistency, CSS property support, layout shifts
+- **Platform Coverage:** Windows, macOS, Linux rendering differences
+- **Mobile Browsers:** iOS Safari, Android Chrome via device emulation
+
+#### Animation and Micro-interaction Testing {#animation-testing-implementation}
+- **Frame Capture:** Sequential screenshots during animation sequences
+- **Performance Validation:** Verify 60fps threshold maintenance
+- **Reduced Motion:** Test animation disabling with prefers-reduced-motion
+- **Timing Verification:** Validate animation durations match specifications
+
+#### Responsive Breakpoint Validation {#responsive-validation}
+- **Viewport Testing:** Automated tests at 320px, 768px, 1440px, 1920px
+- **Layout Verification:** Element visibility, positioning, and sizing
+- **Touch vs Mouse:** Interaction method changes per viewport
+- **Content Priority:** Verify progressive disclosure patterns
+
+### Implementation Examples {#visual-testing-examples}
+
+```typescript
+// Visual regression test example
+await expect(page).toHaveScreenshot('component-name.png', {
+  fullPage: false,
+  maxDiffPixels: 100,
+  threshold: 0.2, // 20% difference allowed
+  animations: 'disabled'
+});
+
+// Animation testing example
+const frames = [];
+for (let i = 0; i < 10; i++) {
+  frames.push(await element.screenshot());
+  await page.waitForTimeout(100);
+}
+// Verify frames show progression
+```
+
+### Visual Testing Commands {#visual-testing-commands}
+```bash
+npm run test:visual          # Run visual regression tests
+npm run test:visual:update   # Update baseline screenshots
+npm run test:visual:ci       # CI mode with strict comparison
+npm run test:e2e             # Run all E2E including visual
+```
+
+### Best Practices {#visual-testing-best-practices}
+1. **Deterministic Rendering:** Mock timestamps, disable animations for consistency
+2. **Selective Testing:** Focus on critical UI components and user journeys
+3. **Platform Awareness:** Account for OS-specific font rendering
+4. **Performance Balance:** Run visual tests separately in CI for speed
+5. **Review Process:** Include screenshot diffs in PR reviews
+
 ## Responsiveness Strategy {#responsiveness-strategy}
 
 ### Breakpoints {#breakpoints}

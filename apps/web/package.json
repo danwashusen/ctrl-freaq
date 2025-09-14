@@ -9,6 +9,12 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:watch": "vitest --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:visual": "playwright test tests/e2e/visual",
+    "test:visual:update": "playwright test tests/e2e/visual --update-snapshots",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ tests/",
     "clean": "rm -rf dist .next"
@@ -26,6 +32,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.45.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@testing-library/jest-dom": "^6.5.0",

@@ -14,6 +14,8 @@
     "dev:apps": "turbo dev --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
     "build": "turbo build",
     "test": "turbo test",
+    "test:e2e": "pnpm --filter @ctrl-freaq/web test:e2e",
+    "test:visual": "pnpm --filter @ctrl-freaq/web test:visual",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean && rm -rf node_modules",

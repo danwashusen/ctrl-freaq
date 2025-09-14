@@ -1140,10 +1140,360 @@ describe('DocumentEditor', () => {
 
 1. **Unit Tests**: Test individual components in isolation
 2. **Integration Tests**: Test component interactions
-3. **E2E Tests**: Test critical user flows (using Cypress/Playwright)
+3. **E2E Tests**: Test critical user flows (using Playwright)
 4. **Coverage Goals**: Aim for 80% code coverage
 5. **Test Structure**: Arrange-Act-Assert pattern
 6. **Mock External Dependencies**: API calls, routing, state management
+
+## E2E and Visual Testing with Playwright {#e2e-visual-testing-playwright}
+
+### Playwright Configuration {#playwright-configuration}
+
+**Framework**: Playwright Test Framework
+**Test Location**: `tests/e2e/`
+**File Convention**: `*.e2e.ts` for E2E tests, `*.visual.ts` for visual regression tests
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'test-results.json' }],
+    ['junit', { outputFile: 'junit.xml' }]
+  ],
+
+  use: {
+    baseURL: process.env.VITE_API_BASE_URL || 'http://localhost:5173',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+
+  projects: [
+    {
+      name: 'Desktop Chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 }
+      },
+    },
+    {
+      name: 'Desktop Firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1440, height: 900 }
+      },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 13'] },
+    },
+    {
+      name: 'Tablet',
+      use: { ...devices['iPad Pro'] },
+    },
+  ],
+
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### Visual Regression Testing {#visual-regression-testing}
+
+```typescript
+// tests/e2e/visual/document-editor.visual.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Document Editor Visual Tests', () => {
+  test.beforeEach(async ({ page }) => {
+    // Authenticate and navigate to editor
+    await page.goto('/auth/sign-in');
+    await page.fill('[data-testid="email"]', 'test@example.com');
+    await page.fill('[data-testid="password"]', 'testpass');
+    await page.click('[data-testid="sign-in-button"]');
+    await page.waitForURL('/dashboard');
+  });
+
+  test('document editor renders correctly across viewports', async ({ page }) => {
+    await page.goto('/documents/test-doc/edit');
+
+    // Full page screenshot for visual regression
+    await expect(page).toHaveScreenshot('document-editor-full.png', {
+      fullPage: true,
+      maxDiffPixels: 100,
+      threshold: 0.2, // 20% difference threshold
+    });
+  });
+
+  test('AI assistant animation states', async ({ page }) => {
+    await page.goto('/documents/test-doc/edit');
+
+    // Collapsed state
+    await expect(page.locator('[data-testid="ai-assistant"]'))
+      .toHaveScreenshot('ai-assistant-collapsed.png');
+
+    // Expanding animation
+    await page.click('[data-testid="ai-assistant-button"]');
+    await page.waitForTimeout(150); // Mid-animation
+    await expect(page.locator('[data-testid="ai-assistant"]'))
+      .toHaveScreenshot('ai-assistant-expanding.png');
+
+    // Expanded state
+    await page.waitForSelector('[data-testid="ai-chat-interface"]');
+    await expect(page.locator('[data-testid="ai-assistant"]'))
+      .toHaveScreenshot('ai-assistant-expanded.png');
+  });
+
+  test('section state transitions', async ({ page }) => {
+    await page.goto('/documents/test-doc/edit');
+    const section = page.locator('[data-testid="section-intro"]');
+
+    // Capture each state
+    const states = ['idle', 'read_mode', 'edit_mode', 'saving'];
+    for (const state of states) {
+      await section.click();
+      if (state === 'edit_mode') {
+        await page.click('[data-testid="edit-button"]');
+      }
+      await expect(section).toHaveScreenshot(`section-state-${state}.png`);
+    }
+  });
+});
+```
+
+### Responsive Testing Patterns {#responsive-testing-patterns}
+
+```typescript
+// tests/e2e/responsive/layout.e2e.ts
+import { test, expect, devices } from '@playwright/test';
+
+const viewports = [
+  { name: 'mobile', width: 320, height: 568 },
+  { name: 'tablet', width: 768, height: 1024 },
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'wide', width: 1920, height: 1080 }
+];
+
+test.describe('Responsive Layout Tests', () => {
+  viewports.forEach(({ name, width, height }) => {
+    test(`renders correctly at ${name} viewport`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto('/dashboard');
+
+      // Visual regression for each viewport
+      await expect(page).toHaveScreenshot(`dashboard-${name}.png`, {
+        fullPage: true,
+        animations: 'disabled', // Disable animations for consistent screenshots
+      });
+
+      // Functional tests per viewport
+      if (width < 768) {
+        // Mobile: hamburger menu should be visible
+        await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible();
+        await expect(page.locator('[data-testid="sidebar"]')).not.toBeVisible();
+      } else {
+        // Desktop: sidebar should be visible
+        await expect(page.locator('[data-testid="sidebar"]')).toBeVisible();
+        await expect(page.locator('[data-testid="mobile-menu"]')).not.toBeVisible();
+      }
+    });
+  });
+});
+```
+
+### Animation and Micro-interaction Testing {#animation-testing}
+
+```typescript
+// tests/e2e/visual/animations.visual.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Animation Tests', () => {
+  test('AI thinking indicator pulses correctly', async ({ page }) => {
+    await page.goto('/documents/test-doc/edit');
+
+    // Trigger AI processing
+    await page.click('[data-testid="ai-generate-button"]');
+
+    // Capture animation frames
+    const frames = [];
+    for (let i = 0; i < 5; i++) {
+      frames.push(await page.locator('[data-testid="ai-thinking"]').screenshot());
+      await page.waitForTimeout(300); // 1.5s animation / 5 frames
+    }
+
+    // Verify frames are different (animation is occurring)
+    for (let i = 1; i < frames.length; i++) {
+      expect(Buffer.compare(frames[i-1], frames[i])).not.toBe(0);
+    }
+  });
+
+  test('respects prefers-reduced-motion', async ({ page, context }) => {
+    // Enable reduced motion
+    await context.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/documents/test-doc/edit');
+
+    // Verify animations are disabled
+    const aiButton = page.locator('[data-testid="ai-assistant-button"]');
+    const initialScreenshot = await aiButton.screenshot();
+
+    await aiButton.hover();
+    await page.waitForTimeout(500);
+
+    const hoverScreenshot = await aiButton.screenshot();
+
+    // Should have minimal visual difference (no animation)
+    expect(Buffer.compare(initialScreenshot, hoverScreenshot)).toBe(0);
+  });
+});
+```
+
+### Cross-Browser Visual Testing {#cross-browser-testing}
+
+```typescript
+// tests/e2e/cross-browser/compatibility.e2e.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Cross-Browser Compatibility', () => {
+  ['chromium', 'firefox', 'webkit'].forEach(browserName => {
+    test(`renders consistently in ${browserName}`, async ({ page }) => {
+      await page.goto('/dashboard');
+
+      // Browser-specific screenshot
+      await expect(page).toHaveScreenshot(`dashboard-${browserName}.png`, {
+        fullPage: true,
+        maxDiffPixelRatio: 0.02, // Allow 2% difference between browsers
+      });
+
+      // Test browser-specific features
+      if (browserName === 'webkit') {
+        // Safari-specific tests
+        await expect(page.locator('.safari-specific-style')).toHaveCSS(
+          '-webkit-backdrop-filter',
+          'blur(10px)'
+        );
+      }
+    });
+  });
+});
+```
+
+### Theme Testing {#theme-testing}
+
+```typescript
+// tests/e2e/visual/themes.visual.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Theme Visual Tests', () => {
+  test('light and dark themes render correctly', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    // Light theme
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    });
+    await expect(page).toHaveScreenshot('dashboard-light-theme.png');
+
+    // Dark theme
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    });
+    await expect(page).toHaveScreenshot('dashboard-dark-theme.png');
+
+    // Verify theme transition
+    await page.click('[data-testid="theme-toggle"]');
+    await page.waitForTimeout(200); // Wait for transition
+
+    // Check CSS variables are applied
+    const backgroundColor = await page.evaluate(() => {
+      return getComputedStyle(document.documentElement)
+        .getPropertyValue('--background');
+    });
+    expect(backgroundColor).toMatch(/hsl\(266, 4%, 32%\)/); // Dark mode color
+  });
+});
+```
+
+### Performance Monitoring in Visual Tests {#performance-monitoring}
+
+```typescript
+// tests/e2e/performance/visual-performance.e2e.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Visual Performance Tests', () => {
+  test('maintains 60fps during animations', async ({ page }) => {
+    await page.goto('/documents/test-doc/edit');
+
+    // Start performance measurement
+    await page.evaluate(() => {
+      window.performanceEntries = [];
+      const observer = new PerformanceObserver((list) => {
+        window.performanceEntries.push(...list.getEntries());
+      });
+      observer.observe({ entryTypes: ['measure', 'paint'] });
+    });
+
+    // Trigger animation
+    await page.click('[data-testid="section-toggle"]');
+    await page.waitForTimeout(500); // Wait for animation
+
+    // Analyze performance
+    const metrics = await page.evaluate(() => window.performanceEntries);
+    const frameTimes = metrics.filter(m => m.entryType === 'measure');
+
+    frameTimes.forEach(frame => {
+      expect(frame.duration).toBeLessThan(16.67); // 60fps threshold
+    });
+  });
+});
+```
+
+### Test Commands {#playwright-test-commands}
+
+```bash
+# Run all E2E tests
+npm run test:e2e
+
+# Run visual regression tests only
+npm run test:visual
+
+# Update visual snapshots
+npm run test:visual:update
+
+# Run tests in specific browser
+npm run test:e2e -- --project="Desktop Chrome"
+
+# Run tests with UI mode (interactive debugging)
+npm run test:e2e -- --ui
+
+# Generate test report
+npm run test:e2e -- --reporter=html
+
+# Run tests in CI mode
+CI=true npm run test:e2e
+```
+
+### Visual Testing Best Practices {#visual-testing-best-practices}
+
+1. **Deterministic Screenshots**: Disable animations, use fixed timestamps, mock dynamic content
+2. **Threshold Configuration**: Set appropriate diff thresholds (typically 0.1-0.2 for minor variations)
+3. **Viewport Consistency**: Always set explicit viewport sizes for reproducible results
+4. **Baseline Management**: Store baseline images in version control, review changes in PRs
+5. **Cross-Platform Considerations**: Account for font rendering differences between OS
+6. **Performance Impact**: Run visual tests separately from functional E2E tests in CI
+7. **Selective Testing**: Focus visual tests on critical UI components and user flows
 
 ## Browser Logging with Pino {#browser-logging-pino}
 

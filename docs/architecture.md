@@ -834,6 +834,26 @@ Local Dev → Git Push → CI Tests → Merge to Main
   - **External APIs:** Mocked responses
   - **Authentication:** Test tokens
 
+#### E2E Tests with Playwright {#e2e-tests-playwright}
+
+- **Framework:** Playwright Test Framework
+- **Location:** `tests/e2e/` directory
+- **File Convention:** `*.e2e.ts` for functional tests, `*.visual.ts` for visual regression
+- **Scope:** Critical user flows, visual regression, cross-browser compatibility
+- **Test Infrastructure:**
+  - **Browsers:** Chromium, Firefox, WebKit (Safari)
+  - **Viewports:** Mobile (320px), Tablet (768px), Desktop (1440px), Wide (1920px)
+  - **Visual Regression:** Screenshot comparison with configurable thresholds
+  - **Performance:** FPS monitoring during animations
+
+**AI Agent Requirements:**
+- Generate page object models for complex UI interactions
+- Create data-testid attributes for reliable element selection
+- Implement visual regression baselines for new features
+- Test all responsive breakpoints defined in specs
+- Verify animations respect prefers-reduced-motion
+- Include cross-browser compatibility checks
+
 #### DynamoDB Compatibility Tests {#dynamodb-compatibility-tests}
 
 All data access must verify:
