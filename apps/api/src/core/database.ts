@@ -1,7 +1,8 @@
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 import type { Logger } from 'pino';
 
 /**
@@ -437,8 +438,7 @@ export class DatabaseManager {
       return [];
     }
 
-    const fs = require('fs');
-    const files = fs.readdirSync(migrationsDir)
+    const files = readdirSync(migrationsDir)
       .filter((file: string) => file.endsWith('.sql'))
       .sort();
 
@@ -457,8 +457,7 @@ export class DatabaseManager {
       const content = readFileSync(path, 'utf-8');
 
       // Calculate checksum
-      const crypto = require('crypto');
-      const checksum = crypto.createHash('sha256').update(content).digest('hex');
+      const checksum = createHash('sha256').update(content).digest('hex');
 
       migrations.push({
         version,

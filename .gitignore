@@ -91,3 +91,4 @@ Thumbs.db
 # Misc files
 .CLAUDE.md.bak
 docs/archive/
+/apps/api/data/ctrl-freaq.db

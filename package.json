@@ -10,7 +10,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --concurrency=12",
+    "dev:apps": "turbo dev --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
