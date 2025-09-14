@@ -55,8 +55,8 @@ permissions:
 
 # Global environment variables
 env:
-  NODE_VERSION: '22'  # Node.js LTS version for stability and performance
-  PNPM_VERSION: '9'   # Latest pnpm with improved workspace support
+  NODE_VERSION: '22'    # Node.js LTS version for stability and performance
+  PNPM_VERSION: '9.0.0' # Match exact version from package.json packageManager field
 
 jobs:
   # =================================================================
