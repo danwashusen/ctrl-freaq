@@ -1,12 +1,57 @@
 # CTRL FreaQ
 
-[![CI Pipeline](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg)](https://github.com/[OWNER]/ctrl-freaq/actions/workflows/ci.yml)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
-[![pnpm Version](https://img.shields.io/badge/pnpm-9.x-blue.svg)](https://pnpm.io/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4.x-blue.svg)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
+> AI-optimized documentation system for high-quality software development
 
-> AI-optimized documentation system built as a monorepo with React frontend and Express.js backend.
+## Overview
+
+CTRL FreaQ is a fun research experiment in AI-spec-driven development - basically, we're testing whether AI can write comprehensive documentation and then use that same documentation to build working software. It's an interactive system that generates the core technical specs needed for software development.
+
+This serves as a practical research case: can we create AI-optimized Architecture documents that are detailed and structured enough to guide the development of a working MVP with authentication, dashboard, and project management features? The experiment aims to validate this approach while building something useful.
+
+## Problem We Solve
+
+- **Documentation Gap**: Experienced developers often skip rigorous documentation, leading to inconsistent, low-quality LLM outputs
+- **Inconsistent AI Output**: Ad-hoc prompting and "vibe coding" yield unpredictable results
+- **Time Waste**: 3-6 hours/week per engineer lost to prompt crafting and re-contextualizing
+- **PR Churn**: 20-40% of PRs require rework due to unclear architecture
+
+## Target Users
+
+**Senior/Staff+ Engineers and Tech Leads** who:
+- Use AI-assisted development
+- Want predictable, higher-quality LLM output
+- Need to maintain architectural consistency
+- Value low-friction workflows
+
+## Key Features (MVP)
+
+### Document Creation Flow
+- Guided, human-in-the-loop flow for Architecture documents
+- Schema validation and cross-references
+- Decision logs and traceability
+
+### Conversational Co-Authoring
+- Section-aware chat during document creation
+- Suggested drafts and edits
+- Inline citations to fields
+
+### Document Management
+- QA chat for existing documents
+- Update and version existing Architecture docs
+- Diff preview and changelog tracking
+
+### Quality & Export
+- Validation checks and acceptance checklists
+- Markdown export with frontmatter
+- Version markers and changelog
+- Exports to `docs/architecture.md` and sharded `docs/architecture/*.md`
+
+## Success Metrics
+
+- **Time to first Architecture draft**: ≤ 60 minutes
+- **Revision cycles**: ≤ 2 iterations for approval
+- **Prompt crafting time reduction**: ≥ 30%
+- **PR churn reduction**: ≤ 10% rework due to architecture issues
 
 ## 🚀 Quick Start
 
@@ -30,8 +75,12 @@ ctrl-freaq/
 ├── packages/         # Shared library packages
 │   ├── shared-data/  # Repository pattern data access
 │   ├── templates/    # YAML template engine
-│   ├── ai/          # LLM integration
-│   └── ...          # Additional utility packages
+│   ├── ai/          # LLM integration (Vercel AI SDK)
+│   ├── qa/          # Quality gates
+│   ├── exporter/    # Document export
+│   ├── editor-core/ # WYSIWYG editor
+│   ├── editor-persistence/ # Client persistence
+│   └── template-resolver/  # Template resolution
 └── docs/            # Documentation and guides
 ```
 
@@ -50,39 +99,21 @@ pnpm typecheck  # Run TypeScript compiler
 ### Technical Stack
 
 - **Frontend:** React 18.3.x, Vite 5.x, shadcn/ui, Tailwind CSS
-- **Backend:** Express.js 5.1.0, SQLite with better-sqlite3
+- **Backend:** Express.js 5.1.0, SQLite (local development)
 - **Language:** TypeScript 5.4.x, Node.js 22.x
 - **Testing:** Vitest 1.x, React Testing Library
 - **Monorepo:** pnpm workspaces + Turborepo
+- **LLM Integration:** OpenAI via Vercel AI SDK
 - **Auth:** Clerk (JWT-based authentication)
 
 ## 🏗️ CI/CD Pipeline
 
-The project uses GitHub Actions for continuous integration with the following quality gates:
-
-- **Linting:** ESLint validation across all packages
-- **Type Checking:** TypeScript compilation validation
-- **Building:** Turborepo optimized builds
-- **Testing:** Vitest test suites with coverage
-- **Workspace Validation:** Dependency consistency checks
-
-All jobs are configured with 5-minute timeouts and comprehensive caching for optimal performance.
-
-### CI Status
-
-| Job | Status | Description |
-|-----|--------|-------------|
-| Setup | [![Setup](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg?event=push)](https://github.com/[OWNER]/ctrl-freaq/actions) | Dependency installation and caching |
-| Lint | [![Lint](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg?event=push)](https://github.com/[OWNER]/ctrl-freaq/actions) | ESLint code quality validation |
-| TypeCheck | [![TypeCheck](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg?event=push)](https://github.com/[OWNER]/ctrl-freaq/actions) | TypeScript compilation validation |
-| Build | [![Build](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg?event=push)](https://github.com/[OWNER]/ctrl-freaq/actions) | Package building with Turborepo |
-| Test | [![Test](https://github.com/[OWNER]/ctrl-freaq/workflows/CI%20Pipeline/badge.svg?event=push)](https://github.com/[OWNER]/ctrl-freaq/actions) | Test suites execution |
+The project uses GitHub Actions for continuous integration with quality gates for linting, type checking, building, and testing. All jobs are configured with comprehensive caching for optimal performance.
 
 ## 📚 Documentation
 
+- **[Project Brief](docs/brief.md)** - Product vision and requirements
 - **[Architecture Guide](docs/README.md)** - System architecture and design patterns
-- **[CI Troubleshooting](docs/ci-troubleshooting.md)** - Debug and fix CI pipeline issues
-- **[Repository Setup](docs/ci-repository-setup.md)** - GitHub repository configuration
 - **[Development Constitution](CONSTITUTION.md)** - Core development principles
 
 ## 🔧 Local Development
@@ -97,7 +128,7 @@ All jobs are configured with 5-minute timeouts and comprehensive caching for opt
 
 1. **Clone and setup:**
    ```bash
-   git clone https://github.com/[OWNER]/ctrl-freaq.git
+   git clone https://github.com/yourusername/ctrl-freaq.git
    cd ctrl-freaq
    nvm use  # Switch to Node.js 22.x
    ```
@@ -107,7 +138,13 @@ All jobs are configured with 5-minute timeouts and comprehensive caching for opt
    pnpm install --frozen-lockfile
    ```
 
-3. **Start development:**
+3. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Add your OpenAI API key and Clerk keys to .env
+   ```
+
+4. **Start development:**
    ```bash
    pnpm dev  # Frontend: http://localhost:5173, API: http://localhost:5001
    ```
@@ -128,14 +165,15 @@ pnpm test -- --watch
 pnpm --filter @ctrl-freaq/[package-name] test
 ```
 
-## 🚦 Quality Gates
+## 🚦 Development Philosophy
 
 This project enforces strict quality standards:
 
 - **Test-Driven Development:** All features require failing tests before implementation
-- **Library-First Architecture:** Each feature starts as a standalone library
+- **Library-First Architecture:** Each feature starts as a standalone library with CLI interface
+- **Repository Pattern:** Abstract data access for future scalability
+- **Structured Logging:** JSON format with correlation IDs
 - **Constitutional Compliance:** All development follows [CONSTITUTION.md](CONSTITUTION.md)
-- **SOC 2 Requirements:** Security, audit logging, and compliance built-in
 
 ## 📖 Contributing
 
@@ -156,18 +194,15 @@ This project enforces strict quality standards:
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🏢 Architecture
+## 🏢 Value Proposition
 
-CTRL FreaQ follows a constitutional development approach with:
+CTRL FreaQ accelerates high-quality AI-assisted development by:
 
-- **Service Locator Pattern** for dependency injection
-- **Repository Pattern** for data access abstraction
-- **Structured Logging** with Pino and correlation IDs
-- **Request-scoped containers** for Express.js middleware
-- **Library-first architecture** with CLI interfaces
+- **Reducing Time Waste:** Save 3-6 hours/week per engineer on prompt crafting
+- **Improving PR Quality:** Reduce rework from 20-40% to under 10%
+- **Accelerating Delivery:** Go from kickoff to approved architecture in under 60 minutes
+- **Ensuring Consistency:** Produce predictable, high-quality LLM outputs every time
 
 ---
 
-*Built with ❤️ using modern TypeScript, React, and Node.js*
-
-Why did the chicking cross the road? To see the other side...
+*Built with modern TypeScript, React, and Node.js*
