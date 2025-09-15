@@ -1,5 +1,7 @@
-import type { Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
+
+import type { Request, Response as ExpressResponse, NextFunction } from 'express';
+import type { Logger } from 'pino';
 
 /**
  * Request ID Middleware and Correlation Tracking
@@ -69,7 +71,7 @@ export const DEFAULT_REQUEST_ID_CONFIG: RequestIdConfig = {
   headerName: 'x-request-id',
   generateId: generateRequestId,
   setResponseHeader: true,
-  logRequestId: true
+  logRequestId: true,
 };
 
 /**
@@ -77,10 +79,10 @@ export const DEFAULT_REQUEST_ID_CONFIG: RequestIdConfig = {
  */
 export function createRequestIdMiddleware(
   config: Partial<RequestIdConfig> = {}
-): (req: Request, res: Response, next: NextFunction) => void {
+): (req: Request, res: ExpressResponse, next: NextFunction) => void {
   const fullConfig = { ...DEFAULT_REQUEST_ID_CONFIG, ...config };
 
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: ExpressResponse, next: NextFunction): void => {
     // Check if request already has an ID (from upstream service or load balancer)
     let requestId = req.headers[fullConfig.headerName] as string;
 
@@ -104,13 +106,13 @@ export function createRequestIdMiddleware(
     }
 
     // Make request ID easily accessible
-    (req as any).requestId = requestId;
+    (req as unknown as { requestId?: string }).requestId = requestId;
 
     // Log request ID if configured
     if (fullConfig.logRequestId && req.services) {
       try {
-        const logger = req.services.get('logger');
-        logger.debug({ requestId }, 'Request ID assigned');
+        const logger = req.services.get('logger') as Logger;
+        logger?.debug({ requestId }, 'Request ID assigned');
       } catch {
         // Logger not available yet, ignore
       }
@@ -138,25 +140,22 @@ export class RequestCorrelationHelper {
     return {
       'x-request-id': this.requestId,
       'x-correlation-id': this.requestId, // Alternative header name for some services
-      'x-trace-id': this.requestId // OpenTelemetry compatible
+      'x-trace-id': this.requestId, // OpenTelemetry compatible
     };
   }
 
   /**
    * Propagates request ID to fetch requests
    */
-  async fetchWithCorrelation(
-    url: string,
-    options: RequestInit = {}
-  ): Promise<Response> {
+  async fetchWithCorrelation(url: string, options: RequestInit = {}): Promise<globalThis.Response> {
     const headers = {
       ...this.getCorrelationHeaders(),
-      ...options.headers
+      ...options.headers,
     };
 
     return fetch(url, {
       ...options,
-      headers
+      headers,
     });
   }
 
@@ -173,11 +172,12 @@ export class RequestCorrelationHelper {
  * Express middleware to add correlation helper to request
  */
 export function createCorrelationMiddleware() {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: ExpressResponse, next: NextFunction): void => {
     const requestId = req.headers['x-request-id'] as string;
 
     if (requestId) {
-      (req as any).correlation = new RequestCorrelationHelper(requestId);
+      (req as unknown as { correlation?: RequestCorrelationHelper }).correlation =
+        new RequestCorrelationHelper(requestId);
     }
 
     next();
@@ -242,13 +242,13 @@ export class RequestContext {
   /**
    * Get correlation metadata
    */
-  getMetadata(): Record<string, any> {
+  getMetadata(): Record<string, unknown> {
     return {
       requestId: this.requestId,
       userId: this.userId,
       userAgent: this.userAgent,
       ip: this.ip,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 }
@@ -257,15 +257,15 @@ export class RequestContext {
  * Express middleware to create request context
  */
 export function createRequestContextMiddleware() {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: ExpressResponse, next: NextFunction): void => {
     const requestId = req.headers['x-request-id'] as string;
-    const userId = (req as any).userId as string | undefined;
+    const userId = (req as unknown as { userId?: string }).userId;
     const userAgent = req.headers['user-agent'] as string | undefined;
     const ip = req.ip || req.socket.remoteAddress;
 
     if (requestId) {
       const context = RequestContext.create(requestId, userId, userAgent, ip);
-      (req as any).context = context;
+      (req as unknown as { context?: RequestContext }).context = context;
 
       // Clean up context when request finishes
       res.on('finish', () => {
@@ -305,11 +305,12 @@ export function extractTraceContext(req: Request): TraceContext | null {
   if (traceParent) {
     const parts = traceParent.split('-');
     if (parts.length >= 4) {
+      const [, traceId, spanId] = parts;
       return {
-        traceId: parts[1],
-        spanId: parts[2],
-        parentSpanId: parts[2],
-        baggage: traceState ? parseTraceState(traceState) : undefined
+        traceId: traceId as string,
+        spanId: spanId as string,
+        parentSpanId: spanId as string,
+        baggage: traceState ? parseTraceState(traceState) : undefined,
       };
     }
   }
@@ -319,7 +320,7 @@ export function extractTraceContext(req: Request): TraceContext | null {
     return {
       traceId: xTraceId,
       spanId: xSpanId || generateSpanId(),
-      baggage: {}
+      baggage: {},
     };
   }
 
@@ -329,7 +330,7 @@ export function extractTraceContext(req: Request): TraceContext | null {
     return {
       traceId: requestId,
       spanId: generateSpanId(),
-      baggage: {}
+      baggage: {},
     };
   }
 
@@ -347,31 +348,34 @@ function generateSpanId(): string {
  * Parse W3C trace state header
  */
 function parseTraceState(traceState: string): Record<string, string> {
-  const baggage: Record<string, string> = {};
+  const entries: Array<[string, string]> = [];
 
   traceState.split(',').forEach(entry => {
     const [key, value] = entry.trim().split('=');
     if (key && value) {
-      baggage[key] = value;
+      // Only allow safe token-like keys
+      if (/^[a-zA-Z0-9_.-]+$/.test(key)) {
+        entries.push([key, value]);
+      }
     }
   });
 
-  return baggage;
+  return Object.fromEntries(entries);
 }
 
 /**
  * Middleware to extract and propagate trace context
  */
 export function createTraceContextMiddleware() {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: ExpressResponse, next: NextFunction): void => {
     const traceContext = extractTraceContext(req);
 
     if (traceContext) {
-      (req as any).traceContext = traceContext;
+      (req as unknown as { traceContext?: TraceContext }).traceContext = traceContext;
 
       // Set response headers for trace propagation
-      res.setHeader('x-trace-id', traceContext.traceId);
-      res.setHeader('x-span-id', traceContext.spanId);
+      res.setHeader('x-trace-id', traceContext.traceId || '');
+      res.setHeader('x-span-id', traceContext.spanId || '');
     }
 
     next();
@@ -381,9 +385,7 @@ export function createTraceContextMiddleware() {
 /**
  * Combined middleware for complete request correlation
  */
-export function createFullCorrelationMiddleware(
-  requestIdConfig?: Partial<RequestIdConfig>
-) {
+export function createFullCorrelationMiddleware(requestIdConfig?: Partial<RequestIdConfig>) {
   const requestIdMw = createRequestIdMiddleware(requestIdConfig);
   const correlationMw = createCorrelationMiddleware();
   const contextMw = createRequestContextMiddleware();
@@ -408,10 +410,7 @@ export function getCurrentRequestId(req?: Request): string | undefined {
 /**
  * Log correlation helper
  */
-export function withRequestCorrelation<T>(
-  requestId: string,
-  operation: () => T
-): T {
+export function withRequestCorrelation<T>(_requestId: string, operation: () => T): T {
   // This would integrate with async context tracking in a full implementation
   // For now, just execute the operation
   return operation();

@@ -8,4 +8,5 @@ export * from './project.js';
 export * from './configuration.js';
 export * from './app-version.js';
 export * from './activity-log.js';
+export * from './auth-log.js';
 //# sourceMappingURL=index.d.ts.map

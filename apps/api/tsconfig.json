@@ -2,17 +2,15 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "../../",
     "noEmit": false,
     "allowImportingTsExtensions": false,
     "types": ["node", "vitest/globals"]
   },
   "include": [
     "src/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "../../packages/shared-data/src/**/*.ts"
   ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["dist", "node_modules"]
 }

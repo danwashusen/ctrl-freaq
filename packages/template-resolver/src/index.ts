@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/template-resolver - Template resolution and dependency management
- * 
+ *
  * This package provides template resolution and dependency management capabilities
  * for CTRL FreaQ, including YAML template processing, variable substitution,
  * dependency graph analysis, and caching mechanisms.
@@ -18,7 +18,7 @@ export interface Template {
   id: string;
   path: string;
   content: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   dependencies: string[];
   metadata?: TemplateMetadata;
 }
@@ -44,7 +44,7 @@ export interface ResolverConfig {
 
 export interface ResolutionContext {
   template: Template;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   resolvedDependencies: Map<string, Template>;
   depth: number;
   path: string[];
@@ -53,7 +53,7 @@ export interface ResolutionContext {
 export interface ResolutionResult {
   success: boolean;
   resolved: Template[];
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   dependencies: DependencyInfo[];
   errors: string[];
   warnings: string[];
@@ -106,7 +106,10 @@ export class TemplateResolver {
     this._config = config;
   }
 
-  async resolve(_templateId: string, variables: Record<string, any> = {}): Promise<ResolutionResult> {
+  async resolve(
+    _templateId: string,
+    variables: Record<string, unknown> = {}
+  ): Promise<ResolutionResult> {
     // Placeholder implementation
     return {
       success: true,
@@ -114,7 +117,7 @@ export class TemplateResolver {
       variables,
       dependencies: [],
       errors: [],
-      warnings: ['Template resolution functionality not yet implemented']
+      warnings: ['Template resolution functionality not yet implemented'],
     };
   }
 
@@ -123,15 +126,17 @@ export class TemplateResolver {
     return {
       valid: true,
       errors: [],
-      warnings: [{
-        type: 'unused',
-        message: 'Validation functionality not yet implemented'
-      }],
+      warnings: [
+        {
+          type: 'unused',
+          message: 'Validation functionality not yet implemented',
+        },
+      ],
       dependencies: {
         resolved: [],
         missing: [],
-        circular: []
-      }
+        circular: [],
+      },
     };
   }
 
@@ -148,7 +153,7 @@ export class TemplateResolver {
     return {
       size: this.cache.size,
       hitRate: 0,
-      entries: this.cache.size
+      entries: this.cache.size,
     };
   }
 }
@@ -177,32 +182,32 @@ export class DependencyAnalyzer {
 }
 
 export class VariableResolver {
-  private variables: Map<string, any> = new Map();
+  private variables: Map<string, unknown> = new Map();
 
-  setVariable(name: string, value: any): void {
+  setVariable(name: string, value: unknown): void {
     this.variables.set(name, value);
   }
 
-  getVariable(name: string): any {
+  getVariable(name: string): unknown {
     return this.variables.get(name);
   }
 
-  resolveVariables(template: string, context: Record<string, any> = {}): string {
+  resolveVariables(template: string, context: Record<string, unknown> = {}): string {
     // Placeholder implementation - simple string replacement
     let resolved = template;
-    
+
     // Replace context variables first
     Object.entries(context).forEach(([key, value]) => {
       const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
       resolved = resolved.replace(pattern, String(value));
     });
-    
+
     // Replace stored variables
     this.variables.forEach((value, key) => {
       const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
       resolved = resolved.replace(pattern, String(value));
     });
-    
+
     return resolved;
   }
 
@@ -217,5 +222,5 @@ export class VariableResolver {
 export const packageInfo = {
   name: '@ctrl-freaq/template-resolver',
   version: '0.1.0',
-  description: 'Template resolution and dependency management library for CTRL FreaQ'
+  description: 'Template resolution and dependency management library for CTRL FreaQ',
 };

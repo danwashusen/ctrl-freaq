@@ -4,63 +4,63 @@
 version: 2
 updates:
   # NPM dependencies for root workspace
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
     open-pull-requests-limit: 10
     reviewers:
-      - "danwas"
+      - 'danwas'
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
-      include: "scope"
+      prefix: 'deps'
+      prefix-development: 'deps-dev'
+      include: 'scope'
     groups:
       # Group all TypeScript related updates
       typescript:
         patterns:
-          - "typescript"
-          - "@types/*"
-          - "ts-*"
+          - 'typescript'
+          - '@types/*'
+          - 'ts-*'
       # Group testing dependencies
       testing:
         patterns:
-          - "vitest"
-          - "@vitest/*"
-          - "jest"
-          - "@testing-library/*"
+          - 'vitest'
+          - '@vitest/*'
+          - 'jest'
+          - '@testing-library/*'
       # Group linting and formatting
       linting:
         patterns:
-          - "eslint"
-          - "@eslint/*"
-          - "prettier"
-          - "@prettier/*"
+          - 'eslint'
+          - '@eslint/*'
+          - 'prettier'
+          - '@prettier/*'
       # Group React and related
       react:
         patterns:
-          - "react"
-          - "react-*"
-          - "@types/react*"
+          - 'react'
+          - 'react-*'
+          - '@types/react*'
 
   # GitHub Actions workflow dependencies
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "10:00"
+      interval: 'weekly'
+      day: 'monday'
+      time: '10:00'
     open-pull-requests-limit: 5
     reviewers:
-      - "danwas"
+      - 'danwas'
     commit-message:
-      prefix: "ci"
-      include: "scope"
+      prefix: 'ci'
+      include: 'scope'
     groups:
       # Group all action updates
       actions:
         patterns:
-          - "actions/*"
-          - "setup-*"
+          - 'actions/*'
+          - 'setup-*'

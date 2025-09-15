@@ -26,5 +26,5 @@ export * from './utils/index.js';
 export const PACKAGE_INFO = {
   name: '@ctrl-freaq/shared-data',
   version: '0.1.0',
-  description: 'Shared data models and repositories for CTRL FreaQ'
+  description: 'Shared data models and repositories for CTRL FreaQ',
 } as const;

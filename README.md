@@ -4,20 +4,31 @@
 
 ## Overview
 
-CTRL FreaQ is a fun research experiment in AI-spec-driven development - basically, we're testing whether AI can write comprehensive documentation and then use that same documentation to build working software. It's an interactive system that generates the core technical specs needed for software development.
+CTRL FreaQ is a fun research experiment in AI-spec-driven development -
+basically, we're testing whether AI can write comprehensive documentation and
+then use that same documentation to build working software. It's an interactive
+system that generates the core technical specs needed for software development.
 
-This serves as a practical research case: can we create AI-optimized Architecture documents that are detailed and structured enough to guide the development of a working MVP with authentication, dashboard, and project management features? The experiment aims to validate this approach while building something useful.
+This serves as a practical research case: can we create AI-optimized
+Architecture documents that are detailed and structured enough to guide the
+development of a working MVP with authentication, dashboard, and project
+management features? The experiment aims to validate this approach while
+building something useful.
 
 ## Problem We Solve
 
-- **Documentation Gap**: Experienced developers often skip rigorous documentation, leading to inconsistent, low-quality LLM outputs
-- **Inconsistent AI Output**: Ad-hoc prompting and "vibe coding" yield unpredictable results
-- **Time Waste**: 3-6 hours/week per engineer lost to prompt crafting and re-contextualizing
+- **Documentation Gap**: Experienced developers often skip rigorous
+  documentation, leading to inconsistent, low-quality LLM outputs
+- **Inconsistent AI Output**: Ad-hoc prompting and "vibe coding" yield
+  unpredictable results
+- **Time Waste**: 3-6 hours/week per engineer lost to prompt crafting and
+  re-contextualizing
 - **PR Churn**: 20-40% of PRs require rework due to unclear architecture
 
 ## Target Users
 
 **Senior/Staff+ Engineers and Tech Leads** who:
+
 - Use AI-assisted development
 - Want predictable, higher-quality LLM output
 - Need to maintain architectural consistency
@@ -26,21 +37,25 @@ This serves as a practical research case: can we create AI-optimized Architectur
 ## Key Features (MVP)
 
 ### Document Creation Flow
+
 - Guided, human-in-the-loop flow for Architecture documents
 - Schema validation and cross-references
 - Decision logs and traceability
 
 ### Conversational Co-Authoring
+
 - Section-aware chat during document creation
 - Suggested drafts and edits
 - Inline citations to fields
 
 ### Document Management
+
 - QA chat for existing documents
 - Update and version existing Architecture docs
 - Diff preview and changelog tracking
 
 ### Quality & Export
+
 - Validation checks and acceptance checklists
 - Markdown export with frontmatter
 - Version markers and changelog
@@ -108,12 +123,15 @@ pnpm typecheck  # Run TypeScript compiler
 
 ## 🏗️ CI/CD Pipeline
 
-The project uses GitHub Actions for continuous integration with quality gates for linting, type checking, building, and testing. All jobs are configured with comprehensive caching for optimal performance.
+The project uses GitHub Actions for continuous integration with quality gates
+for linting, type checking, building, and testing. All jobs are configured with
+comprehensive caching for optimal performance.
 
 ## 📚 Documentation
 
 - **[Project Brief](docs/brief.md)** - Product vision and requirements
-- **[Architecture Guide](docs/README.md)** - System architecture and design patterns
+- **[Architecture Guide](docs/README.md)** - System architecture and design
+  patterns
 - **[Development Constitution](CONSTITUTION.md)** - Core development principles
 
 ## 🔧 Local Development
@@ -127,6 +145,7 @@ The project uses GitHub Actions for continuous integration with quality gates fo
 ### Setup Process
 
 1. **Clone and setup:**
+
    ```bash
    git clone https://github.com/yourusername/ctrl-freaq.git
    cd ctrl-freaq
@@ -134,11 +153,13 @@ The project uses GitHub Actions for continuous integration with quality gates fo
    ```
 
 2. **Install dependencies:**
+
    ```bash
    pnpm install --frozen-lockfile
    ```
 
 3. **Configure environment:**
+
    ```bash
    cp .env.example .env
    # Add your OpenAI API key and Clerk keys to .env
@@ -169,18 +190,23 @@ pnpm --filter @ctrl-freaq/[package-name] test
 
 This project enforces strict quality standards:
 
-- **Test-Driven Development:** All features require failing tests before implementation
-- **Library-First Architecture:** Each feature starts as a standalone library with CLI interface
+- **Test-Driven Development:** All features require failing tests before
+  implementation
+- **Library-First Architecture:** Each feature starts as a standalone library
+  with CLI interface
 - **Repository Pattern:** Abstract data access for future scalability
 - **Structured Logging:** JSON format with correlation IDs
-- **Constitutional Compliance:** All development follows [CONSTITUTION.md](CONSTITUTION.md)
+- **Constitutional Compliance:** All development follows
+  [CONSTITUTION.md](CONSTITUTION.md)
 
 ## 📖 Contributing
 
-1. **Follow the Constitution:** Read [CONSTITUTION.md](CONSTITUTION.md) for development principles
+1. **Follow the Constitution:** Read [CONSTITUTION.md](CONSTITUTION.md) for
+   development principles
 2. **Create Feature Branch:** `git checkout -b feature/your-feature-name`
 3. **Write Tests First:** Implement failing tests before feature code
-4. **Validate Locally:** Run `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+4. **Validate Locally:** Run
+   `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
 5. **Submit Pull Request:** Include description and link to related issues
 
 ### Code Quality
@@ -192,7 +218,8 @@ This project enforces strict quality standards:
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file
+for details.
 
 ## 🏢 Value Proposition
 
@@ -200,9 +227,11 @@ CTRL FreaQ accelerates high-quality AI-assisted development by:
 
 - **Reducing Time Waste:** Save 3-6 hours/week per engineer on prompt crafting
 - **Improving PR Quality:** Reduce rework from 20-40% to under 10%
-- **Accelerating Delivery:** Go from kickoff to approved architecture in under 60 minutes
-- **Ensuring Consistency:** Produce predictable, high-quality LLM outputs every time
+- **Accelerating Delivery:** Go from kickoff to approved architecture in under
+  60 minutes
+- **Ensuring Consistency:** Produce predictable, high-quality LLM outputs every
+  time
 
 ---
 
-*Built with modern TypeScript, React, and Node.js*
+_Built with modern TypeScript, React, and Node.js_

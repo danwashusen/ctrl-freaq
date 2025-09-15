@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
+import request from 'supertest';
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 /**
  * Integration tests for project CRUD operations
@@ -29,7 +29,7 @@ describe('Project CRUD Integration Tests', () => {
 
   afterAll(async () => {
     if (server) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         server.close(() => resolve());
       });
     }
@@ -45,7 +45,7 @@ describe('Project CRUD Integration Tests', () => {
     test('creates project with database persistence', async () => {
       const projectData = {
         name: 'Integration Test Project',
-        description: 'Created via integration test'
+        description: 'Created via integration test',
       };
 
       const response = await request(app)
@@ -87,7 +87,7 @@ describe('Project CRUD Integration Tests', () => {
       // Test that partial failures don't leave orphaned data
       const projectData = {
         name: 'A'.repeat(1000), // Exceeds database field limit
-        description: 'Test description'
+        description: 'Test description',
       };
 
       await request(app)

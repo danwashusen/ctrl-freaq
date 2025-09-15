@@ -15,7 +15,7 @@ template:
   output:
     format: markdown
     filename: docs/simple-architecture.md
-    title: "{{project_name}} Simple Architecture"
+    title: '{{project_name}} Simple Architecture'
 
 sections:
   - id: overview
@@ -28,12 +28,12 @@ sections:
         title: Project Description
         template: |
           {{project_name}} is a {{project_type}} that {{main_purpose}}.
-          
+
           **Key Features:**
           - {{feature_1}}
           - {{feature_2}}
           - {{feature_3}}
-      
+
       - id: constraints
         title: Project Constraints
         template: |
@@ -51,11 +51,11 @@ sections:
         - Hosting platform chosen
     instruction: |
       Select the core technologies for this project:
-      
+
       1. Present 2-3 options for each category
       2. Get user preferences and rationale
       3. Document final choices with versions
-      
+
       Focus on simplicity and team expertise.
     sections:
       - id: core-stack
@@ -63,10 +63,10 @@ sections:
         type: table
         columns: [Category, Technology, Version, Reason]
         examples:
-          - "| **Language** | JavaScript | ES2022 | Team familiarity, rich ecosystem |"
-          - "| **Framework** | Express.js | 4.18.0 | Simple, well-documented, fast setup |"
-          - "| **Database** | PostgreSQL | 15.0 | Reliable, supports complex queries |"
-      
+          - '| **Language** | JavaScript | ES2022 | Team familiarity, rich ecosystem |'
+          - '| **Framework** | Express.js | 4.18.0 | Simple, well-documented, fast setup |'
+          - '| **Database** | PostgreSQL | 15.0 | Reliable, supports complex queries |'
+
       - id: development-tools
         title: Development Tools
         template: |
@@ -79,7 +79,7 @@ sections:
     title: Architecture Design
     instruction: |
       Design the high-level architecture:
-      
+
       1. Choose an architectural pattern (monolith, microservices, etc.)
       2. Define main components and their responsibilities
       3. Show how components interact
@@ -89,30 +89,30 @@ sections:
         title: Architectural Pattern
         template: |
           **Selected Pattern:** {{pattern_name}}
-          
+
           **Rationale:** {{pattern_rationale}}
-          
+
           **Key Benefits:**
           - {{benefit_1}}
           - {{benefit_2}}
-      
+
       - id: system-components
         title: System Components
         repeatable: true
         sections:
           - id: component
-            title: "{{component_name}}"
+            title: '{{component_name}}'
             template: |
               **Purpose:** {{component_purpose}}
-              
+
               **Responsibilities:**
               - {{responsibility_1}}
               - {{responsibility_2}}
-              
+
               **Technologies:** {{component_tech}}
-              
+
               **Interfaces:** {{component_interfaces}}
-      
+
       - id: architecture-diagram
         title: Architecture Diagram
         type: mermaid
@@ -129,7 +129,7 @@ sections:
     condition: Project requires data storage
     instruction: |
       Design the data layer:
-      
+
       1. Identify main data entities
       2. Define relationships between entities
       3. Choose appropriate data storage patterns
@@ -140,17 +140,17 @@ sections:
         repeatable: true
         sections:
           - id: entity
-            title: "{{entity_name}}"
+            title: '{{entity_name}}'
             template: |
               **Purpose:** {{entity_purpose}}
-              
+
               **Key Fields:**
               - {{field_1}}: {{type_1}} - {{description_1}}
               - {{field_2}}: {{type_2}} - {{description_2}}
-              
+
               **Relationships:**
               - {{relationship_description}}
-      
+
       - id: database-schema
         title: Database Schema
         type: code
@@ -162,7 +162,7 @@ sections:
     condition: Project includes an API
     instruction: |
       Design the API structure:
-      
+
       1. Choose API style (REST, GraphQL, etc.)
       2. Define main endpoints
       3. Specify request/response formats
@@ -175,23 +175,23 @@ sections:
           **Base URL:** {{base_url}}
           **Authentication:** {{auth_method}}
           **Response Format:** {{response_format}}
-      
+
       - id: endpoints
         title: API Endpoints
         repeatable: true
         sections:
           - id: endpoint
-            title: "{{endpoint_name}}"
+            title: '{{endpoint_name}}'
             template: |
               **Method:** {{http_method}}
               **Path:** {{endpoint_path}}
               **Purpose:** {{endpoint_purpose}}
-              
+
               **Request:**
               ```json
               {{request_example}}
               ```
-              
+
               **Response:**
               ```json
               {{response_example}}
@@ -206,7 +206,7 @@ sections:
         - Scaling requirements understood
     instruction: |
       Plan the deployment approach:
-      
+
       1. Select hosting platform
       2. Define deployment process
       3. Plan for different environments
@@ -218,12 +218,12 @@ sections:
           **Platform:** {{hosting_platform}}
           **Rationale:** {{hosting_rationale}}
           **Cost Estimate:** {{cost_estimate}}
-      
+
       - id: environments
         title: Environments
         repeatable: true
-        template: "- **{{env_name}}:** {{env_purpose}} - {{env_url}}"
-      
+        template: '- **{{env_name}}:** {{env_purpose}} - {{env_url}}'
+
       - id: deployment-process
         title: Deployment Process
         type: code
@@ -260,7 +260,7 @@ sections:
     title: Development Workflow
     instruction: |
       Define how the team will work together:
-      
+
       1. Code organization and standards
       2. Testing approach
       3. Code review process
@@ -273,7 +273,7 @@ sections:
           - **Naming Conventions:** {{naming_conventions}}
           - **File Organization:** {{file_organization}}
           - **Comment Standards:** {{comment_standards}}
-      
+
       - id: testing-approach
         title: Testing Approach
         template: |
@@ -281,9 +281,9 @@ sections:
           **Test Types:**
           - Unit tests for {{unit_test_scope}}
           - Integration tests for {{integration_test_scope}}
-          
+
           **Coverage Goal:** {{coverage_target}}
-      
+
       - id: git-workflow
         title: Git Workflow
         template: |
@@ -295,7 +295,7 @@ sections:
     title: Implementation Plan
     instruction: |
       Create a high-level implementation plan:
-      
+
       1. Break down into major phases
       2. Identify dependencies between tasks
       3. Estimate effort for each phase
@@ -306,22 +306,22 @@ sections:
         repeatable: true
         sections:
           - id: phase
-            title: "Phase {{phase_number}}: {{phase_name}}"
+            title: 'Phase {{phase_number}}: {{phase_name}}'
             template: |
               **Duration:** {{phase_duration}}
               **Goals:** {{phase_goals}}
-              
+
               **Key Tasks:**
               - {{task_1}}
               - {{task_2}}
               - {{task_3}}
-              
+
               **Success Criteria:** {{success_criteria}}
-      
+
       - id: risk-mitigation
         title: Risk Mitigation
         repeatable: true
-        template: "- **{{risk_name}}:** {{risk_description}} - _Mitigation:_ {{mitigation_strategy}}"
+        template: '- **{{risk_name}}:** {{risk_description}} - _Mitigation:_ {{mitigation_strategy}}'
         examples:
-          - "**Technical Complexity:** New framework learning curve - _Mitigation:_ Start with tutorials and proof of concepts"
-          - "**Timeline Pressure:** Scope creep during development - _Mitigation:_ Clear requirements documentation and change control process"
+          - '**Technical Complexity:** New framework learning curve - _Mitigation:_ Start with tutorials and proof of concepts'
+          - '**Timeline Pressure:** Scope creep during development - _Mitigation:_ Clear requirements documentation and change control process'

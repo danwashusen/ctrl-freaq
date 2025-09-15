@@ -1,9 +1,9 @@
-import React from 'react';
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-react';
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 /**
  * Integration tests for dashboard loading functionality
@@ -25,7 +25,7 @@ vi.mock('@clerk/clerk-react', () => ({
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),
-  UserButton: () => <div data-testid="user-button">User Menu</div>
+  UserButton: () => <div data-testid="user-button">User Menu</div>,
 }));
 
 // Mock fetch for API calls
@@ -35,7 +35,7 @@ const mockUser = {
   id: 'user_2abc123def456',
   emailAddresses: [{ emailAddress: 'test@example.com' }],
   firstName: 'Test',
-  lastName: 'User'
+  lastName: 'User',
 };
 
 const mockProject = {
@@ -45,13 +45,13 @@ const mockProject = {
   slug: 'my-project',
   description: 'A test project',
   createdAt: '2025-09-13T10:00:00.000Z',
-  updatedAt: '2025-09-13T10:00:00.000Z'
+  updatedAt: '2025-09-13T10:00:00.000Z',
 };
 
 const mockConfig = {
   theme: 'dark',
   logLevel: 'info',
-  editorPreferences: '{"fontSize": 14, "tabSize": 2}'
+  editorPreferences: '{"fontSize": 14, "tabSize": 2}',
 };
 
 // Mock Dashboard Component
@@ -71,7 +71,7 @@ const Dashboard = () => {
 
         // Fetch project data
         const projectResponse = await fetch('/api/v1/projects', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (projectResponse.ok) {
@@ -86,7 +86,7 @@ const Dashboard = () => {
 
         // Fetch configuration
         const configResponse = await fetch('/api/v1/projects/config', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (configResponse.ok) {
@@ -181,9 +181,7 @@ const Dashboard = () => {
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <MemoryRouter initialEntries={['/dashboard']}>
-    <ClerkProvider publishableKey="pk_test_mock">
-      {children}
-    </ClerkProvider>
+    <ClerkProvider publishableKey="pk_test_mock">{children}</ClerkProvider>
   </MemoryRouter>
 );
 
@@ -198,22 +196,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         } as any);
 
       render(
@@ -245,22 +243,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: false,
-          status: 404
+          status: 404,
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({})
+          json: () => Promise.resolve({}),
         } as any);
 
       render(
@@ -282,22 +280,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         } as any);
 
       render(
@@ -322,22 +320,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: mockGetToken
+        getToken: mockGetToken,
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         } as any);
 
       render(
@@ -351,11 +349,11 @@ describe('Dashboard Integration Tests', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith('/api/v1/projects', {
-        headers: { Authorization: 'Bearer test-jwt-token' }
+        headers: { Authorization: 'Bearer test-jwt-token' },
       });
 
       expect(fetch).toHaveBeenCalledWith('/api/v1/projects/config', {
-        headers: { Authorization: 'Bearer test-jwt-token' }
+        headers: { Authorization: 'Bearer test-jwt-token' },
       });
     });
 
@@ -363,12 +361,12 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch).mockRejectedValue(new Error('Network error'));
@@ -392,17 +390,17 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('invalid-jwt-token')
+        getToken: vi.fn().mockResolvedValue('invalid-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch).mockResolvedValue({
         ok: false,
-        status: 401
+        status: 401,
       } as any);
 
       render(
@@ -424,22 +422,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         } as any);
 
       render(
@@ -461,22 +459,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({})
+          json: () => Promise.resolve({}),
         } as any);
 
       render(
@@ -498,22 +496,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: false,
-          status: 404
+          status: 404,
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({})
+          json: () => Promise.resolve({}),
         } as any);
 
       render(
@@ -538,22 +536,22 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         } as any);
 
       render(
@@ -584,17 +582,17 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       // Create a promise that we can control
       let resolvePromise: (value: any) => void = () => {};
-      const pendingPromise = new Promise((resolve) => {
+      const pendingPromise = new Promise(resolve => {
         resolvePromise = resolve;
       });
 
@@ -611,7 +609,7 @@ describe('Dashboard Integration Tests', () => {
       // Resolve the promise
       resolvePromise({
         ok: true,
-        json: () => Promise.resolve(mockProject)
+        json: () => Promise.resolve(mockProject),
       });
 
       await waitFor(() => {
@@ -623,28 +621,32 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token')
+        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
         user: mockUser,
-        isLoaded: true
+        isLoaded: true,
       } as any);
 
       // Mock fetch to resolve project first, then config after delay
       vi.mocked(fetch)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockProject)
+          json: () => Promise.resolve(mockProject),
         } as any)
-        .mockImplementationOnce(() =>
-          new Promise((resolve) =>
-            setTimeout(() =>
-              resolve({
-                ok: true,
-                json: () => Promise.resolve(mockConfig)
-              } as any), 100)
-          )
+        .mockImplementationOnce(
+          () =>
+            new Promise(resolve =>
+              setTimeout(
+                () =>
+                  resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockConfig),
+                  } as any),
+                100
+              )
+            )
         );
 
       render(

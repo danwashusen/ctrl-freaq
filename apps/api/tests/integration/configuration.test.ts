@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
+import request from 'supertest';
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 /**
  * Integration tests for configuration management
@@ -27,7 +27,7 @@ describe('Configuration Management Integration Tests', () => {
 
   afterAll(async () => {
     if (server) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         server.close(() => resolve());
       });
     }
@@ -42,7 +42,7 @@ describe('Configuration Management Integration Tests', () => {
       const configData = {
         theme: 'dark',
         logLevel: 'debug',
-        editorPreferences: '{"fontSize": 16}'
+        editorPreferences: '{"fontSize": 16}',
       };
 
       await request(app)
@@ -92,7 +92,7 @@ describe('Configuration Management Integration Tests', () => {
         theme: 'dark',
         numericValue: 123,
         booleanValue: true,
-        arrayValue: ['item1', 'item2']
+        arrayValue: ['item1', 'item2'],
       };
 
       const response = await request(app)

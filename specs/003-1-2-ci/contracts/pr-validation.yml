@@ -16,17 +16,17 @@ triggers:
       - submitted
   issue_comment:
     types:
-      - created  # For commands like /rerun-ci
+      - created # For commands like /rerun-ci
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true  # Cancel previous runs on same PR
+  cancel-in-progress: true # Cancel previous runs on same PR
 
 permissions:
   contents: read
-  pull-requests: write  # For posting comments
-  statuses: write      # For updating commit status
-  checks: write        # For creating check runs
+  pull-requests: write # For posting comments
+  statuses: write # For updating commit status
+  checks: write # For creating check runs
 
 jobs:
   auto-cancel-previous:
@@ -145,7 +145,7 @@ status_checks:
     - comment-results
 
 auto_merge:
-  enabled: false  # For MVP
+  enabled: false # For MVP
   conditions:
     - all_checks_passed
     - approved_reviews >= 1
@@ -153,6 +153,6 @@ auto_merge:
     - up_to_date_with_base
 
 performance:
-  target_duration: < 3 minutes  # Faster for PR validation
+  target_duration: < 3 minutes # Faster for PR validation
   use_cache: aggressive
   skip_unchanged: true

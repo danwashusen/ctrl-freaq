@@ -38,15 +38,15 @@ paths:
                     type: string
                     format: date-time
                     description: Current server timestamp
-                    example: "2025-09-13T10:00:00.000Z"
+                    example: '2025-09-13T10:00:00.000Z'
                   version:
                     type: string
                     description: Application version
-                    example: "0.1.0"
+                    example: '0.1.0'
                   service:
                     type: string
                     description: Service name
-                    example: "ctrl-freaq-api"
+                    example: 'ctrl-freaq-api'
                   uptime:
                     type: number
                     description: Server uptime in seconds
@@ -54,7 +54,7 @@ paths:
                   environment:
                     type: string
                     description: Current environment
-                    example: "development"
+                    example: 'development'
                   database:
                     type: object
                     properties:
@@ -64,7 +64,7 @@ paths:
                         example: connected
                       type:
                         type: string
-                        example: "sqlite"
+                        example: 'sqlite'
         '503':
           description: Server is unhealthy
           content:
@@ -83,11 +83,11 @@ paths:
                   error:
                     type: string
                     description: Error description
-                    example: "Database connection failed"
+                    example: 'Database connection failed'
                   timestamp:
                     type: string
                     format: date-time
-                    example: "2025-09-13T10:00:00.000Z"
+                    example: '2025-09-13T10:00:00.000Z'
 
   /api/v1/health:
     get:

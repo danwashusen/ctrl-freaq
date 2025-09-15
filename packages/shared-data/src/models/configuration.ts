@@ -1,6 +1,8 @@
-import { z } from 'zod';
 import Database from 'better-sqlite3';
-import { BaseRepository, Repository } from '../repositories/index.js';
+import { z } from 'zod';
+
+import { BaseRepository } from '../repositories/index.js';
+import type { Repository } from '../repositories/index.js';
 
 /**
  * Configuration entity schema
@@ -11,7 +13,7 @@ export const ConfigurationSchema = z.object({
   key: z.string().min(1, 'Configuration key is required').max(100, 'Configuration key too long'),
   value: z.string().max(10240, 'Configuration value too large (max 10KB)'), // JSON-stringified value
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type Configuration = z.infer<typeof ConfigurationSchema>;
@@ -22,7 +24,7 @@ export type Configuration = z.infer<typeof ConfigurationSchema>;
 export const CreateConfigurationSchema = ConfigurationSchema.omit({
   id: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type CreateConfigurationInput = z.infer<typeof CreateConfigurationSchema>;
@@ -35,7 +37,7 @@ export const UpdateConfigurationSchema = ConfigurationSchema.partial().omit({
   userId: true,
   key: true, // Key cannot be changed
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type UpdateConfigurationInput = z.infer<typeof UpdateConfigurationSchema>;
@@ -52,7 +54,10 @@ export interface ConfigurationRepository extends Repository<Configuration> {
 /**
  * Configuration repository implementation
  */
-export class ConfigurationRepositoryImpl extends BaseRepository<Configuration> implements ConfigurationRepository {
+export class ConfigurationRepositoryImpl
+  extends BaseRepository<Configuration>
+  implements ConfigurationRepository
+{
   constructor(db: Database.Database) {
     super(db, 'configurations', ConfigurationSchema);
   }
@@ -62,7 +67,7 @@ export class ConfigurationRepositoryImpl extends BaseRepository<Configuration> i
    */
   async findByUserAndKey(userId: string, key: string): Promise<Configuration | null> {
     const stmt = this.db.prepare('SELECT * FROM configurations WHERE user_id = ? AND key = ?');
-    const row = stmt.get(userId, key) as Record<string, any> | undefined;
+    const row = stmt.get(userId, key) as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -74,7 +79,7 @@ export class ConfigurationRepositoryImpl extends BaseRepository<Configuration> i
    */
   async findByUserId(userId: string): Promise<Configuration[]> {
     const stmt = this.db.prepare('SELECT * FROM configurations WHERE user_id = ? ORDER BY key ASC');
-    const rows = stmt.all(userId) as Record<string, any>[];
+    const rows = stmt.all(userId) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -95,7 +100,7 @@ export class ConfigurationRepositoryImpl extends BaseRepository<Configuration> i
   /**
    * Override create to enforce user+key uniqueness
    */
-  async create(configData: CreateConfigurationInput): Promise<Configuration> {
+  override async create(configData: CreateConfigurationInput): Promise<Configuration> {
     // Check if user+key combination already exists
     const existing = await this.findByUserAndKey(configData.userId, configData.key);
     if (existing) {
@@ -104,7 +109,9 @@ export class ConfigurationRepositoryImpl extends BaseRepository<Configuration> i
 
     // Validate key is allowed
     if (!VALID_CONFIG_KEYS.includes(configData.key as ConfigKey)) {
-      throw new Error(`Invalid configuration key: ${configData.key}. Allowed keys: ${VALID_CONFIG_KEYS.join(', ')}`);
+      throw new Error(
+        `Invalid configuration key: ${configData.key}. Allowed keys: ${VALID_CONFIG_KEYS.join(', ')}`
+      );
     }
 
     return super.create(configData);
@@ -120,10 +127,10 @@ export const VALID_CONFIG_KEYS = [
   'editorPreferences',
   'apiKeys',
   'notifications',
-  'language'
+  'language',
 ] as const;
 
-export type ConfigKey = typeof VALID_CONFIG_KEYS[number];
+export type ConfigKey = (typeof VALID_CONFIG_KEYS)[number];
 
 /**
  * Configuration value schemas for validation
@@ -136,16 +143,21 @@ export const ConfigValueSchemas = {
     lineNumbers: z.boolean().optional(),
     wordWrap: z.boolean().optional(),
     tabSize: z.number().min(1).max(8).optional(),
-    theme: z.string().optional()
+    theme: z.string().optional(),
   }),
   apiKeys: z.record(z.string()), // Encrypted API keys
   notifications: z.object({
     email: z.boolean().optional(),
     desktop: z.boolean().optional(),
-    frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).optional()
+    frequency: z.enum(['immediate', 'hourly', 'daily', 'weekly']).optional(),
   }),
-  language: z.enum(['en', 'es', 'fr', 'de', 'ja', 'zh'])
+  language: z.enum(['en', 'es', 'fr', 'de', 'ja', 'zh']),
 } satisfies Record<ConfigKey, z.ZodSchema>;
+
+// Safe accessor map to avoid dynamic object injection patterns
+const ConfigValueSchemaMap: Map<ConfigKey, z.ZodSchema> = new Map(
+  Object.entries(ConfigValueSchemas) as [ConfigKey, z.ZodSchema][]
+);
 
 /**
  * Validation functions
@@ -169,7 +181,7 @@ export const ConfigurationUtils = {
   /**
    * Parse JSON configuration value safely
    */
-  parseValue<T = any>(config: Configuration): T | null {
+  parseValue<T = unknown>(config: Configuration): T | null {
     try {
       return JSON.parse(config.value);
     } catch {
@@ -180,15 +192,16 @@ export const ConfigurationUtils = {
   /**
    * Stringify configuration value
    */
-  stringifyValue(value: any): string {
+  stringifyValue(value: unknown): string {
     return JSON.stringify(value);
   },
 
   /**
    * Validate configuration value against schema
    */
-  validateValue(key: ConfigKey, value: any): boolean {
-    const schema = ConfigValueSchemas[key];
+  validateValue(key: ConfigKey, value: unknown): boolean {
+    const schema = ConfigValueSchemaMap.get(key);
+    if (!schema) return false;
     const result = schema.safeParse(value);
     return result.success;
   },
@@ -196,7 +209,7 @@ export const ConfigurationUtils = {
   /**
    * Get default configuration values
    */
-  getDefaults(): Record<ConfigKey, any> {
+  getDefaults(): Record<ConfigKey, unknown> {
     return {
       theme: 'system',
       logLevel: 'info',
@@ -205,15 +218,15 @@ export const ConfigurationUtils = {
         lineNumbers: true,
         wordWrap: true,
         tabSize: 2,
-        theme: 'default'
+        theme: 'default',
       },
       apiKeys: {},
       notifications: {
         email: true,
         desktop: true,
-        frequency: 'daily'
+        frequency: 'daily',
       },
-      language: 'en'
+      language: 'en',
     };
   },
 
@@ -222,7 +235,7 @@ export const ConfigurationUtils = {
    */
   isValidKey(key: string): key is ConfigKey {
     return VALID_CONFIG_KEYS.includes(key as ConfigKey);
-  }
+  },
 };
 
 /**
@@ -232,5 +245,5 @@ export const CONFIG_CONSTANTS = {
   MAX_KEY_LENGTH: 100,
   MAX_VALUE_SIZE: 10240, // 10KB in bytes
   MIN_KEY_LENGTH: 1,
-  VALID_KEYS: VALID_CONFIG_KEYS
+  VALID_KEYS: VALID_CONFIG_KEYS,
 } as const;

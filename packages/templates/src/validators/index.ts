@@ -12,22 +12,30 @@ export class TemplateValidator {
   /**
    * Validate complete template structure
    */
-  static validateTemplate(template: any): { valid: boolean; errors: string[] } {
+  static validateTemplate(template: unknown): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
+    // Validate template is an object
+    if (typeof template !== 'object' || template === null) {
+      errors.push('Template must be an object');
+      return { valid: false, errors };
+    }
+
+    const templateObj = template as Record<string, unknown>;
+
     // Check required top-level properties
-    if (!template.metadata) {
+    if (!templateObj.metadata) {
       errors.push('Template must have a metadata section');
     }
 
-    if (!template.content) {
+    if (!templateObj.content) {
       errors.push('Template must have a content section');
     }
 
     // Validate metadata structure
-    if (template.metadata) {
+    if (templateObj.metadata) {
       try {
-        TemplateMetadataSchema.parse(template.metadata);
+        TemplateMetadataSchema.parse(templateObj.metadata);
       } catch (error) {
         if (error instanceof z.ZodError) {
           errors.push(...error.errors.map(e => `Metadata ${e.path.join('.')}: ${e.message}`));
@@ -36,21 +44,23 @@ export class TemplateValidator {
     }
 
     // Validate content is string
-    if (template.content && typeof template.content !== 'string') {
+    if (templateObj.content && typeof templateObj.content !== 'string') {
       errors.push('Template content must be a string');
     }
 
     // Validate variables section if present
-    if (template.variables && typeof template.variables !== 'object') {
+    if (templateObj.variables && typeof templateObj.variables !== 'object') {
       errors.push('Template variables must be an object');
     }
 
     // Validate sections if present
-    if (template.sections) {
-      if (typeof template.sections !== 'object') {
+    if (templateObj.sections) {
+      if (typeof templateObj.sections !== 'object') {
         errors.push('Template sections must be an object');
       } else {
-        for (const [key, value] of Object.entries(template.sections)) {
+        for (const [key, value] of Object.entries(
+          templateObj.sections as Record<string, unknown>
+        )) {
           if (typeof value !== 'string') {
             errors.push(`Section '${key}' must be a string`);
           }
@@ -64,32 +74,59 @@ export class TemplateValidator {
   /**
    * Validate variable definitions
    */
-  static validateVariables(variables: Record<string, any>): { valid: boolean; errors: string[] } {
+  static validateVariables(variables: Record<string, unknown>): {
+    valid: boolean;
+    errors: string[];
+  } {
     const errors: string[] = [];
 
     for (const [name, definition] of Object.entries(variables)) {
       // Variable name validation
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
-        errors.push(`Variable name '${name}' is invalid. Must start with letter or underscore and contain only alphanumeric characters and underscores.`);
+        errors.push(
+          `Variable name '${name}' is invalid. Must start with letter or underscore and contain only alphanumeric characters and underscores.`
+        );
       }
 
       // Variable definition validation
       if (typeof definition === 'object' && definition !== null) {
-        if (definition.type && !['string', 'number', 'boolean', 'array', 'object'].includes(definition.type)) {
-          errors.push(`Variable '${name}' has invalid type '${definition.type}'`);
+        const defObj = definition as Record<string, unknown>;
+
+        if (
+          'type' in defObj &&
+          defObj.type &&
+          !['string', 'number', 'boolean', 'array', 'object'].includes(defObj.type as string)
+        ) {
+          errors.push(`Variable '${name}' has invalid type '${defObj.type}'`);
         }
 
-        if (definition.required !== undefined && typeof definition.required !== 'boolean') {
+        if (
+          'required' in defObj &&
+          defObj.required !== undefined &&
+          typeof defObj.required !== 'boolean'
+        ) {
           errors.push(`Variable '${name}' required field must be a boolean`);
         }
 
-        if (definition.default !== undefined && definition.type) {
-          const defaultType = Array.isArray(definition.default) ? 'array' :
-                             definition.default === null ? 'null' :
-                             typeof definition.default;
+        if (
+          'default' in defObj &&
+          defObj.default !== undefined &&
+          'type' in defObj &&
+          defObj.type
+        ) {
+          const defaultType = Array.isArray(defObj.default)
+            ? 'array'
+            : defObj.default === null
+              ? 'null'
+              : typeof defObj.default;
 
-          if (definition.type !== defaultType && !(definition.type === 'object' && defaultType === 'null')) {
-            errors.push(`Variable '${name}' default value type '${defaultType}' doesn't match declared type '${definition.type}'`);
+          if (
+            defObj.type !== defaultType &&
+            !(defObj.type === 'object' && defaultType === 'null')
+          ) {
+            errors.push(
+              `Variable '${name}' default value type '${defaultType}' doesn't match declared type '${defObj.type}'`
+            );
           }
         }
       }
@@ -101,32 +138,62 @@ export class TemplateValidator {
   /**
    * Validate template inheritance
    */
-  static validateInheritance(template: any, parentTemplate?: any): { valid: boolean; errors: string[] } {
+  static validateInheritance(
+    template: unknown,
+    parentTemplate?: unknown
+  ): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!template.metadata?.extends) {
+    // Validate templates are objects
+    if (typeof template !== 'object' || template === null) {
+      errors.push('Template must be an object');
+      return { valid: false, errors };
+    }
+
+    const templateObj = template as Record<string, unknown>;
+    const templateMetadata = templateObj.metadata as Record<string, unknown> | undefined;
+
+    if (!templateMetadata?.extends) {
       return { valid: true, errors };
     }
 
     if (!parentTemplate) {
-      errors.push(`Parent template '${template.metadata.extends}' not found`);
+      errors.push(`Parent template '${templateMetadata.extends}' not found`);
       return { valid: false, errors };
     }
 
+    if (typeof parentTemplate !== 'object' || parentTemplate === null) {
+      errors.push('Parent template must be an object');
+      return { valid: false, errors };
+    }
+
+    const parentTemplateObj = parentTemplate as Record<string, unknown>;
+    const parentMetadata = parentTemplateObj.metadata as Record<string, unknown> | undefined;
+
     // Check version compatibility if specified
-    if (template.metadata.parentVersion && parentTemplate.metadata.version) {
-      if (template.metadata.parentVersion !== parentTemplate.metadata.version) {
-        errors.push(`Parent template version mismatch. Expected '${template.metadata.parentVersion}', found '${parentTemplate.metadata.version}'`);
+    if (templateMetadata.parentVersion && parentMetadata?.version) {
+      if (templateMetadata.parentVersion !== parentMetadata.version) {
+        errors.push(
+          `Parent template version mismatch. Expected '${templateMetadata.parentVersion}', found '${parentMetadata.version}'`
+        );
       }
     }
 
     // Validate that child template doesn't override required parent variables
-    if (parentTemplate.variables && template.variables) {
-      for (const [varName, parentVar] of Object.entries(parentTemplate.variables)) {
-        if (typeof parentVar === 'object' && parentVar !== null &&
-            'required' in parentVar && 'final' in parentVar &&
-            parentVar.required && parentVar.final) {
-          if (varName in template.variables) {
+    const parentVariables = parentTemplateObj.variables as Record<string, unknown> | undefined;
+    const templateVariables = templateObj.variables as Record<string, unknown> | undefined;
+
+    if (parentVariables && templateVariables) {
+      for (const [varName, parentVar] of Object.entries(parentVariables)) {
+        if (
+          typeof parentVar === 'object' &&
+          parentVar !== null &&
+          'required' in parentVar &&
+          'final' in parentVar &&
+          (parentVar as Record<string, unknown>).required &&
+          (parentVar as Record<string, unknown>).final
+        ) {
+          if (varName in templateVariables) {
             errors.push(`Cannot override final variable '${varName}' from parent template`);
           }
         }
@@ -140,18 +207,35 @@ export class TemplateValidator {
    * Validate template rendering context
    */
   static validateRenderContext(
-    template: any,
-    context: Record<string, any>
+    template: unknown,
+    context: Record<string, unknown>
   ): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!template.variables) {
+    // Validate template is an object
+    if (typeof template !== 'object' || template === null) {
+      errors.push('Template must be an object');
+      return { valid: false, errors };
+    }
+
+    const templateObj = template as Record<string, unknown>;
+    const templateVariables = templateObj.variables as Record<string, unknown> | undefined;
+
+    if (!templateVariables) {
       return { valid: true, errors };
     }
 
+    // Build a lookup map to avoid dynamic object indexing
+    const templateVarMap = new Map<string, unknown>(Object.entries(templateVariables));
+
     // Check required variables
-    for (const [varName, varDef] of Object.entries(template.variables)) {
-      if (typeof varDef === 'object' && varDef !== null && 'required' in varDef && varDef.required) {
+    for (const [varName, varDef] of templateVarMap.entries()) {
+      if (
+        typeof varDef === 'object' &&
+        varDef !== null &&
+        'required' in varDef &&
+        (varDef as Record<string, unknown>).required
+      ) {
         if (!(varName in context)) {
           errors.push(`Required variable '${varName}' is missing from render context`);
         }
@@ -160,15 +244,18 @@ export class TemplateValidator {
 
     // Check variable types
     for (const [varName, value] of Object.entries(context)) {
-      const varDef = template.variables[varName];
+      const varDef = templateVarMap.get(varName);
 
-      if (typeof varDef === 'object' && varDef?.type) {
-        const actualType = Array.isArray(value) ? 'array' :
-                          value === null ? 'null' :
-                          typeof value;
+      if (typeof varDef === 'object' && varDef !== null && 'type' in varDef) {
+        const varDefObj = varDef as Record<string, unknown>;
+        const expectedType = varDefObj.type;
 
-        if (varDef.type !== actualType && !(varDef.type === 'object' && actualType === 'null')) {
-          errors.push(`Variable '${varName}' expected type '${varDef.type}' but got '${actualType}'`);
+        const actualType = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
+
+        if (expectedType !== actualType && !(expectedType === 'object' && actualType === 'null')) {
+          errors.push(
+            `Variable '${varName}' expected type '${expectedType}' but got '${actualType}'`
+          );
         }
       }
     }
@@ -183,28 +270,34 @@ export class TemplateValidator {
 export const VariableDefinitionSchema = z.object({
   type: z.enum(['string', 'number', 'boolean', 'array', 'object']).optional(),
   required: z.boolean().optional(),
-  default: z.any().optional(),
+  default: z.unknown().optional(),
   description: z.string().optional(),
   final: z.boolean().optional(), // Cannot be overridden by child templates
-  validation: z.object({
-    pattern: z.string().optional(),
-    minLength: z.number().optional(),
-    maxLength: z.number().optional(),
-    min: z.number().optional(),
-    max: z.number().optional(),
-    enum: z.array(z.any()).optional()
-  }).optional()
+  validation: z
+    .object({
+      pattern: z.string().optional(),
+      minLength: z.number().optional(),
+      maxLength: z.number().optional(),
+      min: z.number().optional(),
+      max: z.number().optional(),
+      enum: z.array(z.unknown()).optional(),
+    })
+    .optional(),
 });
 
 export const TemplateSchema = z.object({
   metadata: TemplateMetadataSchema,
   content: z.string(),
-  variables: z.record(z.union([
-    z.any(), // Simple default value
-    VariableDefinitionSchema // Complex variable definition
-  ])).optional(),
-  sections: z.record(z.string()).optional()
+  variables: z
+    .record(
+      z.union([
+        z.unknown(), // Simple default value
+        VariableDefinitionSchema, // Complex variable definition
+      ])
+    )
+    .optional(),
+  sections: z.record(z.string()).optional(),
 });
 
 export type VariableDefinition = z.infer<typeof VariableDefinitionSchema>;
-export type TemplateSchema = z.infer<typeof TemplateSchema>;
+export type TemplateData = z.infer<typeof TemplateSchema>;

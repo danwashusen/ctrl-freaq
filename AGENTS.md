@@ -1,14 +1,20 @@
 # Claude Code Context - CTRL FreaQ
 
 ## Project Overview
-CTRL FreaQ is an AI-optimized documentation system built as a monorepo with React frontend and Express.js backend. The project follows Constitutional principles including library-first architecture, mandatory TDD, and CLI interfaces for all libraries.
+
+CTRL FreaQ is an AI-optimized documentation system built as a monorepo with
+React frontend and Express.js backend. The project follows Constitutional
+principles including library-first architecture, mandatory TDD, and CLI
+interfaces for all libraries.
 
 ## Current Development
-**Branch**: 002-1-1-development
-**Status**: ✅ COMPLETE - Development Environment Bootstrap
-**Focus**: All 62 tasks completed including monorepo infrastructure, security fixes, and frontend integration
+
+**Branch**: 002-1-1-development **Status**: ✅ COMPLETE - Development
+Environment Bootstrap **Focus**: All 62 tasks completed including monorepo
+infrastructure, security fixes, and frontend integration
 
 ## Technical Stack
+
 - **Languages**: TypeScript 5.4.x, Node.js 22.x
 - **Frontend**: React 18.3.x, Vite 5.x, shadcn/ui, Tailwind CSS
 - **Backend**: Express.js 5.1.0, SQLite with better-sqlite3
@@ -18,6 +24,7 @@ CTRL FreaQ is an AI-optimized documentation system built as a monorepo with Reac
 - **Auth**: Clerk (JWT-based)
 
 ## Project Structure
+
 ```
 ctrl-freaq/
 ├── apps/
@@ -38,29 +45,36 @@ ctrl-freaq/
 ## Core Architectural Patterns
 
 ### Service Locator Pattern
+
 Per-request dependency injection container attached to Express middleware:
+
 ```typescript
-req.services.get<Logger>('logger')
-req.services.get<Database>('database')
+req.services.get<Logger>('logger');
+req.services.get<Database>('database');
 ```
 
 ### Repository Pattern
+
 Abstract data access for SQLite → DynamoDB migration path:
+
 ```typescript
 class BaseRepository<T> {
-  findById(id: string): T | undefined
-  create(entity: T): T
-  update(id: string, updates: Partial<T>): T
+  findById(id: string): T | undefined;
+  create(entity: T): T;
+  update(id: string, updates: Partial<T>): T;
 }
 ```
 
 ### Structured Logging
+
 Pino with correlation IDs and service context:
+
 ```typescript
-logger.info({ requestId, userId }, 'Operation completed')
+logger.info({ requestId, userId }, 'Operation completed');
 ```
 
 ## Development Commands
+
 ```bash
 pnpm dev        # Start frontend + backend
 pnpm test       # Run all tests
@@ -73,6 +87,7 @@ pnpm --filter @ctrl-freaq/shared-data cli --help
 ```
 
 ## Constitutional Requirements
+
 1. **Library-First**: Every feature as standalone library with CLI
 2. **TDD Mandatory**: RED-GREEN-Refactor cycle enforced
 3. **No Singletons**: Use Service Locator pattern
@@ -82,6 +97,7 @@ pnpm --filter @ctrl-freaq/shared-data cli --help
 ## Implementation Status
 
 ### Complete Features ✅
+
 - **Monorepo Structure**: pnpm workspaces + Turborepo pipeline
 - **Core Infrastructure**: Service Locator, Pino logging, Error handling
 - **Library Packages**: 8 packages with CLI interfaces
@@ -93,6 +109,7 @@ pnpm --filter @ctrl-freaq/shared-data cli --help
 - **Security**: Cryptographic request IDs, input validation, audit logging
 
 ### Architecture Highlights
+
 - **Request-scoped DI**: Service containers per Express request
 - **Transaction Support**: Database operations with transaction wrapper
 - **Browser Logging**: Client-side structured logging transmits to backend
@@ -100,6 +117,7 @@ pnpm --filter @ctrl-freaq/shared-data cli --help
 - **SOC 2 Compliance**: Audit fields, structured logging, security requirements
 
 ### Available Commands
+
 ```bash
 pnpm dev        # Start frontend (5173) + backend (5001)
 pnpm test       # Run all tests
@@ -116,13 +134,15 @@ pnpm --filter @ctrl-freaq/ai cli --help
 ```
 
 ### Testing Strategy
+
 - **Contract Tests**: API endpoint validation (health, projects)
 - **Integration Tests**: Authentication flows, dashboard loading
-- **Unit Tests**: Vitest with colocated *.test.ts files
+- **Unit Tests**: Vitest with colocated \*.test.ts files
 - **Repository Tests**: In-memory SQLite for data layer
 - **Frontend Tests**: React Testing Library with jsdom
 
 ### Recent Implementation
+
 - [2025-09-14] ✅ COMPLETE - Development Environment Bootstrap (62/62 tasks)
   - All original implementation tasks (T001-T051)
   - Critical security fixes (T052-T062) including:
@@ -131,8 +151,10 @@ pnpm --filter @ctrl-freaq/ai cli --help
     - Secure CORS origin validation
     - Prepared statement caching for performance
     - TypeScript import resolution fixes
-- [2025-09-14] Frontend fully adapted with API integration and structured logging
+- [2025-09-14] Frontend fully adapted with API integration and structured
+  logging
 - [2025-09-14] All constitutional requirements implemented and verified
 
 ---
+
 @CONSTITUTION.md

@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/ai - AI and LLM integration library
- * 
+ *
  * This package provides AI and LLM integration capabilities for CTRL FreaQ
  * using the Vercel AI SDK. It supports multiple AI providers and models
  * for content generation, analysis, and processing.
@@ -50,8 +50,8 @@ export class AIService {
       usage: {
         promptTokens: 10,
         completionTokens: 20,
-        totalTokens: 30
-      }
+        totalTokens: 30,
+      },
     };
   }
 }
@@ -76,5 +76,5 @@ export class ModelRegistry {
 export const packageInfo = {
   name: '@ctrl-freaq/ai',
   version: '0.1.0',
-  description: 'AI and LLM integration library for CTRL FreaQ using Vercel AI SDK'
+  description: 'AI and LLM integration library for CTRL FreaQ using Vercel AI SDK',
 };

@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
+import request from 'supertest';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 /**
  * Contract tests for structured logging output
@@ -26,7 +26,7 @@ describe('Structured Logging Contract Tests', () => {
 
   beforeAll(async () => {
     // Capture all log output
-    console.log = vi.fn((message) => {
+    console.log = vi.fn(message => {
       if (typeof message === 'string' && message.startsWith('{')) {
         try {
           logOutput.push(JSON.parse(message));
@@ -37,7 +37,7 @@ describe('Structured Logging Contract Tests', () => {
       originalConsoleLog(message);
     });
 
-    console.error = vi.fn((message) => {
+    console.error = vi.fn(message => {
       if (typeof message === 'string' && message.startsWith('{')) {
         try {
           logOutput.push(JSON.parse(message));
@@ -58,7 +58,7 @@ describe('Structured Logging Contract Tests', () => {
     console.error = originalConsoleError;
 
     if (server) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         server.close(() => resolve());
       });
     }
@@ -70,13 +70,11 @@ describe('Structured Logging Contract Tests', () => {
 
   describe('JSON Format Logging', () => {
     test('logs are in valid JSON format', async () => {
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
       // Find request log entry
-      const requestLog = logOutput.find(log =>
-        typeof log === 'object' && log.msg && log.msg.includes('request')
+      const requestLog = logOutput.find(
+        log => typeof log === 'object' && log.msg && log.msg.includes('request')
       );
 
       expect(requestLog).toBeDefined();
@@ -87,13 +85,9 @@ describe('Structured Logging Contract Tests', () => {
     });
 
     test('log entries contain required structured fields', async () => {
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
-      const requestLog = logOutput.find(log =>
-        typeof log === 'object' && log.requestId
-      );
+      const requestLog = logOutput.find(log => typeof log === 'object' && log.requestId);
 
       expect(requestLog).toHaveProperty('level');
       expect(requestLog).toHaveProperty('time');
@@ -107,14 +101,12 @@ describe('Structured Logging Contract Tests', () => {
 
   describe('Request Correlation IDs', () => {
     test('generates unique request IDs for each request', async () => {
-      const [response1, response2] = await Promise.all([
+      const [_response1, _response2] = await Promise.all([
         request(app).get('/health'),
-        request(app).get('/health')
+        request(app).get('/health'),
       ]);
 
-      const requestLogs = logOutput.filter(log =>
-        typeof log === 'object' && log.requestId
-      );
+      const requestLogs = logOutput.filter(log => typeof log === 'object' && log.requestId);
 
       expect(requestLogs.length).toBeGreaterThanOrEqual(2);
 
@@ -124,9 +116,7 @@ describe('Structured Logging Contract Tests', () => {
     });
 
     test('request ID is included in response headers', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       expect(response.headers).toHaveProperty('x-request-id');
       expect(typeof response.headers['x-request-id']).toBe('string');
@@ -134,13 +124,11 @@ describe('Structured Logging Contract Tests', () => {
     });
 
     test('same request ID appears in all log entries for a request', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       const requestId = response.headers['x-request-id'];
-      const logsWithRequestId = logOutput.filter(log =>
-        typeof log === 'object' && log.requestId === requestId
+      const logsWithRequestId = logOutput.filter(
+        log => typeof log === 'object' && log.requestId === requestId
       );
 
       expect(logsWithRequestId.length).toBeGreaterThan(0);
@@ -152,12 +140,10 @@ describe('Structured Logging Contract Tests', () => {
 
   describe('Performance Logging', () => {
     test('logs request duration', async () => {
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
-      const requestLog = logOutput.find(log =>
-        typeof log === 'object' && log.responseTime !== undefined
+      const requestLog = logOutput.find(
+        log => typeof log === 'object' && log.responseTime !== undefined
       );
 
       expect(requestLog).toBeDefined();
@@ -168,13 +154,9 @@ describe('Structured Logging Contract Tests', () => {
     test('logs slow requests with warning level', async () => {
       // This test would need a slow endpoint or artificial delay
       // For now, we verify the log structure exists
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
-      const performanceLog = logOutput.find(log =>
-        typeof log === 'object' && log.responseTime
-      );
+      const performanceLog = logOutput.find(log => typeof log === 'object' && log.responseTime);
 
       if (performanceLog && performanceLog.responseTime > 1000) {
         expect(performanceLog.level).toBeGreaterThanOrEqual(40); // Pino WARN level
@@ -185,12 +167,10 @@ describe('Structured Logging Contract Tests', () => {
   describe('Error Logging', () => {
     test('logs errors with full context', async () => {
       // Test with a non-existent endpoint to trigger error
-      await request(app)
-        .get('/non-existent-endpoint')
-        .expect(404);
+      await request(app).get('/non-existent-endpoint').expect(404);
 
-      const errorLog = logOutput.find(log =>
-        typeof log === 'object' && log.level >= 50 // Pino ERROR level
+      const errorLog = logOutput.find(
+        log => typeof log === 'object' && log.level >= 50 // Pino ERROR level
       );
 
       if (errorLog) {
@@ -220,12 +200,10 @@ describe('Structured Logging Contract Tests', () => {
 
   describe('Log Level Configuration', () => {
     test('respects configured log level', async () => {
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
-      const debugLogs = logOutput.filter(log =>
-        typeof log === 'object' && log.level === 20 // Pino DEBUG level
+      const debugLogs = logOutput.filter(
+        log => typeof log === 'object' && log.level === 20 // Pino DEBUG level
       );
 
       // Debug logs should only appear if debug level is enabled
@@ -234,13 +212,9 @@ describe('Structured Logging Contract Tests', () => {
     });
 
     test('includes service name in all log entries', async () => {
-      await request(app)
-        .get('/health')
-        .expect(200);
+      await request(app).get('/health').expect(200);
 
-      const serviceLogs = logOutput.filter(log =>
-        typeof log === 'object' && log.service
-      );
+      const serviceLogs = logOutput.filter(log => typeof log === 'object' && log.service);
 
       expect(serviceLogs.length).toBeGreaterThan(0);
       serviceLogs.forEach(log => {
@@ -256,9 +230,7 @@ describe('Structured Logging Contract Tests', () => {
         .set('Authorization', 'Bearer mock-jwt-token')
         .expect(401); // Will fail until auth is implemented
 
-      const userLogs = logOutput.filter(log =>
-        typeof log === 'object' && log.userId
-      );
+      const userLogs = logOutput.filter(log => typeof log === 'object' && log.userId);
 
       // Once auth is implemented, this should find logs with userId
       // For now, we verify the structure is prepared

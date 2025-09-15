@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
+
 import Database from 'better-sqlite3';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
-import { QueryOptions } from '../types/index.js';
+
+import type { QueryOptions } from '../types/index.js';
 
 /**
  * Base repository class providing common CRUD operations.
@@ -36,7 +38,7 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
    */
   async findById(id: string): Promise<T | null> {
     const stmt = this.getStatement(`SELECT * FROM ${this.tableName} WHERE id = ?`);
-    const row = stmt.get(id) as Record<string, any> | undefined;
+    const row = stmt.get(id) as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -48,7 +50,7 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
    */
   async findAll(options: QueryOptions = {}): Promise<T[]> {
     let query = `SELECT * FROM ${this.tableName}`;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (options.where) {
       const whereClause = Object.keys(options.where)
@@ -73,7 +75,7 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
     }
 
     const stmt = this.getStatement(query);
-    const rows = stmt.all(...params) as Record<string, any>[];
+    const rows = stmt.all(...params) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -89,7 +91,7 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
       ...entityData,
       id,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     } as T;
 
     // Validate entity
@@ -121,7 +123,7 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
     const updatedEntity = {
       ...existing,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     } as T;
 
     // Validate updated entity
@@ -166,20 +168,15 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
    * Map database row to entity object.
    * Override in subclasses for custom mapping (e.g., JSON parsing, date conversion).
    */
-  protected mapRowToEntity(row: Record<string, any>): T {
-    // Convert snake_case database columns to camelCase
-    const mapped = Object.entries(row).reduce((acc, [key, value]) => {
-      const camelKey = this.toCamelCase(key);
-
-      // Parse dates
-      if (camelKey.endsWith('At') && typeof value === 'string') {
-        acc[camelKey] = new Date(value);
-      } else {
-        acc[camelKey] = value;
-      }
-
-      return acc;
-    }, {} as any);
+  protected mapRowToEntity(row: Record<string, unknown>): T {
+    // Convert snake_case database columns to camelCase using entries transformation
+    const mapped = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => {
+        const camelKey = this.toCamelCase(key);
+        const v = camelKey.endsWith('At') && typeof value === 'string' ? new Date(value) : value;
+        return [camelKey, v] as const;
+      })
+    ) as Record<string, unknown>;
 
     return this.schema.parse(mapped);
   }
@@ -188,20 +185,15 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
    * Map entity object to database row.
    * Override in subclasses for custom mapping (e.g., JSON stringification).
    */
-  protected mapEntityToRow(entity: T): Record<string, any> {
+  protected mapEntityToRow(entity: T): Record<string, unknown> {
     // Convert camelCase properties to snake_case database columns
-    return Object.entries(entity).reduce((acc, [key, value]) => {
-      const snakeKey = this.toSnakeCase(key);
-
-      // Convert dates to ISO strings
-      if (value instanceof Date) {
-        acc[snakeKey] = value.toISOString();
-      } else {
-        acc[snakeKey] = value;
-      }
-
-      return acc;
-    }, {} as Record<string, any>);
+    return Object.fromEntries(
+      Object.entries(entity as Record<string, unknown>).map(([key, value]) => {
+        const snakeKey = this.toSnakeCase(key);
+        const v = value instanceof Date ? value.toISOString() : value;
+        return [snakeKey, v] as const;
+      })
+    ) as Record<string, unknown>;
   }
 
   /**

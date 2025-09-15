@@ -6,7 +6,9 @@ When this command is used, execute the following task:
 
 # review-story-implementation
 
-Ultra think to perform comprehensive code review of story implementation with detailed, educational feedback focused on improving junior developer skills and ensuring code quality standards.
+Ultra think to perform comprehensive code review of story implementation with
+detailed, educational feedback focused on improving junior developer skills and
+ensuring code quality standards.
 
 ## Inputs
 
@@ -15,7 +17,9 @@ required:
   - story_path: 'Path to story file being reviewed'
   - implementation_plan_path: 'Path to {story-filename}-implementation-plan.md'
 optional:
-  - focus_areas: 'Specific areas to emphasize in review (e.g., security, performance, testing)'
+  - focus_areas:
+      'Specific areas to emphasize in review (e.g., security, performance,
+      testing)'
 ```
 
 ## Prerequisites
@@ -31,17 +35,22 @@ optional:
 
 **Load Required Context:**
 
-- Read the story file completely to understand requirements and acceptance criteria
+- Read the story file completely to understand requirements and acceptance
+  criteria
 - Load the implementation plan to understand the intended approach
 - Read all files listed in the story's File List section
-- Load all architecture documents to have a clear understanding of the entire system
+- Load all architecture documents to have a clear understanding of the entire
+  system
 
 **Interface/UI Documentation Check (Technology-Agnostic):**
 
-If the story involves ANY user interface or client-facing changes (web, mobile, desktop):
+If the story involves ANY user interface or client-facing changes (web, mobile,
+desktop):
 
-- Read any consolidated UI specs (e.g., `docs/front-end-spec.md`) if present, without assuming web-only context
-- Read UI/client-related files in `docs/architecture/` (look for: frontend, ui, client, web, mobile, ios, android, desktop, electron, view, component, design)
+- Read any consolidated UI specs (e.g., `docs/front-end-spec.md`) if present,
+  without assuming web-only context
+- Read UI/client-related files in `docs/architecture/` (look for: frontend, ui,
+  client, web, mobile, ios, android, desktop, electron, view, component, design)
 - Review implementation against established UI/client patterns and requirements
 - Include UI/client consistency as a key review criterion
 - Check for:
@@ -57,8 +66,10 @@ If the story involves ANY user interface or client-facing changes (web, mobile, 
 - Verify implementation plan exists and is complete
 - Check that File List contains actual modified/created files
 - Ensure all tasks/subtasks are marked [x] as completed
-- Scan for newly introduced dependencies and verify they are explicitly approved in the plan's Dependency Policy
-- Verify file and test locations comply with `docs/architecture/unified-project-structure.md`; flag any nonconforming paths
+- Scan for newly introduced dependencies and verify they are explicitly approved
+  in the plan's Dependency Policy
+- Verify file and test locations comply with
+  `docs/architecture/unified-project-structure.md`; flag any nonconforming paths
 
 **HALT if validation fails** - request developer address issues before review
 
@@ -240,7 +251,8 @@ Create comprehensive review report with the following sections:
 - Suggestions for Should Improve items
 - Learning resources for future development
 - Recommended next steps
-- Suggested updates to the implementation plan (Risk Register, Plan Amendments, Traceability corrections)
+- Suggested updates to the implementation plan (Risk Register, Plan Amendments,
+  Traceability corrections)
 
 ### 6. Story Update Process
 
@@ -342,13 +354,20 @@ Block approval if:
 
 ## Key Principles
 
-- **Educational Focus**: Every piece of feedback should help the developer learn and grow
-- **Specific Examples**: Always provide concrete code examples, not just abstract criticism
-- **Balanced Feedback**: Include positive observations alongside areas for improvement
-- **Actionable Guidance**: Each suggestion should include clear steps for implementation
-- **Context Awareness**: Consider the developer's experience level and learning trajectory
-- **Standards Alignment**: Ensure feedback aligns with project coding standards and patterns
-- **Constructive Tone**: Frame feedback as learning opportunities rather than failures
+- **Educational Focus**: Every piece of feedback should help the developer learn
+  and grow
+- **Specific Examples**: Always provide concrete code examples, not just
+  abstract criticism
+- **Balanced Feedback**: Include positive observations alongside areas for
+  improvement
+- **Actionable Guidance**: Each suggestion should include clear steps for
+  implementation
+- **Context Awareness**: Consider the developer's experience level and learning
+  trajectory
+- **Standards Alignment**: Ensure feedback aligns with project coding standards
+  and patterns
+- **Constructive Tone**: Frame feedback as learning opportunities rather than
+  failures
 
 ## Blocking Conditions
 
@@ -367,16 +386,19 @@ After review completion:
 
 #### G. Traceability and Dependency Compliance
 
-- Verify AC → test IDs → modules mapping is complete and accurate (Traceability Matrix)
+- Verify AC → test IDs → modules mapping is complete and accurate (Traceability
+  Matrix)
 - Flag any implemented code or tests that lack traceability to ACs
 - Identify any unapproved dependencies introduced (blockers)
 - Verify deviations from plan include Plan Amendments with rationale
 
 #### H. Project Structure Compliance
 
-- Validate that all source and test files follow `docs/architecture/unified-project-structure.md`
+- Validate that all source and test files follow
+  `docs/architecture/unified-project-structure.md`
 - Check file/folder naming conventions and placement of tests
-- Flag generic default structures (e.g., `__tests__`) if not defined in the project structure
+- Flag generic default structures (e.g., `__tests__`) if not defined in the
+  project structure
 
 ### 3.a Review Rubric (Technology-Agnostic)
 

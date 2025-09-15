@@ -8,7 +8,9 @@ When this command is used, execute the following task:
 
 ## Purpose
 
-Create a single epic for smaller brownfield enhancements that don't require the full PRD and Architecture documentation process. This task is for isolated features or modifications that can be completed within a focused scope.
+Create a single epic for smaller brownfield enhancements that don't require the
+full PRD and Architecture documentation process. This task is for isolated
+features or modifications that can be completed within a focused scope.
 
 ## When to Use This Task
 
@@ -31,7 +33,8 @@ Create a single epic for smaller brownfield enhancements that don't require the 
 
 ### 1. Project Analysis (Required)
 
-Before creating the epic, gather essential information about the existing project:
+Before creating the epic, gather essential information about the existing
+project:
 
 **Existing Project Context:**
 
@@ -135,13 +138,15 @@ Once the epic is validated, provide this handoff to the Story Manager:
 
 **Story Manager Handoff:**
 
-"Please develop detailed user stories for this brownfield epic. Key considerations:
+"Please develop detailed user stories for this brownfield epic. Key
+considerations:
 
 - This is an enhancement to an existing system running {{technology stack}}
 - Integration points: {{list key integration points}}
 - Existing patterns to follow: {{relevant existing patterns}}
 - Critical compatibility requirements: {{key requirements}}
-- Each story must include verification that existing functionality remains intact
+- Each story must include verification that existing functionality remains
+  intact
 
 The epic should maintain system integrity while delivering {{epic goal}}."
 

@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
+import request from 'supertest';
 import { v4 as uuidv4 } from 'uuid';
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 /**
  * Contract tests for Projects API endpoints
@@ -34,7 +34,7 @@ describe('Projects API Contract Tests', () => {
 
   afterAll(async () => {
     if (server) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         server.close(() => resolve());
       });
     }
@@ -80,7 +80,9 @@ describe('Projects API Contract Tests', () => {
 
       // Validate field types
       expect(typeof response.body.id).toBe('string');
-      expect(response.body.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(response.body.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+      );
       expect(typeof response.body.ownerUserId).toBe('string');
       expect(typeof response.body.name).toBe('string');
       expect(typeof response.body.slug).toBe('string');
@@ -93,7 +95,9 @@ describe('Projects API Contract Tests', () => {
 
       // Optional description field
       if (response.body.description !== undefined) {
-        expect(typeof response.body.description === 'string' || response.body.description === null).toBe(true);
+        expect(
+          typeof response.body.description === 'string' || response.body.description === null
+        ).toBe(true);
       }
     });
 
@@ -115,7 +119,7 @@ describe('Projects API Contract Tests', () => {
     test('creates project with valid data', async () => {
       const projectData = {
         name: 'My Test Project',
-        description: 'A test project for contract validation'
+        description: 'A test project for contract validation',
       };
 
       const response = await request(app)
@@ -141,7 +145,7 @@ describe('Projects API Contract Tests', () => {
 
     test('creates project with minimal required data', async () => {
       const projectData = {
-        name: 'Minimal Project'
+        name: 'Minimal Project',
       };
 
       const response = await request(app)
@@ -184,7 +188,7 @@ describe('Projects API Contract Tests', () => {
         .set('Authorization', `Bearer ${mockJwtToken}`)
         .send({
           name: 'Valid Name',
-          description: longDescription
+          description: longDescription,
         })
         .expect(400);
     });
@@ -279,7 +283,7 @@ describe('Projects API Contract Tests', () => {
       const projectId = uuidv4();
       const updateData = {
         name: 'New Name',
-        description: 'New description'
+        description: 'New description',
       };
 
       const response = await request(app)
@@ -343,7 +347,7 @@ describe('Projects API Contract Tests', () => {
       const configData = {
         theme: 'dark',
         logLevel: 'debug',
-        editorPreferences: '{"fontSize": 16, "tabSize": 4}'
+        editorPreferences: '{"fontSize": 16, "tabSize": 4}',
       };
 
       const response = await request(app)
@@ -378,7 +382,7 @@ describe('Projects API Contract Tests', () => {
       const invalidConfig = {
         theme: 'dark',
         invalidNumber: 123,
-        invalidBoolean: true
+        invalidBoolean: true,
       };
 
       await request(app)
@@ -410,8 +414,12 @@ describe('Projects API Contract Tests', () => {
 
     test('request ID is unique across requests', async () => {
       const [response1, response2] = await Promise.all([
-        request(app).get('/api/v1/projects/invalid1').set('Authorization', `Bearer ${mockJwtToken}`),
-        request(app).get('/api/v1/projects/invalid2').set('Authorization', `Bearer ${mockJwtToken}`)
+        request(app)
+          .get('/api/v1/projects/invalid1')
+          .set('Authorization', `Bearer ${mockJwtToken}`),
+        request(app)
+          .get('/api/v1/projects/invalid2')
+          .set('Authorization', `Bearer ${mockJwtToken}`),
       ]);
 
       expect(response1.body.requestId).not.toBe(response2.body.requestId);

@@ -1,5 +1,6 @@
-import { z } from 'zod';
 import Database from 'better-sqlite3';
+import { z } from 'zod';
+
 import { BaseRepository } from '../repositories/base-repository.js';
 
 /**
@@ -11,11 +12,11 @@ export const ActivityLogSchema = z.object({
   action: z.string().min(1, 'Action is required').max(100, 'Action too long'),
   resourceType: z.string().min(1, 'Resource type is required').max(50, 'Resource type too long'),
   resourceId: z.string().min(1, 'Resource ID is required'),
-  metadata: z.record(z.any()).optional().nullable(),
+  metadata: z.record(z.unknown()).optional().nullable(),
   ipAddress: z.string().ip().optional().nullable(),
   userAgent: z.string().max(500, 'User agent too long').optional().nullable(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type ActivityLog = z.infer<typeof ActivityLogSchema>;
@@ -26,7 +27,7 @@ export type ActivityLog = z.infer<typeof ActivityLogSchema>;
 export const CreateActivityLogSchema = ActivityLogSchema.omit({
   id: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type CreateActivityLogInput = z.infer<typeof CreateActivityLogSchema>;
@@ -38,7 +39,11 @@ export interface ActivityLogRepository {
   create(log: CreateActivityLogInput): Promise<ActivityLog>;
   findByUser(userId: string, options?: ActivityLogQueryOptions): Promise<ActivityLog[]>;
   findByAction(action: string, options?: ActivityLogQueryOptions): Promise<ActivityLog[]>;
-  findByResource(resourceType: string, resourceId: string, options?: ActivityLogQueryOptions): Promise<ActivityLog[]>;
+  findByResource(
+    resourceType: string,
+    resourceId: string,
+    options?: ActivityLogQueryOptions
+  ): Promise<ActivityLog[]>;
   findById(id: string): Promise<ActivityLog | null>;
 }
 
@@ -57,7 +62,10 @@ export interface ActivityLogQueryOptions {
 /**
  * Activity log repository implementation
  */
-export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> implements ActivityLogRepository {
+export class ActivityLogRepositoryImpl
+  extends BaseRepository<ActivityLog>
+  implements ActivityLogRepository
+{
   constructor(db: Database.Database) {
     super(db, 'activity_logs', ActivityLogSchema);
   }
@@ -72,11 +80,11 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
       startDate,
       endDate,
       orderBy = 'createdAt',
-      orderDirection = 'DESC'
+      orderDirection = 'DESC',
     } = options;
 
     let query = 'SELECT * FROM activity_logs WHERE user_id = ?';
-    const params: any[] = [userId];
+    const params: unknown[] = [userId];
 
     // Add date range filters
     if (startDate) {
@@ -94,7 +102,7 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
     params.push(limit, offset);
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as Record<string, any>[];
+    const rows = stmt.all(...params) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -102,18 +110,21 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
   /**
    * Find activity logs by action type
    */
-  async findByAction(action: string, options: ActivityLogQueryOptions = {}): Promise<ActivityLog[]> {
+  async findByAction(
+    action: string,
+    options: ActivityLogQueryOptions = {}
+  ): Promise<ActivityLog[]> {
     const {
       limit = 100,
       offset = 0,
       startDate,
       endDate,
       orderBy = 'createdAt',
-      orderDirection = 'DESC'
+      orderDirection = 'DESC',
     } = options;
 
     let query = 'SELECT * FROM activity_logs WHERE action = ?';
-    const params: any[] = [action];
+    const params: unknown[] = [action];
 
     // Add date range filters
     if (startDate) {
@@ -131,7 +142,7 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
     params.push(limit, offset);
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as Record<string, any>[];
+    const rows = stmt.all(...params) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -139,18 +150,22 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
   /**
    * Find activity logs by resource type and ID
    */
-  async findByResource(resourceType: string, resourceId: string, options: ActivityLogQueryOptions = {}): Promise<ActivityLog[]> {
+  async findByResource(
+    resourceType: string,
+    resourceId: string,
+    options: ActivityLogQueryOptions = {}
+  ): Promise<ActivityLog[]> {
     const {
       limit = 100,
       offset = 0,
       startDate,
       endDate,
       orderBy = 'createdAt',
-      orderDirection = 'DESC'
+      orderDirection = 'DESC',
     } = options;
 
     let query = 'SELECT * FROM activity_logs WHERE resource_type = ? AND resource_id = ?';
-    const params: any[] = [resourceType, resourceId];
+    const params: unknown[] = [resourceType, resourceId];
 
     // Add date range filters
     if (startDate) {
@@ -168,7 +183,7 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
     params.push(limit, offset);
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as Record<string, any>[];
+    const rows = stmt.all(...params) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -176,7 +191,7 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
   /**
    * Override mapEntityToRow to handle metadata JSON serialization
    */
-  protected mapEntityToRow(entity: ActivityLog): Record<string, any> {
+  protected override mapEntityToRow(entity: ActivityLog): Record<string, unknown> {
     const row = super.mapEntityToRow(entity);
 
     // Serialize metadata as JSON
@@ -190,7 +205,7 @@ export class ActivityLogRepositoryImpl extends BaseRepository<ActivityLog> imple
   /**
    * Override mapRowToEntity to handle metadata JSON parsing
    */
-  protected mapRowToEntity(row: Record<string, any>): ActivityLog {
+  protected override mapRowToEntity(row: Record<string, unknown>): ActivityLog {
     // Parse metadata JSON
     if (row.metadata && typeof row.metadata === 'string') {
       try {
@@ -228,10 +243,10 @@ export const ACTION_TYPES = {
   // System
   SYSTEM_START: 'system.start',
   SYSTEM_ERROR: 'system.error',
-  SYSTEM_MIGRATION: 'system.migration'
+  SYSTEM_MIGRATION: 'system.migration',
 } as const;
 
-export type ActionType = typeof ACTION_TYPES[keyof typeof ACTION_TYPES];
+export type ActionType = (typeof ACTION_TYPES)[keyof typeof ACTION_TYPES];
 
 /**
  * Standard resource types
@@ -241,10 +256,10 @@ export const RESOURCE_TYPES = {
   PROJECT: 'project',
   CONFIGURATION: 'configuration',
   SYSTEM: 'system',
-  SESSION: 'session'
+  SESSION: 'session',
 } as const;
 
-export type ResourceType = typeof RESOURCE_TYPES[keyof typeof RESOURCE_TYPES];
+export type ResourceType = (typeof RESOURCE_TYPES)[keyof typeof RESOURCE_TYPES];
 
 /**
  * Validation functions
@@ -269,7 +284,7 @@ export const ActivityLogUtils = {
     action: ActionType,
     resourceType: ResourceType,
     resourceId: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
     request?: { ip?: string; userAgent?: string }
   ): CreateActivityLogInput {
     return {
@@ -279,7 +294,7 @@ export const ActivityLogUtils = {
       resourceId,
       metadata,
       ipAddress: request?.ip ?? null,
-      userAgent: request?.userAgent ?? null
+      userAgent: request?.userAgent ?? null,
     };
   },
 
@@ -337,7 +352,7 @@ export const ActivityLogUtils = {
     const resource = `${log.resourceType}:${log.resourceId}`;
 
     return `[${timestamp}] ${action} on ${resource} by ${log.userId}`;
-  }
+  },
 };
 
 /**
@@ -350,5 +365,5 @@ export const ACTIVITY_LOG_CONSTANTS = {
   DEFAULT_QUERY_LIMIT: 100,
   MAX_QUERY_LIMIT: 1000,
   VALID_ACTIONS: Object.values(ACTION_TYPES),
-  VALID_RESOURCE_TYPES: Object.values(RESOURCE_TYPES)
+  VALID_RESOURCE_TYPES: Object.values(RESOURCE_TYPES),
 } as const;

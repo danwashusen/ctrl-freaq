@@ -1,6 +1,9 @@
-Intelligently implement tasks from a tasks.md file with analysis, validation, and progress tracking.
+Intelligently implement tasks from a tasks.md file with analysis, validation,
+and progress tracking.
 
-Given the tasks document path as an argument (e.g., "specs/002-feature/tasks.md"), perform:
+Given the tasks document path as an argument (e.g.,
+"specs/002-feature/tasks.md"), perform:
+
 - Pre-implementation analysis to understand current state
 - Smart task selection respecting dependencies and priorities
 - Implementation with validation and quality gates
@@ -8,6 +11,7 @@ Given the tasks document path as an argument (e.g., "specs/002-feature/tasks.md"
 - Post-implementation testing and verification
 
 Inputs
+
 - Required: path to `tasks.md`
 - Optional:
   - Task range or specific tasks (e.g., "T001-T010" or "T001,T005,T009")
@@ -17,30 +21,34 @@ Inputs
   - Dry run mode (--dry-run, show what would be done)
 
 Early Gates (stop if any fail)
-1) Tasks Document Gate
+
+1. Tasks Document Gate
    - Verify tasks.md exists and is valid
    - Parse all tasks and their dependencies
    - If invalid format, output Status: "Invalid Tasks Document". STOP.
 
-2) Completion Audit Gate
+2. Completion Audit Gate
    - Run intent-based analysis on all tasks (per validate-tasks.md logic)
    - Identify: ✅ Complete, 🟡 Partial, 🔶 Stub, ❌ Not Started
    - Build implementation queue of incomplete tasks
    - If all tasks complete, output Status: "All Tasks Complete". STOP.
 
-3) Dependency Analysis Gate
+3. Dependency Analysis Gate
    - Map task dependencies from document structure and explicit notes
    - Verify prerequisites are met for each task
-   - Order tasks respecting: Setup → Tests → Implementation → Integration → Polish
-   - If circular dependencies found, output Status: "Circular Dependencies". STOP.
+   - Order tasks respecting: Setup → Tests → Implementation → Integration →
+     Polish
+   - If circular dependencies found, output Status: "Circular Dependencies".
+     STOP.
 
-4) TDD Compliance Gate
+4. TDD Compliance Gate
    - For implementation tasks, verify corresponding tests exist and fail
    - For test tasks, ensure they will run before implementation
-   - If TDD violated, output Status: "TDD Violation - Tests Must Fail First". STOP.
+   - If TDD violated, output Status: "TDD Violation - Tests Must Fail First".
+     STOP.
 
-Pre-Implementation Analysis (for each task)
-Before starting any task, perform comprehensive analysis:
+Pre-Implementation Analysis (for each task) Before starting any task, perform
+comprehensive analysis:
 
 1. Current State Assessment:
    - What already exists for this task?
@@ -65,23 +73,26 @@ Task Implementation Strategies
 By Task Type:
 
 Setup Tasks (package.json, configs):
+
 - Check for existing config files to extend
 - Use established patterns from project
 - Validate against TypeScript/ESLint after creation
 - Ensure all dependencies are properly versioned
 
-Test Tasks (*.test.ts, *.test.tsx):
+Test Tasks (_.test.ts, _.test.tsx):
+
 - MUST be written to fail initially (TDD)
 - Include comprehensive test cases:
-  * Happy path scenarios
-  * Error conditions
-  * Edge cases
-  * Security validations if applicable
+  - Happy path scenarios
+  - Error conditions
+  - Edge cases
+  - Security validations if applicable
 - Use existing test setup/utilities
 - Ensure proper async handling
 - Add meaningful assertions, not just existence checks
 
 Implementation Tasks (features, services):
+
 - Follow established patterns in codebase
 - Include proper error handling
 - Add structured logging with context
@@ -91,6 +102,7 @@ Implementation Tasks (features, services):
 - Add JSDoc comments for public APIs
 
 Fix/Review Tasks ([Category] fixes):
+
 - First understand the specific issue
 - Locate exact code needing change
 - Apply minimal fix that resolves issue
@@ -99,6 +111,7 @@ Fix/Review Tasks ([Category] fixes):
 - Update related documentation
 
 Integration Tasks (middleware, routes):
+
 - Ensure proper connection between layers
 - Add request/response validation
 - Include correlation ID propagation
@@ -106,6 +119,7 @@ Integration Tasks (middleware, routes):
 - Add integration tests
 
 Configuration Tasks:
+
 - Use environment variables for secrets
 - Provide sensible defaults
 - Add validation for required settings
@@ -148,6 +162,7 @@ Implementation Workflow
 For each task in the implementation queue:
 
 1. Pre-Implementation:
+
    ```
    📋 Task: T001 - Create monorepo structure
    🔍 Analyzing current state...
@@ -158,6 +173,7 @@ For each task in the implementation queue:
    ```
 
 2. Implementation:
+
    ```
    🚀 Implementing T001...
    ✓ Created pnpm-workspace.yaml
@@ -167,6 +183,7 @@ For each task in the implementation queue:
    ```
 
 3. Validation:
+
    ```
    ✓ TypeScript: No errors
    ✓ ESLint: Passed
@@ -183,10 +200,11 @@ For each task in the implementation queue:
 Progress Tracking
 
 - Update task checkboxes in real-time:
-  * Change `- [ ] T001` to `- [x] T001` when complete
-  * Add completion timestamp comment: `<!-- completed: 2024-01-15 14:30 -->`
+  - Change `- [ ] T001` to `- [x] T001` when complete
+  - Add completion timestamp comment: `<!-- completed: 2024-01-15 14:30 -->`
 
 - Maintain implementation log:
+
   ```
   ## Implementation Log - <YYYY-MM-DD HH:MM>
 
@@ -214,6 +232,7 @@ Progress Tracking
 Error Handling
 
 When implementation fails:
+
 1. Log detailed error with context
 2. Attempt automatic recovery if possible
 3. Mark task as 🟡 Partial if some progress made
@@ -226,6 +245,7 @@ Post-Implementation Actions
 After completing all possible tasks:
 
 1. Run Test Suite:
+
    ```bash
    pnpm test
    pnpm typecheck
@@ -233,6 +253,7 @@ After completing all possible tasks:
    ```
 
 2. Generate Summary Report:
+
    ```
    ## Implementation Summary
 
@@ -261,7 +282,9 @@ After completing all possible tasks:
    - Document any workarounds or decisions made
 
 Output Format
-- Summary: Implementation Complete | Partial Implementation | Blocked by Dependencies | Implementation Failed
+
+- Summary: Implementation Complete | Partial Implementation | Blocked by
+  Dependencies | Implementation Failed
 - Progress: XX/XX tasks implemented (XX%)
   - ✅ Completed: [count]
   - 🟡 Partial: [count]
@@ -277,6 +300,7 @@ Output Format
 - Next Steps: [recommended actions]
 
 Important Notes
+
 - Always run in project root unless otherwise specified
 - Respect .gitignore patterns when creating files
 - Use atomic commits with descriptive messages

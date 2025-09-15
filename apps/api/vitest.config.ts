@@ -1,4 +1,11 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const rootDir = resolve(__dirname, '..');
+const sharedDataSrc = resolve(rootDir, '..', 'packages', 'shared-data', 'src');
 
 export default defineConfig({
   test: {
@@ -10,19 +17,20 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'tests/',
-        'dist/',
-        '**/*.d.ts',
-        'vitest.config.ts'
-      ]
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        branches: 70,
+        functions: 80,
+      },
+      exclude: ['node_modules/', 'tests/', 'dist/', '**/*.d.ts', 'vitest.config.ts'],
     },
-    setupFiles: ['./tests/setup.ts']
+    setupFiles: ['./tests/setup.ts'],
   },
   resolve: {
     alias: {
-      '@': '/src'
-    }
-  }
+      '@': '/src',
+      '@ctrl-freaq/shared-data': sharedDataSrc,
+    },
+  },
 });

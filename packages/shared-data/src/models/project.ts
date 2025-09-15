@@ -1,6 +1,8 @@
-import { z } from 'zod';
 import Database from 'better-sqlite3';
-import { BaseRepository, Repository } from '../repositories/index.js';
+import { z } from 'zod';
+
+import { BaseRepository } from '../repositories/index.js';
+import type { Repository } from '../repositories/index.js';
 
 /**
  * Project entity schema
@@ -9,13 +11,14 @@ export const ProjectSchema = z.object({
   id: z.string().uuid('Invalid project ID format'),
   ownerUserId: z.string().min(1, 'Owner user ID is required'),
   name: z.string().min(1, 'Project name is required').max(100, 'Project name too long'),
-  slug: z.string()
+  slug: z
+    .string()
     .min(1, 'Project slug is required')
     .max(50, 'Project slug too long')
     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
   description: z.string().max(500, 'Description too long').optional().nullable(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;
@@ -26,7 +29,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const CreateProjectSchema = ProjectSchema.omit({
   id: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
@@ -38,7 +41,7 @@ export const UpdateProjectSchema = ProjectSchema.partial().omit({
   id: true,
   ownerUserId: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
@@ -64,7 +67,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
    */
   async findBySlug(slug: string): Promise<Project | null> {
     const stmt = this.db.prepare('SELECT * FROM projects WHERE slug = ?');
-    const row = stmt.get(slug) as Record<string, any> | undefined;
+    const row = stmt.get(slug) as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -76,7 +79,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
    */
   async findByUserId(userId: string): Promise<Project | null> {
     const stmt = this.db.prepare('SELECT * FROM projects WHERE owner_user_id = ?');
-    const row = stmt.get(userId) as Record<string, any> | undefined;
+    const row = stmt.get(userId) as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -86,7 +89,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
   /**
    * Override create to ensure slug uniqueness
    */
-  async create(projectData: CreateProjectInput): Promise<Project> {
+  override async create(projectData: CreateProjectInput): Promise<Project> {
     // Check if slug already exists
     const existingProject = await this.findBySlug(projectData.slug);
     if (existingProject) {
@@ -105,7 +108,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
   /**
    * Override update to check slug uniqueness
    */
-  async update(id: string, updates: UpdateProjectInput): Promise<Project> {
+  override async update(id: string, updates: UpdateProjectInput): Promise<Project> {
     if (updates.slug) {
       const existingProject = await this.findBySlug(updates.slug);
       if (existingProject && existingProject.id !== id) {
@@ -143,9 +146,9 @@ export const ProjectUtils = {
     return name
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-')         // Replace spaces with hyphens
-      .replace(/-+/g, '-')          // Collapse multiple hyphens
-      .replace(/^-|-$/g, '');       // Remove leading/trailing hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
   },
 
   /**
@@ -160,7 +163,7 @@ export const ProjectUtils = {
    */
   canUserCreateProject(existingProject: Project | null): boolean {
     return existingProject === null;
-  }
+  },
 };
 
 /**
@@ -172,5 +175,5 @@ export const PROJECT_CONSTANTS = {
   MAX_DESCRIPTION_LENGTH: 500,
   MIN_NAME_LENGTH: 1,
   MIN_SLUG_LENGTH: 1,
-  SLUG_PATTERN: /^[a-z0-9-]+$/
+  SLUG_PATTERN: /^[a-z0-9-]+$/,
 } as const;

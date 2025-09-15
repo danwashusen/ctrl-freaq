@@ -1,39 +1,69 @@
 {
   "name": "ctrl-freaq",
   "version": "0.1.0",
-  "description": "AI-optimized documentation system with library-first architecture",
   "private": true,
+  "description": "AI-optimized documentation system with library-first architecture",
   "type": "module",
-  "packageManager": "pnpm@9.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
+    "build": "turbo build",
+    "clean": "turbo clean && rm -rf node_modules",
     "dev": "turbo dev --concurrency=12",
     "dev:apps": "turbo dev --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
-    "build": "turbo build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "turbo lint",
+    "lint:ci": "eslint . --max-warnings=0 --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "lint:fix:check": "eslint . --ext .ts,.tsx,.js,.jsx --fix-dry-run",
+    "lint:yaml": "eslint . --ext .yml,.yaml",
+    "prepare": "husky",
     "test": "turbo test",
     "test:e2e": "pnpm --filter @ctrl-freaq/web test:e2e",
     "test:visual": "pnpm --filter @ctrl-freaq/web test:visual",
-    "lint": "turbo lint",
-    "typecheck": "turbo typecheck",
-    "clean": "turbo clean && rm -rf node_modules",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "typecheck": "turbo typecheck"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix --cache",
+      "prettier --write"
+    ],
+    "**/*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "**/package.json": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
+    "@eslint/js": "^9.13.0",
     "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-import": "^2.29.0",
-    "prettier": "^3.0.0",
-    "turbo": "^2.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.0.0"
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-jsx-a11y": "^6.9.0",
+    "eslint-plugin-react": "^7.37.1",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-security": "^2.1.1",
+    "eslint-plugin-yml": "^1.14.0",
+    "globals": "^15.11.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "prettier-plugin-packagejson": "^2.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "turbo": "^2.0.12",
+    "typescript": "^5.6.2",
+    "vitest": "^1.6.0",
+    "yaml-eslint-parser": "^1.2.3"
   },
+  "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"

@@ -15,9 +15,9 @@ export const TemplateMetadataSchema = z.object({
   description: z.string().optional(),
   author: z.string().optional(),
   extends: z.string().optional(),
-  variables: z.record(z.any()).optional(),
+  variables: z.record(z.unknown()).optional(),
   sections: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional()
+  tags: z.array(z.string()).optional(),
 });
 
 export type TemplateMetadata = z.infer<typeof TemplateMetadataSchema>;
@@ -28,7 +28,7 @@ export type TemplateMetadata = z.infer<typeof TemplateMetadataSchema>;
 export interface Template {
   metadata: TemplateMetadata;
   content: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   sections: Record<string, string>;
 }
 
@@ -36,9 +36,9 @@ export interface Template {
  * Template rendering context
  */
 export interface RenderContext {
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   partials?: Record<string, string>;
-  functions?: Record<string, (...args: any[]) => any>;
+  functions?: Record<string, (...args: unknown[]) => unknown>;
 }
 
 /**
@@ -66,7 +66,7 @@ export class TemplateEngine {
         metadata,
         content: parsed.content,
         variables: parsed.variables || {},
-        sections: parsed.sections || {}
+        sections: parsed.sections || {},
       };
 
       // Register template if name provided
@@ -115,7 +115,11 @@ export class TemplateEngine {
 
     // Check if it's a template name or direct content
     if (this.templates.has(templateNameOrContent)) {
-      template = this.templates.get(templateNameOrContent)!;
+      const foundTemplate = this.templates.get(templateNameOrContent);
+      if (!foundTemplate) {
+        throw new Error(`Template '${templateNameOrContent}' not found`);
+      }
+      template = foundTemplate;
     } else {
       // Treat as direct YAML content
       template = this.loadTemplate(templateNameOrContent);
@@ -124,20 +128,20 @@ export class TemplateEngine {
     // Merge template variables with context variables
     const mergedVariables = {
       ...template.variables,
-      ...context.variables
+      ...context.variables,
     };
 
     // Prepare partials for Mustache
     const partials = {
       ...Object.fromEntries(this.partials.entries()),
       ...template.sections,
-      ...context.partials
+      ...context.partials,
     };
 
     // Add helper functions to variables
     const renderContext = {
       ...mergedVariables,
-      ...context.functions
+      ...context.functions,
     };
 
     try {
@@ -153,7 +157,10 @@ export class TemplateEngine {
   /**
    * Validate template variables against schema
    */
-  validateContext(templateName: string, context: Record<string, any>): { valid: boolean; errors: string[] } {
+  validateContext(
+    templateName: string,
+    context: Record<string, unknown>
+  ): { valid: boolean; errors: string[] } {
     const template = this.getTemplate(templateName);
     if (!template) {
       return { valid: false, errors: [`Template '${templateName}' not found`] };
@@ -163,7 +170,13 @@ export class TemplateEngine {
 
     // Basic validation - would be enhanced with proper schema validation
     for (const [key, value] of Object.entries(template.variables)) {
-      if (value.required && !(key in context)) {
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'required' in value &&
+        (value as Record<string, unknown>).required &&
+        !(key in context)
+      ) {
         errors.push(`Required variable '${key}' is missing`);
       }
     }

@@ -9,19 +9,22 @@ import { EventEmitter } from 'events';
  * Template file watcher for hot reloading
  */
 export class TemplateWatcher extends EventEmitter {
-  private watcher?: any;
+  private watcher?: ReturnType<typeof watch>;
   private watchedPaths = new Set<string>();
 
   /**
    * Start watching template files
    */
-  watch(paths: string | string[], options: { ignored?: string[]; persistent?: boolean } = {}): void {
+  watch(
+    paths: string | string[],
+    options: { ignored?: string[]; persistent?: boolean } = {}
+  ): void {
     const pathsArray = Array.isArray(paths) ? paths : [paths];
 
     this.watcher = watch(pathsArray, {
       ignored: options.ignored || ['**/node_modules/**', '**/.git/**'],
       persistent: options.persistent !== false,
-      ignoreInitial: true
+      ignoreInitial: true,
     });
 
     this.watcher
@@ -47,7 +50,7 @@ export class TemplateWatcher extends EventEmitter {
   stop(): void {
     if (this.watcher) {
       this.watcher.close();
-      this.watcher = null;
+      this.watcher = undefined;
     }
     this.watchedPaths.clear();
   }
@@ -64,7 +67,7 @@ export class TemplateWatcher extends EventEmitter {
  * Template caching utility
  */
 export class TemplateCache {
-  private cache = new Map<string, { content: any; timestamp: number }>();
+  private cache = new Map<string, { content: unknown; timestamp: number }>();
   private maxAge: number;
   private maxSize: number;
 
@@ -76,7 +79,7 @@ export class TemplateCache {
   /**
    * Get cached template
    */
-  get(key: string): any | null {
+  get(key: string): unknown | null {
     const entry = this.cache.get(key);
 
     if (!entry) {
@@ -95,7 +98,7 @@ export class TemplateCache {
   /**
    * Set cached template
    */
-  set(key: string, content: any): void {
+  set(key: string, content: unknown): void {
     // Remove oldest entries if at max size
     if (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
@@ -106,7 +109,7 @@ export class TemplateCache {
 
     this.cache.set(key, {
       content,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -131,7 +134,7 @@ export class TemplateCache {
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     };
   }
 }
@@ -176,7 +179,8 @@ export class TemplatePathUtils {
       return [];
     }
 
-    return fs.readdirSync(directory)
+    return fs
+      .readdirSync(directory)
       .filter((file: string) => /\.(yaml|yml|template)$/i.test(file))
       .map((file: string) => path.join(directory, file));
   }
@@ -246,7 +250,7 @@ export class TemplateTransformUtils {
       result += indent.repeat(depth) + trimmed + '\n';
 
       // Increase depth for opening tags
-      if (trimmed.startsWith('{{#') && !trimmed.includes('{{/')){
+      if (trimmed.startsWith('{{#') && !trimmed.includes('{{/')) {
         depth++;
       }
     }
@@ -269,7 +273,9 @@ export class TemplatePerformanceUtils {
       this.renderTimes.set(templateName, []);
     }
 
-    const times = this.renderTimes.get(templateName)!;
+    const times = this.renderTimes.get(templateName);
+    if (!times) return;
+
     times.push(duration);
 
     // Keep only last 100 render times
@@ -298,21 +304,22 @@ export class TemplatePerformanceUtils {
       average: times.reduce((sum, time) => sum + time, 0) / times.length,
       min: Math.min(...times),
       max: Math.max(...times),
-      recent: times[times.length - 1] || 0
+      recent: times[times.length - 1] ?? 0,
     };
   }
 
   /**
    * Get all render statistics
    */
-  static getAllRenderStats(): Record<string, any> {
-    const stats: Record<string, any> = {};
-
+  static getAllRenderStats(): Record<
+    string,
+    ReturnType<typeof TemplatePerformanceUtils.getRenderStats>
+  > {
+    const entries: Array<[string, ReturnType<typeof TemplatePerformanceUtils.getRenderStats>]> = [];
     for (const [templateName] of this.renderTimes.entries()) {
-      stats[templateName] = this.getRenderStats(templateName);
+      entries.push([templateName, this.getRenderStats(templateName)]);
     }
-
-    return stats;
+    return Object.fromEntries(entries);
   }
 
   /**

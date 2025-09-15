@@ -1,9 +1,12 @@
 # CI Pipeline Quick Start Guide
 
 ## Overview
-This guide helps you work with the CTRL FreaQ CI/CD pipeline powered by GitHub Actions.
+
+This guide helps you work with the CTRL FreaQ CI/CD pipeline powered by GitHub
+Actions.
 
 ## Prerequisites
+
 - GitHub repository access
 - Understanding of pnpm workspaces
 - Basic knowledge of GitHub Actions
@@ -12,6 +15,7 @@ This guide helps you work with the CTRL FreaQ CI/CD pipeline powered by GitHub A
 ## Common Tasks
 
 ### 1. Trigger CI Manually
+
 ```bash
 # Push to a branch to trigger CI
 git push origin your-branch
@@ -23,6 +27,7 @@ gh pr create --title "Your change" --body "Description"
 ### 2. Debug Failed CI Runs
 
 #### View CI Logs
+
 1. Go to the PR or commit on GitHub
 2. Click on the failing check
 3. Click "Details" to see the full logs
@@ -31,6 +36,7 @@ gh pr create --title "Your change" --body "Description"
 #### Common Failure Patterns
 
 **Lint Failures**:
+
 ```bash
 # Fix locally before pushing
 pnpm lint:fix
@@ -40,6 +46,7 @@ git push
 ```
 
 **Type Check Failures**:
+
 ```bash
 # Check types locally
 pnpm typecheck
@@ -49,6 +56,7 @@ pnpm typecheck
 ```
 
 **Test Failures**:
+
 ```bash
 # Run tests locally with same command as CI
 pnpm test
@@ -61,6 +69,7 @@ pnpm test -- --grep "test name"
 ```
 
 **Build Failures**:
+
 ```bash
 # Clean and rebuild
 pnpm clean
@@ -71,6 +80,7 @@ pnpm build
 ### 3. Update CI Configuration
 
 #### Modify Workflow
+
 ```bash
 # Edit workflow file
 code .github/workflows/ci.yml
@@ -83,17 +93,19 @@ git push origin ci-updates
 ```
 
 #### Add New Check
+
 1. Edit `.github/workflows/ci.yml`
 2. Add new job under `jobs:` section:
+
 ```yaml
-  new-check:
-    name: New Check Name
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run new check
-        run: pnpm run new-check-command
+new-check:
+  name: New Check Name
+  runs-on: ubuntu-latest
+  needs: setup
+  steps:
+    - uses: actions/checkout@v4
+    - name: Run new check
+      run: pnpm run new-check-command
 ```
 
 3. Update status checks in repository settings if required
@@ -103,6 +115,7 @@ git push origin ci-updates
 When adding a new package to the monorepo:
 
 1. Ensure package.json has standard scripts:
+
 ```json
 {
   "scripts": {
@@ -115,6 +128,7 @@ When adding a new package to the monorepo:
 ```
 
 2. Update turbo.json if needed:
+
 ```json
 {
   "pipeline": {
@@ -130,6 +144,7 @@ When adding a new package to the monorepo:
 ## Troubleshooting
 
 ### CI Takes Too Long
+
 - **Issue**: Pipeline exceeds 5-minute timeout
 - **Solution**:
   - Check for slow tests: `pnpm test -- --reporter=verbose`
@@ -137,13 +152,16 @@ When adding a new package to the monorepo:
   - Review dependencies: remove unused packages
 
 ### Cache Not Working
+
 - **Issue**: Dependencies reinstalled every run
 - **Solution**:
   - Check pnpm-lock.yaml is committed
-  - Verify cache key in workflow: `key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}`
+  - Verify cache key in workflow:
+    `key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}`
   - Clear cache if corrupted: Settings → Actions → Caches → Delete
 
 ### Concurrent PR Runs
+
 - **Issue**: Multiple CI runs on same PR
 - **Solution**:
   - CI automatically cancels previous runs
@@ -151,8 +169,10 @@ When adding a new package to the monorepo:
   - Manually cancel from Actions tab if needed
 
 ### Version Conflicts
+
 - **Issue**: Dependency version mismatch in monorepo
 - **Solution**:
+
 ```bash
 # Check for conflicts
 pnpm install
@@ -167,6 +187,7 @@ pnpm install --frozen-lockfile
 ## Performance Tips
 
 ### Local Validation Before Push
+
 ```bash
 # Run all CI checks locally
 pnpm lint && pnpm typecheck && pnpm build && pnpm test
@@ -180,6 +201,7 @@ chmod +x .git/hooks/pre-push
 ```
 
 ### Optimize Test Runs
+
 ```bash
 # Run only affected tests
 pnpm test -- --changed
@@ -194,6 +216,7 @@ git push --no-verify
 ## CI Environment Variables
 
 The CI environment provides these variables:
+
 - `CI=true` - Indicates CI environment
 - `GITHUB_ACTIONS=true` - Running in GitHub Actions
 - `NODE_ENV=test` - For test runs
@@ -204,11 +227,13 @@ The CI environment provides these variables:
 ## Monitoring CI Health
 
 ### View CI Analytics
+
 1. Go to Actions tab in GitHub
 2. Click on workflow name (e.g., "CI Pipeline")
 3. View success rate, duration trends
 
 ### Set Up Notifications
+
 1. Go to Settings → Notifications
 2. Configure email/Slack for CI failures
 3. Use GitHub mobile app for instant alerts

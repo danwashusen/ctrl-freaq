@@ -92,3 +92,7 @@ Thumbs.db
 .CLAUDE.md.bak
 docs/archive/
 /apps/api/data/ctrl-freaq.db
+/packages/shared-data/data/
+**/data/*.db
+**/data/*.sqlite
+**/data/*.sqlite3

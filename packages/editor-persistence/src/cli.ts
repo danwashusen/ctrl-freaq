@@ -19,23 +19,33 @@ export function cli(argv?: string[]): void {
     .option('-a, --action <action>', 'Storage action (save, load, clear)', 'list')
     .option('-k, --key <key>', 'Storage key')
     .option('-d, --data <data>', 'Data to store (JSON string)')
-    .option('-s, --storage <storage>', 'Storage type (localStorage, indexedDB, memory)', 'localStorage')
+    .option(
+      '-s, --storage <storage>',
+      'Storage type (localStorage, indexedDB, memory)',
+      'localStorage'
+    )
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Storage operation functionality not yet implemented',
-          action: options.action,
-          key: options.key,
-          storageType: options.storage,
-          data: options.data,
-          result: {
-            success: true,
-            storageSize: '0KB',
-            keys: []
-          }
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Storage operation functionality not yet implemented',
+              action: options.action,
+              key: options.key,
+              storageType: options.storage,
+              data: options.data,
+              result: {
+                success: true,
+                storageSize: '0KB',
+                keys: [],
+              },
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Client Storage Management`);
         console.log(`Action: ${options.action}`);
@@ -52,20 +62,26 @@ export function cli(argv?: string[]): void {
     .option('-m, --mode <mode>', 'Sync mode (auto, manual, offline)', 'auto')
     .option('-i, --interval <interval>', 'Sync interval in seconds', '30')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Synchronization functionality not yet implemented',
-          mode: options.mode,
-          interval: parseInt(options.interval),
-          syncStatus: {
-            enabled: true,
-            lastSync: null,
-            pendingChanges: 0,
-            conflicts: 0
-          }
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Synchronization functionality not yet implemented',
+              mode: options.mode,
+              interval: parseInt(options.interval),
+              syncStatus: {
+                enabled: true,
+                lastSync: null,
+                pendingChanges: 0,
+                conflicts: 0,
+              },
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`State Synchronization`);
         console.log(`Mode: ${options.mode}`);
@@ -81,19 +97,35 @@ export function cli(argv?: string[]): void {
     .option('-i, --id <id>', 'Backup ID for restore/delete operations')
     .option('-c, --compress', 'Compress backup data', false)
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Backup functionality not yet implemented',
-          action: options.action,
-          backupId: options.id,
-          compressed: options.compress,
-          backups: [
-            { id: 'backup_001', timestamp: '2023-01-01T00:00:00Z', size: '1.2KB', compressed: true },
-            { id: 'backup_002', timestamp: '2023-01-01T01:00:00Z', size: '1.1KB', compressed: false }
-          ]
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Backup functionality not yet implemented',
+              action: options.action,
+              backupId: options.id,
+              compressed: options.compress,
+              backups: [
+                {
+                  id: 'backup_001',
+                  timestamp: '2023-01-01T00:00:00Z',
+                  size: '1.2KB',
+                  compressed: true,
+                },
+                {
+                  id: 'backup_002',
+                  timestamp: '2023-01-01T01:00:00Z',
+                  size: '1.1KB',
+                  compressed: false,
+                },
+              ],
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Editor State Backup`);
         console.log(`Action: ${options.action}`);
@@ -107,27 +139,27 @@ export function cli(argv?: string[]): void {
     .command('status')
     .description('Show storage and sync status')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       const status = {
         storage: {
           type: 'localStorage',
           available: true,
           used: '0KB',
-          quota: 'unlimited'
+          quota: 'unlimited',
         },
         sync: {
           enabled: false,
           mode: 'manual',
           lastSync: null,
-          pendingChanges: 0
+          pendingChanges: 0,
         },
         backups: {
           count: 0,
           totalSize: '0KB',
-          oldestBackup: null
-        }
+          oldestBackup: null,
+        },
       };
-      
+
       if (options.json) {
         console.log(JSON.stringify({ status }, null, 2));
       } else {

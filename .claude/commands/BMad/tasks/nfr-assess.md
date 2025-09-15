@@ -6,7 +6,8 @@ When this command is used, execute the following task:
 
 # nfr-assess
 
-Quick NFR validation focused on the core four: security, performance, reliability, maintainability.
+Quick NFR validation focused on the core four: security, performance,
+reliability, maintainability.
 
 ## Inputs
 
@@ -26,7 +27,8 @@ optional:
 Assess non-functional requirements for a story and generate:
 
 1. YAML block for the gate file's `nfr_validation` section
-2. Brief markdown assessment saved to `qa.qaLocation/assessments/{epic}.{story}-nfr-{YYYYMMDD}.md`
+2. Brief markdown assessment saved to
+   `qa.qaLocation/assessments/{epic}.{story}-nfr-{YYYYMMDD}.md`
 
 ## Process
 
@@ -35,13 +37,14 @@ Assess non-functional requirements for a story and generate:
 If story_path or story file can't be found:
 
 - Still create assessment file with note: "Source story not found"
-- Set all selected NFRs to CONCERNS with notes: "Target unknown / evidence missing"
+- Set all selected NFRs to CONCERNS with notes: "Target unknown / evidence
+  missing"
 - Continue with assessment to provide value
 
 ### 1. Elicit Scope
 
-**Interactive mode:** Ask which NFRs to assess
-**Non-interactive mode:** Default to core four (security, performance, reliability, maintainability)
+**Interactive mode:** Ask which NFRs to assess **Non-interactive mode:** Default
+to core four (security, performance, reliability, maintainability)
 
 ```text
 Which NFRs should I assess? (Enter numbers or press Enter for default)
@@ -65,8 +68,8 @@ Look for NFR requirements in:
 - `docs/architecture/*.md` files
 - `docs/technical-preferences.md`
 
-**Interactive mode:** Ask for missing thresholds
-**Non-interactive mode:** Mark as CONCERNS with "Target unknown"
+**Interactive mode:** Ask for missing thresholds **Non-interactive mode:** Mark
+as CONCERNS with "Target unknown"
 
 ```text
 No performance requirements found. What's your target response time?
@@ -76,7 +79,8 @@ No security requirements found. Required auth method?
 > JWT with refresh tokens
 ```
 
-**Unknown targets policy:** If a target is missing and not provided, mark status as CONCERNS with notes: "Target unknown"
+**Unknown targets policy:** If a target is missing and not provided, mark status
+as CONCERNS with notes: "Target unknown"
 
 ### 3. Quick Assessment
 
@@ -134,8 +138,7 @@ If `technical-preferences.md` defines custom weights, use those instead.
 ```markdown
 # NFR Assessment: {epic}.{story}
 
-Date: {date}
-Reviewer: Quinn
+Date: {date} Reviewer: Quinn
 
 <!-- Note: Source story not found (if applicable) -->
 

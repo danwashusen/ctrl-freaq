@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
 import type { Express } from 'express';
+import request from 'supertest';
+import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 
 /**
  * Contract tests for Health Check API endpoints
@@ -27,7 +27,7 @@ describe('Health Check API Contract Tests', () => {
 
   afterAll(async () => {
     if (server) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         server.close(() => resolve());
       });
     }
@@ -77,7 +77,7 @@ describe('Health Check API Contract Tests', () => {
       const mockUnhealthyResponse = {
         status: 'unhealthy',
         error: 'Database connection failed',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       expect(mockUnhealthyResponse).toHaveProperty('status', 'unhealthy');
@@ -111,9 +111,7 @@ describe('Health Check API Contract Tests', () => {
     test('includes request correlation ID in logs', async () => {
       // This test validates that health check includes proper logging
       // Will be verified once structured logging is implemented
-      const response = await request(app)
-        .get('/api/v1/health')
-        .expect(200);
+      const response = await request(app).get('/api/v1/health').expect(200);
 
       // Response should be logged with correlation ID
       // This will be validated through log inspection once logger is implemented
@@ -123,26 +121,20 @@ describe('Health Check API Contract Tests', () => {
 
   describe('Health Check Response Validation', () => {
     test('service name matches expected value', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       expect(response.body.service).toBe('ctrl-freaq-api');
     });
 
     test('version matches package.json version', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       // Version should match the API package version
       expect(response.body.version).toMatch(/^\d+\.\d+\.\d+/);
     });
 
     test('uptime is positive number when present', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       if (response.body.uptime !== undefined) {
         expect(response.body.uptime).toBeGreaterThan(0);
@@ -150,9 +142,7 @@ describe('Health Check API Contract Tests', () => {
     });
 
     test('environment is set correctly', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       if (response.body.environment !== undefined) {
         expect(['development', 'production', 'test']).toContain(response.body.environment);
@@ -163,19 +153,14 @@ describe('Health Check API Contract Tests', () => {
   describe('Error Handling', () => {
     test('handles malformed requests gracefully', async () => {
       // Test with invalid Accept header
-      const response = await request(app)
-        .get('/health')
-        .set('Accept', 'text/plain')
-        .expect(200);
+      const response = await request(app).get('/health').set('Accept', 'text/plain').expect(200);
 
       // Should still return JSON even with different Accept header
       expect(response.headers['content-type']).toMatch(/application\/json/);
     });
 
     test('includes CORS headers for frontend compatibility', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
+      const response = await request(app).get('/health').expect(200);
 
       // CORS headers should be present for frontend health checks
       // Will be implemented with CORS middleware

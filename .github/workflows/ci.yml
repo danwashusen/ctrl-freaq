@@ -58,7 +58,7 @@ permissions:
 
 # Global environment variables
 env:
-  NODE_VERSION: '22'    # Node.js LTS version for stability and performance
+  NODE_VERSION: '22' # Node.js LTS version for stability and performance
   PNPM_VERSION: '9.0.0' # Match exact version from package.json packageManager field
 
 jobs:
@@ -71,7 +71,7 @@ jobs:
   setup:
     name: Setup and Cache Dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Prevent hanging on dependency resolution issues
+    timeout-minutes: 5 # Prevent hanging on dependency resolution issues
     outputs:
       pnpm-cache-dir: ${{ steps.pnpm-cache.outputs.pnpm-cache-dir }}
       node-modules-cache-hit: ${{ steps.cache-node-modules.outputs.cache-hit }}
@@ -138,10 +138,10 @@ jobs:
   lint:
     name: Lint Check
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # ESLint should complete quickly across the monorepo
+    timeout-minutes: 5 # ESLint should complete quickly across the monorepo
     needs: setup
     strategy:
-      fail-fast: true  # Stop immediately on lint failures for fast feedback
+      fail-fast: true # Stop immediately on lint failures for fast feedback
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -182,15 +182,17 @@ jobs:
       - name: Run ESLint
         run: |
           echo "Running ESLint across all workspace packages..."
-          pnpm lint
+          pnpm run lint:ci
 
-      - name: Check lint fix suggestions
+      - name: YAML Lint (via ESLint plugin)
+        run: |
+          echo "Linting YAML files..."
+          pnpm run lint:yaml
+
+      - name: Check lint fix suggestions (dry run)
         run: |
           echo "Checking for auto-fixable lint issues..."
-          if ! pnpm lint:fix --dry-run; then
-            echo "⚠️ Auto-fixable lint issues found. Run 'pnpm lint:fix' locally."
-            exit 1
-          fi
+          pnpm run lint:fix:check || (echo "⚠️ Auto-fixable lint issues found. Run 'pnpm lint:fix' locally." && exit 1)
 
   # =================================================================
   # Job 3: TypeScript Check
@@ -201,10 +203,10 @@ jobs:
   typecheck:
     name: TypeScript Check
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # TypeScript compilation should be fast with proper caching
+    timeout-minutes: 5 # TypeScript compilation should be fast with proper caching
     needs: setup
     strategy:
-      fail-fast: true  # Stop on first type error for immediate developer feedback
+      fail-fast: true # Stop on first type error for immediate developer feedback
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -264,10 +266,10 @@ jobs:
   build:
     name: Build All Packages
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Turborepo builds should be fast with caching
+    timeout-minutes: 5 # Turborepo builds should be fast with caching
     needs: setup
     strategy:
-      fail-fast: true  # Stop on build failures to prevent broken deployments
+      fail-fast: true # Stop on build failures to prevent broken deployments
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -343,10 +345,10 @@ jobs:
   test:
     name: Test Suites
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # All tests should complete within timeout limit
+    timeout-minutes: 5 # All tests should complete within timeout limit
     needs: setup
     strategy:
-      fail-fast: false  # Continue running all tests even if some packages fail
+      fail-fast: false # Continue running all tests even if some packages fail
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -425,10 +427,10 @@ jobs:
   workspace-validation:
     name: Workspace Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Workspace validation should be quick
+    timeout-minutes: 5 # Workspace validation should be quick
     needs: setup
     strategy:
-      fail-fast: true  # Stop on workspace issues that affect entire repo
+      fail-fast: true # Stop on workspace issues that affect entire repo
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -476,9 +478,9 @@ jobs:
   generate-metrics:
     name: Generate CI Metrics
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Metrics generation should be lightweight
+    timeout-minutes: 5 # Metrics generation should be lightweight
     needs: [setup, lint, typecheck, build, test, workspace-validation]
-    if: always()  # Run even if previous jobs fail to capture metrics
+    if: always() # Run even if previous jobs fail to capture metrics
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -6,7 +6,10 @@ When this command is used, execute the following task:
 
 # address-implementation-review
 
-Systematically address feedback from story implementation review by implementing fixes, improvements, and addressing all Must Fix items with proper validation. Optionally implementing fixes, improvements, and addressing all Should Improve items if requested.
+Systematically address feedback from story implementation review by implementing
+fixes, improvements, and addressing all Must Fix items with proper validation.
+Optionally implementing fixes, improvements, and addressing all Should Improve
+items if requested.
 
 ## Inputs
 
@@ -14,8 +17,11 @@ Systematically address feedback from story implementation review by implementing
 required:
   - story_path: 'Path to story file with Dev Review Feedback section'
 optional:
-  - focus_priority: 'Specific priority level to focus on (must_fix, should_improve, consider_future)'
-  - feedback_item: 'Specific feedback item to focus on to the exclusion of all others'
+  - focus_priority:
+      'Specific priority level to focus on (must_fix, should_improve,
+      consider_future)'
+  - feedback_item:
+      'Specific feedback item to focus on to the exclusion of all others'
 ```
 
 ## Prerequisites
@@ -32,8 +38,10 @@ optional:
 **Read Review Context:**
 
 - Load the story file and locate "Dev Review Feedback" section
-- Parse all feedback items by priority level (Must Fix, Should Improve, Consider for Future)
-- Optionally filter the feedback items based on the feedback item specified by input, error if you can't match an item
+- Parse all feedback items by priority level (Must Fix, Should Improve, Consider
+  for Future)
+- Optionally filter the feedback items based on the feedback item specified by
+  input, error if you can't match an item
 - Load the implementation plan for reference context
 - Review the File List to understand scope of changes
 
@@ -41,21 +49,25 @@ optional:
 
 If ANY review feedback relates to UI/client issues (web, mobile, desktop):
 
-- Read any consolidated UI specs (e.g., `docs/front-end-spec.md`) if present, without assuming web-only context
-- Read UI/client-related files in `docs/architecture/` (look for: frontend, ui, client, web, mobile, ios, android, desktop, electron, view, component, design)
+- Read any consolidated UI specs (e.g., `docs/front-end-spec.md`) if present,
+  without assuming web-only context
+- Read UI/client-related files in `docs/architecture/` (look for: frontend, ui,
+  client, web, mobile, ios, android, desktop, electron, view, component, design)
 - Ensure all fixes align with established UI/client patterns and requirements
 - Pay special attention to:
   - Component/view structure consistency
   - Styling/appearance convention adherence appropriate to the platform
   - Input/form handling patterns
   - Responsiveness/adaptivity requirements
-- For junior developers: Add questions to the implementation plan if UI/client fix requirements are unclear
+- For junior developers: Add questions to the implementation plan if UI/client
+  fix requirements are unclear
 
 **Categorize Feedback Items:**
 
 - **🔴 Must Fix Items**: Critical issues that block progress
 - **🟡 Should Improve Items**: Quality improvements that enhance maintainability
-- **🟢 Consider for Future Items**: Learning opportunities and advanced optimizations
+- **🟢 Consider for Future Items**: Learning opportunities and advanced
+  optimizations
 - **💡 Positive Highlights**: Acknowledge good practices to maintain
 
 **Validation Check:**
@@ -83,7 +95,8 @@ If ANY review feedback relates to UI/client issues (web, mobile, desktop):
 - Implement the exact solution provided in feedback
 - Run tests after each fix to ensure no regressions
 - Validate fix addresses the root issue, not just symptoms
-- Do not introduce new dependencies unless explicitly approved in the plan's Dependency Policy; otherwise, request senior guidance
+- Do not introduce new dependencies unless explicitly approved in the plan's
+  Dependency Policy; otherwise, request senior guidance
 
 #### 2.2 Should Improve Items (Medium Priority)
 
@@ -142,11 +155,13 @@ If ANY review feedback relates to UI/client issues (web, mobile, desktop):
 **For Each Feedback Item:**
 
 1. **Load Context**: Read the specific file and locate the code section
-2. **Understand Problem**: Study the current implementation and identify the issue
+2. **Understand Problem**: Study the current implementation and identify the
+   issue
 3. **Apply Solution**: Implement the exact fix or improvement suggested
 4. **Validate Change**: Run relevant tests and checks
 5. **Document Progress**: Update task progress and note any questions
-6. **Plan Sync**: Update the implementation plan's Traceability Matrix, Risks, and Plan Amendments to reflect changes
+6. **Plan Sync**: Update the implementation plan's Traceability Matrix, Risks,
+   and Plan Amendments to reflect changes
 
 **Implementation Standards:**
 
@@ -355,4 +370,5 @@ Task is complete when:
 6. **Questions documented** for any uncertain areas
 7. **Next steps clearly defined** for continued progress
 
-The implementation should demonstrate clear improvement while maintaining existing functionality and following all provided guidance precisely.
+The implementation should demonstrate clear improvement while maintaining
+existing functionality and following all provided guidance precisely.

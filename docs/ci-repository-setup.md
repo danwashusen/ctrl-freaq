@@ -1,10 +1,12 @@
 # CI Repository Setup Guide
 
-This guide covers setting up GitHub repository settings to work with the CTRL FreaQ CI pipeline, including branch protection rules and required status checks.
+This guide covers setting up GitHub repository settings to work with the CTRL
+FreaQ CI pipeline, including branch protection rules and required status checks.
 
 ## Overview
 
-The CTRL FreaQ CI pipeline requires specific GitHub repository settings to enforce quality gates and maintain code quality. This includes:
+The CTRL FreaQ CI pipeline requires specific GitHub repository settings to
+enforce quality gates and maintain code quality. This includes:
 
 - Branch protection rules for the main branch
 - Required status checks that must pass before merging
@@ -15,7 +17,8 @@ The CTRL FreaQ CI pipeline requires specific GitHub repository settings to enfor
 
 ### Required Status Checks
 
-The following status checks must be configured as **required** for the main branch:
+The following status checks must be configured as **required** for the main
+branch:
 
 - `lint` - ESLint validation across all packages
 - `typecheck` - TypeScript compilation validation
@@ -96,7 +99,8 @@ gh api repos/:owner/:repo/branches/main/protection --jq '.required_status_checks
 
 ### Configuration Script
 
-For convenience, you can use the provided script to check and configure branch protection:
+For convenience, you can use the provided script to check and configure branch
+protection:
 
 ```bash
 # Check current branch protection status
@@ -150,24 +154,24 @@ GitHub automatically tracks the status of each CI job:
 
 #### Status Checks Not Appearing
 
-**Problem**: Required status checks don't appear in PR
-**Solution**:
+**Problem**: Required status checks don't appear in PR **Solution**:
+
 1. Ensure the CI workflow has run at least once on the branch
 2. Check that job names in `.github/workflows/ci.yml` match required check names
 3. Verify the workflow triggers include `pull_request` events
 
 #### Branch Protection Not Enforcing
 
-**Problem**: PRs can be merged despite failing checks
-**Solution**:
+**Problem**: PRs can be merged despite failing checks **Solution**:
+
 1. Verify branch protection rule is active for the correct branch pattern
 2. Check that "Require status checks to pass before merging" is enabled
 3. Ensure administrators are included in restrictions (if desired)
 
 #### Missing Status Checks
 
-**Problem**: Some required checks are missing from the list
-**Solution**:
+**Problem**: Some required checks are missing from the list **Solution**:
+
 ```bash
 # List available status checks (after CI has run)
 gh api repos/:owner/:repo/commits/main/status --jq '.statuses[].context'

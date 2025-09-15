@@ -54,20 +54,17 @@ export function deepClone<T>(obj: T): T {
     return obj.map(item => deepClone(item)) as unknown as T;
   }
 
-  const cloned = {} as T;
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      cloned[key] = deepClone(obj[key]);
-    }
-  }
+  const clonedEntries = Object.entries(obj as Record<string, unknown>).map(
+    ([k, v]) => [k, deepClone(v as unknown)] as const
+  );
 
-  return cloned;
+  return Object.fromEntries(clonedEntries) as T;
 }
 
 /**
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-export function isEmpty(value: any): boolean {
+export function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) {
     return true;
   }

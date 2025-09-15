@@ -4,7 +4,8 @@
 
 ### ✅ Completed: ci.yml timeout configuration
 
-All **7 jobs** in `.github/workflows/ci.yml` are configured with `timeout-minutes: 5`:
+All **7 jobs** in `.github/workflows/ci.yml` are configured with
+`timeout-minutes: 5`:
 
 1. **setup** - Setup and Cache Dependencies
 2. **lint** - Lint Check
@@ -16,9 +17,11 @@ All **7 jobs** in `.github/workflows/ci.yml` are configured with `timeout-minute
 
 ### 📋 Pending: pr-validation.yml timeout configuration
 
-The PR validation workflow (`.github/workflows/pr-validation.yml`) has not yet been created (Phase 3.3 tasks T015-T018).
+The PR validation workflow (`.github/workflows/pr-validation.yml`) has not yet
+been created (Phase 3.3 tasks T015-T018).
 
 **When implementing T015-T018, ensure ALL jobs include:**
+
 ```yaml
 timeout-minutes: 5
 ```
@@ -42,5 +45,6 @@ grep -c "timeout-minutes: 5" .github/workflows/ci.yml
 ```
 
 ---
-*Generated: 2025-09-14*
-*Task: T022 - Configure 5-minute timeout for all jobs in both workflows*
+
+_Generated: 2025-09-14_ _Task: T022 - Configure 5-minute timeout for all jobs in
+both workflows_

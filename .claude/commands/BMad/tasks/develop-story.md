@@ -6,7 +6,8 @@ When this command is used, execute the following task:
 
 # develop-story
 
-Implement a story by following requirements, executing tasks sequentially, and ensuring all acceptance criteria are met with proper testing and validation.
+Implement a story by following requirements, executing tasks sequentially, and
+ensuring all acceptance criteria are met with proper testing and validation.
 
 ## Inputs
 
@@ -15,7 +16,8 @@ required:
   - story_path: 'Path to story file to implement'
   - developer_type: 'Type of developer executing (senior|junior)'
 optional:
-  - implementation_plan_path: 'Path to implementation plan (required for junior developers)'
+  - implementation_plan_path:
+      'Path to implementation plan (required for junior developers)'
   - skip_ui_check: 'Skip UI documentation check if explicitly not needed'
 ```
 
@@ -29,9 +31,12 @@ optional:
 
 ### For Junior Developers
 
-- Story must exist and have an implementation plan at `{story-filename}-implementation-plan.md`
-- Implementation plan must contain required sections: Tasks, Technical Details, Dependencies, Testing Strategy
-- If implementation plan missing or incomplete, HALT and request senior developer create one
+- Story must exist and have an implementation plan at
+  `{story-filename}-implementation-plan.md`
+- Implementation plan must contain required sections: Tasks, Technical Details,
+  Dependencies, Testing Strategy
+- If implementation plan missing or incomplete, HALT and request senior
+  developer create one
 
 ## Development Process
 
@@ -48,18 +53,22 @@ optional:
 
 ##### For Senior Developers (developer_type=senior)
 
-- Check for implementation plan at: `{story-directory}/{story-filename}-implementation-plan.md`
+- Check for implementation plan at:
+  `{story-directory}/{story-filename}-implementation-plan.md`
 - If exists:
-  - **Ultra think to THOROUGHLY READ AND UNDERSTAND the entire implementation plan:**
+  - **Ultra think to THOROUGHLY READ AND UNDERSTAND the entire implementation
+    plan:**
     - Study all architectural decisions and their rationale
     - Review all Mermaid diagrams (component, sequence, flowcharts) step-by-step
     - Understand pseudo-code algorithms and business logic flows
     - Analyze the planned data flow and integration patterns
     - Review test scenarios and edge cases identified in the plan
     - Understand WHY each technical decision was made
-  - Consider plan recommendations but use professional judgment based on full understanding
+  - Consider plan recommendations but use professional judgment based on full
+    understanding
   - When deviating from plan based on expertise:
-    - Document deviation in implementation plan by adding/updating "Plan Amendments" section
+    - Document deviation in implementation plan by adding/updating "Plan
+      Amendments" section
     - Include: original approach, actual implementation, technical justification
     - Update affected sections to reflect actual implementation
   - Ensure plan remains accurate for future reference and knowledge sharing
@@ -67,36 +76,43 @@ optional:
 
 ##### For Junior Developers (developer_type=junior)
 
-- Construct implementation plan path: `{story-directory}/{story-filename}-implementation-plan.md`
+- Construct implementation plan path:
+  `{story-directory}/{story-filename}-implementation-plan.md`
 - Attempt to read implementation plan file
 - If file does not exist:
   - Display: "❌ IMPLEMENTATION PLAN REQUIRED"
-  - Display: "I need a detailed implementation plan from James before I can help with this story."
+  - Display: "I need a detailed implementation plan from James before I can help
+    with this story."
   - Display: "Expected file: {story-filename}-implementation-plan.md"
   - HALT - do not proceed with any development work
 - If file exists but is incomplete:
   - Display: "⚠️ INCOMPLETE IMPLEMENTATION PLAN"
-  - Display: "Required sections: Tasks, Technical Details, Dependencies, Testing Strategy"
+  - Display: "Required sections: Tasks, Technical Details, Dependencies, Testing
+    Strategy"
   - HALT - do not proceed until plan is complete
 - If file exists and is complete:
   - **THOROUGHLY STUDY AND UNDERSTAND the entire implementation plan:**
     - Read all sections multiple times until fully understood
-    - Study all Mermaid diagrams - trace through each sequence diagram step by step
+    - Study all Mermaid diagrams - trace through each sequence diagram step by
+      step
     - Understand every line of pseudo-code before attempting implementation
     - Review architectural decisions and understand WHY each was made
     - Study test scenarios to understand expected behavior and edge cases
     - Analyze data flow patterns and integration approaches
-    - If ANY part is unclear: Add questions to implementation plan Questions section before starting
+    - If ANY part is unclear: Add questions to implementation plan Questions
+      section before starting
   - Only proceed to implementation after fully understanding the complete plan
 
 ### 2. Interface/UI Documentation Check (Technology-Agnostic)
 
-**CRITICAL: Perform this check for ALL stories that involve any user interface or client changes (web, mobile, desktop).**
+**CRITICAL: Perform this check for ALL stories that involve any user interface
+or client changes (web, mobile, desktop).**
 
 #### 2.1 Analyze Story for UI/Client Components
 
 - Scan acceptance criteria and tasks for UI/client-related keywords:
-  - Components, views, screens, pages, forms, layouts, styling, user interactions
+  - Components, views, screens, pages, forms, layouts, styling, user
+    interactions
   - Frontend, UI, UX, interface, client, display, render
   - Button, input, modal, page, screen, view, navigation
   - Responsive/adaptive, accessibility, mobile, desktop, iOS, Android, Electron
@@ -105,8 +121,10 @@ optional:
 
 If the story involves ANY UI/client changes:
 
-- Read relevant UI/client docs in `docs/architecture/` (look for: frontend, ui, client, web, mobile, ios, android, desktop, electron, view, component, design)
-- If present, also read any consolidated UI specs (e.g., `docs/front-end-spec.md`) without assuming web-only context
+- Read relevant UI/client docs in `docs/architecture/` (look for: frontend, ui,
+  client, web, mobile, ios, android, desktop, electron, view, component, design)
+- If present, also read any consolidated UI specs (e.g.,
+  `docs/front-end-spec.md`) without assuming web-only context
 - Document key platform-appropriate patterns and requirements found:
   - Component/view structure patterns
   - Styling/appearance conventions appropriate to the platform
@@ -114,7 +132,8 @@ If the story involves ANY UI/client changes:
   - Input handling and validation patterns
   - Responsiveness/adaptivity across form factors
   - Accessibility requirements for the target platform
-- For junior developers: Add questions to the implementation plan if UI/client requirements are unclear
+- For junior developers: Add questions to the implementation plan if UI/client
+  requirements are unclear
 
 #### 2.3 Skip Condition
 
@@ -132,23 +151,35 @@ If the story involves ANY UI/client changes:
    - For senior: Use expertise to implement based on requirements
    - For junior: Follow implementation plan step-by-step literally
 3. **Write Tests**: Create comprehensive tests for the functionality
-4. **Execute Validations**: Run project validation commands (lint, type-check, tests)
-5. **Update Progress**: Only if ALL validations pass, mark task checkbox with [x]
-6. **Update File List**: Add all new/modified/deleted files to story File List section
+4. **Execute Validations**: Run project validation commands (lint, type-check,
+   tests)
+5. **Update Progress**: Only if ALL validations pass, mark task checkbox with
+   [x]
+6. **Update File List**: Add all new/modified/deleted files to story File List
+   section
 7. **Repeat**: Continue to next task until all complete
 
 #### 3.1.a Traceability Step (All Developers)
 
-- For each Acceptance Criterion (AC), confirm that implemented code maps to the test IDs and modules declared in the implementation plan's Traceability Matrix
-- If an AC has no mapped tests or modules, add a question (junior) or add a Plan Amendment (senior) and resolve before proceeding
-- **API Endpoint Contract Validation**: Verify that any API endpoint contract changes between backend and frontend are documented in the implementation plan's "API Contract Changes" section
-  - For junior developers: If undocumented API endpoint changes are detected, halt and raise a question to the Senior Developer
-  - For senior developers: If undocumented API changes are needed, update the implementation plan's "API Endpoint Contract Changes" section before proceeding
+- For each Acceptance Criterion (AC), confirm that implemented code maps to the
+  test IDs and modules declared in the implementation plan's Traceability Matrix
+- If an AC has no mapped tests or modules, add a question (junior) or add a Plan
+  Amendment (senior) and resolve before proceeding
+- **API Endpoint Contract Validation**: Verify that any API endpoint contract
+  changes between backend and frontend are documented in the implementation
+  plan's "API Contract Changes" section
+  - For junior developers: If undocumented API endpoint changes are detected,
+    halt and raise a question to the Senior Developer
+  - For senior developers: If undocumented API changes are needed, update the
+    implementation plan's "API Endpoint Contract Changes" section before
+    proceeding
 
 #### 3.1.b Project Structure Compliance (All Developers)
 
-- Ensure all new/modified file paths and test locations conform to `docs/architecture/unified-project-structure.md`
-- Place tests according to the prescribed structure and naming conventions; do not assume generic folders like `__tests__` unless explicitly defined there
+- Ensure all new/modified file paths and test locations conform to
+  `docs/architecture/unified-project-structure.md`
+- Place tests according to the prescribed structure and naming conventions; do
+  not assume generic folders like `__tests__` unless explicitly defined there
 - If a required path is unclear or appears to conflict with the plan:
   - Junior: add a question to the implementation plan and halt that step
   - Senior: update the plan (Plan Amendments) to correct paths and proceed
@@ -159,13 +190,20 @@ If the story involves ANY UI/client changes:
 
 - Add question to implementation plan Questions section
 - Format: "**Q{number}: {Brief Title}** - {Detailed explanation with context}"
-- Include: Current task, specific uncertainty, attempted approaches, why guidance needed
+- Include: Current task, specific uncertainty, attempted approaches, why
+  guidance needed
 - Never assume implementation details not explicitly covered in plan
 - If multiple valid approaches exist: Document options, ask for preference
 - If debugging takes >30 minutes: Document issue and ask for help
-- Timebox: If a single task exceeds 45 minutes or 2 failed attempts, add a question and halt that task
-- Dependencies: Do not introduce any new dependencies unless explicitly whitelisted in the plan's Dependency Policy; otherwise, add a question and halt
-- **API Endpoint Contracts**: **MUST NOT** change API endpoint contracts unless the change is specifically documented in the implementation plan's "API Endpoint Contract Changes" section; if this scenario is encountered, raise a question to the Senior Developer and halt that task
+- Timebox: If a single task exceeds 45 minutes or 2 failed attempts, add a
+  question and halt that task
+- Dependencies: Do not introduce any new dependencies unless explicitly
+  whitelisted in the plan's Dependency Policy; otherwise, add a question and
+  halt
+- **API Endpoint Contracts**: **MUST NOT** change API endpoint contracts unless
+  the change is specifically documented in the implementation plan's "API
+  Endpoint Contract Changes" section; if this scenario is encountered, raise a
+  question to the Senior Developer and halt that task
 
 #### 3.3 Code Quality Standards
 
@@ -221,7 +259,8 @@ If the story involves ANY UI/client changes:
 - Confidence < 80% on technical decision
 - 2+ failures attempting same task
 - Ambiguous requirement not covered in plan
-- Unauthorized API endpoint contract changes not documented in implementation plan
+- Unauthorized API endpoint contract changes not documented in implementation
+  plan
 
 ### 6. Completion Criteria
 
@@ -229,11 +268,13 @@ If the story involves ANY UI/client changes:
 
 - [ ] All tasks and subtasks marked [x]
 - [ ] All acceptance criteria have tests
-- [ ] Full test suite passes without errors OR test failures are documented with specific details
+- [ ] Full test suite passes without errors OR test failures are documented with
+      specific details
 - [ ] Project validation commands pass (lint, type-check)
 - [ ] File List is complete and accurate
 - [ ] No blocking issues remain
-- [ ] Test status is honestly disclosed in completion summary (no false claims about "comprehensive testing")
+- [ ] Test status is honestly disclosed in completion summary (no false claims
+      about "comprehensive testing")
 
 #### 6.2 Final Steps
 
@@ -243,7 +284,8 @@ If the story involves ANY UI/client changes:
    - If tests pass: Use "comprehensive testing" language
    - If tests fail/bypassed: Use honest disclosure language
 4. Set story status to "Ready for Review"
-5. For junior developers: Ensure all questions are documented in implementation plan
+5. For junior developers: Ensure all questions are documented in implementation
+   plan
 6. HALT - await review feedback
 
 ## Success Criteria
@@ -263,4 +305,5 @@ The story development is successful when:
 - Junior developers may need multiple iterations with question resolution
 - Always prioritize code quality over speed
 - When in doubt, ask for clarification rather than assume
-- UI consistency is paramount - never skip UI documentation checks for UI stories
+- UI consistency is paramount - never skip UI documentation checks for UI
+  stories

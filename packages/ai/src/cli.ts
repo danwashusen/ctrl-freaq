@@ -19,14 +19,20 @@ export function cli(argv?: string[]): void {
     .option('-m, --model <model>', 'AI model to use', 'gpt-3.5-turbo')
     .option('-p, --prompt <prompt>', 'Prompt for content generation')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'AI content generation functionality not yet implemented',
-          model: options.model,
-          prompt: options.prompt
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'AI content generation functionality not yet implemented',
+              model: options.model,
+              prompt: options.prompt,
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`AI Content Generation`);
         console.log(`Model: ${options.model}`);
@@ -39,9 +45,9 @@ export function cli(argv?: string[]): void {
     .command('models')
     .description('List available AI models')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       const models = ['gpt-3.5-turbo', 'gpt-4', 'claude-3-sonnet', 'claude-3-opus'];
-      
+
       if (options.json) {
         console.log(JSON.stringify({ models }, null, 2));
       } else {

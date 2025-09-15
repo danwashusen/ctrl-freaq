@@ -2,39 +2,57 @@
 
 ## Introduction {#introduction}
 
-This document outlines the backend architecture for CTRL FreaQ, focusing on server-side systems, data persistence, API design, shared services, and non-UI specific concerns. It serves as the definitive technical specification and single source of truth for AI-driven development, ensuring consistency and adherence to constitutional principles and chosen patterns.
+This document outlines the backend architecture for CTRL FreaQ, focusing on
+server-side systems, data persistence, API design, shared services, and non-UI
+specific concerns. It serves as the definitive technical specification and
+single source of truth for AI-driven development, ensuring consistency and
+adherence to constitutional principles and chosen patterns.
 
-**Relationship to Frontend Architecture:**
-The frontend uses React with detailed UI architecture, routing, state management, and component guidelines specified in a separate Frontend Architecture Document (`docs/ui-architecture.md`). This backend architecture document defines the API contracts, data models, and service layer that the frontend consumes.
+**Relationship to Frontend Architecture:** The frontend uses React with detailed
+UI architecture, routing, state management, and component guidelines specified
+in a separate Frontend Architecture Document (`docs/ui-architecture.md`). This
+backend architecture document defines the API contracts, data models, and
+service layer that the frontend consumes.
 
 ### Starter Template or Existing Project {#starter-template}
 
-**Foundation:** Greenfield project (no starter template)
-The project is built from scratch following the Constitutional principles defined in `CONSTITUTION.md`, implementing library-first architecture with strict test-driven development requirements.
+**Foundation:** Greenfield project (no starter template) The project is built
+from scratch following the Constitutional principles defined in
+`CONSTITUTION.md`, implementing library-first architecture with strict
+test-driven development requirements.
 
 ### Change Log {#change-log}
 
-| Date       | Version | Description                                          | Author      |
-|------------|---------|------------------------------------------------------|-------------|
-| 2025-09-13 | 1.0     | Initial backend architecture from Old Architecture  | Winston AI  |
-| 2025-09-12 | 0.8     | Milkdown v7.15.5 WYSIWYG editor implementation     | Architect   |
-| 2025-09-12 | 0.7     | Rename persistence package for clarity              | Architect   |
-| 2025-09-12 | 0.6     | Section content generation API                      | Architect   |
-| 2025-09-12 | 0.5     | Enhanced assumption resolution API                  | Architect   |
-| 2025-09-11 | 0.4     | Epic 2 redesign: Document Editor paradigm          | Architect   |
+| Date       | Version | Description                                        | Author     |
+| ---------- | ------- | -------------------------------------------------- | ---------- |
+| 2025-09-13 | 1.0     | Initial backend architecture from Old Architecture | Winston AI |
+| 2025-09-12 | 0.8     | Milkdown v7.15.5 WYSIWYG editor implementation     | Architect  |
+| 2025-09-12 | 0.7     | Rename persistence package for clarity             | Architect  |
+| 2025-09-12 | 0.6     | Section content generation API                     | Architect  |
+| 2025-09-12 | 0.5     | Enhanced assumption resolution API                 | Architect  |
+| 2025-09-11 | 0.4     | Epic 2 redesign: Document Editor paradigm          | Architect  |
 
 ## High Level Architecture {#high-level-architecture}
 
 ### Technical Summary {#technical-summary}
 
-CTRL FreaQ MVP implements a modular monolith architecture running locally with Express.js API server, SQLite database, and library-first design patterns. The system provides comprehensive document editing with WYSIWYG Markdown, Git-style patching, conversational co-authoring via LLM integration (OpenAI/Vercel AI SDK), and streaming responses for real-time UX. Authentication uses Clerk with stateless JWT, while all core functionality is exposed through CLI interfaces per Constitutional requirements.
+CTRL FreaQ MVP implements a modular monolith architecture running locally with
+Express.js API server, SQLite database, and library-first design patterns. The
+system provides comprehensive document editing with WYSIWYG Markdown, Git-style
+patching, conversational co-authoring via LLM integration (OpenAI/Vercel AI
+SDK), and streaming responses for real-time UX. Authentication uses Clerk with
+stateless JWT, while all core functionality is exposed through CLI interfaces
+per Constitutional requirements.
 
 ### High Level Overview {#high-level-overview}
 
-1. **Architecture Style:** Modular monolith (local MVP) evolving to AWS serverless
+1. **Architecture Style:** Modular monolith (local MVP) evolving to AWS
+   serverless
 2. **Repository Structure:** Monorepo using pnpm workspaces + Turborepo
 3. **Service Architecture:** Web app with Express.js API and React frontend
-4. **Core Data Flow:** User authenticates → Document editor with section navigation → AI-assisted content generation → Quality gates validation → Export to markdown files
+4. **Core Data Flow:** User authenticates → Document editor with section
+   navigation → AI-assisted content generation → Quality gates validation →
+   Export to markdown files
 5. **Key Decisions:**
    - Local-first MVP for rapid iteration
    - Library-first architecture for maintainability
@@ -68,11 +86,153 @@ graph TD
 
 ### Architectural and Design Patterns {#architectural-patterns}
 
-- **Library-First Architecture:** Every feature as standalone library with CLI interface - _Rationale:_ Constitutional requirement ensuring testability, reusability, and clear boundaries
-- **Repository Pattern:** Abstract data access layer for SQLite → DynamoDB migration - _Rationale:_ Enables seamless transition to cloud infrastructure without code changes
-- **Dependency Injection via Service Locator:** Per-request context resolution - _Rationale:_ Avoids singletons, improves testability, enables request-scoped configuration
-- **REST over HTTP:** JSON-based API with SSE for streaming - _Rationale:_ Simple, widely supported, enables real-time features
-- **Test-First Development (TDD):** Mandatory Red-Green-Refactor cycle - _Rationale:_ Constitutional requirement ensuring quality and correctness
+- **Library-First Architecture:** Every feature as standalone library with CLI
+  interface - _Rationale:_ Constitutional requirement ensuring testability,
+  reusability, and clear boundaries
+- **Repository Pattern:** Abstract data access layer for SQLite → DynamoDB
+  migration - _Rationale:_ Enables seamless transition to cloud infrastructure
+  without code changes
+- **Dependency Injection via Service Locator:** Per-request context resolution -
+  _Rationale:_ Avoids singletons, improves testability, enables request-scoped
+  configuration
+- **REST over HTTP:** JSON-based API with SSE for streaming - _Rationale:_
+  Simple, widely supported, enables real-time features
+- **Test-First Development (TDD):** Mandatory Red-Green-Refactor cycle -
+  _Rationale:_ Constitutional requirement ensuring quality and correctness
+
+## Coding Standards {#coding-standards}
+
+This section defines enforceable coding rules for contributors and AI coding
+assistants. It complements the architectural patterns and prevents common
+quality issues.
+
+### AI Assistant Coding Guidelines {#ai-assistant-coding-guidelines}
+
+- Strong typing and linting: prefer specific types, avoid any, no non-null
+  assertions.
+
+```ts
+// Bad
+function save(data: any) {
+  /* ... */
+}
+const id = user!.id;
+
+// Good
+function save(data: CreateProjectInput) {
+  /* ... */
+}
+if (!user) return null;
+const id = user.id;
+```
+
+- Unused identifiers: prefix intentionally unused with underscore; prefer const;
+  maintain ordered imports.
+
+```ts
+// Bad
+let count = 0;
+(req, res, next) => {
+  console.log(res);
+}; // noisy console
+
+// Good
+const count = 0;
+(_req, _res, next) => {
+  next();
+};
+```
+
+- ESM-only imports: no require; include .js on local relative imports; avoid
+  \_\_dirname in runtime.
+
+```ts
+// Bad
+const fs = require('fs');
+import { util } from './utils';
+join(__dirname, 'migrations');
+
+// Good
+import { readFileSync } from 'fs';
+import { util } from './utils.js';
+// CLI contexts: resolve(process.cwd(), 'migrations')
+// Bundled assets: new URL('../../migrations', import.meta.url).pathname
+```
+
+- Service Locator, not singletons: resolve per-request services from
+  req.services.
+
+```ts
+// Bad
+import logger from '../logger-singleton';
+const db = globalDb;
+
+// Good
+const logger = req.services.get<Logger>('logger');
+const db = req.services.get<Database>('database');
+```
+
+- Structured logging only: use Pino with context; no secrets in logs; no console
+  in app code (console is OK in CLI/startup).
+
+```ts
+// Bad
+console.log('Project created', req.headers.authorization);
+
+// Good
+logger.info({ requestId: req.requestId, userId, projectId }, 'Project created');
+```
+
+- Validate inputs and standardize errors: Zod at API boundaries; consistent JSON
+  errors with requestId and timestamp.
+
+```ts
+// Bad
+if (!req.body.name) return res.status(400).send('bad');
+res.status(500).json({ error: err.message });
+
+// Good
+const parsed = CreateProjectRequestSchema.safeParse(req.body);
+if (!parsed.success) {
+  return res.status(400).json({
+    error: 'VALIDATION_ERROR',
+    message: 'Invalid request parameters',
+    requestId: req.requestId || 'unknown',
+    timestamp: new Date().toISOString(),
+    details: parsed.error.format(),
+  });
+}
+```
+
+- Repository pattern for data access: no raw SQL in routes; map rows to typed
+  entities; serialize/parse JSON columns in repos.
+
+```ts
+// Bad
+db.exec(`INSERT INTO projects (name) VALUES ('${name}')`);
+
+// Good
+const repo = new ProjectRepositoryImpl(db);
+await repo.create({ ownerUserId: userId, name, slug, description: null });
+```
+
+- Auth and security: use Clerk middleware, secure CORS allowlist, and
+  memory-safe rate limiting with cleanup.
+
+```ts
+// Rate limiter cleanup (avoid memory leaks)
+const interval = setInterval(cleanExpired, 5 * 60_000);
+process.on('exit', () => clearInterval(interval));
+```
+
+- TDD mandatory: write contract/unit tests first (happy path, validation,
+  errors, CORS, concurrency), then implement to green.
+
+- CLI behavior: console allowed; support --json consistently; return non-zero
+  exit codes on error.
+
+- Correlation IDs: ensure request-id middleware runs first; propagate
+  x-request-id downstream; use child logger with requestId.
 
 ## Tech Stack {#tech-stack}
 
@@ -84,21 +244,21 @@ graph TD
 
 ### Technology Stack Table {#technology-stack-table}
 
-| Category           | Technology        | Version  | Purpose                              | Rationale                                    |
-|--------------------|-------------------|----------|--------------------------------------|----------------------------------------------|
-| **Language**       | TypeScript        | 5.4.x    | Primary development language        | Strong typing, excellent tooling, team standard |
-| **Runtime**        | Node.js           | 22.x     | JavaScript runtime                  | LTS version, stable performance              |
-| **Backend Framework** | Express.js     | 5.1.0    | API server framework                | Mature, flexible middleware ecosystem        |
-| **Database**       | SQLite            | 3.x      | Local data storage (MVP)            | Zero-config, embedded, easy migration path   |
-| **DB Access**      | better-sqlite3    | 9.x      | SQLite driver                       | Fast synchronous API, type-safe              |
-| **Authentication** | Clerk             | latest   | User authentication                 | Hosted solution, quick setup for MVP         |
-| **LLM SDK**        | Vercel AI SDK     | 3.x      | AI model integration                | Provider abstraction, streaming support      |
-| **Testing**        | Vitest            | 1.x      | Unit and integration testing        | Fast, TypeScript-native                      |
-| **Monorepo**       | pnpm + Turborepo  | 9.x/1.x  | Workspace management                | Efficient dependency management, caching     |
-| **Logging**        | Pino              | 9.5.0    | Structured logging                  | High-performance JSON logging                |
-| **UI Framework**   | React             | 18.x     | Frontend framework                  | Component model, ecosystem, team expertise   |
-| **CSS**            | Tailwind CSS      | 3.x      | Utility-first styling               | Rapid development, consistent design         |
-| **Editor**         | Milkdown          | 7.15.5   | WYSIWYG Markdown editor             | Markdown-native, extensible, Git-style patches |
+| Category              | Technology       | Version | Purpose                      | Rationale                                       |
+| --------------------- | ---------------- | ------- | ---------------------------- | ----------------------------------------------- |
+| **Language**          | TypeScript       | 5.4.x   | Primary development language | Strong typing, excellent tooling, team standard |
+| **Runtime**           | Node.js          | 22.x    | JavaScript runtime           | LTS version, stable performance                 |
+| **Backend Framework** | Express.js       | 5.1.0   | API server framework         | Mature, flexible middleware ecosystem           |
+| **Database**          | SQLite           | 3.x     | Local data storage (MVP)     | Zero-config, embedded, easy migration path      |
+| **DB Access**         | better-sqlite3   | 9.x     | SQLite driver                | Fast synchronous API, type-safe                 |
+| **Authentication**    | Clerk            | latest  | User authentication          | Hosted solution, quick setup for MVP            |
+| **LLM SDK**           | Vercel AI SDK    | 3.x     | AI model integration         | Provider abstraction, streaming support         |
+| **Testing**           | Vitest           | 1.x     | Unit and integration testing | Fast, TypeScript-native                         |
+| **Monorepo**          | pnpm + Turborepo | 9.x/1.x | Workspace management         | Efficient dependency management, caching        |
+| **Logging**           | Pino             | 9.5.0   | Structured logging           | High-performance JSON logging                   |
+| **UI Framework**      | React            | 18.x    | Frontend framework           | Component model, ecosystem, team expertise      |
+| **CSS**               | Tailwind CSS     | 3.x     | Utility-first styling        | Rapid development, consistent design            |
+| **Editor**            | Milkdown         | 7.15.5  | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
 
 ## Data Models {#data-models}
 
@@ -107,6 +267,7 @@ graph TD
 **Purpose:** Authenticated actor and document owner via Clerk
 
 **Key Attributes:**
+
 - id: string (Clerk user ID) - Unique identifier from Clerk
 - email: string - User email address
 - name: string (optional) - Display name
@@ -114,6 +275,7 @@ graph TD
 - createdAt: datetime - Account creation timestamp
 
 **Relationships:**
+
 - One-to-many with Document (owner)
 - One-to-many with ActivityLog (actor)
 - One-to-many with Proposal (creator)
@@ -123,6 +285,7 @@ graph TD
 **Purpose:** Root entity for project document lifecycle
 
 **Key Attributes:**
+
 - id: string/uuid - Unique document identifier
 - ownerUserId: string - Foreign key to User.id
 - type: enum (architecture|prd|ui|other) - Document type
@@ -132,27 +295,32 @@ graph TD
 - schemaVersion: string - Document schema version
 - version: string (semver) - Document version
 - status: enum (draft|ready|published) - Publication status
-- assumptionAggressivenessDefault: enum (conservative|balanced|yolo) - Default decision policy
+- assumptionAggressivenessDefault: enum (conservative|balanced|yolo) - Default
+  decision policy
 - projectId: string/uuid - Foreign key to Project.id
 - rowVersion: integer - Optimistic concurrency control
 - createdAt, updatedAt: datetime - Timestamps
 
 **Relationships:**
+
 - Many-to-one with User (owner)
-- One-to-many with Section, Assumption, Citation, TraceLink, Proposal, ActivityLog
+- One-to-many with Section, Assumption, Citation, TraceLink, Proposal,
+  ActivityLog
 
 ### Model: Section {#model-section}
 
 **Purpose:** Hierarchical content units within documents
 
 **Key Attributes:**
+
 - id: string/uuid - Section identifier
 - docId: string - Foreign key to Document.id
 - parentSectionId: string (nullable) - Parent section for hierarchy
 - key: string - Section key (e.g., 'introduction', 'tech-stack')
 - title: string - Display title
 - contentMarkdown: text - Section content in Markdown
-- status: enum (idle|assumptions|drafting|review|ready) - Section lifecycle state
+- status: enum (idle|assumptions|drafting|review|ready) - Section lifecycle
+  state
 - orderIndex: integer - Sort order within parent
 - depth: integer - Nesting depth (0=root)
 - assumptionsResolved: boolean - Assumption status flag
@@ -161,12 +329,14 @@ graph TD
 - updatedAt: datetime - Last modification time
 
 **Relationships:**
+
 - Many-to-one with Document
 - Optional many-to-one with parent Section
 - One-to-many with child Sections
 - One-to-many with Citation, Proposal
 
 **Constraints:**
+
 - Unique composite key: (docId, parentSectionId, orderIndex)
 - Root sections: depth = 0 and parentSectionId = NULL
 - Child sections: depth = parent.depth + 1
@@ -176,18 +346,21 @@ graph TD
 **Purpose:** Capture and resolve assumptions before content generation
 
 **Key Attributes:**
+
 - id: string/uuid - Assumption identifier
 - docId: string - Foreign key to Document.id
 - scope: enum (document|section) - Assumption scope
 - sectionId: string (nullable) - Section reference when scope=section
 - title: string - Assumption title
 - intent: string - What needs to be resolved
-- status: enum (clear|unclear|unanswered|ambiguous|conflicting|tradeoffs) - Resolution status
+- status: enum (clear|unclear|unanswered|ambiguous|conflicting|tradeoffs) -
+  Resolution status
 - decision: string - Resolution decision
 - orderIndex: integer - Display order
 - createdAt: datetime - Creation timestamp
 
 **Relationships:**
+
 - Many-to-one with Document
 - Optional many-to-one with Section
 
@@ -196,6 +369,7 @@ graph TD
 **Purpose:** Canonical knowledge for system context
 
 **Key Attributes:**
+
 - id: string/uuid - Knowledge identifier
 - type: enum (standard|pattern|decision) - Knowledge type
 - title: string - Knowledge title
@@ -207,6 +381,7 @@ graph TD
 - createdAt, updatedAt: datetime - Timestamps
 
 **Relationships:**
+
 - Referenced by Citation and TraceLink
 
 ### Model: Proposal {#model-proposal}
@@ -214,6 +389,7 @@ graph TD
 **Purpose:** AI-generated content proposals with diff tracking
 
 **Key Attributes:**
+
 - id: string/uuid - Proposal identifier
 - docId: string - Document reference (denormalized for queries)
 - sectionId: string - Target section
@@ -224,6 +400,7 @@ graph TD
 - createdAt, approvedAt: datetime - Timestamps
 
 **Relationships:**
+
 - Many-to-one with Document, Section, User
 
 ### Model: Project {#model-project}
@@ -231,6 +408,7 @@ graph TD
 **Purpose:** Personal project container (MVP) for documents and knowledge
 
 **Key Attributes:**
+
 - id: string/uuid - Project identifier
 - ownerUserId: string - User owner (unique constraint)
 - name: string - Project name
@@ -238,10 +416,12 @@ graph TD
 - createdAt, updatedAt: datetime - Timestamps
 
 **Relationships:**
+
 - One-to-one with User (MVP enforces single project)
 - One-to-many with Documents, KnowledgeItems
 
 **Notes:**
+
 - Auto-created on first login
 - No deletion in MVP
 - Rename allowed via PATCH API
@@ -250,9 +430,11 @@ graph TD
 
 ### apps/api - Express.js API Server {#api-server}
 
-**Responsibility:** Authentication, document editing API, assumption resolution, content generation, quality gates, export functionality, streaming responses
+**Responsibility:** Authentication, document editing API, assumption resolution,
+content generation, quality gates, export functionality, streaming responses
 
 **Key Interfaces:**
+
 - REST API endpoints under `/api/v1/*`
 - SSE streaming for chat and proposals
 - Clerk session validation
@@ -263,6 +445,7 @@ graph TD
 **Technology Stack:** Express.js 5.1.0, TypeScript, Node.js 22.x
 
 **Key Modules:**
+
 - Auth Module: Clerk integration, session management
 - Document Editor: WYSIWYG editing, Git-style patching, ToC navigation
 - Assumptions Engine: Per-section assumption lifecycle management
@@ -275,9 +458,11 @@ graph TD
 
 ### packages/shared-data - Data Access Layer {#shared-data}
 
-**Responsibility:** Repository pattern implementation for all data models, database migrations, transaction management
+**Responsibility:** Repository pattern implementation for all data models,
+database migrations, transaction management
 
 **Key Interfaces:**
+
 - `DocumentRepository`: Document CRUD operations
 - `SectionRepository`: Hierarchical section management
 - `AssumptionRepository`: Assumption tracking
@@ -289,6 +474,7 @@ graph TD
 **Technology Stack:** TypeScript, better-sqlite3 9.x
 
 **CLI Commands:**
+
 ```bash
 shared-data query --type document --id DOC123
 shared-data create-doc --type architecture --title "My Project"
@@ -297,9 +483,11 @@ shared-data list-sections --doc-id DOC123
 
 ### packages/templates - Template Engine {#templates}
 
-**Responsibility:** YAML template parsing, validation, expansion, migration management
+**Responsibility:** YAML template parsing, validation, expansion, migration
+management
 
 **Key Interfaces:**
+
 - `loadTemplate(id)`: Load template by ID
 - `validateTemplate(template)`: Schema validation
 - `expandTemplate(template, data)`: Template expansion
@@ -310,6 +498,7 @@ shared-data list-sections --doc-id DOC123
 **Technology Stack:** TypeScript, YAML
 
 **CLI Commands:**
+
 ```bash
 templates validate --file architecture.yaml
 templates expand --template architecture --doc-id DOC123
@@ -318,9 +507,11 @@ templates check-migration --from-version 1.0 --to-version 1.1
 
 ### packages/ai - LLM Integration {#ai-package}
 
-**Responsibility:** OpenAI integration via Vercel AI SDK, streaming helpers, context management
+**Responsibility:** OpenAI integration via Vercel AI SDK, streaming helpers,
+context management
 
 **Key Interfaces:**
+
 - `explain(context)`: Generate explanations
 - `suggestOutline(context)`: Content suggestions
 - `proposeEdits(context, draft)`: Generate diffs
@@ -331,6 +522,7 @@ templates check-migration --from-version 1.0 --to-version 1.1
 **Technology Stack:** TypeScript, Vercel AI SDK 3.x
 
 **CLI Commands:**
+
 ```bash
 ai chat --prompt "Explain microservices" --model gpt-4o-mini
 ai propose --section-id SEC123 --mode improve
@@ -339,9 +531,11 @@ ai stream-test --prompt "Hello" --verify-sse
 
 ### packages/qa - Quality Gates {#qa-package}
 
-**Responsibility:** Quality gate definitions, execution engine, traceability validation
+**Responsibility:** Quality gate definitions, execution engine, traceability
+validation
 
 **Key Interfaces:**
+
 - `runGates(docId)`: Execute all gates
 - `checkGate(name, docId)`: Single gate check
 - Gate result reporting
@@ -351,6 +545,7 @@ ai stream-test --prompt "Hello" --verify-sse
 **Technology Stack:** TypeScript
 
 **CLI Commands:**
+
 ```bash
 qa run-gates --doc-id DOC123 --gates all
 qa check-gate --name "schema-completeness" --doc-id DOC123
@@ -359,9 +554,11 @@ qa validate-traceability --doc-id DOC123
 
 ### packages/exporter - Document Export {#exporter}
 
-**Responsibility:** Markdown rendering, file sharding, idempotent export operations
+**Responsibility:** Markdown rendering, file sharding, idempotent export
+operations
 
 **Key Interfaces:**
+
 - `exportFull(docId)`: Full document export
 - `exportShards(docId)`: Sharded export
 - Diff checking utilities
@@ -371,6 +568,7 @@ qa validate-traceability --doc-id DOC123
 **Technology Stack:** TypeScript, markdown-it
 
 **CLI Commands:**
+
 ```bash
 exporter export --doc-id DOC123 --output-dir docs/
 exporter export-shards --doc-id DOC123 --base-path docs/architecture/
@@ -379,9 +577,11 @@ exporter diff --doc-id DOC123 --target docs/architecture.md
 
 ### packages/editor-core - WYSIWYG Editor {#editor-core}
 
-**Responsibility:** Milkdown integration, Markdown editing, Git-style patch generation
+**Responsibility:** Milkdown integration, Markdown editing, Git-style patch
+generation
 
 **Key Interfaces:**
+
 - Patch creation and application
 - Markdown/WYSIWYG conversion
 - Diff visualization
@@ -391,6 +591,7 @@ exporter diff --doc-id DOC123 --target docs/architecture.md
 **Technology Stack:** TypeScript, Milkdown
 
 **CLI Commands:**
+
 ```bash
 editor-core patch-create --old "text1" --new "text2"
 editor-core patch-apply --patch "diff.patch" --content "original"
@@ -401,6 +602,7 @@ editor-core patch-apply --patch "diff.patch" --content "original"
 **Responsibility:** Local pending changes, patch storage, change replay
 
 **Key Interfaces:**
+
 - Pending change storage
 - Batch save operations
 - Change history management
@@ -411,9 +613,11 @@ editor-core patch-apply --patch "diff.patch" --content "original"
 
 ### packages/template-resolver - Template Resolution {#template-resolver}
 
-**Responsibility:** Template hierarchy navigation, configuration extraction, caching
+**Responsibility:** Template hierarchy navigation, configuration extraction,
+caching
 
 **Key Interfaces:**
+
 - `loadDocumentTemplate(templateId)`: Load and cache templates
 - `findSectionTemplate(template, sectionId)`: Navigate hierarchy
 - `extractGenerationConfig(section)`: Extract LLM config
@@ -433,10 +637,12 @@ editor-core patch-apply --patch "diff.patch" --content "original"
 - **Rate Limits:** Model-dependent, handled via exponential backoff
 
 **Key Endpoints Used:**
+
 - `POST /chat/completions` - Generate content and proposals
 - Streaming mode for real-time responses
 
-**Integration Notes:** Accessed via Vercel AI SDK abstraction layer, 2 retries with jitter on 429/5xx errors
+**Integration Notes:** Accessed via Vercel AI SDK abstraction layer, 2 retries
+with jitter on 429/5xx errors
 
 ### Clerk Authentication API {#clerk-api}
 
@@ -447,10 +653,12 @@ editor-core patch-apply --patch "diff.patch" --content "original"
 - **Rate Limits:** Standard Clerk limits apply
 
 **Key Endpoints Used:**
+
 - Session validation endpoints
 - User profile retrieval
 
-**Integration Notes:** SDK-based integration, session validation on all authoring endpoints
+**Integration Notes:** SDK-based integration, session validation on all
+authoring endpoints
 
 ## Core Workflows {#core-workflows}
 
@@ -635,6 +843,7 @@ CREATE INDEX idx_proposals_lookup ON proposals(doc_id, section_id, created_at);
 ### DynamoDB Migration Path {#dynamodb-migration}
 
 Key-based access patterns for future DynamoDB compatibility:
+
 - Partition key: `docId` for document-scoped queries
 - Sort keys: Composite keys like `sectionId#orderIndex`
 - No JOINs - all queries use single-table design patterns
@@ -740,7 +949,8 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 - **Error Model:** Typed exceptions with error codes
 - **Exception Hierarchy:** HttpError base class with specific subtypes
-- **Error Propagation:** Catch at boundaries, log with context, return sanitized response
+- **Error Propagation:** Catch at boundaries, log with context, return sanitized
+  response
 
 ### Logging Standards {#logging-standards}
 
@@ -778,18 +988,74 @@ Local Dev → Git Push → CI Tests → Merge to Main
 ### Core Standards {#core-standards}
 
 - **Languages & Runtimes:** TypeScript 5.4.x, Node.js 22.x
-- **Style & Linting:** ESLint with strict TypeScript rules
+- **Style & Linting:** ESLint v9 flat config with strict TypeScript rules (see
+  Linting & Formatting)
 - **Test Organization:** `*.test.ts` files colocated with source
+
+### Linting & Formatting {#linting-formatting}
+
+- Linter: ESLint v9 (flat config).
+  - Rule sets/plugins: @eslint/js, @typescript-eslint, import, react,
+    react-hooks, jsx-a11y, security, yml
+  - Module/import resolution: TypeScript-aware resolver (workspace tsconfig
+    paths) and Node resolver
+  - Severity policy: Lint warnings fail CI (`pnpm run lint:ci` enforces
+    `--max-warnings=0`)
+- Formatter: Prettier v3
+  - Plugins: prettier-plugin-tailwindcss, prettier-plugin-packagejson
+  - Non-code assets: Format Markdown, JSON, YAML
+- YAML linting: via ESLint (eslint-plugin-yml + yaml-eslint-parser);
+  `.yamllint.yaml` provided for external tools
+- Versioning: Pin versions in package.json; prefer minimal config churn and
+  sensible defaults
+
+### TypeScript Compiler Standards {#ts-compiler-standards}
+
+- Strictness: `strict`, `noUnusedLocals`, `noUnusedParameters`,
+  `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUncheckedIndexedAccess`
+- Module semantics: `verbatimModuleSyntax`, `allowImportingTsExtensions=false`,
+  `esModuleInterop`, `moduleResolution=bundler`
+- Safety: `noImplicitOverride`, `useUnknownInCatchVariables`
+
+### CI Quality Gates {#ci-quality-gates}
+
+- Lint gate: Lint warnings fail the pipeline (`--max-warnings=0`)
+- YAML: YAML lint rules included in the lint job
+- Typecheck: Run across workspace with project references enabled
+- Test coverage thresholds (per package): Lines 80% • Statements 80% • Branches
+  70% • Functions 80%
+- Feedback loop: Turborepo tasks for `lint` and `typecheck` do not depend on
+  `^build` for fast iteration
+
+### Pre-Commit Automation {#pre-commit-automation}
+
+- Hook mechanism: Husky pre-commit runs lint-staged
+- Staged file tasks:
+  - `**/*.{ts,tsx,js,jsx}`: ESLint `--fix --cache`, Prettier `--write`
+  - `**/*.{json,md,yml,yaml}`: Prettier `--write`
+  - `**/package.json`: Prettier `--write`
+
+### Quality Controls Governance {#quality-controls-governance}
+
+- This project’s Development Constitution (see CONSTITUTION.md) protects
+  quality-control configurations.
+- Changes to linting/formatting/editor/tsconfig/build/CI/yaml/hooks/staged-file
+  configs are prohibited unless they are the explicit, primary intent of a
+  dedicated PR with rationale.
+- Non‑negotiable gates (lint severity policy, coverage thresholds, compiler
+  strictness) may only be strengthened unless an approved exception is
+  documented.
+- Any approved changes must update documentation and CI accordingly.
 
 ### Naming Conventions {#naming-conventions}
 
-| Element      | Convention    | Example                |
-|--------------|---------------|------------------------|
-| Files        | kebab-case    | document-service.ts    |
-| Classes      | PascalCase    | DocumentRepository     |
-| Functions    | camelCase     | createDocument()       |
-| Constants    | UPPER_SNAKE   | MAX_RETRIES           |
-| Interfaces   | PascalCase    | IDocumentService      |
+| Element    | Convention  | Example             |
+| ---------- | ----------- | ------------------- |
+| Files      | kebab-case  | document-service.ts |
+| Classes    | PascalCase  | DocumentRepository  |
+| Functions  | camelCase   | createDocument()    |
+| Constants  | UPPER_SNAKE | MAX_RETRIES         |
+| Interfaces | PascalCase  | IDocumentService    |
 
 ### Critical Rules {#critical-rules}
 
@@ -820,6 +1086,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 - **Coverage Requirement:** 100% for public methods
 
 **AI Agent Requirements:**
+
 - Generate tests for all public methods
 - Cover edge cases and error conditions
 - Follow AAA pattern (Arrange, Act, Assert)
@@ -838,15 +1105,18 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 - **Framework:** Playwright Test Framework
 - **Location:** `tests/e2e/` directory
-- **File Convention:** `*.e2e.ts` for functional tests, `*.visual.ts` for visual regression
+- **File Convention:** `*.e2e.ts` for functional tests, `*.visual.ts` for visual
+  regression
 - **Scope:** Critical user flows, visual regression, cross-browser compatibility
 - **Test Infrastructure:**
   - **Browsers:** Chromium, Firefox, WebKit (Safari)
-  - **Viewports:** Mobile (320px), Tablet (768px), Desktop (1440px), Wide (1920px)
+  - **Viewports:** Mobile (320px), Tablet (768px), Desktop (1440px), Wide
+    (1920px)
   - **Visual Regression:** Screenshot comparison with configurable thresholds
   - **Performance:** FPS monitoring during animations
 
 **AI Agent Requirements:**
+
 - Generate page object models for complex UI interactions
 - Create data-testid attributes for reliable element selection
 - Implement visual regression baselines for new features
@@ -857,6 +1127,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 #### DynamoDB Compatibility Tests {#dynamodb-compatibility-tests}
 
 All data access must verify:
+
 - No cross-entity JOINs
 - Key-based access only
 - Cursor pagination patterns
@@ -943,6 +1214,7 @@ All data access must verify:
 ### Logging Requirements {#soc2-logging}
 
 All operations must log (JSON format):
+
 - Authentication events: login/logout/refresh
 - Data access: CREATE/READ/UPDATE/DELETE with old/new values
 - Authorization failures with required vs actual permissions
@@ -959,6 +1231,7 @@ All operations must log (JSON format):
 ### Audit Trail {#soc2-audit}
 
 Every table includes:
+
 - created_at, created_by
 - updated_at, updated_by
 - deleted_at, deleted_by (soft deletes)
@@ -969,6 +1242,7 @@ Every table includes:
 ### Frontend Architecture {#frontend-next-steps}
 
 For UI components, create Frontend Architecture Document with:
+
 - Reference to this backend architecture
 - React component structure
 - State management approach

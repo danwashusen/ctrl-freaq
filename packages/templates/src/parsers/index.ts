@@ -12,7 +12,7 @@ export class YAMLParser {
   /**
    * Parse YAML with error handling
    */
-  static parse<T = any>(content: string): T {
+  static parse<T = unknown>(content: string): T {
     try {
       return YAML.parse(content);
     } catch (error) {
@@ -26,7 +26,7 @@ export class YAMLParser {
   /**
    * Stringify object to YAML
    */
-  static stringify(obj: any, options?: YAML.ToStringOptions): string {
+  static stringify(obj: unknown, options?: YAML.ToStringOptions): string {
     try {
       return YAML.stringify(obj, options);
     } catch (error) {
@@ -40,7 +40,10 @@ export class YAMLParser {
   /**
    * Validate YAML against schema
    */
-  static validate<T>(content: string, schema: z.ZodSchema<T>): { valid: boolean; data?: T; errors?: string[] } {
+  static validate<T>(
+    content: string,
+    schema: z.ZodSchema<T>
+  ): { valid: boolean; data?: T; errors?: string[] } {
     try {
       const parsed = this.parse(content);
       const data = schema.parse(parsed);
@@ -49,12 +52,12 @@ export class YAMLParser {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
         };
       }
       return {
         valid: false,
-        errors: [error instanceof Error ? error.message : 'Unknown validation error']
+        errors: [error instanceof Error ? error.message : 'Unknown validation error'],
       };
     }
   }
@@ -65,7 +68,8 @@ export class YAMLParser {
  */
 export class VariableParser {
   private static readonly VARIABLE_PATTERN = /\{\{[\s]*([^}]+)[\s]*\}\}/g;
-  private static readonly FUNCTION_PATTERN = /\{\{[\s]*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)[\s]*\}\}/g;
+  private static readonly FUNCTION_PATTERN =
+    /\{\{[\s]*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)[\s]*\}\}/g;
 
   /**
    * Extract all variables from template content
@@ -113,19 +117,29 @@ export class VariableParser {
   /**
    * Replace variables in content
    */
-  static replaceVariables(content: string, variables: Record<string, any>): string {
+  static replaceVariables(content: string, variables: Record<string, unknown>): string {
+    // Precompute a path map of variables to avoid dynamic object injection patterns
+    const buildPathMap = (obj: unknown, prefix = ''): Map<string, unknown> => {
+      const map = new Map<string, unknown>();
+      if (obj && typeof obj === 'object') {
+        for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+          const safeKey = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : '';
+          if (!safeKey) continue;
+          const path = prefix ? `${prefix}.${safeKey}` : safeKey;
+          map.set(path, v);
+          const child = buildPathMap(v, path);
+          for (const [ck, cv] of child.entries()) map.set(ck, cv);
+        }
+      }
+      return map;
+    };
+
+    const pathMap = buildPathMap(variables);
+
     return content.replace(this.VARIABLE_PATTERN, (match, variable) => {
       const trimmedVar = variable.trim();
-
-      // Handle dot notation
-      const parts = trimmedVar.split('.');
-      let value = variables[parts[0]];
-
-      for (let i = 1; i < parts.length && value != null; i++) {
-        value = value[parts[i]];
-      }
-
-      return value != null ? String(value) : match;
+      const val = pathMap.get(trimmedVar);
+      return val != null ? String(val) : match;
     });
   }
 }
@@ -139,14 +153,18 @@ export class FrontMatterParser {
   /**
    * Parse front matter from content
    */
-  static parse(content: string): { metadata: any; content: string } {
+  static parse(content: string): { metadata: Record<string, unknown>; content: string } {
     const match = content.match(this.FRONT_MATTER_PATTERN);
 
     if (match) {
       const [, frontMatter, bodyContent] = match;
       if (frontMatter && bodyContent !== undefined) {
         const metadata = YAMLParser.parse(frontMatter);
-        return { metadata, content: bodyContent.trim() };
+        // Ensure metadata is an object
+        if (typeof metadata === 'object' && metadata !== null) {
+          return { metadata: metadata as Record<string, unknown>, content: bodyContent.trim() };
+        }
+        return { metadata: {}, content: bodyContent.trim() };
       }
     }
 
@@ -156,7 +174,7 @@ export class FrontMatterParser {
   /**
    * Add front matter to content
    */
-  static stringify(metadata: any, content: string): string {
+  static stringify(metadata: Record<string, unknown>, content: string): string {
     if (Object.keys(metadata).length === 0) {
       return content;
     }

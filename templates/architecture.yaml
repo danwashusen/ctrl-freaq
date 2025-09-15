@@ -42,4 +42,3 @@ sections:
       - id: high-level-overview
         title: High Level Overview
         instruction: Address style, repo, services, flows, and key decisions.
-

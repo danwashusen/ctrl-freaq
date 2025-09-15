@@ -8,7 +8,8 @@ When this command is used, execute the following task:
 
 ## Purpose
 
-- Provide optional reflective and brainstorming actions to enhance content quality
+- Provide optional reflective and brainstorming actions to enhance content
+  quality
 - Enable deeper exploration of ideas through structured elicitation techniques
 - Support iterative refinement through multiple analytical perspectives
 - Usable during template-driven document creation or any chat conversation
@@ -21,8 +22,10 @@ After outputting a section during document creation:
 
 1. **Section Review**: Ask user to review the drafted section
 2. **Offer Elicitation**: Present 9 carefully selected elicitation methods
-3. **Simple Selection**: User types a number (0-8) to engage method, or 9 to proceed
-4. **Execute & Loop**: Apply selected method, then re-offer choices until user proceeds
+3. **Simple Selection**: User types a number (0-8) to engage method, or 9 to
+   proceed
+4. **Execute & Loop**: Apply selected method, then re-offer choices until user
+   proceeds
 
 ### Scenario 2: General Chat Elicitation
 
@@ -38,7 +41,8 @@ User can request advanced elicitation on any agent output:
 
 **Context Analysis**: Before presenting options, analyze:
 
-- **Content Type**: Technical specs, user stories, architecture, requirements, etc.
+- **Content Type**: Technical specs, user stories, architecture, requirements,
+  etc.
 - **Complexity Level**: Simple, moderate, or complex content
 - **Stakeholder Needs**: Who will use this information
 - **Risk Level**: High-impact decisions vs routine items
@@ -64,20 +68,25 @@ User can request advanced elicitation on any agent output:
 
 When invoked after outputting a section:
 
-1. **Provide Context Summary**: Give a brief 1-2 sentence summary of what the user should look for in the section just presented
+1. **Provide Context Summary**: Give a brief 1-2 sentence summary of what the
+   user should look for in the section just presented
 
-2. **Explain Visual Elements**: If the section contains diagrams, explain them briefly before offering elicitation options
+2. **Explain Visual Elements**: If the section contains diagrams, explain them
+   briefly before offering elicitation options
 
-3. **Clarify Scope Options**: If the section contains multiple distinct items, inform the user they can apply elicitation actions to:
+3. **Clarify Scope Options**: If the section contains multiple distinct items,
+   inform the user they can apply elicitation actions to:
    - The entire section as a whole
-   - Individual items within the section (specify which item when selecting an action)
+   - Individual items within the section (specify which item when selecting an
+     action)
 
 ### 3. Present Elicitation Options
 
 **Review Request Process:**
 
 - Ask the user to review the drafted section
-- In the SAME message, inform them they can suggest direct changes OR select an elicitation method
+- In the SAME message, inform them they can suggest direct changes OR select an
+  elicitation method
 - Present 9 intelligently selected methods (0-8) plus "Proceed" (9)
 - Keep descriptions short - just the method name
 - Await simple numeric selection
@@ -110,14 +119,19 @@ Choose a number (0-8) or 9 to proceed:
 
 **Execution Process:**
 
-1. **Retrieve Method**: Access the specific elicitation method from the elicitation-methods data file
+1. **Retrieve Method**: Access the specific elicitation method from the
+   elicitation-methods data file
 2. **Apply Context**: Execute the method from your current role's perspective
-3. **Provide Results**: Deliver insights, critiques, or alternatives relevant to the content
-4. **Re-offer Choice**: Present the same 9 options again until user selects 9 or gives direct feedback
+3. **Provide Results**: Deliver insights, critiques, or alternatives relevant to
+   the content
+4. **Re-offer Choice**: Present the same 9 options again until user selects 9 or
+   gives direct feedback
 
 **Execution Guidelines:**
 
 - **Be Concise**: Focus on actionable insights, not lengthy explanations
-- **Stay Relevant**: Tie all elicitation back to the specific content being analyzed
-- **Identify Personas**: For multi-persona methods, clearly identify which viewpoint is speaking
+- **Stay Relevant**: Tie all elicitation back to the specific content being
+  analyzed
+- **Identify Personas**: For multi-persona methods, clearly identify which
+  viewpoint is speaking
 - **Maintain Flow**: Keep the process moving efficiently

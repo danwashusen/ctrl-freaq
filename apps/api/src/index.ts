@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
 // Start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
+  main().catch(error => {
     console.error('Unhandled error:', error);
     process.exit(1);
   });

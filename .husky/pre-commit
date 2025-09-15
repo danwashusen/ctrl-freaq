@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+. "./_/husky.sh"
+pnpm lint-staged

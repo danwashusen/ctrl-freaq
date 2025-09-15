@@ -23,13 +23,13 @@ export interface ErrorResponse {
   message: string;
   requestId: string;
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ValidationErrorDetail {
   field: string;
   message: string;
-  value?: any;
+  value?: unknown;
 }
 
 /**
@@ -42,21 +42,21 @@ export abstract class AppError extends Error {
 
   constructor(
     message: string,
-    public readonly context?: Record<string, any>
+    public readonly context?: Record<string, unknown>
   ) {
     super(message);
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
   }
 
-  toJSON(): Record<string, any> {
+  toJSON(): Record<string, unknown> {
     return {
       name: this.name,
       message: this.message,
       statusCode: this.statusCode,
       errorCode: this.errorCode,
       context: this.context,
-      stack: this.stack
+      stack: this.stack,
     };
   }
 }
@@ -72,7 +72,7 @@ export class ValidationError extends AppError {
   constructor(
     message: string,
     public readonly validationErrors: ValidationErrorDetail[] = [],
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, context);
   }
@@ -81,14 +81,12 @@ export class ValidationError extends AppError {
     const validationErrors: ValidationErrorDetail[] = error.errors.map(err => ({
       field: err.path.join('.'),
       message: err.message,
-      value: err.input
+      // omitting input value to avoid leaking sensitive data and because ZodIssue has no 'input' field
     }));
 
-    return new ValidationError(
-      'Request validation failed',
-      validationErrors,
-      { zodErrors: error.errors }
-    );
+    return new ValidationError('Request validation failed', validationErrors, {
+      zodErrors: error.errors,
+    });
   }
 }
 
@@ -100,7 +98,7 @@ export class AuthenticationError extends AppError {
   readonly errorCode = 'UNAUTHORIZED';
   readonly isOperational = true;
 
-  constructor(message: string = 'Authentication required', context?: Record<string, any>) {
+  constructor(message: string = 'Authentication required', context?: Record<string, unknown>) {
     super(message, context);
   }
 }
@@ -113,7 +111,7 @@ export class AuthorizationError extends AppError {
   readonly errorCode = 'FORBIDDEN';
   readonly isOperational = true;
 
-  constructor(message: string = 'Insufficient permissions', context?: Record<string, any>) {
+  constructor(message: string = 'Insufficient permissions', context?: Record<string, unknown>) {
     super(message, context);
   }
 }
@@ -130,7 +128,7 @@ export class NotFoundError extends AppError {
     message: string = 'Resource not found',
     public readonly resourceType?: string,
     public readonly resourceId?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, { ...context, resourceType, resourceId });
   }
@@ -144,7 +142,7 @@ export class ConflictError extends AppError {
   readonly errorCode = 'CONFLICT';
   readonly isOperational = true;
 
-  constructor(message: string, context?: Record<string, any>) {
+  constructor(message: string, context?: Record<string, unknown>) {
     super(message, context);
   }
 }
@@ -157,7 +155,7 @@ export class BusinessLogicError extends AppError {
   readonly errorCode = 'BUSINESS_LOGIC_ERROR';
   readonly isOperational = true;
 
-  constructor(message: string, context?: Record<string, any>) {
+  constructor(message: string, context?: Record<string, unknown>) {
     super(message, context);
   }
 }
@@ -173,7 +171,7 @@ export class RateLimitError extends AppError {
   constructor(
     message: string = 'Rate limit exceeded',
     public readonly retryAfter?: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, { ...context, retryAfter });
   }
@@ -187,7 +185,7 @@ export class InternalServerError extends AppError {
   readonly errorCode = 'INTERNAL_ERROR';
   readonly isOperational = false;
 
-  constructor(message: string = 'An unexpected error occurred', context?: Record<string, any>) {
+  constructor(message: string = 'An unexpected error occurred', context?: Record<string, unknown>) {
     super(message, context);
   }
 }
@@ -203,7 +201,7 @@ export class ServiceUnavailableError extends AppError {
   constructor(
     message: string,
     public readonly serviceName?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, { ...context, serviceName });
   }
@@ -221,7 +219,7 @@ export class DatabaseError extends AppError {
     message: string,
     public readonly operation?: string,
     public readonly table?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, { ...context, operation, table });
   }
@@ -231,15 +229,15 @@ export class DatabaseError extends AppError {
  * External service errors
  */
 export class ExternalServiceError extends AppError {
-  readonly statusCode = 502;
+  readonly statusCode: number;
   readonly errorCode = 'EXTERNAL_SERVICE_ERROR';
   readonly isOperational = true;
 
   constructor(
     message: string,
     public readonly serviceName: string,
-    public readonly statusCode: number = 502,
-    context?: Record<string, any>
+    statusCode: number = 502,
+    context?: Record<string, unknown>
   ) {
     super(message, { ...context, serviceName });
     this.statusCode = statusCode;
@@ -262,20 +260,20 @@ export class ErrorFormatter {
         error: error.errorCode,
         message: error.message,
         requestId,
-        timestamp
+        timestamp,
       };
 
       // Add validation errors for ValidationError
       if (error instanceof ValidationError && error.validationErrors.length > 0) {
         response.details = {
-          validationErrors: error.validationErrors
+          validationErrors: error.validationErrors,
         };
       }
 
       // Add retry information for RateLimitError
       if (error instanceof RateLimitError && error.retryAfter) {
         response.details = {
-          retryAfter: error.retryAfter
+          retryAfter: error.retryAfter,
         };
       }
 
@@ -283,7 +281,7 @@ export class ErrorFormatter {
       if (includeStack) {
         response.details = {
           ...response.details,
-          stack: error.stack
+          stack: error.stack,
         };
       }
 
@@ -302,7 +300,7 @@ export class ErrorFormatter {
       message: includeStack ? error.message : 'An unexpected error occurred',
       requestId,
       timestamp,
-      details: includeStack ? { stack: error.stack } : undefined
+      details: includeStack ? { stack: error.stack } : undefined,
     };
   }
 }
@@ -313,23 +311,24 @@ export class ErrorFormatter {
 export class ErrorLogger {
   constructor(private readonly logger: Logger) {}
 
-  logError(error: Error, context: Record<string, any> = {}): void {
-    const logData = {
+  logError(error: Error, context: Record<string, unknown> = {}): void {
+    const logData: Record<string, unknown> = {
       error: {
         name: error.name,
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
       },
-      ...context
+      ...context,
     };
 
     if (error instanceof AppError) {
+      const baseError = (logData.error || {}) as Record<string, unknown>;
       logData.error = {
-        ...logData.error,
+        ...baseError,
         statusCode: error.statusCode,
         errorCode: error.errorCode,
         isOperational: error.isOperational,
-        context: error.context
+        context: error.context,
       };
 
       // Log operational errors as warnings, non-operational as errors
@@ -348,7 +347,7 @@ export class ErrorLogger {
  * Express error handling middleware
  */
 export function createErrorHandler() {
-  return (error: Error, req: Request, res: Response, next: NextFunction): void => {
+  return (error: Error, req: Request, res: Response, _next: NextFunction): void => {
     // Get request ID and logger from service container
     const requestId = (req.headers['x-request-id'] as string) || 'unknown';
     const logger = req.services?.get<Logger>('logger');
@@ -362,12 +361,12 @@ export function createErrorHandler() {
         url: req.url,
         userAgent: req.headers['user-agent'],
         ip: req.ip,
-        userId: (req as any).userId,
+        userId: (req as unknown as { userId?: string }).userId,
         // SOC 2 audit fields
         created_at: new Date().toISOString(),
-        created_by: (req as any).userId || 'anonymous',
+        created_by: (req as unknown as { userId?: string }).userId || 'anonymous',
         updated_at: new Date().toISOString(),
-        updated_by: (req as any).userId || 'anonymous'
+        updated_by: (req as unknown as { userId?: string }).userId || 'anonymous',
       });
     }
 
@@ -394,7 +393,7 @@ export function createErrorHandler() {
  * 404 handler for unmatched routes
  */
 export function createNotFoundHandler() {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const error = new NotFoundError(`Route ${req.method} ${req.path} not found`);
     next(error);
   };
@@ -404,10 +403,10 @@ export function createNotFoundHandler() {
  * Async error wrapper for route handlers
  */
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
 ) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    void Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
 
@@ -416,36 +415,32 @@ export function asyncHandler(
  */
 export async function withErrorHandling<T>(
   operation: () => Promise<T>,
-  context: Record<string, any> = {}
+  context: Record<string, unknown> = {}
 ): Promise<T> {
   try {
     return await operation();
   } catch (error) {
     // Transform known error types
     if (error instanceof Error) {
-      // Add context to error
+      // Wrap non-operational errors with additional context rather than mutating
       if (error instanceof AppError) {
-        error.context = { ...error.context, ...context };
+        // Rethrow as-is; upstream can include context separately
+        throw error;
       }
 
-      throw error;
+      // Unknown Error subtype: wrap to include context
+      throw new InternalServerError(error.message, context);
     }
 
     // Handle non-Error objects
-    throw new InternalServerError(
-      'Unknown error occurred',
-      { originalError: error, ...context }
-    );
+    throw new InternalServerError('Unknown error occurred', { originalError: error, ...context });
   }
 }
 
 /**
  * Validation helper with error transformation
  */
-export function validateRequest<T>(
-  data: unknown,
-  schema: { parse: (data: unknown) => T }
-): T {
+export function validateRequest<T>(data: unknown, schema: { parse: (data: unknown) => T }): T {
   try {
     return schema.parse(data);
   } catch (error) {
@@ -465,11 +460,7 @@ export function ensureResourceExists<T>(
   resourceId?: string
 ): T {
   if (!resource) {
-    throw new NotFoundError(
-      `${resourceType} not found`,
-      resourceType,
-      resourceId
-    );
+    throw new NotFoundError(`${resourceType} not found`, resourceType, resourceId);
   }
   return resource;
 }
@@ -480,7 +471,7 @@ export function ensureResourceExists<T>(
 export function ensureAuthorized(
   condition: boolean,
   message: string = 'Access denied',
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): void {
   if (!condition) {
     throw new AuthorizationError(message, context);
@@ -493,7 +484,7 @@ export function ensureAuthorized(
 export function assertBusinessRule(
   condition: boolean,
   message: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): void {
   if (!condition) {
     throw new BusinessLogicError(message, context);
@@ -533,10 +524,6 @@ export async function withDatabaseErrorHandling<T>(
       );
     }
 
-    throw new DatabaseError(
-      'Unknown database error',
-      operationName,
-      tableName
-    );
+    throw new DatabaseError('Unknown database error', operationName, tableName);
   }
 }

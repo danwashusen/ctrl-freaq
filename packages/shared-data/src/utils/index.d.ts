@@ -24,7 +24,7 @@ export declare function deepClone<T>(obj: T): T;
 /**
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-export declare function isEmpty(value: any): boolean;
+export declare function isEmpty(value: unknown): boolean;
 /**
  * Validate email format
  */
