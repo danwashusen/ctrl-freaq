@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import type { Database as SqliteDatabase } from 'better-sqlite3';
 
 /**
  * Integration tests for project CRUD operations
@@ -17,22 +18,16 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 
 describe('Project CRUD Integration Tests', () => {
   let app: Express;
-  let server: any;
   const mockJwtToken = 'mock-jwt-token';
   let testProjectId: string;
 
   beforeAll(async () => {
     const { createApp } = await import('../../src/app');
     app = await createApp();
-    server = app.listen(0);
   });
 
   afterAll(async () => {
-    if (server) {
-      await new Promise<void>(resolve => {
-        server.close(() => resolve());
-      });
-    }
+    // No server to close when using supertest(app)
   });
 
   beforeEach(async () => {
@@ -66,6 +61,34 @@ describe('Project CRUD Integration Tests', () => {
       expect(fetchResponse.body.description).toBe(projectData.description);
     });
 
+    test('persists SOC 2 audit metadata when project is created', async () => {
+      const response = await request(app)
+        .post('/api/v1/projects')
+        .set('Authorization', `Bearer ${mockJwtToken}`)
+        .send({ name: 'Audit Trail Project' })
+        .expect(201);
+
+      const db = app.locals.appContext.database as SqliteDatabase;
+      const row = db
+        .prepare(
+          'SELECT created_by as createdBy, updated_by as updatedBy, created_at as createdAt, updated_at as updatedAt FROM projects WHERE id = ?'
+        )
+        .get(response.body.id) as
+        | {
+            createdBy?: string;
+            updatedBy?: string;
+            createdAt?: string;
+            updatedAt?: string;
+          }
+        | undefined;
+
+      expect(row).toBeDefined();
+      expect(row?.createdBy).toBe('user_2abc123def456');
+      expect(row?.updatedBy).toBe('user_2abc123def456');
+      expect(row?.createdAt).toBeTruthy();
+      expect(row?.updatedAt).toBeTruthy();
+    });
+
     test('enforces database constraints and validation', async () => {
       // Test unique constraint (one project per user)
       await request(app)
@@ -97,18 +120,27 @@ describe('Project CRUD Integration Tests', () => {
         .expect(400);
 
       // Verify no project was created
-      await request(app)
+      const res = await request(app)
         .get('/api/v1/projects')
         .set('Authorization', `Bearer ${mockJwtToken}`)
-        .expect(404);
+        .expect(200);
+      expect(res.body).toHaveProperty('projects');
+      expect(Array.isArray(res.body.projects)).toBe(true);
+      expect(res.body.projects.length).toBe(0);
     });
   });
 
   describe('Project Retrieval with Database Queries', () => {
     test('retrieves project with proper database joins', async () => {
-      // This test validates that project retrieval includes all related data
+      // Create a project first (DB resets between tests)
+      const created = await request(app)
+        .post('/api/v1/projects')
+        .set('Authorization', `Bearer ${mockJwtToken}`)
+        .send({ name: 'Join Test', description: 'Test' })
+        .expect(201);
+
       const response = await request(app)
-        .get(`/api/v1/projects/${testProjectId}`)
+        .get(`/api/v1/projects/${created.body.id}`)
         .set('Authorization', `Bearer ${mockJwtToken}`)
         .expect(200);
 
@@ -121,10 +153,17 @@ describe('Project CRUD Integration Tests', () => {
 
   describe('Project Update Operations', () => {
     test('updates project with optimistic locking', async () => {
+      // Create a project to update
+      const created = await request(app)
+        .post('/api/v1/projects')
+        .set('Authorization', `Bearer ${mockJwtToken}`)
+        .send({ name: 'Update Me' })
+        .expect(201);
+
       const updateData = { name: 'Updated Project Name' };
 
       const response = await request(app)
-        .patch(`/api/v1/projects/${testProjectId}`)
+        .patch(`/api/v1/projects/${created.body.id}`)
         .set('Authorization', `Bearer ${mockJwtToken}`)
         .send(updateData)
         .expect(200);

@@ -13,7 +13,11 @@ export const ConfigurationSchema = z.object({
   key: z.string().min(1, 'Configuration key is required').max(100, 'Configuration key too long'),
   value: z.string().max(10240, 'Configuration value too large (max 10KB)'), // JSON-stringified value
   createdAt: z.date(),
+  createdBy: z.string().min(1, 'Created by is required'),
   updatedAt: z.date(),
+  updatedBy: z.string().min(1, 'Updated by is required'),
+  deletedAt: z.date().nullable().optional(),
+  deletedBy: z.string().nullable().optional(),
 });
 
 export type Configuration = z.infer<typeof ConfigurationSchema>;
@@ -24,7 +28,13 @@ export type Configuration = z.infer<typeof ConfigurationSchema>;
 export const CreateConfigurationSchema = ConfigurationSchema.omit({
   id: true,
   createdAt: true,
+  createdBy: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedBy: true,
+}).extend({
+  createdBy: z.string().min(1, 'Created by is required'),
+  updatedBy: z.string().min(1, 'Updated by is required'),
 });
 
 export type CreateConfigurationInput = z.infer<typeof CreateConfigurationSchema>;
@@ -37,7 +47,10 @@ export const UpdateConfigurationSchema = ConfigurationSchema.partial().omit({
   userId: true,
   key: true, // Key cannot be changed
   createdAt: true,
+  createdBy: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedBy: true,
 });
 
 export type UpdateConfigurationInput = z.infer<typeof UpdateConfigurationSchema>;
@@ -88,12 +101,13 @@ export class ConfigurationRepositoryImpl
    * Insert or update configuration (upsert)
    */
   async upsert(userId: string, key: string, value: string): Promise<Configuration> {
+    this.ensureValidKeyValue(key, value);
     const existing = await this.findByUserAndKey(userId, key);
 
     if (existing) {
-      return this.update(existing.id, { value });
+      return this.update(existing.id, { value, updatedBy: userId });
     } else {
-      return this.create({ userId, key, value });
+      return this.create({ userId, key, value, createdBy: userId, updatedBy: userId });
     }
   }
 
@@ -106,15 +120,18 @@ export class ConfigurationRepositoryImpl
     if (existing) {
       throw new Error(`Configuration with key '${configData.key}' already exists for user`);
     }
-
-    // Validate key is allowed
-    if (!VALID_CONFIG_KEYS.includes(configData.key as ConfigKey)) {
-      throw new Error(
-        `Invalid configuration key: ${configData.key}. Allowed keys: ${VALID_CONFIG_KEYS.join(', ')}`
-      );
-    }
-
+    this.ensureValidKeyValue(configData.key, configData.value);
     return super.create(configData);
+  }
+
+  private ensureValidKeyValue(key: string, rawValue: string): void {
+    if (!ConfigurationUtils.isValidKey(key)) {
+      throw new Error(`Invalid configuration key: ${key}`);
+    }
+    const parsed = ConfigurationUtils.deserializeRawValue(rawValue);
+    if (!ConfigurationUtils.validateValue(key as ConfigKey, parsed)) {
+      throw new Error(`Invalid value for configuration key: ${key}`);
+    }
   }
 }
 
@@ -183,9 +200,9 @@ export const ConfigurationUtils = {
    */
   parseValue<T = unknown>(config: Configuration): T | null {
     try {
-      return JSON.parse(config.value);
+      return JSON.parse(config.value) as T;
     } catch {
-      return null;
+      return config.value as unknown as T;
     }
   },
 
@@ -194,6 +211,14 @@ export const ConfigurationUtils = {
    */
   stringifyValue(value: unknown): string {
     return JSON.stringify(value);
+  },
+
+  deserializeRawValue(raw: string): unknown {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
   },
 
   /**

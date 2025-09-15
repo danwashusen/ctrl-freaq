@@ -16,21 +16,15 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 
 describe('Configuration Management Integration Tests', () => {
   let app: Express;
-  let server: any;
   const mockJwtToken = 'mock-jwt-token';
 
   beforeAll(async () => {
     const { createApp } = await import('../../src/app');
     app = await createApp();
-    server = app.listen(0);
   });
 
   afterAll(async () => {
-    if (server) {
-      await new Promise<void>(resolve => {
-        server.close(() => resolve());
-      });
-    }
+    // No server to close when using supertest(app)
   });
 
   beforeEach(async () => {
@@ -64,7 +58,7 @@ describe('Configuration Management Integration Tests', () => {
       await request(app)
         .patch('/api/v1/projects/config')
         .set('Authorization', `Bearer ${mockJwtToken}`)
-        .send({ theme: 'light', logLevel: 'info', fontSize: '14' })
+        .send({ theme: 'light', logLevel: 'info', editorPreferences: '{"fontSize": 14}' })
         .expect(200);
 
       // Update only theme
@@ -82,7 +76,7 @@ describe('Configuration Management Integration Tests', () => {
 
       expect(response.body.theme).toBe('dark');
       expect(response.body.logLevel).toBe('info');
-      expect(response.body.fontSize).toBe('14');
+      expect(response.body.editorPreferences).toBe('{"fontSize": 14}');
     });
   });
 

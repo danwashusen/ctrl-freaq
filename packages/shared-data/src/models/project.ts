@@ -18,7 +18,11 @@ export const ProjectSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
   description: z.string().max(500, 'Description too long').optional().nullable(),
   createdAt: z.date(),
+  createdBy: z.string().min(1, 'Created by is required'),
   updatedAt: z.date(),
+  updatedBy: z.string().min(1, 'Updated by is required'),
+  deletedAt: z.date().nullable().optional(),
+  deletedBy: z.string().nullable().optional(),
 });
 
 export type Project = z.infer<typeof ProjectSchema>;
@@ -29,7 +33,13 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const CreateProjectSchema = ProjectSchema.omit({
   id: true,
   createdAt: true,
+  createdBy: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedBy: true,
+}).extend({
+  createdBy: z.string().min(1, 'Created by is required'),
+  updatedBy: z.string().min(1, 'Updated by is required'),
 });
 
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
@@ -41,7 +51,10 @@ export const UpdateProjectSchema = ProjectSchema.partial().omit({
   id: true,
   ownerUserId: true,
   createdAt: true,
+  createdBy: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedBy: true,
 });
 
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
@@ -52,6 +65,8 @@ export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
 export interface ProjectRepository extends Repository<Project> {
   findBySlug(slug: string): Promise<Project | null>;
   findByUserId(userId: string): Promise<Project | null>;
+  findByUserIdWithMembers(userId: string): Promise<Project | null>;
+  countByUserId(userId: string): Promise<number>;
 }
 
 /**
@@ -87,6 +102,25 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
   }
 
   /**
+   * Find project by user ID including members (MVP: same as findByUserId)
+   */
+  async findByUserIdWithMembers(userId: string): Promise<Project | null> {
+    // In a future iteration, this will join project members and aggregate
+    // For MVP, delegate to base lookup
+    return this.findByUserId(userId);
+  }
+
+  /**
+   * Count projects for a given user (MVP: 0 or 1)
+   */
+  async countByUserId(userId: string): Promise<number> {
+    const stmt = this.db.prepare('SELECT COUNT(*) as cnt FROM projects WHERE owner_user_id = ?');
+    const row = stmt.get(userId) as { cnt?: unknown } | undefined;
+    const count = typeof row?.cnt === 'number' ? row?.cnt : Number(row?.cnt ?? 0);
+    return Number.isFinite(count) ? count : 0;
+  }
+
+  /**
    * Override create to ensure slug uniqueness
    */
   override async create(projectData: CreateProjectInput): Promise<Project> {
@@ -102,7 +136,10 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
       throw new Error(`User already has a project. Only one project per user allowed in MVP.`);
     }
 
-    return super.create(projectData);
+    const createdBy = projectData.createdBy || projectData.ownerUserId;
+    const updatedBy = projectData.updatedBy || projectData.ownerUserId;
+
+    return super.create({ ...projectData, createdBy, updatedBy });
   }
 
   /**
