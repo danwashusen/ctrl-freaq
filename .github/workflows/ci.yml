@@ -548,14 +548,6 @@ jobs:
         with:
           run_install: false
 
-      - name: Restore cached dependencies
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ needs.setup.outputs.cache-dir }}
-          key: ${{ needs.setup.outputs.cache-key }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
