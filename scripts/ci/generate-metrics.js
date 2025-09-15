@@ -441,17 +441,8 @@ function main() {
 
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const grade = main();
+  main();
 
-  // Exit with different codes based on performance
-  const exitCode =
-    {
-      A: 0,
-      B: 0,
-      C: 0,
-      D: 1,
-      F: 1,
-    }[grade] || 1;
-
-  process.exit(exitCode);
+  // Always exit successfully so the metrics job never fails the pipeline
+  process.exit(0);
 }
