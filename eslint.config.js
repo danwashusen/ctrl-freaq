@@ -39,6 +39,8 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
+        projectService: true,
+        tsconfigRootDir: __dirname,
       },
       globals: {
         ...globals.es2022,
@@ -128,6 +130,11 @@ export default [
         ...globals.browser,
         ...globals.es2022,
       },
+      parserOptions: {
+        project: [resolvePath('apps/web/tsconfig.json')],
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
     },
     plugins: {
       react,
@@ -172,6 +179,14 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2022,
+      },
+      parserOptions: {
+        project: [
+          resolvePath('packages/editor-core/tsconfig.json'),
+          resolvePath('packages/editor-persistence/tsconfig.json'),
+        ],
+        projectService: true,
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: {
