@@ -3,12 +3,12 @@ import { Plus, FileText, Settings, Activity } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import ProjectsNav from '@/components/sidebar/ProjectsNav';
-import type { ProjectData } from '@/lib/api';
-import { useApi } from '@/lib/api-context';
-import logger from '@/lib/logger';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import ProjectsNav from '../components/sidebar/ProjectsNav';
+import type { ProjectData } from '../lib/api';
+import { useApi } from '../lib/api-context';
+import logger from '../lib/logger';
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser();

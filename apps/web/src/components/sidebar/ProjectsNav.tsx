@@ -1,7 +1,7 @@
 import React from 'react';
-import { useApi } from '@/lib/api-context';
-import { useProjectStore } from '@/stores/project-store';
-import type { ProjectData } from '@/lib/api';
+import { useApi } from '../../lib/api-context';
+import { useProjectStore } from '../../stores/project-store';
+import type { ProjectData } from '../../lib/api';
 
 export default function ProjectsNav() {
   const api = useApi();

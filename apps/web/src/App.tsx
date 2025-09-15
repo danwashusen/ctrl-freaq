@@ -6,9 +6,9 @@ import Dashboard from './pages/Dashboard';
 import Project from './pages/Project';
 import Settings from './pages/Settings';
 
-import { Toaster } from '@/components/ui/toaster';
-import { ApiProvider } from '@/lib/api-context';
-import logger from '@/lib/logger';
+import { Toaster } from './components/ui/toaster';
+import { ApiProvider } from './lib/api-context';
+import logger from './lib/logger';
 
 function App() {
   const { user } = useUser();
