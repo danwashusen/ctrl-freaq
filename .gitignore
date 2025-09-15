@@ -22,6 +22,8 @@ out/
 *.tsbuildinfo
 .tsbuildinfo
 lib/
+!**/src/lib/
+!**/src/lib/**
 types/
 !**/src/types/
 !**/src/types/**
