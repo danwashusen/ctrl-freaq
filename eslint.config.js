@@ -1,6 +1,8 @@
 import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import importPlugin from 'eslint-plugin-import';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
@@ -10,6 +12,9 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import security from 'eslint-plugin-security';
 import yml from 'eslint-plugin-yml';
 import yamlParser from 'yaml-eslint-parser';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const resolvePath = (...segments) => join(__dirname, ...segments);
 
 export default [
   js.configs.recommended,
@@ -48,7 +53,11 @@ export default [
     settings: {
       'import/resolver': {
         typescript: {
-          project: ['./tsconfig.json', 'apps/*/tsconfig.json', 'packages/*/tsconfig.json'],
+          project: [
+            resolvePath('tsconfig.json'),
+            resolvePath('apps/*/tsconfig.json'),
+            resolvePath('packages/*/tsconfig.json'),
+          ],
         },
         node: true,
       },
@@ -130,7 +139,7 @@ export default [
       react: { version: 'detect' },
       'import/resolver': {
         typescript: {
-          project: ['apps/web/tsconfig.json'],
+          project: [resolvePath('apps/web/tsconfig.json')],
         },
         node: true,
       },
@@ -175,8 +184,8 @@ export default [
       'import/resolver': {
         typescript: {
           project: [
-            'packages/editor-core/tsconfig.json',
-            'packages/editor-persistence/tsconfig.json',
+            resolvePath('packages/editor-core/tsconfig.json'),
+            resolvePath('packages/editor-persistence/tsconfig.json'),
           ],
         },
         node: true,

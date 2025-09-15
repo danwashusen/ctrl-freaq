@@ -154,16 +154,30 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = context.payload.pull_request.title;
+            const title = context.payload.pull_request.title.trim();
 
             // Check for conventional commit format or descriptive format
             const conventionalRegex = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: .+/;
-            const descriptiveRegex = /^[A-Z].{10,}/; // At least 10 chars starting with capital
+            const meetsMinimumLength = title.length >= 10;
+            const startsWithCapital = /^[A-Z]/.test(title);
+            const numericPrefixMatch = title.match(/^(\d+(?:\.\d+)*)(?<separator>[\s:;-]+)(?<remainder>.+)$/);
 
-            const isValid = conventionalRegex.test(title) || descriptiveRegex.test(title);
+            let descriptiveValid = false;
+            if (meetsMinimumLength) {
+              if (startsWithCapital) {
+                descriptiveValid = true;
+              } else if (numericPrefixMatch?.groups?.remainder) {
+                const remainder = numericPrefixMatch.groups.remainder.trim();
+                descriptiveValid = /^[A-Z]/.test(remainder) && remainder.length >= 5;
+              }
+            }
+
+            const isValid = conventionalRegex.test(title) || descriptiveValid;
 
             if (!isValid) {
-              core.setFailed(`PR title "${title}" should follow conventional commits format (feat: description) or be descriptive (minimum 10 characters, start with capital letter)`);
+              core.setFailed(
+                `PR title "${title}" should follow conventional commits format (feat: description) or be descriptive (minimum 10 characters, start with a capital letter — numeric prefixes like "1.4 -" are allowed when followed by a capitalized description)`
+              );
               return;
             }
 
