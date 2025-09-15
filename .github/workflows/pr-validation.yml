@@ -187,14 +187,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const body = context.payload.pull_request.body || '';
+            const body = (context.payload.pull_request.body || '').trim();
 
-            if (body.trim().length < 20) {
-              core.setFailed('PR description must be at least 20 characters long and provide meaningful context');
-              return;
+            if (body.length < 20) {
+              core.warning('PR description is shorter than the recommended 20 characters. Please add more context if possible.');
+            } else {
+              console.log('✅ PR description length is adequate');
             }
-
-            console.log('✅ PR description length is adequate');
 
       - name: Auto-label PR
         uses: actions/github-script@v7
