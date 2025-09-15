@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 
 // Core modules
 import { createDefaultDatabaseConfig, DatabaseManager } from './core/database.js';
-import { createErrorHandler, createNotFoundHandler } from './core/errors.js';
+import { createErrorHandler, createNotFoundHandler } from './middleware/error-handler.js';
 import {
   createLogger,
   createHttpLogger,
@@ -145,6 +145,10 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const serviceLocatorMiddleware = createServiceLocatorMiddleware(logger, database);
   app.use(serviceLocatorMiddleware);
 
+  // Register repository factories in the per-request container
+  const { createRepositoryRegistrationMiddleware } = await import('./services/container.js');
+  app.use(createRepositoryRegistrationMiddleware());
+
   // CORS middleware with secure origin validation
   app.use(
     cors({
@@ -201,15 +205,39 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   // Import route modules
   const { healthRouter } = await import('./routes/health.js');
   const { projectsRouter } = await import('./routes/projects.js');
+  const { dashboardRouter } = await import('./routes/dashboard.js');
+  const { activitiesRouter } = await import('./routes/activities.js');
+  const { projectSelectionRouter } = await import('./routes/projects.select.js');
   const { clerkAuthMiddleware, requireAuth } = await import('./middleware/auth.js');
+  const { testAuthShim } = await import('./middleware/test-auth.js');
+  const { ensureTestUserMiddleware } = await import('./middleware/test-user-seed.js');
+  const { testOnlyRouter } = await import('./routes/test-only.js');
 
   // Health check routes (no authentication required)
   app.use('/', healthRouter);
 
   // API v1 routes with authentication
-  app.use('/api/v1', clerkAuthMiddleware);
+  // In test, or when Clerk keys are not configured, avoid initializing Clerk middleware
+  // and use a lightweight shim that only sets req.auth.userId when Authorization is present.
+  const isTestEnv = process.env.NODE_ENV === 'test';
+  const hasClerkConfig = Boolean(process.env.CLERK_SECRET_KEY || process.env.CLERK_PUBLISHABLE_KEY);
+  if (!isTestEnv && hasClerkConfig) {
+    app.use('/api/v1', clerkAuthMiddleware);
+  } else {
+    app.use('/api/v1', testAuthShim);
+  }
+  // In tests, ensure a user row exists for FK-free operations
+  if (isTestEnv) {
+    app.use('/api/v1', ensureTestUserMiddleware);
+  }
   app.use('/api/v1', requireAuth);
   app.use('/api/v1', projectsRouter);
+  app.use('/api/v1', dashboardRouter);
+  app.use('/api/v1', activitiesRouter);
+  app.use('/api/v1', projectSelectionRouter);
+  if (isTestEnv) {
+    app.use('/', testOnlyRouter);
+  }
 
   // 404 handler for unmatched routes
   app.use(createNotFoundHandler());
@@ -218,6 +246,12 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use(createErrorHandler());
 
   logger.info('Express application created successfully');
+
+  // In test mode, optionally register app for auto-reset between tests
+  if (process.env.NODE_ENV === 'test' && process.env.API_TEST_AUTO_RESET === 'true') {
+    const { registerTestApp } = await import('./testing/registry.js');
+    registerTestApp(app);
+  }
 
   return app;
 }

@@ -182,20 +182,9 @@ export const createLoggerFactory = (
 };
 
 export const createDatabaseFactory = (database: Database): ServiceFactory<Database> => {
-  return () => {
-    // Create transaction wrapper for database operations
-    const transactionWrapper = {
-      ...database,
-      transaction: (callback: (db: typeof database) => Promise<unknown> | unknown) => {
-        return database.transaction(callback);
-      },
-      exec: database.exec,
-      prepare: database.prepare,
-      close: database.close,
-    };
-
-    return transactionWrapper;
-  };
+  // Return the actual better-sqlite3 Database instance to preserve method bindings
+  // and avoid accidental loss of `this` context on methods like `prepare`/`transaction`.
+  return () => database;
 };
 
 /**

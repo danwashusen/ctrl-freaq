@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@clerk/clerk-react';
-import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom';
 
 import Dashboard from './pages/Dashboard';
 import Project from './pages/Project';
@@ -56,22 +56,28 @@ function App() {
     };
   }, []);
 
+  const router = useMemo(
+    () =>
+      createBrowserRouter([
+        { path: '/', element: <Navigate to="/dashboard" replace /> },
+        { path: '/dashboard', element: <Dashboard /> },
+        { path: '/project/:id', element: <Project /> },
+        { path: '/settings', element: <Settings /> },
+        { path: '*', element: <Navigate to="/dashboard" replace /> },
+      ]),
+    []
+  );
+
   return (
     <div className="bg-background min-h-screen">
       <SignedIn>
         <ApiProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/project/:id" element={<Project />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <RouterProvider router={router} future={{ v7_startTransition: true }} />
         </ApiProvider>
       </SignedIn>
 
       <SignedOut>
-        <RedirectToSignIn />
+        <RedirectToSignIn signInFallbackRedirectUrl="/dashboard" />
       </SignedOut>
 
       <Toaster />

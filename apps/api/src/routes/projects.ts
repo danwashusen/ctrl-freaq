@@ -221,7 +221,7 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
     const updates = req.body as Record<string, unknown>;
     const configRepo = req.services.get('configurationRepository') as ConfigurationRepositoryImpl;
 
-    const validatedUpdates: Record<string, string> = {};
+    const validatedUpdates = new Map<string, string>();
 
     for (const [key, value] of Object.entries(updates)) {
       if (typeof value !== 'string') {
@@ -254,10 +254,10 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
         return;
       }
 
-      validatedUpdates[key] = value;
+      validatedUpdates.set(key, value);
     }
 
-    for (const [key, value] of Object.entries(validatedUpdates)) {
+    for (const [key, value] of validatedUpdates.entries()) {
       await configRepo.upsert(userId, key, value);
     }
 
@@ -265,7 +265,7 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
       {
         requestId: req.requestId,
         userId,
-        updatedKeys: Object.keys(validatedUpdates),
+        updatedKeys: Array.from(validatedUpdates.keys()),
         action: 'update_user_config',
       },
       'User configuration updated'
@@ -273,10 +273,9 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
 
     // Return merged current configuration (strings only)
     const configurations = await configRepo.findByUserId(userId);
-    const configObject: Record<string, string> = {};
-    for (const cfg of configurations) {
-      configObject[cfg.key] = cfg.value;
-    }
+    const configObject = Object.fromEntries(
+      configurations.map(cfg => [cfg.key, cfg.value] as const)
+    ) as Record<string, string>;
 
     res.status(200).json(configObject);
   } catch (error) {

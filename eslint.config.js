@@ -22,6 +22,7 @@ export default [
       '**/*.d.ts.map',
       'node_modules/**',
       'docs/examples/**',
+      'specs/**',
       '.bmad-core/**',
       'packages/shared-data/src/**/*.js',
     ],
@@ -218,7 +219,11 @@ export default [
   },
   // Node env for config and scripts
   {
-    files: ['**/tailwind.config.{js,ts}', 'scripts/**/*.js'],
+    files: [
+      '**/tailwind.config.{js,ts}',
+      'scripts/**/*.{js,ts,mjs,cjs}',
+      '**/scripts/**/*.{js,ts,mjs,cjs}',
+    ],
     languageOptions: {
       globals: {
         ...globals.node,

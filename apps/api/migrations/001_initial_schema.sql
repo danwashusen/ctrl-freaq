@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TEXT DEFAULT (datetime('now')),
     updated_by TEXT NOT NULL DEFAULT 'system',
     deleted_at DATETIME NULL,
-    deleted_by TEXT NULL
+    deleted_by TEXT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Projects table (one project per user in MVP)
@@ -29,6 +32,9 @@ CREATE TABLE IF NOT EXISTS projects (
     deleted_at DATETIME NULL,
     deleted_by TEXT NULL,
     FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL,
     UNIQUE(owner_user_id) -- One project per user constraint
 );
 
@@ -45,6 +51,9 @@ CREATE TABLE IF NOT EXISTS configurations (
     deleted_at TEXT NULL,
     deleted_by TEXT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL,
     UNIQUE(user_id, key)
 );
 
@@ -60,7 +69,10 @@ CREATE TABLE IF NOT EXISTS app_versions (
     updated_at TEXT DEFAULT (datetime('now')),
     updated_by TEXT NOT NULL DEFAULT 'system',
     deleted_at TEXT NULL,
-    deleted_by TEXT NULL
+    deleted_by TEXT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Activity log table (for audit trail)
@@ -79,7 +91,10 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     updated_by TEXT NOT NULL DEFAULT 'system',
     deleted_at TEXT NULL,
     deleted_by TEXT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET DEFAULT,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Create indexes for better performance
@@ -89,3 +104,20 @@ CREATE INDEX IF NOT EXISTS idx_configurations_key ON configurations(key);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
+
+-- Seed system audit user to satisfy default foreign key references
+INSERT OR IGNORE INTO users (
+    id,
+    email,
+    first_name,
+    last_name,
+    created_by,
+    updated_by
+) VALUES (
+    'system',
+    'system@ctrl-freaq.local',
+    'System',
+    'User',
+    'system',
+    'system'
+);

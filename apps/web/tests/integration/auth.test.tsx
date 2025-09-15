@@ -1,8 +1,7 @@
 import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+// No router needed for these tests; components under test don't use routing
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 /**
@@ -65,9 +64,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter>
-    <ClerkProvider publishableKey="pk_test_mock">{children}</ClerkProvider>
-  </MemoryRouter>
+  <ClerkProvider publishableKey="pk_test_mock">{children}</ClerkProvider>
 );
 
 describe('Authentication Integration Tests', () => {

@@ -96,3 +96,7 @@ docs/archive/
 **/data/*.db
 **/data/*.sqlite
 **/data/*.sqlite3
+/.audit/*
+/.audit-*
+.workspaces.json
+.ls.json

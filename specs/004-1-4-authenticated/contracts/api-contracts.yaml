@@ -1,0 +1,356 @@
+openapi: 3.0.0
+info:
+  title: Authenticated Dashboard API
+  version: 1.0.0
+  description: API endpoints for authenticated app layout and dashboard
+
+servers:
+  - url: http://localhost:5173/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - message
+        - requestId
+        - timestamp
+      properties:
+        error:
+          type: string
+          example: 'VALIDATION_ERROR'
+        message:
+          type: string
+          example: 'Invalid request parameters'
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - ownerUserId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerUserId:
+          type: string
+          description: Clerk user ID
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        memberAvatars:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              imageUrl:
+                type: string
+                format: uri
+              name:
+                type: string
+        lastModified:
+          type: string
+          nullable: true
+          description: 'N/A for MVP'
+          example: 'N/A'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Activity:
+      type: object
+      required:
+        - id
+        - projectId
+        - userId
+        - type
+        - description
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        userId:
+          type: string
+        userAvatar:
+          type: string
+          format: uri
+        userName:
+          type: string
+        type:
+          type: string
+          enum:
+            - document_created
+            - document_updated
+            - document_published
+            - member_added
+            - member_removed
+        description:
+          type: string
+          maxLength: 255
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    DashboardData:
+      type: object
+      required:
+        - projects
+        - activities
+        - stats
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
+        stats:
+          type: object
+          properties:
+            totalProjects:
+              type: integer
+              minimum: 0
+            recentActivityCount:
+              type: integer
+              minimum: 0
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'UNAUTHORIZED'
+            message: 'Invalid or expired token'
+            requestId: '550e8400-e29b-41d4-a716-446655440000'
+            timestamp: '2025-09-15T10:30:00Z'
+
+    ValidationError:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+paths:
+  /projects:
+    get:
+      summary: List user projects
+      description: Returns all projects owned by or shared with the authenticated user, sorted alphabetically by name
+      operationId: listProjects
+      tags:
+        - Projects
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of projects to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of projects to skip
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  total:
+                    type: integer
+                    minimum: 0
+              example:
+                projects:
+                  - id: '550e8400-e29b-41d4-a716-446655440001'
+                    ownerUserId: 'user_123'
+                    name: 'Alpha Project'
+                    slug: 'alpha-project'
+                    description: 'First project'
+                    memberAvatars:
+                      - userId: 'user_123'
+                        imageUrl: 'https://example.com/avatar.jpg'
+                        name: 'John Doe'
+                    lastModified: 'N/A'
+                    createdAt: '2025-09-15T10:00:00Z'
+                    updatedAt: '2025-09-15T10:00:00Z'
+                  - id: '550e8400-e29b-41d4-a716-446655440002'
+                    ownerUserId: 'user_123'
+                    name: 'Beta Project'
+                    slug: 'beta-project'
+                    description: null
+                    memberAvatars: []
+                    lastModified: 'N/A'
+                    createdAt: '2025-09-15T11:00:00Z'
+                    updatedAt: '2025-09-15T11:00:00Z'
+                total: 2
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /dashboard:
+    get:
+      summary: Get dashboard data
+      description: Returns aggregated dashboard data including projects and recent activities
+      operationId: getDashboard
+      tags:
+        - Dashboard
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardData'
+              example:
+                projects:
+                  - id: '550e8400-e29b-41d4-a716-446655440001'
+                    ownerUserId: 'user_123'
+                    name: 'Alpha Project'
+                    slug: 'alpha-project'
+                    description: 'First project'
+                    memberAvatars:
+                      - userId: 'user_123'
+                        imageUrl: 'https://example.com/avatar.jpg'
+                        name: 'John Doe'
+                    lastModified: 'N/A'
+                    createdAt: '2025-09-15T10:00:00Z'
+                    updatedAt: '2025-09-15T10:00:00Z'
+                activities: []
+                stats:
+                  totalProjects: 1
+                  recentActivityCount: 0
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /activities:
+    get:
+      summary: List recent activities
+      description: Returns recent activities for the authenticated user (empty array for MVP)
+      operationId: listActivities
+      tags:
+        - Activities
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Maximum number of activities to return
+      responses:
+        '200':
+          description: Successful response (empty for MVP)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+                  total:
+                    type: integer
+                    minimum: 0
+              example:
+                activities: []
+                total: 0
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /projects/{projectId}/select:
+    post:
+      summary: Select active project
+      description: Updates the active project in user session/preferences
+      operationId: selectProject
+      tags:
+        - Projects
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project ID to select
+      responses:
+        '204':
+          description: Project selected successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden - user doesn't have access to this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

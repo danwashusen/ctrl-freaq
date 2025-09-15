@@ -12,5 +12,9 @@
     "tests/**/*",
     "../../packages/shared-data/src/**/*.ts"
   ],
-  "exclude": ["dist", "node_modules"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "../../packages/shared-data/src/**/*.test.ts"
+  ]
 }

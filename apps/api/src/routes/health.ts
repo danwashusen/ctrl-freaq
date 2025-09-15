@@ -30,11 +30,6 @@ type HealthResponse = z.infer<typeof HealthResponseSchema>;
 type ErrorResponse = z.infer<typeof _ErrorResponseSchema>;
 
 /**
- * Server start time for uptime calculation
- */
-const SERVER_START_TIME = Date.now();
-
-/**
  * Health check router
  */
 export const healthRouter: ExpressRouter = Router();
@@ -51,7 +46,7 @@ function handleHealth(req: Request, res: Response<HealthResponse | ErrorResponse
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '0.1.0',
       service: 'ctrl-freaq-api',
-      uptime: Math.floor((Date.now() - SERVER_START_TIME) / 1000),
+      uptime: Math.max(1, Math.floor(process.uptime())),
       environment: process.env.NODE_ENV || 'development',
       database: dbStatus,
     };

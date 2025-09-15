@@ -15,28 +15,17 @@
     "dev:apps": "turbo dev --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "turbo lint",
+    "lint": "turbo lint && pnpm lint:repo",
     "lint:ci": "eslint . --max-warnings=0 --ext .ts,.tsx,.js,.jsx",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:fix:check": "eslint . --ext .ts,.tsx,.js,.jsx --fix-dry-run",
     "lint:yaml": "eslint . --ext .yml,.yaml",
+    "lint:repo": "eslint . --cache --ext .ts,.tsx,.js,.jsx",
     "prepare": "husky",
     "test": "turbo test",
     "test:e2e": "pnpm --filter @ctrl-freaq/web test:e2e",
     "test:visual": "pnpm --filter @ctrl-freaq/web test:visual",
     "typecheck": "turbo typecheck"
-  },
-  "lint-staged": {
-    "**/*.{ts,tsx,js,jsx}": [
-      "eslint --fix --cache",
-      "prettier --write"
-    ],
-    "**/*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ],
-    "**/package.json": [
-      "prettier --write"
-    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -67,5 +56,12 @@
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "dompurify": "^3.2.4",
+      "jsondiffpatch": "^0.7.2",
+      "nanoid": "^3.3.8"
+    }
   }
 }

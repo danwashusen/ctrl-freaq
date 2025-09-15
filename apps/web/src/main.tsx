@@ -1,7 +1,7 @@
 import { ClerkProvider } from '@clerk/clerk-react';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+// React Router is handled inside App via RouterProvider
 
 import App from './App';
 import './index.css';
@@ -28,9 +28,7 @@ ReactDOM.createRoot(rootElement).render(
         },
       }}
     >
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <App />
     </ClerkProvider>
   </React.StrictMode>
 );

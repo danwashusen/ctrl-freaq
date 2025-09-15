@@ -16,21 +16,15 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 
 describe('Health Check API Contract Tests', () => {
   let app: Express;
-  let server: any;
 
   beforeAll(async () => {
     // This will fail until the app is implemented
     const { createApp } = await import('../../src/app');
     app = await createApp();
-    server = app.listen(0); // Use random available port
   });
 
   afterAll(async () => {
-    if (server) {
-      await new Promise<void>(resolve => {
-        server.close(() => resolve());
-      });
-    }
+    // No server to close when using supertest(app)
   });
 
   describe('GET /health', () => {

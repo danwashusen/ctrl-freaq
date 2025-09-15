@@ -16,6 +16,9 @@ export function ensureTestUserMiddleware(
       const db = req.services.get<Database>('database');
       const id = req.auth.userId;
       const email = `${id}@test.local`;
+      db.prepare(
+        'INSERT OR IGNORE INTO users (id, email, first_name, last_name, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run('system', 'system@ctrl-freaq.local', 'System', 'User', 'system', 'system');
       // Minimal insert; fields with defaults will be populated automatically
       db.prepare(
         'INSERT OR IGNORE INTO users (id, email, first_name, last_name, created_by, updated_by) VALUES (?, ?, NULL, NULL, ?, ?)'

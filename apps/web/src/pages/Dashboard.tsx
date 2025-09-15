@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import ProjectsNav from '@/components/sidebar/ProjectsNav';
 import type { ProjectData } from '@/lib/api';
 import { useApi } from '@/lib/api-context';
 import logger from '@/lib/logger';
@@ -78,6 +79,7 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="sr-only">Dashboard</h1>
         <div className="mb-8">
           <h2 className="mb-2 text-3xl font-bold text-gray-900">
             Welcome back, {user?.firstName || 'User'}
@@ -86,6 +88,11 @@ export default function Dashboard() {
             Manage your documentation projects and AI-optimized content.
           </p>
         </div>
+
+        {/* Sidebar Projects group */}
+        <aside className="mb-6">
+          <ProjectsNav />
+        </aside>
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
           <Card>
@@ -125,7 +132,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="flex items-center text-sm text-gray-600">
                 <Activity className="mr-1 h-4 w-4" />
-                No recent activity
+                No recent activity yet
               </div>
             </CardContent>
           </Card>

@@ -2,7 +2,7 @@ import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 /**
@@ -179,11 +179,16 @@ const Dashboard = () => {
   );
 };
 
-const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter initialEntries={['/dashboard']}>
-    <ClerkProvider publishableKey="pk_test_mock">{children}</ClerkProvider>
-  </MemoryRouter>
-);
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const router = createMemoryRouter([{ path: '/dashboard', element: children as any }], {
+    initialEntries: ['/dashboard'],
+  });
+  return (
+    <ClerkProvider publishableKey="pk_test_mock">
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+    </ClerkProvider>
+  );
+};
 
 describe('Dashboard Integration Tests', () => {
   beforeEach(() => {

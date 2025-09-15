@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc && vite build",
+    "build:analyze": "tsc && vite build",
+    "check:bundle": "node ./scripts/check-bundle.mjs",
     "clean": "rm -rf dist .next",
     "dev": "vite",
     "lint": "eslint src/ tests/",
@@ -29,9 +31,11 @@
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.26.0",
     "tailwind-merge": "^2.5.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^15.5.3",
     "@playwright/test": "^1.45.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",

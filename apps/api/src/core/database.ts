@@ -553,7 +553,10 @@ export function createDefaultDatabaseConfig(): DatabaseConfig {
   const __dirname = dirname(fileURLToPath(import.meta.url));
 
   return {
-    path: process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
+    path:
+      process.env.NODE_ENV === 'test'
+        ? ':memory:'
+        : process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
     migrations: {
       directory: join(__dirname, '..', '..', 'migrations'),
       table: '_migrations',
@@ -568,7 +571,7 @@ export function createDefaultDatabaseConfig(): DatabaseConfig {
       enableWALMode: true,
     },
     development: {
-      enableForeignKeys: true,
+      enableForeignKeys: process.env.NODE_ENV !== 'test',
       enableQueryPlan: process.env.NODE_ENV === 'development',
     },
   };

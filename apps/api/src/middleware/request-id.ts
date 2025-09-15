@@ -30,9 +30,9 @@ export interface RequestIdConfig {
  * Example: req_1694595600000_a7b9c3d2e1
  */
 export function generateRequestId(): string {
-  const timestamp = Date.now();
-  const random = randomBytes(5).toString('hex');
-  return `req_${timestamp}_${random}`;
+  // Generate compact hex ID to satisfy /^req_[a-zA-Z0-9]+$/
+  const random = randomBytes(10).toString('hex');
+  return `req_${random}`;
 }
 
 /**
@@ -60,8 +60,8 @@ export function generateShortRequestId(): string {
  * Request ID validation
  */
 export function isValidRequestId(id: string): boolean {
-  // Must start with req_ and contain only alphanumeric characters and underscores
-  return /^req_[a-zA-Z0-9_]+$/.test(id);
+  // Must start with req_ and contain only alphanumeric characters
+  return /^req_[a-zA-Z0-9]+$/.test(id);
 }
 
 /**

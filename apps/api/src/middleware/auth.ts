@@ -1,4 +1,4 @@
-import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import { clerkMiddleware } from '@clerk/express';
 import type { Request, Response, NextFunction } from 'express';
 import type { Logger } from 'pino';
 import { setInterval, clearInterval } from 'node:timers';
@@ -35,9 +35,10 @@ interface AuthErrorResponse {
 
 /**
  * Clerk authentication middleware
- * Uses Clerk's ClerkExpressWithAuth to validate JWT tokens
+ * Uses Clerk's Express SDK to validate JWT tokens
  */
-export const clerkAuthMiddleware = ClerkExpressWithAuth();
+export const clerkAuthMiddleware: (req: Request, res: Response, next: NextFunction) => void =
+  clerkMiddleware();
 
 /**
  * Middleware to require authentication

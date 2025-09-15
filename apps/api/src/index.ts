@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Load environment variables from local env files before anything else.
+// This ensures Clerk keys and other config are present in development.
+import './load-env.js';
+
 /**
  * CTRL FreaQ API Server Entry Point
  *
