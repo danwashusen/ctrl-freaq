@@ -1,3 +1,4 @@
-#!/usr/bin/env sh
-. "./_/husky.sh"
-pnpm lint-staged
+#!/usr/bin/env bash
+
+# Your tasks
+npx lint-staged --allow-empty

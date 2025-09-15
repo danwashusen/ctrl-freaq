@@ -13,6 +13,4 @@ export * from './configuration.js';
 export * from './app-version.js';
 // Activity log model
 export * from './activity-log.js';
-// Authentication log model
-export * from './auth-log.js';
 //# sourceMappingURL=index.js.map

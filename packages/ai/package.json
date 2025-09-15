@@ -28,7 +28,7 @@
     "cli": "tsx src/cli.ts",
     "dev": "tsc --watch",
     "lint": "eslint src/",
-    "test": "vitest --passWithNoTests",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },

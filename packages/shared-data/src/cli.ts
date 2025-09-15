@@ -17,6 +17,39 @@
 import { Command } from 'commander';
 import { PACKAGE_INFO } from './index.js';
 
+// Typed option shapes for CLI commands
+type JsonFlag = { json?: boolean };
+type DbPathFlag = { dbPath: string };
+
+type SchemaValidateOptions = JsonFlag & DbPathFlag;
+type SchemaGenerateOptions = { output?: string; format: 'sql' | 'json' };
+type EntityListOptions = JsonFlag;
+type EntityValidateOptions = { data?: string; file?: string };
+type RepoTestOptions = JsonFlag & DbPathFlag;
+type RepoStatsOptions = JsonFlag & DbPathFlag;
+type GenerateIdOptions = { count: string };
+type SeedDatabaseOptions = { dbPath: string; reset?: boolean };
+type ResetDatabaseOptions = { dbPath: string; confirm?: boolean };
+
+// Typed in-file schema representation used by generateSchema
+type FieldType = 'TEXT' | 'DATETIME';
+interface FieldDef {
+  type: FieldType;
+  primary?: boolean;
+  required?: boolean;
+  unique?: boolean;
+  default?: string;
+  foreignKey?: string;
+}
+interface EntityDef {
+  table: string;
+  fields: Record<string, FieldDef>;
+}
+interface SchemaDef {
+  version: string;
+  entities: Record<string, EntityDef>;
+}
+
 // import { dirname } from 'path';
 // import { fileURLToPath } from 'url';
 // const __dirname = dirname(fileURLToPath(import.meta.url)); // Available for future use
@@ -39,17 +72,15 @@ class SharedDataCLI {
       .version(PACKAGE_INFO.version);
 
     // Schema commands
-    const schemaCmd = this.program
-      .command('schema')
-      .description('Database schema operations');
+    const schemaCmd = this.program.command('schema').description('Database schema operations');
 
     schemaCmd
       .command('validate')
       .description('Validate database schema against entity definitions')
       .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
       .option('--json', 'Output in JSON format')
-      .action(async (options) => {
-        await this.validateSchema(options);
+      .action(async options => {
+        await this.validateSchema(options as SchemaValidateOptions);
       });
 
     schemaCmd
@@ -57,21 +88,19 @@ class SharedDataCLI {
       .description('Generate SQL schema from entity definitions')
       .option('--output <file>', 'Output file path')
       .option('--format <format>', 'Output format (sql|json)', 'sql')
-      .action(async (options) => {
-        await this.generateSchema(options);
+      .action(async options => {
+        await this.generateSchema(options as SchemaGenerateOptions);
       });
 
     // Entity commands
-    const entityCmd = this.program
-      .command('entity')
-      .description('Entity management operations');
+    const entityCmd = this.program.command('entity').description('Entity management operations');
 
     entityCmd
       .command('list')
       .description('List all available entity types')
       .option('--json', 'Output in JSON format')
-      .action(async (options) => {
-        await this.listEntities(options);
+      .action(async options => {
+        await this.listEntities(options as EntityListOptions);
       });
 
     entityCmd
@@ -80,21 +109,19 @@ class SharedDataCLI {
       .option('--data <json>', 'JSON data to validate')
       .option('--file <path>', 'File containing JSON data')
       .action(async (type, options) => {
-        await this.validateEntity(type, options);
+        await this.validateEntity(type, options as EntityValidateOptions);
       });
 
     // Repository commands
-    const repoCmd = this.program
-      .command('repo')
-      .description('Repository operations');
+    const repoCmd = this.program.command('repo').description('Repository operations');
 
     repoCmd
       .command('test')
       .description('Test repository connections and operations')
       .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
       .option('--json', 'Output in JSON format')
-      .action(async (options) => {
-        await this.testRepositories(options);
+      .action(async options => {
+        await this.testRepositories(options as RepoTestOptions);
       });
 
     repoCmd
@@ -102,42 +129,38 @@ class SharedDataCLI {
       .description('Show repository statistics')
       .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
       .option('--json', 'Output in JSON format')
-      .action(async (options) => {
-        await this.showStats(options);
+      .action(async options => {
+        await this.showStats(options as RepoStatsOptions);
       });
 
     // Utility commands
-    const utilCmd = this.program
-      .command('util')
-      .description('Utility operations');
+    const utilCmd = this.program.command('util').description('Utility operations');
 
     utilCmd
       .command('generate-id')
       .description('Generate a new UUID')
       .option('--count <n>', 'Number of IDs to generate', '1')
-      .action((options) => {
-        this.generateIds(options);
+      .action(options => {
+        this.generateIds(options as GenerateIdOptions);
       });
 
     utilCmd
       .command('slug <text>')
       .description('Generate URL-friendly slug from text')
-      .action((text) => {
+      .action(text => {
         this.generateSlug(text);
       });
 
     // Development commands
-    const devCmd = this.program
-      .command('dev')
-      .description('Development utilities');
+    const devCmd = this.program.command('dev').description('Development utilities');
 
     devCmd
       .command('seed')
       .description('Seed database with development data')
       .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
       .option('--reset', 'Reset existing data before seeding')
-      .action(async (options) => {
-        await this.seedDatabase(options);
+      .action(async options => {
+        await this.seedDatabase(options as SeedDatabaseOptions);
       });
 
     devCmd
@@ -145,30 +168,36 @@ class SharedDataCLI {
       .description('Reset database to clean state')
       .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
       .option('--confirm', 'Skip confirmation prompt')
-      .action(async (options) => {
-        await this.resetDatabase(options);
+      .action(async options => {
+        await this.resetDatabase(options as ResetDatabaseOptions);
       });
   }
 
   /**
    * Schema validation
    */
-  private async validateSchema(options: any): Promise<void> {
+  private async validateSchema(options: SchemaValidateOptions): Promise<void> {
     const result = {
       valid: true,
       errors: [] as string[],
       warnings: [] as string[],
-      entities: [] as string[]
+      entities: [] as string[],
     };
 
     try {
       // Validate all exported schemas from models
       const models = [
-        { name: 'User', schema: (await import('./models/user')).UserSchema },
-        { name: 'Project', schema: (await import('./models/project')).ProjectSchema },
-        { name: 'Configuration', schema: (await import('./models/configuration')).ConfigurationSchema },
-        { name: 'AppVersion', schema: (await import('./models/app-version')).AppVersionSchema },
-        { name: 'ActivityLog', schema: (await import('./models/activity-log')).ActivityLogSchema },
+        { name: 'User', schema: (await import('./models/user.js')).UserSchema },
+        { name: 'Project', schema: (await import('./models/project.js')).ProjectSchema },
+        {
+          name: 'Configuration',
+          schema: (await import('./models/configuration.js')).ConfigurationSchema,
+        },
+        { name: 'AppVersion', schema: (await import('./models/app-version.js')).AppVersionSchema },
+        {
+          name: 'ActivityLog',
+          schema: (await import('./models/activity-log.js')).ActivityLogSchema,
+        },
       ];
 
       for (const model of models) {
@@ -181,7 +210,9 @@ class SharedDataCLI {
           result.entities.push(model.name);
         } catch (error) {
           result.valid = false;
-          result.warnings.push(`Schema validation failed for ${model.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          result.warnings.push(
+            `Schema validation failed for ${model.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
         }
       }
 
@@ -212,8 +243,8 @@ class SharedDataCLI {
   /**
    * Schema generation
    */
-  private async generateSchema(options: any): Promise<void> {
-    const schema = {
+  private async generateSchema(options: SchemaGenerateOptions): Promise<void> {
+    const schema: SchemaDef = {
       version: '0.1.0',
       entities: {
         users: {
@@ -224,8 +255,8 @@ class SharedDataCLI {
             first_name: { type: 'TEXT' },
             last_name: { type: 'TEXT' },
             created_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
-            updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' }
-          }
+            updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+          },
         },
         projects: {
           table: 'projects',
@@ -236,10 +267,10 @@ class SharedDataCLI {
             slug: { type: 'TEXT', required: true, unique: true },
             description: { type: 'TEXT' },
             created_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
-            updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' }
-          }
-        }
-      }
+            updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+          },
+        },
+      },
     };
 
     if (options.format === 'json') {
@@ -256,10 +287,10 @@ class SharedDataCLI {
       // Generate SQL
       let sql = '-- Generated schema for CTRL FreaQ\n\n';
 
-      for (const [_entityName, entity] of Object.entries(schema.entities)) {
+      for (const entity of Object.values(schema.entities)) {
         sql += `CREATE TABLE ${entity.table} (\n`;
 
-        const fieldLines = Object.entries(entity.fields).map(([fieldName, field]: [string, any]) => {
+        const fieldLines = Object.entries(entity.fields).map(([fieldName, field]) => {
           let line = `  ${fieldName} ${field.type}`;
 
           if (field.primary) line += ' PRIMARY KEY';
@@ -287,13 +318,13 @@ class SharedDataCLI {
   /**
    * List entities
    */
-  private async listEntities(options: any): Promise<void> {
+  private async listEntities(options: EntityListOptions): Promise<void> {
     const entities = [
       { name: 'User', description: 'User accounts and profiles' },
       { name: 'Project', description: 'User projects and workspaces' },
       { name: 'Configuration', description: 'User configuration settings' },
       { name: 'AppVersion', description: 'Application version tracking' },
-      { name: 'ActivityLog', description: 'User activity and audit logs' }
+      { name: 'ActivityLog', description: 'User activity and audit logs' },
     ];
 
     if (options.json) {
@@ -310,8 +341,8 @@ class SharedDataCLI {
   /**
    * Validate entity data
    */
-  private async validateEntity(type: string, options: any): Promise<void> {
-    let data: any;
+  private async validateEntity(type: string, options: EntityValidateOptions): Promise<void> {
+    let data: unknown;
 
     try {
       if (options.data) {
@@ -329,7 +360,7 @@ class SharedDataCLI {
         valid: true,
         entity: type,
         errors: [] as string[],
-        data
+        data,
       };
 
       console.log(JSON.stringify(result, null, 2));
@@ -342,7 +373,7 @@ class SharedDataCLI {
   /**
    * Test repositories
    */
-  private async testRepositories(options: any): Promise<void> {
+  private async testRepositories(options: RepoTestOptions): Promise<void> {
     const result = {
       success: true,
       repositories: [
@@ -350,12 +381,12 @@ class SharedDataCLI {
         { name: 'ProjectRepository', status: 'not_implemented' },
         { name: 'ConfigurationRepository', status: 'not_implemented' },
         { name: 'AppVersionRepository', status: 'not_implemented' },
-        { name: 'ActivityLogRepository', status: 'not_implemented' }
+        { name: 'ActivityLogRepository', status: 'not_implemented' },
       ],
       database: {
         connected: false,
-        path: options.dbPath
-      }
+        path: options.dbPath,
+      },
     };
 
     if (options.json) {
@@ -375,21 +406,21 @@ class SharedDataCLI {
   /**
    * Show repository statistics
    */
-  private async showStats(options: any): Promise<void> {
+  private async showStats(options: RepoStatsOptions): Promise<void> {
     const stats = {
       database: {
         path: options.dbPath,
         size: 0,
-        connected: false
+        connected: false,
       },
       entities: {
         users: 0,
         projects: 0,
         configurations: 0,
         app_versions: 0,
-        activity_logs: 0
+        activity_logs: 0,
       },
-      totalRecords: 0
+      totalRecords: 0,
     };
 
     if (options.json) {
@@ -410,32 +441,36 @@ class SharedDataCLI {
   /**
    * Generate UUIDs
    */
-  private generateIds(options: any): void {
+  private generateIds(options: GenerateIdOptions): void {
     const count = parseInt(options.count, 10);
-    import('./utils/index.js').then(({ generateId }) => {
-      for (let i = 0; i < count; i++) {
-        console.log(generateId());
-      }
-    }).catch(error => {
-      console.error('Failed to generate IDs:', error.message);
-    });
+    import('./utils/index.js')
+      .then(({ generateId }) => {
+        for (let i = 0; i < count; i++) {
+          console.log(generateId());
+        }
+      })
+      .catch(error => {
+        console.error('Failed to generate IDs:', error.message);
+      });
   }
 
   /**
    * Generate slug
    */
   private generateSlug(text: string): void {
-    import('./utils/index.js').then(({ generateSlug }) => {
-      console.log(generateSlug(text));
-    }).catch(error => {
-      console.error('Failed to generate slug:', error.message);
-    });
+    import('./utils/index.js')
+      .then(({ generateSlug }) => {
+        console.log(generateSlug(text));
+      })
+      .catch(error => {
+        console.error('Failed to generate slug:', error.message);
+      });
   }
 
   /**
    * Seed database with development data
    */
-  private async seedDatabase(options: any): Promise<void> {
+  private async seedDatabase(options: SeedDatabaseOptions): Promise<void> {
     console.log('Database seeding not implemented yet');
     console.log(`Database path: ${options.dbPath}`);
     console.log(`Reset existing: ${options.reset ? 'Yes' : 'No'}`);
@@ -444,7 +479,7 @@ class SharedDataCLI {
   /**
    * Reset database
    */
-  private async resetDatabase(options: any): Promise<void> {
+  private async resetDatabase(options: ResetDatabaseOptions): Promise<void> {
     if (!options.confirm) {
       console.log('⚠️  This will permanently delete all data!');
       console.log('Use --confirm flag to proceed.');

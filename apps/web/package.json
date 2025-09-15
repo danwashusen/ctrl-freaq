@@ -9,7 +9,7 @@
     "dev": "vite",
     "lint": "eslint src/ tests/",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
