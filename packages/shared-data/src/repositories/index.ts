@@ -6,4 +6,4 @@
 
 // Base repository
 export * from './base-repository';
-export type { Repository, QueryOptions } from '../types';
+export type { Repository, QueryOptions } from '../types/index';

@@ -23,6 +23,8 @@ out/
 .tsbuildinfo
 lib/
 types/
+!**/src/types/
+!**/src/types/**
 
 # Vite
 .vite/

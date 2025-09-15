@@ -11,7 +11,13 @@
  */
 
 // Export types
-export * from './types/index.js';
+export type {
+  AuditableEntity,
+  BaseEntity,
+  DatabaseConnection,
+  QueryOptions,
+  Repository,
+} from './types/index';
 
 // Export models
 export * from './models/index.js';
