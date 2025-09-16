@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@clerk/express": "^1.0.0",
+    "@ctrl-freaq/template-resolver": "workspace:*",
     "@ctrl-freaq/templates": "workspace:*",
     "better-sqlite3": "^11.0.0",
     "cors": "^2.8.5",

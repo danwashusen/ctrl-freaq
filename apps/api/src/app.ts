@@ -209,6 +209,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { activitiesRouter } = await import('./routes/activities.js');
   const { projectSelectionRouter } = await import('./routes/projects.select.js');
   const { templatesRouter } = await import('./routes/templates.js');
+  const { documentsRouter } = await import('./routes/documents.js');
   const { clerkAuthMiddleware, requireAuth } = await import('./middleware/auth.js');
   const { testAuthShim } = await import('./middleware/test-auth.js');
   const { ensureTestUserMiddleware } = await import('./middleware/test-user-seed.js');
@@ -237,6 +238,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use('/api/v1', activitiesRouter);
   app.use('/api/v1', projectSelectionRouter);
   app.use('/api/v1', templatesRouter);
+  app.use('/api/v1', documentsRouter);
   if (isTestEnv) {
     app.use('/', testOnlyRouter);
   }

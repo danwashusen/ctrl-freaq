@@ -1,8 +1,11 @@
 import { Command } from 'commander';
 
-import { createTemplatePublisher } from '../publishers/template-publisher.js';
+import { createTemplatePublisher, type TemplatePublisher } from '../publishers/template-publisher.js';
 
-export function registerMigrateCommand(program: Command): Command {
+export function registerMigrateCommand(
+  program: Command,
+  factory: () => TemplatePublisher = createTemplatePublisher
+): Command {
   return program
     .command('migrate')
     .description('Migrate a document to a new template version')
@@ -11,7 +14,7 @@ export function registerMigrateCommand(program: Command): Command {
     .requiredOption('--to-version <version>', 'Target semantic version')
     .option('--dry-run', 'Run without persisting changes', false)
     .action(async options => {
-      const publisher = createTemplatePublisher();
+      const publisher = factory();
       await publisher.migrateDocument({
         documentId: options.document,
         templateId: options.template,

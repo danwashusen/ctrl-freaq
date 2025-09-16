@@ -19,6 +19,10 @@ export * from './app-version';
 // Activity log model
 export * from './activity-log';
 
+
+// Document model
+export * from './document';
+
 // Document template catalog
 export * from './document-template';
 

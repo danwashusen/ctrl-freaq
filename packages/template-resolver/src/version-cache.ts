@@ -49,4 +49,10 @@ export class VersionedTemplateCache {
       entries: this.entries.size,
     };
   }
+
+  clear(): void {
+    this.entries.clear();
+    this.hits = 0;
+    this.misses = 0;
+  }
 }

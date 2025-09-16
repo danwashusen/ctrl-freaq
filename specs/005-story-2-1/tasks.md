@@ -65,85 +65,85 @@ plan.md ✓, research.md ✓, data-model.md ✓, contracts/ ✓, quickstart.md �
 **CRITICAL: All tests below MUST be written to fail before implementation
 begins**
 
-- [ ] T004 [P] Create failing DocumentTemplate repository tests in
+- [x] T004 [P] Create failing DocumentTemplate repository tests in
       `packages/shared-data/src/repositories/document-template.repository.test.ts`
-- [ ] T005 [P] Create failing TemplateVersion repository tests in
+- [x] T005 [P] Create failing TemplateVersion repository tests in
       `packages/shared-data/src/repositories/template-version.repository.test.ts`
-- [ ] T006 [P] Create failing DocumentTemplateMigration repository tests in
+- [x] T006 [P] Create failing DocumentTemplateMigration repository tests in
       `packages/shared-data/src/repositories/document-template-migration.repository.test.ts`
-- [ ] T007 [P] Add template compiler snapshot/semver tests in
+- [x] T007 [P] Add template compiler snapshot/semver tests in
       `packages/templates/src/compilers/template-compiler.test.ts`
-- [ ] T008 [P] Add validator generation tests covering required/optional fields
+- [x] T008 [P] Add validator generation tests covering required/optional fields
       in `packages/templates/src/validators/template-validator.test.ts`
-- [ ] T009 [P] Add version-aware cache eviction tests in
+- [x] T009 [P] Add version-aware cache eviction tests in
       `packages/template-resolver/src/version-cache.test.ts`
-- [ ] T010 [P] Add contract test for GET /templates in
+- [x] T010 [P] Add contract test for GET /templates in
       `apps/api/tests/contract/templates.list.contract.test.ts`
-- [ ] T011 [P] Add contract test for GET /templates/{templateId} in
+- [x] T011 [P] Add contract test for GET /templates/{templateId} in
       `apps/api/tests/contract/template.get.contract.test.ts`
-- [ ] T012 [P] Add contract test for GET /templates/{templateId}/versions in
+- [x] T012 [P] Add contract test for GET /templates/{templateId}/versions in
       `apps/api/tests/contract/template.versions.list.contract.test.ts`
-- [ ] T013 [P] Add contract test for POST /templates/{templateId}/versions in
+- [x] T013 [P] Add contract test for POST /templates/{templateId}/versions in
       `apps/api/tests/contract/template.versions.publish.contract.test.ts`
-- [ ] T014 [P] Add contract test for GET
+- [x] T014 [P] Add contract test for GET
       /templates/{templateId}/versions/{version} in
       `apps/api/tests/contract/template.version.get.contract.test.ts`
-- [ ] T015 [P] Add contract test for POST
+- [x] T015 [P] Add contract test for POST
       /templates/{templateId}/versions/{version}/activate in
       `apps/api/tests/contract/template.version.activate.contract.test.ts`
-- [ ] T016 [P] Add integration test for auto-upgrade + migration logging in
+- [x] T016 [P] Add integration test for auto-upgrade + migration logging in
       `apps/api/tests/integration/template-auto-upgrade.test.ts`
-- [ ] T017 [P] Add integration test for removed-version block response in
+- [x] T017 [P] Add integration test for removed-version block response in
       `apps/api/tests/integration/template-removed-version.test.ts`
-- [ ] T018 [P] Add frontend integration test guarding required fields in
+- [x] T018 [P] Add frontend integration test guarding required fields in
       `apps/web/tests/integration/template-validation-gate.test.tsx`
-- [ ] T019 [P] Add frontend integration test for upgrade banner + logging in
+- [x] T019 [P] Add frontend integration test for upgrade banner + logging in
       `apps/web/tests/integration/template-upgrade-banner.test.tsx`
-- [ ] T020 [P] Add CLI publish command tests in
+- [x] T020 [P] Add CLI publish command tests in
       `packages/templates/src/cli/publish-command.test.ts`
-- [ ] T021 [P] Add CLI activate command tests in
+- [x] T021 [P] Add CLI activate command tests in
       `packages/templates/src/cli/activate-command.test.ts`
-- [ ] T022 [P] Add CLI migrate command tests in
+- [x] T022 [P] Add CLI migrate command tests in
       `packages/templates/src/cli/migrate-command.test.ts`
 
 ## Phase 3.3: Core Implementation (ONLY after tests fail)
 
 ### Data Layer & Schema
 
-- [ ] T023 Create template catalog/version/migration SQL migrations in
+- [x] T023 Create template catalog/version/migration SQL migrations in
       `packages/shared-data/migrations/005_template_catalog.sql` with audit
       fields + unique constraints
-- [ ] T024 [P] Implement `DocumentTemplate` model + repository in
+- [x] T024 [P] Implement `DocumentTemplate` model + repository in
       `packages/shared-data/src/models/document-template.ts`
-- [ ] T025 [P] Implement `TemplateVersion` model + repository in
+- [x] T025 [P] Implement `TemplateVersion` model + repository in
       `packages/shared-data/src/models/template-version.ts`
-- [ ] T026 [P] Implement `DocumentTemplateMigration` model + repository in
+- [x] T026 [P] Implement `DocumentTemplateMigration` model + repository in
       `packages/shared-data/src/models/document-template-migration.ts`
-- [ ] T027 [P] Extend document model/repository with `templateId`,
+- [x] T027 [P] Extend document model/repository with `templateId`,
       `templateVersion`, `templateSchemaHash` handling in
       `packages/shared-data/src/models/document.ts`
-- [ ] T028 Update shared-data exports/CLI wiring for new template repositories
+- [x] T028 Update shared-data exports/CLI wiring for new template repositories
       in `packages/shared-data/src/models/index.ts`,
       `packages/shared-data/src/index.ts`, and `packages/shared-data/src/cli.ts`
 
 ### Template Libraries
 
-- [ ] T029 [P] Extend YAML compiler in
+- [x] T029 [P] Extend YAML compiler in
       `packages/templates/src/templates/index.ts` to emit schema hash + sections
       snapshot
-- [ ] T030 [P] Implement `createTemplateValidator` + shared Zod exports in
+- [x] T030 [P] Implement `createTemplateValidator` + shared Zod exports in
       `packages/templates/src/validators/template-validator.ts`
-- [ ] T031 [P] Add publish orchestration helpers bridging compiler +
+- [x] T031 [P] Add publish orchestration helpers bridging compiler +
       repositories in `packages/templates/src/publishers/template-publisher.ts`
-- [ ] T032 Implement CLI `publish`, `activate`, `list`, `migrate` commands with
+- [x] T032 Implement CLI `publish`, `activate`, `list`, `migrate` commands with
       structured logging in `packages/templates/src/cli.ts`
 
 ### Template Resolver Enhancements
 
-- [ ] T033 Update resolver core for version-aware caching + resolver hooks in
-      `packages/template-resolver/src/index.ts`
-- [ ] T034 [P] Add auto-upgrade + removed-version detection utilities in
-      `packages/template-resolver/src/auto-upgrade.ts`
+- [x] T033 Update resolver core for version-aware caching + resolver hooks in
+      `packages/template-resolver/src/index.ts` <!-- completed: 2025-09-16 17:54 UTC -->
+- [x] T034 [P] Add auto-upgrade + removed-version detection utilities in
+      `packages/template-resolver/src/auto-upgrade.ts` <!-- completed: 2025-09-16 17:54 UTC -->
 
 ### Backend API Implementation
 
@@ -162,11 +162,11 @@ begins**
 - [x] T041 Implement POST
       /api/v1/templates/:templateId/versions/:version/activate with audit
       logging in `apps/api/src/routes/templates.ts`
-- [ ] T042 Add template validation + auto-upgrade middleware in
-      `apps/api/src/middleware/template-validation.ts`
-- [ ] T043 Create document routes using validation middleware for
+- [x] T042 Add template validation + auto-upgrade middleware in
+      `apps/api/src/middleware/template-validation.ts` <!-- completed: 2025-09-16 08:35 UTC -->
+- [x] T043 Create document routes using validation middleware for
       load/save/export in `apps/api/src/routes/documents.ts` and register in
-      `apps/api/src/app.ts`
+      `apps/api/src/app.ts` <!-- completed: 2025-09-16 08:35 UTC -->
 
 ## Phase 3.4: Integration
 

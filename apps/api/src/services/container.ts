@@ -9,7 +9,10 @@ import {
   DocumentTemplateRepositoryImpl,
   TemplateVersionRepositoryImpl,
   DocumentTemplateMigrationRepositoryImpl,
+  DocumentRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
+import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
+import { createTemplateValidator } from '@ctrl-freaq/templates';
 import { TemplateCatalogService } from './template-catalog.service.js';
 
 /**
@@ -40,6 +43,7 @@ export function createRepositoryRegistrationMiddleware() {
       'documentTemplateMigrationRepository',
       () => new DocumentTemplateMigrationRepositoryImpl(getDb())
     );
+    container.register('documentRepository', () => new DocumentRepositoryImpl(getDb()));
 
     container.register('templateCatalogService', currentContainer => {
       const templateRepo = currentContainer.get(
@@ -50,6 +54,97 @@ export function createRepositoryRegistrationMiddleware() {
       ) as TemplateVersionRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
       return new TemplateCatalogService(templateRepo, versionRepo, logger);
+    });
+
+    container.register('templateResolver', currentContainer => {
+      const templateRepo = currentContainer.get(
+        'documentTemplateRepository'
+      ) as DocumentTemplateRepositoryImpl;
+      const versionRepo = currentContainer.get(
+        'templateVersionRepository'
+      ) as TemplateVersionRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+
+      return createTemplateResolver({
+        dependencies: {
+          async loadVersion(templateId, version) {
+            const templateVersion = await versionRepo.findByTemplateAndVersion(
+              templateId,
+              version
+            );
+            if (!templateVersion) {
+              return null;
+            }
+
+            return {
+              templateId: templateVersion.templateId,
+              version: templateVersion.version,
+              schemaHash: templateVersion.schemaHash,
+              schema: templateVersion.schemaJson,
+              sections: templateVersion.sectionsJson,
+              validator: createTemplateValidator({
+                templateId: templateVersion.templateId,
+                version: templateVersion.version,
+                schemaJson: templateVersion.schemaJson,
+              }),
+              metadata: {
+                changelog: templateVersion.changelog,
+                status: templateVersion.status,
+              },
+            };
+          },
+          async loadActiveVersion(templateId) {
+            const template = await templateRepo.findById(templateId);
+            if (!template?.activeVersionId) {
+              return null;
+            }
+
+            const activeVersion = await versionRepo.findById(template.activeVersionId);
+            if (!activeVersion) {
+              return null;
+            }
+
+            return {
+              templateId: activeVersion.templateId,
+              version: activeVersion.version,
+              schemaHash: activeVersion.schemaHash,
+              schema: activeVersion.schemaJson,
+              sections: activeVersion.sectionsJson,
+              validator: createTemplateValidator({
+                templateId: activeVersion.templateId,
+                version: activeVersion.version,
+                schemaJson: activeVersion.schemaJson,
+              }),
+              metadata: {
+                changelog: activeVersion.changelog,
+                status: activeVersion.status,
+              },
+            };
+          },
+        },
+        hooks: {
+          onResolved(event) {
+            logger.debug(
+              {
+                templateId: event.templateId,
+                version: event.version,
+                source: event.source,
+              },
+              'Template resolver resolved version'
+            );
+          },
+          onError(event) {
+            logger.error(
+              {
+                templateId: event.templateId,
+                version: event.version,
+                error: event.error instanceof Error ? event.error.message : event.error,
+              },
+              'Template resolver failed to load version'
+            );
+          },
+        },
+      });
     });
 
     next();

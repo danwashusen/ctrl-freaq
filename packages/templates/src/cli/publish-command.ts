@@ -1,8 +1,11 @@
 import { Command } from 'commander';
 
-import { createTemplatePublisher } from '../publishers/template-publisher.js';
+import { createTemplatePublisher, type TemplatePublisher } from '../publishers/template-publisher.js';
 
-export function registerPublishCommand(program: Command): Command {
+export function registerPublishCommand(
+  program: Command,
+  factory: () => TemplatePublisher = createTemplatePublisher
+): Command {
   return program
     .command('publish')
     .description('Publish a new template version')
@@ -11,7 +14,7 @@ export function registerPublishCommand(program: Command): Command {
     .option('--changelog <notes>', 'Markdown changelog summary')
     .option('--activate', 'Activate the version after publish', false)
     .action(async options => {
-      const publisher = createTemplatePublisher();
+      const publisher = factory();
       await publisher.publishFromFile({
         file: options.file,
         version: options.version,

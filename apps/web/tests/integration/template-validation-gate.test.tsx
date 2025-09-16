@@ -1,36 +1,32 @@
-/* eslint-disable import/no-unresolved */
-// @ts-expect-error Template compiler path available post-build
-import { compileTemplateFile } from '../../../packages/templates/src/compilers/template-compiler';
-// @ts-expect-error Template validator path available post-build
-import { createTemplateValidator } from '../../../packages/templates/src/validators/template-validator';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { beforeAll, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import { TemplateValidationGate } from '../../src/components/editor/TemplateValidationGate';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const fixturePath = resolve(
-  __dirname,
-  '../../../packages/templates/tests/fixtures/architecture.valid.yaml'
-);
-
 describe('TemplateValidationGate', () => {
-  let validator: ReturnType<typeof createTemplateValidator>;
+  const validator = {
+    safeParse(value: unknown) {
+      const data = value as Record<string, unknown> | null;
+      if (!data || typeof data !== 'object' || !('introduction' in data) || !data.introduction) {
+        return {
+          success: false as const,
+          error: {
+            issues: [
+              {
+                path: ['introduction'],
+                message: 'Executive Summary is required',
+                code: 'custom',
+              },
+            ],
+          },
+        };
+      }
 
-  beforeAll(async () => {
-    const compiled = await compileTemplateFile(fixturePath);
-    validator = createTemplateValidator({
-      templateId: compiled.catalog.id,
-      version: compiled.version.version,
-      schemaJson: compiled.version.schemaJson,
-    });
-  });
+      return { success: true as const, data };
+    },
+  };
 
   test('blocks save when required fields are missing and surfaces inline guidance', async () => {
     const user = userEvent.setup();
