@@ -12,8 +12,10 @@ import {
   DocumentRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
+import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
 import { createTemplateValidator } from '@ctrl-freaq/templates';
 import { TemplateCatalogService } from './template-catalog.service.js';
+import { TemplateUpgradeService } from './template-upgrade.service.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -68,10 +70,7 @@ export function createRepositoryRegistrationMiddleware() {
       return createTemplateResolver({
         dependencies: {
           async loadVersion(templateId, version) {
-            const templateVersion = await versionRepo.findByTemplateAndVersion(
-              templateId,
-              version
-            );
+            const templateVersion = await versionRepo.findByTemplateAndVersion(templateId, version);
             if (!templateVersion) {
               return null;
             }
@@ -145,6 +144,32 @@ export function createRepositoryRegistrationMiddleware() {
           },
         },
       });
+    });
+
+    container.register('templateUpgradeService', currentContainer => {
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const templateRepository = currentContainer.get(
+        'documentTemplateRepository'
+      ) as DocumentTemplateRepositoryImpl;
+      const versionRepository = currentContainer.get(
+        'templateVersionRepository'
+      ) as TemplateVersionRepositoryImpl;
+      const migrationRepository = currentContainer.get(
+        'documentTemplateMigrationRepository'
+      ) as DocumentTemplateMigrationRepositoryImpl;
+      const resolver = currentContainer.get('templateResolver') as TemplateResolver;
+      const logger = currentContainer.get('logger') as Logger;
+
+      return new TemplateUpgradeService(
+        documentRepository,
+        templateRepository,
+        versionRepository,
+        migrationRepository,
+        resolver,
+        logger
+      );
     });
 
     next();

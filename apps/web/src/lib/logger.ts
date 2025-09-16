@@ -48,6 +48,9 @@ class BrowserLogger {
   private logQueue: LogEntry[] = [];
   private flushTimer?: NodeJS.Timeout;
   private sessionId: string;
+  private baseSessionId: string;
+  private currentRequestId?: string;
+  private templateContext?: Record<string, unknown>;
 
   constructor(options: LoggerOptions = {}) {
     this.level = LOG_LEVELS[options.level || 'INFO'];
@@ -57,6 +60,7 @@ class BrowserLogger {
     this.flushInterval = options.flushInterval || 5000; // 5 seconds
     this.enableRemoteLogging = options.enableRemoteLogging !== false;
     this.sessionId = this.generateSessionId();
+    this.baseSessionId = this.sessionId;
 
     if (this.enableRemoteLogging) {
       this.startFlushTimer();
@@ -89,14 +93,16 @@ class BrowserLogger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      requestId: this.generateRequestId(),
+      requestId: this.currentRequestId || this.generateRequestId(),
       sessionId: this.sessionId,
       url: window.location.href,
       userAgent: navigator.userAgent,
     };
 
     if (context) {
-      entry.context = context;
+      entry.context = { ...this.templateContext, ...context };
+    } else if (this.templateContext) {
+      entry.context = { ...this.templateContext };
     }
 
     if (error) {
@@ -220,11 +226,34 @@ class BrowserLogger {
   }
 
   setUserId(userId: string) {
-    this.sessionId = `${this.sessionId}-${userId}`;
+    this.sessionId = `${this.generateSessionId()}-${userId}`;
+    this.baseSessionId = this.sessionId;
   }
 
   setLevel(level: keyof LogLevel) {
     this.level = LOG_LEVELS[level];
+  }
+
+  setCorrelation(input: { requestId?: string; sessionId?: string }) {
+    if (input.requestId) {
+      this.currentRequestId = input.requestId;
+    }
+
+    if (input.sessionId) {
+      this.sessionId = `${this.baseSessionId}-${input.sessionId}`;
+    }
+  }
+
+  setTemplateContext(context: {
+    templateId: string;
+    templateVersion?: string;
+    templateSchemaHash?: string;
+  }) {
+    this.templateContext = { ...context };
+  }
+
+  clearTemplateContext() {
+    this.templateContext = undefined;
   }
 
   destroy() {

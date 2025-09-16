@@ -16,20 +16,25 @@ pnpm --filter @ctrl-freaq/shared-data migrate # applies new template tables
 
 ## 2. Publish Initial Template Version
 
+Workspace scripts wrap the template CLI so you can run commands without
+memorising filter syntax. Pass additional CLI flags after `--`.
+
 ```bash
 # Compile and publish architecture template v1.0.0
-pnpm --filter @ctrl-freaq/templates publish --file templates/architecture.yaml \
+pnpm template:publish -- --file templates/architecture.yaml \
   --version 1.0.0 --changelog "Initial architecture baseline"
 
 # Activate the version
-pnpm --filter @ctrl-freaq/templates activate --template architecture --version 1.0.0
-```
+pnpm template:activate -- --template architecture --version 1.0.0
 
-**Verify**:
+# Inspect catalog (table view)
+pnpm template:list
 
-```bash
-pnpm --filter @ctrl-freaq/templates list
-# Expect: architecture → active=1.0.0, status=active
+# Optional JSON output for scripting
+pnpm template:list -- --json
+
+# Optional: run a targeted document migration (arguments mirror CLI)
+pnpm template:migrate -- --document DOC123 --to-version 1.0.0
 ```
 
 ## 3. Exercise API Contracts
@@ -49,7 +54,9 @@ curl -s http://localhost:5001/api/v1/templates/architecture/versions/1.0.0 \
   | jq '{version, sections: .sections[0:2]}'
 ```
 
-Expect JSON schema payload with section definitions and validation metadata.
+Expect JSON schema payload with section definitions and validation metadata. If
+you publish additional versions, `/templates/architecture/versions` will reflect
+the updated catalog immediately after activation.
 
 ## 4. Validate Editor Enforcement
 
@@ -57,15 +64,18 @@ Expect JSON schema payload with section definitions and validation metadata.
 pnpm --filter @ctrl-freaq/web dev
 ```
 
-- Create new Architecture document.
-- Confirm placeholders match template sections and required fields are
-  indicated.
-- Attempt to delete required content; save should block with inline error
-  referencing section/field key.
-- Open a document saved under an older version; verify it auto-upgrades to the
-  active version and logs the upgrade outcome.
-- Remove a template version via CLI (simulate) and ensure documents pointing to
-  it display a blocking message until reinstated.
+- Create a new Architecture document via the Project page.
+- Confirm fields render in the order defined by the active template and that
+  required sections display inline error states when cleared.
+- Attempt to save with required content removed – `TemplateValidationGate`
+  should block the submission and list validation issues.
+- Publish a follow-up version (e.g.
+  `pnpm template:publish -- --file templates/architecture.yaml --version 1.1.0 --changelog "Add Tech Stack guidance"`)
+  and activate it. Reload the document and verify the upgrade banner reports the
+  auto-upgrade from the previous version and the browser logger records the
+  structured event with correlation id.
+- Temporarily remove an active version (via CLI or manual DB change) and ensure
+  the Project page shows the removed-version banner and disables editing.
 
 ## 5. Automated Tests
 
@@ -87,7 +97,15 @@ pnpm --filter @ctrl-freaq/exporter run export --template architecture --doc DOC1
 - Output Markdown should include section order defined by active template.
 - If export fails, check backend logs for validation errors with correlation ID.
 
-## 7. Cleanup & Next Steps
+## 7. Observe Structured Logging
+
+- Browser logs inherit API correlation ids after any template interaction. Check
+  the devtools console for events such as `document.template.upgraded` and
+  confirm they include `requestId`/`templateVersion`.
+- Backend logs (`apps/api/logs/dev.log`) include template context for publish,
+  activate, and upgrade flows via `TemplateUpgradeService`.
+
+## 8. Cleanup & Next Steps
 
 - Capture audit log entries for template publish/activate/auto-upgrade in
   `apps/api/logs/dev.log` (ensure correlation IDs).

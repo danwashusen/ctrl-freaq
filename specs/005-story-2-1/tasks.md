@@ -141,9 +141,11 @@ begins**
 ### Template Resolver Enhancements
 
 - [x] T033 Update resolver core for version-aware caching + resolver hooks in
-      `packages/template-resolver/src/index.ts` <!-- completed: 2025-09-16 17:54 UTC -->
+      `packages/template-resolver/src/index.ts`
+      <!-- completed: 2025-09-16 17:54 UTC -->
 - [x] T034 [P] Add auto-upgrade + removed-version detection utilities in
-      `packages/template-resolver/src/auto-upgrade.ts` <!-- completed: 2025-09-16 17:54 UTC -->
+      `packages/template-resolver/src/auto-upgrade.ts`
+      <!-- completed: 2025-09-16 17:54 UTC -->
 
 ### Backend API Implementation
 
@@ -163,37 +165,44 @@ begins**
       /api/v1/templates/:templateId/versions/:version/activate with audit
       logging in `apps/api/src/routes/templates.ts`
 - [x] T042 Add template validation + auto-upgrade middleware in
-      `apps/api/src/middleware/template-validation.ts` <!-- completed: 2025-09-16 08:35 UTC -->
+      `apps/api/src/middleware/template-validation.ts`
+      <!-- completed: 2025-09-16 08:35 UTC -->
 - [x] T043 Create document routes using validation middleware for
       load/save/export in `apps/api/src/routes/documents.ts` and register in
       `apps/api/src/app.ts` <!-- completed: 2025-09-16 08:35 UTC -->
 
 ## Phase 3.4: Integration
 
-- [ ] T044 [P] Implement template upgrade orchestration service in
+- [x] T044 [P] Implement template upgrade orchestration service in
       `apps/api/src/services/template-upgrade.service.ts`
-- [ ] T045 [P] Update exporter ordering to follow active template sections in
-      `packages/exporter/src/index.ts`
-- [ ] T046 [P] Enrich backend structured logging with template context in
-      `apps/api/src/core/logging.ts`
-- [ ] T047 [P] Create frontend template store for active version + validators in
+      <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T045 [P] Update exporter ordering to follow active template sections in
+      `packages/exporter/src/index.ts` <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T046 [P] Enrich backend structured logging with template context in
+      `apps/api/src/core/logging.ts` <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T047 [P] Create frontend template store for active version + validators in
       `apps/web/src/stores/template-store.ts`
-- [ ] T048 [P] Build `TemplateValidationGate` component enforcing inline errors
+      <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T048 [P] Build `TemplateValidationGate` component enforcing inline errors
       in `apps/web/src/components/editor/TemplateValidationGate.tsx`
-- [ ] T049 Update document editor workflow to show upgrade banner/block removed
+      <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T049 Update document editor workflow to show upgrade banner/block removed
       versions in `apps/web/src/pages/Project.tsx`
-- [ ] T050 [P] Wire browser Pino template logging + correlation propagation in
-      `apps/web/src/lib/logger.ts`
+      <!-- completed: 2025-09-16 22:09 UTC -->
+- [x] T050 [P] Wire browser Pino template logging + correlation propagation in
+      `apps/web/src/lib/logger.ts` <!-- completed: 2025-09-16 22:09 UTC -->
 
 ## Phase 3.5: Polish
 
-- [ ] T051 Update `specs/005-story-2-1/quickstart.md` and `CLAUDE.md` with
+- [x] T051 Update `specs/005-story-2-1/quickstart.md` and `CLAUDE.md` with
       template publish/upgrade workflows and CLI references
-- [ ] T052 Add pnpm workspace scripts and package metadata for template CLI
+      <!-- completed: 2025-09-16 22:40 UTC -->
+- [x] T052 Add pnpm workspace scripts and package metadata for template CLI
       commands in `package.json` and `packages/templates/package.json`
-- [ ] T053 Run `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`,
+      <!-- completed: 2025-09-16 22:40 UTC -->
+- [x] T053 Run `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`,
       `pnpm -w build`; address regressions and ensure all new tasks stay checked
-      only after passing
+      only after passing <!-- completed: 2025-09-16 22:40 UTC -->
 
 ## Dependencies
 

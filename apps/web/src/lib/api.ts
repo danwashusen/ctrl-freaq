@@ -114,6 +114,28 @@ interface ApiResponse<T> {
   };
 }
 
+interface DocumentResponse {
+  document: {
+    id: string;
+    projectId: string;
+    title: string;
+    content: unknown;
+    templateId: string;
+    templateVersion: string;
+    templateSchemaHash: string;
+  };
+  migration: Record<string, unknown> | null;
+  templateDecision: Record<string, unknown>;
+}
+
+interface TemplateSummaryResponse {
+  template: Record<string, unknown>;
+}
+
+interface TemplateVersionResponse {
+  version: Record<string, unknown>;
+}
+
 class ApiClient {
   private baseUrl: string;
   private getAuthToken?: () => Promise<string | null>;
@@ -162,6 +184,8 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
 
+      this.applyCorrelationFromResponse(response);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const error: ApiError = new Error(
@@ -182,6 +206,22 @@ class ApiClient {
         error instanceof Error ? error.message : 'Network request failed'
       ) as ApiError;
       throw apiError;
+    }
+  }
+
+  private applyCorrelationFromResponse(response: Response): void {
+    if (!response || typeof response.headers?.get !== 'function') {
+      return;
+    }
+
+    const requestId = response.headers.get('x-request-id') || response.headers.get('X-Request-ID');
+    const sessionId = response.headers.get('x-session-id') || response.headers.get('X-Session-ID');
+
+    if (requestId || sessionId) {
+      logger.setCorrelation({
+        requestId: requestId ?? undefined,
+        sessionId: sessionId ?? undefined,
+      });
     }
   }
 
@@ -283,6 +323,20 @@ class ApiClient {
       return resp.data;
     }
     return response as ConfigurationData;
+  }
+
+  async getDocument(id: string): Promise<DocumentResponse> {
+    return this.makeRequest<DocumentResponse>(`/documents/${id}`);
+  }
+
+  async getTemplate(id: string): Promise<TemplateSummaryResponse> {
+    return this.makeRequest<TemplateSummaryResponse>(`/templates/${id}`);
+  }
+
+  async getTemplateVersion(templateId: string, version: string): Promise<TemplateVersionResponse> {
+    return this.makeRequest<TemplateVersionResponse>(
+      `/templates/${templateId}/versions/${version}`
+    );
   }
 
   // Public API methods for dashboard feature

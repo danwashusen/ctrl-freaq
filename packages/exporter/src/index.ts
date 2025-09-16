@@ -36,6 +36,7 @@ export interface ExportOptions {
   variables?: Record<string, unknown>;
   includeMetadata?: boolean;
   compress?: boolean;
+  templateSections?: TemplateSectionOutline[];
 }
 
 export interface ExportResult {
@@ -46,11 +47,30 @@ export interface ExportResult {
   pageCount?: number;
   warnings: string[];
   errors: string[];
+  orderedSections?: DocumentSectionExport[];
+}
+
+interface TemplateSectionOutline {
+  id: string;
+  title?: string;
+  orderIndex?: number;
+  required?: boolean;
+  type?: string;
+  guidance?: string | null;
+  fields?: unknown[];
+  children?: TemplateSectionOutline[];
+}
+
+export interface DocumentSectionExport {
+  id: string;
+  title?: string;
+  content: unknown;
+  children?: DocumentSectionExport[];
 }
 
 export interface DocumentContent {
   title: string;
-  content: string;
+  content: unknown;
   metadata?: Record<string, unknown>;
   assets?: Asset[];
 }
@@ -77,6 +97,10 @@ export class DocumentExporter {
 
   async export(_content: DocumentContent, options: ExportOptions): Promise<ExportResult> {
     // Placeholder implementation
+    const orderedSections = options.templateSections
+      ? this.buildOrderedSections(_content.content ?? {}, options.templateSections)
+      : undefined;
+
     return {
       success: true,
       outputPath: options.output || `export.${options.format}`,
@@ -85,6 +109,7 @@ export class DocumentExporter {
       pageCount: 1,
       warnings: ['Export functionality not yet implemented'],
       errors: [],
+      orderedSections,
     };
   }
 
@@ -94,6 +119,37 @@ export class DocumentExporter {
 
   getTemplatesForFormat(format: string): ExportTemplate[] {
     return Array.from(this.templates.values()).filter(t => t.format === format);
+  }
+
+  private buildOrderedSections(
+    source: unknown,
+    sections: TemplateSectionOutline[]
+  ): DocumentSectionExport[] {
+    const normalized = this.normalizeContent(source);
+
+    return [...sections]
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+      .map(section => {
+        const rawValue = normalized[section.id];
+        const children =
+          Array.isArray(section.children) && section.children.length > 0
+            ? this.buildOrderedSections(rawValue, section.children)
+            : undefined;
+
+        return {
+          id: section.id,
+          title: section.title,
+          content: rawValue ?? null,
+          children,
+        } satisfies DocumentSectionExport;
+      });
+  }
+
+  private normalizeContent(source: unknown): Record<string, unknown> {
+    if (source && typeof source === 'object' && !Array.isArray(source)) {
+      return source as Record<string, unknown>;
+    }
+    return {};
   }
 }
 
