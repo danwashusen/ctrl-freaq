@@ -4,8 +4,9 @@ Purpose
 
 - Build exactly one plain-text argument string to be consumed by
   `.claude/commands/tasks.md` via `$ARGUMENTS`.
-- Assign that string to a variable named `ARGUMENTS`. Do not execute anything,
-  do not print extra commentary.
+- Assign that string to a variable named `ARGUMENTS`.
+- Run playbook `.claude/commands/tasks.md` passing the variable $ARGUMENTS as an
+  argument.
 
 Output Contract
 
