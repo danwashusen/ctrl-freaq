@@ -17,7 +17,7 @@ export default defineConfig({
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results.json' }],
-    ['junit', { outputFile: 'junit.xml' }]
+    ['junit', { outputFile: 'junit.xml' }],
   ],
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -41,7 +41,7 @@ export default defineConfig({
       name: 'Desktop Chrome',
       use: {
         ...devices['Desktop Chrome'],
-        viewport: { width: 1440, height: 900 }
+        viewport: { width: 1440, height: 900 },
       },
     },
 
@@ -49,7 +49,7 @@ export default defineConfig({
       name: 'Desktop Firefox',
       use: {
         ...devices['Desktop Firefox'],
-        viewport: { width: 1440, height: 900 }
+        viewport: { width: 1440, height: 900 },
       },
     },
 
@@ -57,7 +57,7 @@ export default defineConfig({
       name: 'Desktop Safari',
       use: {
         ...devices['Desktop Safari'],
-        viewport: { width: 1440, height: 900 }
+        viewport: { width: 1440, height: 900 },
       },
     },
 

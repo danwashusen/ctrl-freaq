@@ -1,6 +1,6 @@
-import type { Logger } from 'pino';
 import type { Database } from 'better-sqlite3';
 import type { Request, Response, NextFunction } from 'express';
+import type { Logger } from 'pino';
 
 /**
  * Service Locator Pattern Implementation
@@ -34,7 +34,10 @@ export interface DisposableService {
 }
 
 export class ServiceLocatorError extends Error {
-  constructor(message: string, public readonly serviceName?: string) {
+  constructor(
+    message: string,
+    public readonly serviceName?: string
+  ) {
     super(message);
     this.name = 'ServiceLocatorError';
   }
@@ -44,7 +47,7 @@ export class CircularDependencyError extends ServiceLocatorError {
   constructor(serviceName: string, dependencyChain: string[]) {
     super(
       `Circular dependency detected for service '${serviceName}'. ` +
-      `Dependency chain: ${dependencyChain.join(' -> ')} -> ${serviceName}`,
+        `Dependency chain: ${dependencyChain.join(' -> ')} -> ${serviceName}`,
       serviceName
     );
     this.name = 'CircularDependencyError';
@@ -55,8 +58,8 @@ export class CircularDependencyError extends ServiceLocatorError {
  * Per-request service container implementation
  */
 export class RequestServiceContainer implements ServiceContainer {
-  private readonly services = new Map<string, any>();
-  private readonly factories = new Map<string, ServiceFactory<any>>();
+  private readonly services = new Map<string, unknown>();
+  private readonly factories = new Map<string, ServiceFactory<unknown>>();
   private readonly resolutionStack: string[] = [];
   private disposed = false;
 
@@ -70,7 +73,7 @@ export class RequestServiceContainer implements ServiceContainer {
 
     // Return existing instance if available
     if (this.services.has(serviceName)) {
-      return this.services.get(serviceName);
+      return this.services.get(serviceName) as T;
     }
 
     // Try to create from factory
@@ -78,19 +81,19 @@ export class RequestServiceContainer implements ServiceContainer {
       this.resolutionStack.push(serviceName);
 
       try {
-        const factory = this.factories.get(serviceName)!;
+        const factory = this.factories.get(serviceName);
+        if (!factory) {
+          throw new ServiceLocatorError(`Factory not found for '${serviceName}'`, serviceName);
+        }
         const service = factory(this);
         this.services.set(serviceName, service);
-        return service;
+        return service as T;
       } finally {
         this.resolutionStack.pop();
       }
     }
 
-    throw new ServiceLocatorError(
-      `Service '${serviceName}' is not registered`,
-      serviceName
-    );
+    throw new ServiceLocatorError(`Service '${serviceName}' is not registered`, serviceName);
   }
 
   register<T>(serviceName: string, service: T | ServiceFactory<T>): void {
@@ -119,14 +122,18 @@ export class RequestServiceContainer implements ServiceContainer {
     const disposalPromises: Promise<void>[] = [];
 
     for (const [serviceName, service] of this.services.entries()) {
-      if (service && typeof service.dispose === 'function') {
+      const maybeDisposable = service as { dispose?: unknown };
+      if (service && typeof maybeDisposable.dispose === 'function') {
         try {
-          const result = service.dispose();
+          const result = (service as DisposableService).dispose();
           if (result instanceof Promise) {
             disposalPromises.push(result);
           }
         } catch (error) {
-          console.error(`Error disposing service '${serviceName}':`, error);
+          const line = `Error disposing service '${serviceName}': ${
+            error instanceof Error ? error.message : String(error)
+          }\n`;
+          process.stderr.write(line);
         }
       }
     }
@@ -169,28 +176,15 @@ export const createLoggerFactory = (
     return baseLogger.child({
       requestId,
       userId,
-      component: 'api'
+      component: 'api',
     });
   };
 };
 
-export const createDatabaseFactory = (
-  database: Database
-): ServiceFactory<Database> => {
-  return () => {
-    // Create transaction wrapper for database operations
-    const transactionWrapper = {
-      ...database,
-      transaction: (callback: (db: typeof database) => Promise<any> | any) => {
-        return database.transaction(callback);
-      },
-      exec: database.exec,
-      prepare: database.prepare,
-      close: database.close,
-    };
-
-    return transactionWrapper;
-  };
+export const createDatabaseFactory = (database: Database): ServiceFactory<Database> => {
+  // Return the actual better-sqlite3 Database instance to preserve method bindings
+  // and avoid accidental loss of `this` context on methods like `prepare`/`transaction`.
+  return () => database;
 };
 
 /**
@@ -234,6 +228,8 @@ declare global {
   namespace Express {
     interface Request {
       services: ServiceContainer;
+      requestId?: string;
+      userId?: string;
     }
   }
 }
@@ -241,28 +237,19 @@ declare global {
 /**
  * Middleware factory for Express.js integration
  */
-export function createServiceLocatorMiddleware(
-  baseLogger: Logger,
-  database: Database
-) {
+export function createServiceLocatorMiddleware(baseLogger: Logger, database: Database) {
   return (req: Request, res: Response, next: NextFunction): void => {
     // Create per-request service container
     const container = new RequestServiceContainer();
 
     // Get request ID (should be set by request-id middleware)
-    const requestId = req.headers['x-request-id'] as string || 'unknown';
+    const requestId = (req.headers['x-request-id'] as string) || 'unknown';
 
     // Extract user ID from JWT (will be set by auth middleware)
-    const userId = (req as any).userId as string | undefined;
+    const userId = (req as unknown as { userId?: string }).userId;
 
     // Register core services
-    ServiceRegistrar.registerCoreServices(
-      container,
-      baseLogger,
-      database,
-      requestId,
-      userId
-    );
+    ServiceRegistrar.registerCoreServices(container, baseLogger, database, requestId, userId);
 
     // Attach container to request
     req.services = container;
@@ -273,7 +260,10 @@ export function createServiceLocatorMiddleware(
       if (!disposed) {
         disposed = true;
         container.dispose().catch(error => {
-          console.error('Error disposing service container:', error);
+          const line = `Error disposing service container: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`;
+          process.stderr.write(line);
         });
       }
     };

@@ -8,7 +8,11 @@ When this command is used, execute the following task:
 
 ## Purpose
 
-Create detailed, implementation-ready stories for brownfield projects where traditional sharded PRD/architecture documents may not exist. This task bridges the gap between various documentation formats (document-project output, brownfield PRDs, epics, or user documentation) and executable stories for the Dev agent.
+Create detailed, implementation-ready stories for brownfield projects where
+traditional sharded PRD/architecture documents may not exist. This task bridges
+the gap between various documentation formats (document-project output,
+brownfield PRDs, epics, or user documentation) and executable stories for the
+Dev agent.
 
 ## When to Use This Task
 
@@ -35,7 +39,8 @@ Check for available documentation in this order:
 1. **Sharded PRD/Architecture** (docs/prd/, docs/architecture/)
    - If found, recommend using create-next-story task instead
 
-2. **Brownfield Architecture Document** (docs/brownfield-architecture.md or similar)
+2. **Brownfield Architecture Document** (docs/brownfield-architecture.md or
+   similar)
    - Created by document-project task
    - Contains actual system state, technical debt, workarounds
 
@@ -61,7 +66,8 @@ Based on available documentation:
 
 #### 1.2 Gather Essential Context
 
-CRITICAL: For brownfield stories, you MUST gather enough context for safe implementation. Be prepared to ask the user for missing information.
+CRITICAL: For brownfield stories, you MUST gather enough context for safe
+implementation. Be prepared to ask the user for missing information.
 
 **Required Information Checklist:**
 
@@ -71,7 +77,8 @@ CRITICAL: For brownfield stories, you MUST gather enough context for safe implem
 - [ ] What technical constraints exist?
 - [ ] Are there any "gotchas" or workarounds to know about?
 
-If any required information is missing, list the missing information and ask the user to provide it.
+If any required information is missing, list the missing information and ask the
+user to provide it.
 
 ### 2. Extract Technical Context from Available Sources
 
@@ -116,9 +123,8 @@ Start with the story template, filling in what's known:
 
 ## Story
 
-As a {{user_type}},
-I want {{enhancement_capability}},
-so that {{value_delivered}}.
+As a {{user_type}}, I want {{enhancement_capability}}, so that
+{{value_delivered}}.
 
 ## Context Source
 
@@ -129,7 +135,8 @@ so that {{value_delivered}}.
 
 #### 3.2 Develop Acceptance Criteria
 
-Critical: For brownfield, ALWAYS include criteria about maintaining existing functionality
+Critical: For brownfield, ALWAYS include criteria about maintaining existing
+functionality
 
 Standard structure:
 
@@ -141,7 +148,8 @@ Standard structure:
 
 #### 3.3 Gather Technical Guidance
 
-Critical: This is where you'll need to be interactive with the user if information is missing
+Critical: This is where you'll need to be interactive with the user if
+information is missing
 
 Create Dev Technical Guidance section with available information:
 
@@ -162,7 +170,8 @@ Create Dev Technical Guidance section with available information:
 
 ### Missing Information
 
-Critical: List anything you couldn't find that dev will need and ask for the missing information
+Critical: List anything you couldn't find that dev will need and ask for the
+missing information
 
 ### 4. Task Generation with Safety Checks
 
@@ -310,7 +319,8 @@ The brownfield story creation is successful when:
 
 ## Important Notes
 
-- This task is specifically for brownfield projects with non-standard documentation
+- This task is specifically for brownfield projects with non-standard
+  documentation
 - Always prioritize existing system stability over new features
 - When in doubt, add exploration and verification tasks
 - It's better to ask the user for clarification than make assumptions

@@ -1,19 +1,33 @@
-import { z } from 'zod';
 import Database from 'better-sqlite3';
-import { BaseRepository, Repository } from '../repositories/index.js';
+import { z } from 'zod';
+
+import { BaseRepository } from '../repositories/index.js';
+import type { Repository } from '../repositories/index.js';
 
 /**
  * AppVersion entity schema
  */
+const isValidSemver = (version: string): boolean => {
+  // Basic semver check: X.Y.Z with optional -prerelease (alphanum and dashes)
+  const [core, pre] = version.split('-', 2) as [string, string?];
+  const parts = core.split('.');
+  if (parts.length !== 3) return false;
+  const [maj, min, pat] = parts as [string, string, string];
+  const isNonNegInt = (s: string) =>
+    /^\d+$/.test(s) && String(Number(s)) === s.replace(/^0+(?=\d)/, s === '0' ? '' : '');
+  if (!isNonNegInt(maj) || !isNonNegInt(min) || !isNonNegInt(pat)) return false;
+  if (pre && !/^[a-zA-Z0-9-]+$/.test(pre)) return false;
+  return true;
+};
+
 export const AppVersionSchema = z.object({
   id: z.string().uuid('Invalid app version ID format'),
-  version: z.string()
-    .regex(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9-]+)?$/, 'Invalid semantic version format'),
+  version: z.string().refine(v => isValidSemver(v), 'Invalid semantic version format'),
   schemaVersion: z.string().min(1, 'Schema version is required'),
   migratedAt: z.date(),
   notes: z.string().max(1000, 'Notes too long').optional().nullable(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
 });
 
 export type AppVersion = z.infer<typeof AppVersionSchema>;
@@ -25,7 +39,7 @@ export const CreateAppVersionSchema = AppVersionSchema.omit({
   id: true,
   migratedAt: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type CreateAppVersionInput = z.infer<typeof CreateAppVersionSchema>;
@@ -38,7 +52,7 @@ export const UpdateAppVersionSchema = AppVersionSchema.partial().omit({
   version: true, // Version cannot be changed
   migratedAt: true, // Migration date cannot be changed
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 });
 
 export type UpdateAppVersionInput = z.infer<typeof UpdateAppVersionSchema>;
@@ -55,7 +69,10 @@ export interface AppVersionRepository extends Repository<AppVersion> {
 /**
  * App version repository implementation
  */
-export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> implements AppVersionRepository {
+export class AppVersionRepositoryImpl
+  extends BaseRepository<AppVersion>
+  implements AppVersionRepository
+{
   constructor(db: Database.Database) {
     super(db, 'app_versions', AppVersionSchema);
   }
@@ -65,7 +82,7 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
    */
   async findByVersion(version: string): Promise<AppVersion | null> {
     const stmt = this.db.prepare('SELECT * FROM app_versions WHERE version = ?');
-    const row = stmt.get(version) as Record<string, any> | undefined;
+    const row = stmt.get(version) as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -81,7 +98,7 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
       ORDER BY migrated_at DESC
       LIMIT 1
     `);
-    const row = stmt.get() as Record<string, any> | undefined;
+    const row = stmt.get() as Record<string, unknown> | undefined;
 
     if (!row) return null;
 
@@ -92,8 +109,10 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
    * Find all app versions with a specific schema version
    */
   async findBySchemaVersion(schemaVersion: string): Promise<AppVersion[]> {
-    const stmt = this.db.prepare('SELECT * FROM app_versions WHERE schema_version = ? ORDER BY migrated_at ASC');
-    const rows = stmt.all(schemaVersion) as Record<string, any>[];
+    const stmt = this.db.prepare(
+      'SELECT * FROM app_versions WHERE schema_version = ? ORDER BY migrated_at ASC'
+    );
+    const rows = stmt.all(schemaVersion) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));
   }
@@ -101,7 +120,7 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
   /**
    * Override create to enforce version uniqueness and set migration date
    */
-  async create(versionData: CreateAppVersionInput): Promise<AppVersion> {
+  override async create(versionData: CreateAppVersionInput): Promise<AppVersion> {
     // Check if version already exists
     const existing = await this.findByVersion(versionData.version);
     if (existing) {
@@ -111,16 +130,16 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
     // Set migration date to now
     const dataWithMigration = {
       ...versionData,
-      migratedAt: new Date()
+      migratedAt: new Date(),
     };
 
-    return super.create(dataWithMigration as any);
+    return super.create(dataWithMigration as CreateAppVersionInput & { migratedAt: Date });
   }
 
   /**
    * Override mapEntityToRow to handle migratedAt field
    */
-  protected mapEntityToRow(entity: AppVersion): Record<string, any> {
+  protected override mapEntityToRow(entity: AppVersion): Record<string, unknown> {
     const row = super.mapEntityToRow(entity);
     // Convert migratedAt separately since it's not following the standard naming convention
     if (entity.migratedAt) {
@@ -132,10 +151,16 @@ export class AppVersionRepositoryImpl extends BaseRepository<AppVersion> impleme
   /**
    * Override mapRowToEntity to handle migrated_at field
    */
-  protected mapRowToEntity(row: Record<string, any>): AppVersion {
+  protected override mapRowToEntity(row: Record<string, unknown>): AppVersion {
     // Convert migrated_at to migratedAt before standard mapping
     if (row.migrated_at) {
-      row.migratedAt = new Date(row.migrated_at);
+      const raw = row.migrated_at as unknown;
+      if (typeof raw === 'string' || typeof raw === 'number' || raw instanceof Date) {
+        row.migratedAt = new Date(raw as string | number | Date);
+      } else {
+        // Fallback to string conversion to avoid type errors; value should be ISO string in practice
+        row.migratedAt = new Date(String(raw));
+      }
       delete row.migrated_at;
     }
     return super.mapRowToEntity(row);
@@ -164,20 +189,27 @@ export const AppVersionUtils = {
   /**
    * Parse semantic version into components
    */
-  parseVersion(version: string): { major: number; minor: number; patch: number; prerelease?: string } {
-    const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9-]+))?$/);
-    if (!match) {
+  parseVersion(version: string): {
+    major: number;
+    minor: number;
+    patch: number;
+    prerelease?: string;
+  } {
+    const [core, pre] = version.split('-', 2) as [string, string?];
+    const parts = core.split('.');
+    if (parts.length !== 3 || !parts.every(p => /^\d+$/.test(p))) {
       throw new Error(`Invalid semantic version: ${version}`);
     }
 
+    const [maj, min, pat] = parts as [string, string, string];
     const result = {
-      major: parseInt(match[1]!, 10),
-      minor: parseInt(match[2]!, 10),
-      patch: parseInt(match[3]!, 10)
+      major: parseInt(maj, 10),
+      minor: parseInt(min, 10),
+      patch: parseInt(pat, 10),
     } as { major: number; minor: number; patch: number; prerelease?: string };
 
-    if (match[4]) {
-      result.prerelease = match[4];
+    if (pre) {
+      result.prerelease = pre;
     }
 
     return result;
@@ -220,7 +252,7 @@ export const AppVersionUtils = {
    * Check if version is valid semantic version
    */
   isValidVersion(version: string): boolean {
-    return /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9-]+)?$/.test(version);
+    return isValidSemver(version);
   },
 
   /**
@@ -256,7 +288,7 @@ export const AppVersionUtils = {
     const changesList = changes.map(change => `• ${change}`).join('\n');
 
     return `${header}\n${separator}\n\nChanges:\n${changesList}\n\nMigrated: ${new Date().toISOString()}`;
-  }
+  },
 };
 
 /**
@@ -266,5 +298,4 @@ export const APP_VERSION_CONSTANTS = {
   MAX_VERSION_LENGTH: 50,
   MAX_SCHEMA_VERSION_LENGTH: 20,
   MAX_NOTES_LENGTH: 1000,
-  SEMVER_PATTERN: /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9-]+)?$/
 } as const;

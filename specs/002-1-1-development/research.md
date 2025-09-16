@@ -1,7 +1,10 @@
 # Research: Development Environment Bootstrap
 
 ## Executive Summary
-This document consolidates research findings for implementing the Development Environment Bootstrap feature, focusing on core architectural patterns, tool selection, and integration strategies for the CTRL FreaQ MVP.
+
+This document consolidates research findings for implementing the Development
+Environment Bootstrap feature, focusing on core architectural patterns, tool
+selection, and integration strategies for the CTRL FreaQ MVP.
 
 ## Research Findings
 
@@ -10,12 +13,14 @@ This document consolidates research findings for implementing the Development En
 **Decision**: Request-scoped container pattern using Express.js middleware
 
 **Rationale**:
+
 - Provides dependency injection without global singletons
 - Enables per-request configuration and context
 - Maintains testability with mock service locators
 - Aligns with Constitutional no-singleton requirement
 
 **Implementation Approach**:
+
 ```typescript
 // Per-request service container attached to req.services
 interface ServiceLocator {
@@ -25,6 +30,7 @@ interface ServiceLocator {
 ```
 
 **Alternatives Considered**:
+
 - InversifyJS: Too heavy, requires decorators
 - TSyringe: Global container violates no-singleton rule
 - Manual DI: Lacks type safety and becomes unwieldy
@@ -34,27 +40,29 @@ interface ServiceLocator {
 **Decision**: Pino 9.5.0 with structured JSON logging
 
 **Rationale**:
+
 - Fastest Node.js logger (10x faster than Winston)
 - Native JSON output for structured logging
 - Browser bundle available for frontend
 - Supports child loggers for component context
 
 **Configuration Strategy**:
+
 ```typescript
 // Backend configuration
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   formatters: {
-    level: (label) => ({ level: label }),
+    level: label => ({ level: label }),
     bindings: () => ({
       pid: process.pid,
       hostname: os.hostname(),
       service: 'ctrl-freaq-api',
-      version: process.env.npm_package_version
-    })
+      version: process.env.npm_package_version,
+    }),
   },
   timestamp: pino.stdTimeFunctions.isoTime,
-  redact: ['req.headers.authorization', '*.password', '*.apiKey']
+  redact: ['req.headers.authorization', '*.password', '*.apiKey'],
 });
 
 // Frontend configuration with backend transmission
@@ -66,15 +74,16 @@ const browserLogger = pino({
         fetch('/api/v1/logs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(logEvent)
+          body: JSON.stringify(logEvent),
         });
-      }
-    }
-  }
+      },
+    },
+  },
 });
 ```
 
 **Alternatives Considered**:
+
 - Winston: Slower, more complex configuration
 - Bunyan: Discontinued, lacks browser support
 - Debug: Too simple, no structured logging
@@ -84,18 +93,25 @@ const browserLogger = pino({
 **Decision**: Abstract base repository with better-sqlite3
 
 **Rationale**:
+
 - Synchronous API simplifies code (no async/await needed)
 - 5x faster than node-sqlite3
 - Type-safe with TypeScript
 - Easy migration path to DynamoDB
 
 **Base Repository Pattern**:
+
 ```typescript
 abstract class BaseRepository<T> {
-  constructor(protected db: Database, protected tableName: string) {}
+  constructor(
+    protected db: Database,
+    protected tableName: string
+  ) {}
 
   findById(id: string): T | undefined {
-    const stmt = this.db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`);
+    const stmt = this.db.prepare(
+      `SELECT * FROM ${this.tableName} WHERE id = ?`
+    );
     return stmt.get(id) as T;
   }
 
@@ -110,12 +126,14 @@ abstract class BaseRepository<T> {
 ```
 
 **Migration Strategy to DynamoDB**:
+
 - Repository interface remains unchanged
 - Implementation swapped at service locator level
 - No JOIN operations in repository methods
 - Cursor-based pagination ready
 
 **Alternatives Considered**:
+
 - TypeORM: Too heavy for MVP, complex migrations
 - Prisma: Requires build step, adds complexity
 - Raw SQL: No abstraction for future migration
@@ -125,12 +143,14 @@ abstract class BaseRepository<T> {
 **Decision**: pnpm workspaces + Turborepo
 
 **Rationale**:
+
 - pnpm: 3x faster installations, strict dependency isolation
 - Turborepo: Intelligent build caching, parallel execution
 - Native TypeScript project references support
 - Simple configuration compared to alternatives
 
 **Workspace Configuration**:
+
 ```yaml
 # pnpm-workspace.yaml
 packages:
@@ -139,6 +159,7 @@ packages:
 ```
 
 **Turborepo Pipeline**:
+
 ```json
 {
   "pipeline": {
@@ -152,6 +173,7 @@ packages:
 ```
 
 **Alternatives Considered**:
+
 - Nx: More complex, requires learning curve
 - Lerna: Maintenance mode, less performant
 - Rush: Enterprise-focused, overkill for MVP
@@ -162,12 +184,14 @@ packages:
 **Decision**: Move and enhance existing code to apps/web
 
 **Rationale**:
+
 - Preserves working authentication (Clerk)
 - Maintains existing routing structure
 - Reuses component library setup (shadcn/ui)
 - Faster than rewriting from scratch
 
 **Enhancement Strategy**:
+
 1. Move files preserving structure
 2. Update package.json for monorepo
 3. Add missing architectural components:
@@ -178,6 +202,7 @@ packages:
 4. Refactor to feature-based structure gradually
 
 **Alternatives Considered**:
+
 - Complete rewrite: Wastes existing work
 - Keep as-is: Doesn't meet architectural requirements
 - Fork and modify: Creates maintenance burden
@@ -187,12 +212,14 @@ packages:
 **Decision**: Commander.js with structured commands
 
 **Rationale**:
+
 - Most popular Node.js CLI framework
 - Automatic help generation
 - Subcommand support
 - TypeScript types available
 
 **CLI Structure per Package**:
+
 ```typescript
 #!/usr/bin/env node
 import { Command } from 'commander';
@@ -207,7 +234,7 @@ program
   .option('--type <type>', 'Entity type')
   .option('--id <id>', 'Entity ID')
   .option('--format <format>', 'Output format', 'json')
-  .action(async (options) => {
+  .action(async options => {
     // Implementation
   });
 
@@ -215,6 +242,7 @@ program.parse();
 ```
 
 **Alternatives Considered**:
+
 - Yargs: More complex API
 - Oclif: Overkill for simple CLIs
 - Manual parsing: Error-prone, no help generation
@@ -224,12 +252,14 @@ program.parse();
 **Decision**: Vitest with React Testing Library
 
 **Rationale**:
+
 - Vite-native, shares config with frontend
 - Jest-compatible API for easy migration
 - Fast execution with parallel tests
 - Built-in TypeScript support
 
 **Test Organization**:
+
 ```
 tests/
 ├── contract/       # API contract tests
@@ -239,6 +269,7 @@ tests/
 ```
 
 **Testing Utilities**:
+
 ```typescript
 // Test database helper
 export function createTestDb(): Database {
@@ -251,12 +282,13 @@ export function createTestDb(): Database {
 export function createMockServices(): ServiceLocator {
   return new MockServiceLocator({
     logger: createTestLogger(),
-    db: createTestDb()
+    db: createTestDb(),
   });
 }
 ```
 
 **Alternatives Considered**:
+
 - Jest: Slower, requires separate config
 - Mocha/Chai: More setup required
 - Playwright: E2E only, not for unit tests
@@ -266,12 +298,14 @@ export function createMockServices(): ServiceLocator {
 **Decision**: Typed error classes with error codes
 
 **Rationale**:
+
 - Type-safe error handling
 - Consistent error responses
 - Easy to test error cases
 - Machine-readable error codes
 
 **Error Hierarchy**:
+
 ```typescript
 class AppError extends Error {
   constructor(
@@ -284,7 +318,10 @@ class AppError extends Error {
 }
 
 class ValidationError extends AppError {
-  constructor(message: string, public fields?: Record<string, string>) {
+  constructor(
+    message: string,
+    public fields?: Record<string, string>
+  ) {
     super('VALIDATION_ERROR', message, 400);
   }
 }
@@ -297,6 +334,7 @@ class NotFoundError extends AppError {
 ```
 
 **Alternatives Considered**:
+
 - Error codes only: Less developer-friendly
 - Throwing strings: No type safety
 - HTTP status only: Insufficient detail
@@ -329,13 +367,13 @@ class NotFoundError extends AppError {
 
 ## Risk Mitigation
 
-| Risk | Mitigation Strategy |
-|------|-------------------|
-| Complex service locator | Start simple, enhance incrementally |
+| Risk                          | Mitigation Strategy                  |
+| ----------------------------- | ------------------------------------ |
+| Complex service locator       | Start simple, enhance incrementally  |
 | Frontend breaking during move | Test each step, preserve git history |
-| Library CLI overhead | Share CLI utilities package |
-| Test setup complexity | Create test utilities package |
-| Logging performance | Use async transport in production |
+| Library CLI overhead          | Share CLI utilities package          |
+| Test setup complexity         | Create test utilities package        |
+| Logging performance           | Use async transport in production    |
 
 ## Success Criteria
 
@@ -359,4 +397,5 @@ class NotFoundError extends AppError {
 8. Write documentation
 
 ---
-*Research completed: 2025-09-13*
+
+_Research completed: 2025-09-13_

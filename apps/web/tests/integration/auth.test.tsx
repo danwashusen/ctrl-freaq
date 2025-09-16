@@ -1,9 +1,8 @@
-import React from 'react';
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ClerkProvider, useAuth } from '@clerk/clerk-react';
-import { MemoryRouter } from 'react-router-dom';
+// No router needed for these tests; components under test don't use routing
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 
 /**
  * Integration tests for user authentication flow
@@ -27,7 +26,7 @@ vi.mock('@clerk/clerk-react', () => ({
   useUser: vi.fn(),
   SignIn: () => <div data-testid="sign-in-component">Sign In Component</div>,
   SignUp: () => <div data-testid="sign-up-component">Sign Up Component</div>,
-  UserButton: () => <div data-testid="user-button">User Menu</div>
+  UserButton: () => <div data-testid="user-button">User Menu</div>,
 }));
 
 // Mock components that will be implemented
@@ -65,11 +64,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter>
-    <ClerkProvider publishableKey="pk_test_mock">
-      {children}
-    </ClerkProvider>
-  </MemoryRouter>
+  <ClerkProvider publishableKey="pk_test_mock">{children}</ClerkProvider>
 );
 
 describe('Authentication Integration Tests', () => {
@@ -82,7 +77,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: false,
         isLoaded: false,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       render(
@@ -98,7 +93,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: false,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       render(
@@ -114,7 +109,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       render(
@@ -133,7 +128,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: false,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       render(
@@ -152,7 +147,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       render(
@@ -172,7 +167,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: false,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       // This would be the actual sign-in page component
@@ -206,7 +201,7 @@ describe('Authentication Integration Tests', () => {
       const mockAuth = {
         isSignedIn: false,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       };
 
       vi.mocked(useAuth).mockReturnValue(mockAuth as any);
@@ -241,7 +236,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        signOut: mockSignOut
+        signOut: mockSignOut,
       } as any);
 
       const AppWithSignOut = () => {
@@ -249,10 +244,7 @@ describe('Authentication Integration Tests', () => {
 
         return (
           <div data-testid="authenticated-app">
-            <button
-              data-testid="sign-out-button"
-              onClick={() => signOut()}
-            >
+            <button data-testid="sign-out-button" onClick={() => signOut()}>
               Sign Out
             </button>
           </div>
@@ -275,7 +267,7 @@ describe('Authentication Integration Tests', () => {
       const mockAuth = {
         isSignedIn: true,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       };
 
       vi.mocked(useAuth).mockReturnValue(mockAuth as any);
@@ -311,7 +303,7 @@ describe('Authentication Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       } as any);
 
       const { rerender } = render(
@@ -338,7 +330,7 @@ describe('Authentication Integration Tests', () => {
       const mockAuth = {
         isSignedIn: true,
         isLoaded: true,
-        signOut: vi.fn()
+        signOut: vi.fn(),
       };
 
       vi.mocked(useAuth).mockReturnValue(mockAuth as any);
@@ -372,7 +364,7 @@ describe('Authentication Integration Tests', () => {
         isSignedIn: false,
         isLoaded: false,
         signOut: vi.fn(),
-        error: new Error('Authentication failed')
+        error: new Error('Authentication failed'),
       } as any);
 
       const AppWithErrorHandling = () => {
@@ -380,7 +372,9 @@ describe('Authentication Integration Tests', () => {
 
         const mockAuthState = useAuth() as any;
         if (mockAuthState.error) {
-          return <div data-testid="auth-error">Authentication Error: {mockAuthState.error.message}</div>;
+          return (
+            <div data-testid="auth-error">Authentication Error: {mockAuthState.error.message}</div>
+          );
         }
 
         if (!isLoaded) {
@@ -412,7 +406,7 @@ describe('Authentication Integration Tests', () => {
         isSignedIn: false,
         isLoaded: false,
         signOut: vi.fn(),
-        error: new Error('Network error')
+        error: new Error('Network error'),
       };
 
       vi.mocked(useAuth).mockReturnValue(mockAuth as any);
@@ -448,7 +442,7 @@ describe('Authentication Integration Tests', () => {
         isSignedIn: false,
         isLoaded: true,
         signOut: vi.fn(),
-        mfaRequired: true
+        mfaRequired: true,
       } as any);
 
       const AppWithMFA = () => {

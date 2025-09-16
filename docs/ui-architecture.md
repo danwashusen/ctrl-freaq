@@ -4,56 +4,70 @@
 
 ### Architectural Decision: React Frontend with Express.js Backend {#architectural-decision-react-express}
 
-After analyzing the existing codebase and project requirements, this architecture adopts a **decoupled frontend approach** using React as the primary UI framework with Express.js as the backend API server. This decision is based on:
+After analyzing the existing codebase and project requirements, this
+architecture adopts a **decoupled frontend approach** using React as the primary
+UI framework with Express.js as the backend API server. This decision is based
+on:
 
-1. **Existing UI Investment**: Substantial React-based UI foundation exists in `docs/examples/ctrl-freaq-ui` with established patterns, components, and routing
-2. **Ecosystem Alignment**: React's extensive ecosystem for WYSIWYG editors (Milkdown), real-time features, and component libraries (shadcn/ui)
-3. **Team Expertise**: React's widespread adoption ensures easier onboarding and AI agent compatibility
-4. **Clear Separation of Concerns**: Decoupling frontend from backend enables independent scaling and deployment
+1. **Existing UI Investment**: Substantial React-based UI foundation exists in
+   `docs/examples/ctrl-freaq-ui` with established patterns, components, and
+   routing
+2. **Ecosystem Alignment**: React's extensive ecosystem for WYSIWYG editors
+   (Milkdown), real-time features, and component libraries (shadcn/ui)
+3. **Team Expertise**: React's widespread adoption ensures easier onboarding and
+   AI agent compatibility
+4. **Clear Separation of Concerns**: Decoupling frontend from backend enables
+   independent scaling and deployment
 
-The Express.js server serves as a **pure API server**, exposing REST endpoints and SSE streams consumed by the React frontend. This provides a clear separation of concerns while leveraging React's strengths for complex UI interactions.
+The Express.js server serves as a **pure API server**, exposing REST endpoints
+and SSE streams consumed by the React frontend. This provides a clear separation
+of concerns while leveraging React's strengths for complex UI interactions.
 
 ### Frontend Starter Analysis {#frontend-starter-analysis}
 
-**Foundation Used**: Custom React + TypeScript setup based on lovable.ai generated code
+**Foundation Used**: Custom React + TypeScript setup based on lovable.ai
+generated code
+
 - **Location**: `docs/examples/ctrl-freaq-ui`
-- **Key Technologies**: React 18, TypeScript, Vite, React Router v6, JWT Auth, shadcn/ui, TanStack Query
-- **Constraints**: Must maintain compatibility with existing component patterns and routing structure
+- **Key Technologies**: React 18, TypeScript, Vite, React Router v6, JWT Auth,
+  shadcn/ui, TanStack Query
+- **Constraints**: Must maintain compatibility with existing component patterns
+  and routing structure
 
 ### Assumptions and Resolutions {#assumptions-resolutions}
 
-| Assumption | Resolution |
-|------------|------------|
-| Frontend framework choice conflicts with backend | Use React for UI, Express.js for API only |
-| Document Editor complexity requires framework alignment | Milkdown works excellently with React |
-| Authentication must be consistent | JWT tokens work seamlessly with both React and Express.js |
-| Streaming AI responses need special handling | React supports SSE/WebStreams natively |
-| Library-first architecture applies to frontend | Create React component libraries with Storybook documentation |
+| Assumption                                              | Resolution                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------- |
+| Frontend framework choice conflicts with backend        | Use React for UI, Express.js for API only                     |
+| Document Editor complexity requires framework alignment | Milkdown works excellently with React                         |
+| Authentication must be consistent                       | JWT tokens work seamlessly with both React and Express.js     |
+| Streaming AI responses need special handling            | React supports SSE/WebStreams natively                        |
+| Library-first architecture applies to frontend          | Create React component libraries with Storybook documentation |
 
 ### Change Log {#ui-change-log}
 
-| Date | Version | Description | Author |
-|------|---------|-------------|--------|
-| 2025-09-13 | 1.1 | Recreated from Old UI Architecture Document | Winston AI |
-| 2025-09-12 | 1.0 | Initial frontend architecture with React/Express.js decoupling | Architect |
+| Date       | Version | Description                                                    | Author     |
+| ---------- | ------- | -------------------------------------------------------------- | ---------- |
+| 2025-09-13 | 1.1     | Recreated from Old UI Architecture Document                    | Winston AI |
+| 2025-09-12 | 1.0     | Initial frontend architecture with React/Express.js decoupling | Architect  |
 
 ## Frontend Tech Stack {#frontend-tech-stack}
 
 ### Technology Stack Table {#technology-stack-table}
 
-| Category | Technology | Version | Purpose | Rationale |
-|----------|------------|---------|---------|-----------|
-| Framework | React | 18.3.x | UI framework | Existing investment, ecosystem, AI agent familiarity |
-| UI Library | shadcn/ui | latest | Component library | Accessible, customizable, TypeScript native |
-| State Management | TanStack Query + Zustand | 5.x / 4.5.x | Server + client state | Excellent DX, built-in caching, minimal boilerplate |
-| Routing | React Router | 6.x | Client-side routing | Industry standard, existing implementation |
-| Build Tool | Vite | 5.x | Build and dev server | Fast HMR, ESM native, excellent DX |
-| Styling | Tailwind CSS | 3.4.x | Utility-first CSS | Rapid development, consistent design system |
-| Testing | Vitest + React Testing Library | 1.x / 14.x | Unit and integration testing | Vite native, excellent React support |
-| Form Handling | React Hook Form + Zod | 7.x / 3.x | Form state and validation | Performance, TypeScript integration |
-| Animation | Framer Motion | 11.x | Animations and transitions | Declarative API, gesture support |
-| Logging | Pino | 9.5.0 | Browser logging with backend transmission | High-performance JSON logging, browser-optimized |
-| Dev Tools | React DevTools + Vite Plugin | latest | Development experience | Debugging, performance profiling |
+| Category         | Technology                     | Version     | Purpose                                   | Rationale                                            |
+| ---------------- | ------------------------------ | ----------- | ----------------------------------------- | ---------------------------------------------------- |
+| Framework        | React                          | 18.3.x      | UI framework                              | Existing investment, ecosystem, AI agent familiarity |
+| UI Library       | shadcn/ui                      | latest      | Component library                         | Accessible, customizable, TypeScript native          |
+| State Management | TanStack Query + Zustand       | 5.x / 4.5.x | Server + client state                     | Excellent DX, built-in caching, minimal boilerplate  |
+| Routing          | React Router                   | 6.x         | Client-side routing                       | Industry standard, existing implementation           |
+| Build Tool       | Vite                           | 5.x         | Build and dev server                      | Fast HMR, ESM native, excellent DX                   |
+| Styling          | Tailwind CSS                   | 3.4.x       | Utility-first CSS                         | Rapid development, consistent design system          |
+| Testing          | Vitest + React Testing Library | 1.x / 14.x  | Unit and integration testing              | Vite native, excellent React support                 |
+| Form Handling    | React Hook Form + Zod          | 7.x / 3.x   | Form state and validation                 | Performance, TypeScript integration                  |
+| Animation        | Framer Motion                  | 11.x        | Animations and transitions                | Declarative API, gesture support                     |
+| Logging          | Pino                           | 9.5.0       | Browser logging with backend transmission | High-performance JSON logging, browser-optimized     |
+| Dev Tools        | React DevTools + Vite Plugin   | latest      | Development experience                    | Debugging, performance profiling                     |
 
 ## Project Structure {#project-structure}
 
@@ -167,7 +181,7 @@ src/
 
 ### Component Template {#component-template}
 
-```typescript
+````typescript
 // src/features/[feature]/components/[component-name].tsx
 import { FC, memo, useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -210,21 +224,21 @@ export const ComponentName: FC<ComponentNameProps> = memo(({
 });
 
 ComponentName.displayName = 'ComponentName';
-```
+````
 
 ### Naming Conventions {#naming-conventions}
 
-| Element | Convention | Example |
-|---------|------------|---------|
-| Components | PascalCase | `DocumentEditor.tsx` |
-| Component files | kebab-case or PascalCase | `document-editor.tsx` or `DocumentEditor.tsx` |
-| Hooks | camelCase with 'use' prefix | `useDocumentState.ts` |
-| Services | camelCase with 'Service' suffix | `documentService.ts` |
-| Stores | camelCase with 'Store' suffix | `editorStore.ts` |
-| Types/Interfaces | PascalCase | `DocumentState`, `EditorConfig` |
-| Constants | SCREAMING_SNAKE_CASE | `MAX_FILE_SIZE` |
-| CSS classes | kebab-case | `editor-toolbar` |
-| Test files | [name].test.tsx | `DocumentEditor.test.tsx` |
+| Element          | Convention                      | Example                                       |
+| ---------------- | ------------------------------- | --------------------------------------------- |
+| Components       | PascalCase                      | `DocumentEditor.tsx`                          |
+| Component files  | kebab-case or PascalCase        | `document-editor.tsx` or `DocumentEditor.tsx` |
+| Hooks            | camelCase with 'use' prefix     | `useDocumentState.ts`                         |
+| Services         | camelCase with 'Service' suffix | `documentService.ts`                          |
+| Stores           | camelCase with 'Store' suffix   | `editorStore.ts`                              |
+| Types/Interfaces | PascalCase                      | `DocumentState`, `EditorConfig`               |
+| Constants        | SCREAMING_SNAKE_CASE            | `MAX_FILE_SIZE`                               |
+| CSS classes      | kebab-case                      | `editor-toolbar`                              |
+| Test files       | [name].test.tsx                 | `DocumentEditor.test.tsx`                     |
 
 ## State Management {#state-management}
 
@@ -293,49 +307,53 @@ export const useDocumentStore = create<DocumentStore>()(
         },
 
         // Synchronous actions
-        setActiveDocument: (id) => set((state) => {
-          state.activeDocumentId = id;
-        }),
+        setActiveDocument: id =>
+          set(state => {
+            state.activeDocumentId = id;
+          }),
 
-        updateDocument: (id, updates) => set((state) => {
-          if (state.documents[id]) {
-            Object.assign(state.documents[id], updates);
-          }
-        }),
+        updateDocument: (id, updates) =>
+          set(state => {
+            if (state.documents[id]) {
+              Object.assign(state.documents[id], updates);
+            }
+          }),
 
-        addPendingChange: (documentId, patch) => set((state) => {
-          if (!state.pendingChanges[documentId]) {
-            state.pendingChanges[documentId] = [];
-          }
-          state.pendingChanges[documentId].push(patch);
-        }),
+        addPendingChange: (documentId, patch) =>
+          set(state => {
+            if (!state.pendingChanges[documentId]) {
+              state.pendingChanges[documentId] = [];
+            }
+            state.pendingChanges[documentId].push(patch);
+          }),
 
-        clearPendingChanges: (documentId) => set((state) => {
-          delete state.pendingChanges[documentId];
-        }),
+        clearPendingChanges: documentId =>
+          set(state => {
+            delete state.pendingChanges[documentId];
+          }),
 
         // Async actions
-        fetchDocument: async (id) => {
+        fetchDocument: async id => {
           const response = await documentApi.getDocument(id);
-          set((state) => {
+          set(state => {
             state.documents[id] = response.data;
           });
         },
 
-        saveDocument: async (id) => {
+        saveDocument: async id => {
           const document = get().documents[id];
           const patches = get().pendingChanges[id] || [];
 
           await documentApi.saveDocument(id, { document, patches });
 
-          set((state) => {
+          set(state => {
             state.clearPendingChanges(id);
           });
         },
       })),
       {
         name: 'document-storage',
-        partialize: (state) => ({
+        partialize: state => ({
           pendingChanges: state.pendingChanges,
         }),
       }
@@ -390,10 +408,7 @@ class DocumentService {
   /**
    * Update document with patches
    */
-  async updateDocument(
-    id: string,
-    patches: PatchDiff[]
-  ): Promise<Document> {
+  async updateDocument(id: string, patches: PatchDiff[]): Promise<Document> {
     return apiClient.patch<Document>(`${this.baseUrl}/${id}`, { patches });
   }
 
@@ -414,7 +429,7 @@ class DocumentService {
       }
     );
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = event => {
       try {
         const chunk = JSON.parse(event.data) as ProposalChunk;
         onChunk(chunk);
@@ -423,7 +438,7 @@ class DocumentService {
       }
     };
 
-    eventSource.onerror = (error) => {
+    eventSource.onerror = error => {
       onError(new Error('Proposal stream failed'));
       eventSource.close();
     };
@@ -662,8 +677,11 @@ export const ProtectedRoute = () => {
 ### Core Components {#editor-core-components}
 
 #### WYSIWYG Markdown Editor {#wysiwyg-markdown-editor}
-- **Purpose**: Provide rich text editing experience while maintaining Markdown compatibility
-- **Implementation**: Milkdown v7.15.5 (https://github.com/Milkdown/milkdown) - Plugin-based WYSIWYG markdown editor built on ProseMirror
+
+- **Purpose**: Provide rich text editing experience while maintaining Markdown
+  compatibility
+- **Implementation**: Milkdown v7.15.5 (https://github.com/Milkdown/milkdown) -
+  Plugin-based WYSIWYG markdown editor built on ProseMirror
 - **Features**:
   - Real-time WYSIWYG editing with Markdown source compatibility
   - Extensible plugin system for custom functionality
@@ -674,22 +692,29 @@ export const ProtectedRoute = () => {
   - TypeScript support with comprehensive type definitions
 
 **Milkdown Integration Architecture**:
+
 - **Core Editor**: Milkdown editor instance per section with isolated state
-- **Plugin Configuration**: Custom plugins for section-specific behavior (status indicators, assumptions integration)
+- **Plugin Configuration**: Custom plugins for section-specific behavior (status
+  indicators, assumptions integration)
 - **Theme Integration**: Custom theme aligned with application design system
-- **Change Tracking**: Integration with Git-style patch engine via Milkdown's onChange API
-- **Collaborative Features**: Yjs integration for real-time collaboration (Phase 2)
+- **Change Tracking**: Integration with Git-style patch engine via Milkdown's
+  onChange API
+- **Collaborative Features**: Yjs integration for real-time collaboration
+  (Phase 2)
 - **Performance**: Editor instance pooling for memory management across sections
 
 #### Git-Style Patch Engine (`packages/editor-core`) {#git-style-patch-engine}
+
 - **Purpose**: Track document changes as atomic patch operations
 - **Key Functions**:
   - `createPatch(original: string, modified: string): Patch[]`
   - `applyPatch(content: string, patches: Patch[]): string`
   - `previewPatch(content: string, patches: Patch[]): DiffView`
-- **Benefits**: Granular change tracking, conflict resolution, undo/redo capabilities
+- **Benefits**: Granular change tracking, conflict resolution, undo/redo
+  capabilities
 
 #### Local Persistence Layer (`packages/editor-persistence`) {#local-persistence-layer}
+
 - **Purpose**: Manage pending changes before server persistence
 - **Storage Strategy**:
   - Client-side storage (localStorage/IndexedDB via localforage)
@@ -698,6 +723,7 @@ export const ProtectedRoute = () => {
 - **Conflict Resolution**: Last-write-wins with user notification
 
 #### Section Navigation & State Management {#section-navigation-state-management}
+
 - **Table of Contents**: Interactive navigation with section status indicators
 - **Section States**:
   - `idle` (not selected)
@@ -708,12 +734,18 @@ export const ProtectedRoute = () => {
 - **State Transitions**: Managed through centralized state machine
 
 #### Document State Manager (`packages/editor-persistence`) {#document-state-manager}
-- **Purpose**: Manages document state including both saved content and pending changes
+
+- **Purpose**: Manages document state including both saved content and pending
+  changes
 - **Core Functions**:
-  - `getCurrentState(): DocumentState` - Merge saved content with pending patches
-  - `prepareForAssumptionResolution(sectionId: string): AssumptionContext` - Prepare state for assumption APIs
-  - `applyPendingPatches(savedContent: string, patches: PatchDiff[]): string` - Apply patches to content
-  - `trackSectionChanges(sectionId: string, patches: PatchDiff[])` - Track pending changes per section
+  - `getCurrentState(): DocumentState` - Merge saved content with pending
+    patches
+  - `prepareForAssumptionResolution(sectionId: string): AssumptionContext` -
+    Prepare state for assumption APIs
+  - `applyPendingPatches(savedContent: string, patches: PatchDiff[]): string` -
+    Apply patches to content
+  - `trackSectionChanges(sectionId: string, patches: PatchDiff[])` - Track
+    pending changes per section
   - `hasUnsavedChanges(sectionId?: string): boolean` - Check for unsaved changes
 - **State Tracking**:
   - Per-section pending patches with timestamps
@@ -722,11 +754,16 @@ export const ProtectedRoute = () => {
   - Conflict detection for collaborative editing
 
 #### Integration Points {#editor-integration-points}
-- **AI Assistance**: Conversational co-authoring within editor context with full document state
-- **Quality Gates**: Real-time validation during editing with pending changes context
-- **Export System**: Batch conversion of pending changes to final document format
+
+- **AI Assistance**: Conversational co-authoring within editor context with full
+  document state
+- **Quality Gates**: Real-time validation during editing with pending changes
+  context
+- **Export System**: Batch conversion of pending changes to final document
+  format
 - **Collaboration**: Section-level editing indicators and conflict warnings
-- **Assumption Resolution**: Full document state including unsaved changes for context-aware assumptions
+- **Assumption Resolution**: Full document state including unsaved changes for
+  context-aware assumptions
 
 ### Data Flow Architecture {#data-flow-architecture}
 
@@ -772,15 +809,19 @@ graph TD
 ```
 
 ### Performance Considerations {#editor-performance-considerations}
+
 - **Incremental Loading**: Load document sections on-demand as user navigates
 - **Debounced Persistence**: Batch local changes to reduce storage operations
 - **Diff Optimization**: Use efficient diff algorithms to minimize patch size
-- **Memory Management**: Clear unused editor instances when navigating between sections
+- **Memory Management**: Clear unused editor instances when navigating between
+  sections
 
 ### Document State Synchronization {#document-state-synchronization}
 
 #### State Management Strategy {#state-management-strategy}
-The Document Editor maintains multiple layers of state to support real-time editing while ensuring data consistency:
+
+The Document Editor maintains multiple layers of state to support real-time
+editing while ensuring data consistency:
 
 1. **Server State**: Last saved version of each section stored in database
 2. **Client Cache**: Local copy of saved state for offline capability
@@ -790,18 +831,21 @@ The Document Editor maintains multiple layers of state to support real-time edit
 #### State Synchronization Patterns {#state-synchronization-patterns}
 
 **For AI Operations** (Assumptions, Chat, Proposals):
+
 - Always send complete merged state including pending changes
 - Use delta compression for large documents (>100KB)
 - Include section dependency graph for context understanding
 - Cache merged state to avoid recomputation per API call
 
 **For Collaborative Editing**:
+
 - Broadcast pending changes to other users in real-time
 - Implement operational transformation for conflict resolution
 - Use section-level locking to prevent simultaneous edits
 - Maintain activity log for audit and rollback capability
 
 **For Persistence Operations**:
+
 - Batch multiple section changes into single save operation
 - Use optimistic updates with rollback on server errors
 - Implement automatic save with user-configurable intervals
@@ -863,21 +907,32 @@ POST /api/v1/documents/{docId}/assumptions/query
 ### Template Resolution & Content Generation {#template-resolution-content-generation}
 
 #### Template Hierarchy Traversal {#template-hierarchy-traversal}
-The Template Resolver Service navigates complex document template hierarchies to find section-specific configuration:
+
+The Template Resolver Service navigates complex document template hierarchies to
+find section-specific configuration:
 
 ```typescript
 interface TemplateSection {
-  id: string;                 // e.g., "introduction", "high-level-architecture"
+  id: string; // e.g., "introduction", "high-level-architecture"
   title?: string;
-  instruction?: string;       // LLM instructions for content generation
-  template?: string;          // Template text for LLM to render/fill
-  type?: 'paragraphs'|'bullet-list'|'numbered-list'|'table'|'mermaid'|'custom';
+  instruction?: string; // LLM instructions for content generation
+  template?: string; // Template text for LLM to render/fill
+  type?:
+    | 'paragraphs'
+    | 'bullet-list'
+    | 'numbered-list'
+    | 'table'
+    | 'mermaid'
+    | 'custom';
   sections?: TemplateSection[]; // nested sub-sections
-  decisionAggressivenessDefault?: 'conservative'|'balanced'|'yolo';
+  decisionAggressivenessDefault?: 'conservative' | 'balanced' | 'yolo';
 }
 
 // Traversal algorithm
-function findSectionTemplate(documentTemplate: DocumentTemplate, sectionId: string): TemplateSection | null {
+function findSectionTemplate(
+  documentTemplate: DocumentTemplate,
+  sectionId: string
+): TemplateSection | null {
   // Breadth-first search through nested sections
   const queue = [...documentTemplate.sections];
 
@@ -896,6 +951,7 @@ function findSectionTemplate(documentTemplate: DocumentTemplate, sectionId: stri
 ```
 
 #### Generation Configuration Extraction {#generation-configuration-extraction}
+
 Extract all generation-relevant configuration with proper inheritance:
 
 ```typescript
@@ -922,7 +978,8 @@ function extractGenerationConfig(
       documentTemplate.decisionAggressivenessDefault ||
       'Balanced',
     maxTokens: sectionTemplate.maxTokens || documentTemplate.maxTokens || 4000,
-    temperature: sectionTemplate.temperature || documentTemplate.temperature || 0.7
+    temperature:
+      sectionTemplate.temperature || documentTemplate.temperature || 0.7,
   };
 }
 ```
@@ -930,12 +987,13 @@ function extractGenerationConfig(
 #### Template Caching Strategy {#template-caching-strategy}
 
 **Cache Structure**:
+
 ```typescript
 interface TemplateCache {
-  templates: Map<string, CachedTemplate>;     // templateId -> template
-  sections: Map<string, CachedSection>;       // sectionKey -> resolved config
-  lruOrder: string[];                         // LRU tracking
-  maxSize: number;                           // Cache size limit
+  templates: Map<string, CachedTemplate>; // templateId -> template
+  sections: Map<string, CachedSection>; // sectionKey -> resolved config
+  lruOrder: string[]; // LRU tracking
+  maxSize: number; // Cache size limit
 }
 
 interface CachedTemplate {
@@ -955,29 +1013,44 @@ interface CachedSection {
 ```
 
 **Cache Operations**:
-- **Cache Key**: `${templateId}:${sectionId}:${templateVersion}` for section configs
-- **Invalidation**: Version-based - clear all entries when template version changes
-- **LRU Eviction**: Remove least recently used templates when cache size exceeded
+
+- **Cache Key**: `${templateId}:${sectionId}:${templateVersion}` for section
+  configs
+- **Invalidation**: Version-based - clear all entries when template version
+  changes
+- **LRU Eviction**: Remove least recently used templates when cache size
+  exceeded
 - **Background Refresh**: Pre-load commonly used templates during low traffic
 - **Cache Warming**: Load document template when first section is accessed
 
 #### Content Generation Pipeline {#content-generation-pipeline}
 
 ```typescript
-async function generateSectionContent(sectionId: string, request: ContentGenerationRequest) {
+async function generateSectionContent(
+  sectionId: string,
+  request: ContentGenerationRequest
+) {
   // 1. Resolve template with caching
   const cacheKey = `${request.documentId}:${sectionId}`;
   let config = templateCache.get(cacheKey);
 
   if (!config || config.templateVersion !== currentTemplateVersion) {
-    const documentTemplate = await templateResolver.loadDocumentTemplate(request.templateId);
-    const sectionTemplate = templateResolver.findSectionTemplate(documentTemplate, sectionId);
+    const documentTemplate = await templateResolver.loadDocumentTemplate(
+      request.templateId
+    );
+    const sectionTemplate = templateResolver.findSectionTemplate(
+      documentTemplate,
+      sectionId
+    );
 
     if (!sectionTemplate) {
       throw new Error(`Section template not found: ${sectionId}`);
     }
 
-    config = templateResolver.extractGenerationConfig(sectionTemplate, documentTemplate);
+    config = templateResolver.extractGenerationConfig(
+      sectionTemplate,
+      documentTemplate
+    );
     templateCache.set(cacheKey, config);
   }
 
@@ -987,22 +1060,25 @@ async function generateSectionContent(sectionId: string, request: ContentGenerat
     template: config.template,
     documentState: request.currentDocumentState,
     resolvedAssumptions: request.resolvedAssumptions,
-    sectionType: config.type
+    sectionType: config.type,
   });
 
   // 3. Stream LLM generation with progress events
   return streamLLMGeneration(prompt, {
     maxTokens: config.maxTokens,
-    temperature: config.temperature
+    temperature: config.temperature,
   });
 }
 ```
 
 #### Error Handling & Fallbacks {#template-error-handling-fallbacks}
 
-- **Template Not Found**: Use default generation strategy with basic instructions
-- **Invalid Template Syntax**: Validate before sending to LLM, fall back to instruction-only mode
-- **Cache Corruption**: Rebuild cache from source templates on validation failure
+- **Template Not Found**: Use default generation strategy with basic
+  instructions
+- **Invalid Template Syntax**: Validate before sending to LLM, fall back to
+  instruction-only mode
+- **Cache Corruption**: Rebuild cache from source templates on validation
+  failure
 - **Network Failures**: Use cached templates during template service outages
 - **LLM Errors**: Retry with simplified prompt if generation fails
 
@@ -1141,7 +1217,7 @@ describe('DocumentEditor', () => {
 1. **Unit Tests**: Test individual components in isolation
 2. **Integration Tests**: Test component interactions
 3. **E2E Tests**: Test critical user flows (using Playwright)
-4. **Coverage Goals**: Aim for 80% code coverage
+4. **Coverage Goals**: Use thresholds defined in CI Quality Gates (per-package)
 5. **Test Structure**: Arrange-Act-Assert pattern
 6. **Mock External Dependencies**: API calls, routing, state management
 
@@ -1149,9 +1225,9 @@ describe('DocumentEditor', () => {
 
 ### Playwright Configuration {#playwright-configuration}
 
-**Framework**: Playwright Test Framework
-**Test Location**: `tests/e2e/`
-**File Convention**: `*.e2e.ts` for E2E tests, `*.visual.ts` for visual regression tests
+**Framework**: Playwright Test Framework **Test Location**: `tests/e2e/` **File
+Convention**: `*.e2e.ts` for E2E tests, `*.visual.ts` for visual regression
+tests
 
 ```typescript
 // playwright.config.ts
@@ -1166,7 +1242,7 @@ export default defineConfig({
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results.json' }],
-    ['junit', { outputFile: 'junit.xml' }]
+    ['junit', { outputFile: 'junit.xml' }],
   ],
 
   use: {
@@ -1181,14 +1257,14 @@ export default defineConfig({
       name: 'Desktop Chrome',
       use: {
         ...devices['Desktop Chrome'],
-        viewport: { width: 1440, height: 900 }
+        viewport: { width: 1440, height: 900 },
       },
     },
     {
       name: 'Desktop Firefox',
       use: {
         ...devices['Desktop Firefox'],
-        viewport: { width: 1440, height: 900 }
+        viewport: { width: 1440, height: 900 },
       },
     },
     {
@@ -1225,7 +1301,9 @@ test.describe('Document Editor Visual Tests', () => {
     await page.waitForURL('/dashboard');
   });
 
-  test('document editor renders correctly across viewports', async ({ page }) => {
+  test('document editor renders correctly across viewports', async ({
+    page,
+  }) => {
     await page.goto('/documents/test-doc/edit');
 
     // Full page screenshot for visual regression
@@ -1240,19 +1318,22 @@ test.describe('Document Editor Visual Tests', () => {
     await page.goto('/documents/test-doc/edit');
 
     // Collapsed state
-    await expect(page.locator('[data-testid="ai-assistant"]'))
-      .toHaveScreenshot('ai-assistant-collapsed.png');
+    await expect(page.locator('[data-testid="ai-assistant"]')).toHaveScreenshot(
+      'ai-assistant-collapsed.png'
+    );
 
     // Expanding animation
     await page.click('[data-testid="ai-assistant-button"]');
     await page.waitForTimeout(150); // Mid-animation
-    await expect(page.locator('[data-testid="ai-assistant"]'))
-      .toHaveScreenshot('ai-assistant-expanding.png');
+    await expect(page.locator('[data-testid="ai-assistant"]')).toHaveScreenshot(
+      'ai-assistant-expanding.png'
+    );
 
     // Expanded state
     await page.waitForSelector('[data-testid="ai-chat-interface"]');
-    await expect(page.locator('[data-testid="ai-assistant"]'))
-      .toHaveScreenshot('ai-assistant-expanded.png');
+    await expect(page.locator('[data-testid="ai-assistant"]')).toHaveScreenshot(
+      'ai-assistant-expanded.png'
+    );
   });
 
   test('section state transitions', async ({ page }) => {
@@ -1282,7 +1363,7 @@ const viewports = [
   { name: 'mobile', width: 320, height: 568 },
   { name: 'tablet', width: 768, height: 1024 },
   { name: 'desktop', width: 1440, height: 900 },
-  { name: 'wide', width: 1920, height: 1080 }
+  { name: 'wide', width: 1920, height: 1080 },
 ];
 
 test.describe('Responsive Layout Tests', () => {
@@ -1305,7 +1386,9 @@ test.describe('Responsive Layout Tests', () => {
       } else {
         // Desktop: sidebar should be visible
         await expect(page.locator('[data-testid="sidebar"]')).toBeVisible();
-        await expect(page.locator('[data-testid="mobile-menu"]')).not.toBeVisible();
+        await expect(
+          page.locator('[data-testid="mobile-menu"]')
+        ).not.toBeVisible();
       }
     });
   });
@@ -1328,13 +1411,15 @@ test.describe('Animation Tests', () => {
     // Capture animation frames
     const frames = [];
     for (let i = 0; i < 5; i++) {
-      frames.push(await page.locator('[data-testid="ai-thinking"]').screenshot());
+      frames.push(
+        await page.locator('[data-testid="ai-thinking"]').screenshot()
+      );
       await page.waitForTimeout(300); // 1.5s animation / 5 frames
     }
 
     // Verify frames are different (animation is occurring)
     for (let i = 1; i < frames.length; i++) {
-      expect(Buffer.compare(frames[i-1], frames[i])).not.toBe(0);
+      expect(Buffer.compare(frames[i - 1], frames[i])).not.toBe(0);
     }
   });
 
@@ -1418,8 +1503,9 @@ test.describe('Theme Visual Tests', () => {
 
     // Check CSS variables are applied
     const backgroundColor = await page.evaluate(() => {
-      return getComputedStyle(document.documentElement)
-        .getPropertyValue('--background');
+      return getComputedStyle(document.documentElement).getPropertyValue(
+        '--background'
+      );
     });
     expect(backgroundColor).toMatch(/hsl\(266, 4%, 32%\)/); // Dark mode color
   });
@@ -1439,7 +1525,7 @@ test.describe('Visual Performance Tests', () => {
     // Start performance measurement
     await page.evaluate(() => {
       window.performanceEntries = [];
-      const observer = new PerformanceObserver((list) => {
+      const observer = new PerformanceObserver(list => {
         window.performanceEntries.push(...list.getEntries());
       });
       observer.observe({ entryTypes: ['measure', 'paint'] });
@@ -1487,19 +1573,28 @@ CI=true npm run test:e2e
 
 ### Visual Testing Best Practices {#visual-testing-best-practices}
 
-1. **Deterministic Screenshots**: Disable animations, use fixed timestamps, mock dynamic content
-2. **Threshold Configuration**: Set appropriate diff thresholds (typically 0.1-0.2 for minor variations)
-3. **Viewport Consistency**: Always set explicit viewport sizes for reproducible results
-4. **Baseline Management**: Store baseline images in version control, review changes in PRs
-5. **Cross-Platform Considerations**: Account for font rendering differences between OS
-6. **Performance Impact**: Run visual tests separately from functional E2E tests in CI
-7. **Selective Testing**: Focus visual tests on critical UI components and user flows
+1. **Deterministic Screenshots**: Disable animations, use fixed timestamps, mock
+   dynamic content
+2. **Threshold Configuration**: Set appropriate diff thresholds (typically
+   0.1-0.2 for minor variations)
+3. **Viewport Consistency**: Always set explicit viewport sizes for reproducible
+   results
+4. **Baseline Management**: Store baseline images in version control, review
+   changes in PRs
+5. **Cross-Platform Considerations**: Account for font rendering differences
+   between OS
+6. **Performance Impact**: Run visual tests separately from functional E2E tests
+   in CI
+7. **Selective Testing**: Focus visual tests on critical UI components and user
+   flows
 
 ## Browser Logging with Pino {#browser-logging-pino}
 
 ### Logging Architecture {#frontend-logging-architecture}
+
 - **Technology**: Pino for browser-optimized structured logging
-- **Backend Transmission**: Automatic error transmission to `/api/v1/logs` endpoint
+- **Backend Transmission**: Automatic error transmission to `/api/v1/logs`
+  endpoint
 - **Context Management**: Component and feature-specific child loggers
 - **Performance Tracking**: Web Vitals and component render timing integration
 - **Environment Configuration**:
@@ -1508,6 +1603,7 @@ CI=true npm run test:e2e
   - Test: Silent mode with mocked transmission
 
 ### Browser-Specific Considerations {#browser-specific-considerations}
+
 - Serialization of browser objects (Events, Errors) for backend compatibility
 - RequestId correlation between frontend and backend logs
 - User context (userId, sessionId) attached to all log entries
@@ -1547,24 +1643,115 @@ VITE_ENABLE_DEV_TOOLS=false
 
 ## Frontend Developer Standards {#frontend-developer-standards}
 
+### Alignment With Backend Architecture {#frontend-backend-alignment}
+
+- API Contract: Reuse backend error shapes, status codes, pagination,
+  versioning, and response envelopes
+- Auth Flows: Mirror authentication/authorization; align token handling,
+  refresh, and logout behavior
+- Correlation: Propagate request/correlation IDs from backend to client logs and
+  subsequent API calls
+- Configuration: Keep environment variable naming/parity and build-time vs
+  runtime config boundaries consistent with backend
+
+### Linting & Formatting (UI) {#linting-formatting-ui}
+
+- Linter: ESLint v9 (flat config)
+  - Rule sets/plugins: @eslint/js, @typescript-eslint, import, react,
+    react-hooks, jsx-a11y
+  - Module/import resolution: TypeScript-aware resolver (workspace tsconfig
+    paths) and Node resolver
+  - Severity policy: Lint warnings fail CI (`pnpm run lint:ci` uses
+    `--max-warnings=0`)
+- Formatter: Prettier v3
+  - Plugins: prettier-plugin-tailwindcss, prettier-plugin-packagejson
+  - Non-code assets: Format Markdown, JSON, YAML
+- YAML linting: via ESLint (eslint-plugin-yml + yaml-eslint-parser)
+- Versioning: Pin versions in package.json; prefer minimal config churn
+
+### Language/Compiler Standards (UI) {#language-compiler-standards-ui}
+
+- Language & Runtime: TypeScript + modern browsers (Vite)
+- Strictness: `strict`, `noUnusedLocals`, `noUnusedParameters`,
+  `noImplicitReturns`, `noFallthroughCasesInSwitch`
+- Module semantics: ESM with bundler resolution; type-only imports with
+  `import type`
+- Safety: `noImplicitOverride`, `useUnknownInCatchVariables`
+
+### Accessibility Standards {#accessibility-standards}
+
+- Target Level: WCAG 2.1 AA
+- Keyboard & Focus: Visible focus styles; trap focus in modals; escape to close
+- Color & Contrast: Meet contrast ratios; prefer system theme and CSS variables
+- ARIA & Semantics: Use semantic HTML; ARIA only to enhance semantics
+- Testing: Include a11y checks in tests (role/name/description), lint a11y rules
+
+### Performance & Budgets {#performance-standards}
+
+- Web-Vitals Targets: LCP ≤ 2.5s, CLS ≤ 0.1, INP ≤ 200ms (typical targets)
+- Budgets: JS/CSS/image/font budget per route; analyze and reduce bundle size
+- Lazy/Code Split: Route-level code splitting and component-level lazy loading
+- Caching: Set cache headers, leverage HTTP/2 or HTTP/3; prefetch critical
+  assets
+
+### Security Controls (UI) {#security-standards-ui}
+
+- DOM Sanitization: Sanitize/encode user content; avoid dangerouslySetInnerHTML
+- CSP: Define content security policy; restrict inline scripts/styles
+- Storage: No secrets or PII in local/session storage
+- Secrets: Do not bundle secrets in client; use environment vars at build time
+  only when safe
+- Third-Party Scripts: Vet and limit; load with integrity attributes where
+  possible
+
+### Observability & Telemetry (UI) {#observability-standards-ui}
+
+- Structured Logging: Use structured logs in browser; redact PII
+- Correlation: Include backend-provided correlation/request IDs in client logs
+  and API calls
+- RUM/Metrics: Capture web-vitals and key UI metrics; forward to backend or
+  monitoring
+- Error Reporting: Centralized client error capture with context breadcrumbs
+
+### CI Quality Gates (UI) {#ci-quality-gates-ui}
+
+- Lint Gate: Lint warnings fail the pipeline
+- Typecheck Gate: Type errors fail the pipeline
+- Test Coverage Thresholds: Lines 80% • Statements 80% • Branches 70% •
+  Functions 80%
+- Accessibility Checks: Basic a11y rules enforced in lint/tests
+- Performance Budgets: Monitor build size; flag budget regressions
+
+### Pre-commit Automation (UI) {#pre-commit-automation-ui}
+
+- Hook mechanism: Husky pre-commit runs lint-staged
+- Staged file tasks: Lint/format/test changed files; keep hooks fast and
+  deterministic
+
 ### Critical Coding Rules {#critical-coding-rules}
 
 1. **Never commit sensitive data** - Use environment variables for all secrets
 2. **Always use TypeScript** - No `any` types except when absolutely necessary
-3. **Component composition over inheritance** - Use hooks and composition patterns
-4. **Immutable state updates** - Never mutate state directly, use Immer in Zustand
-5. **Error boundaries for all features** - Wrap feature components in error boundaries
-6. **Memoize expensive computations** - Use `useMemo` and `useCallback` appropriately
+3. **Component composition over inheritance** - Use hooks and composition
+   patterns
+4. **Immutable state updates** - Never mutate state directly, use Immer in
+   Zustand
+5. **Error boundaries for all features** - Wrap feature components in error
+   boundaries
+6. **Memoize expensive computations** - Use `useMemo` and `useCallback`
+   appropriately
 7. **Lazy load route components** - Use React.lazy for code splitting
 8. **Validate all API responses** - Use Zod schemas for runtime validation
 9. **Handle loading and error states** - Every async operation needs UI feedback
-10. **Test user interactions** - Focus on testing what users do, not implementation
+10. **Test user interactions** - Focus on testing what users do, not
+    implementation
 11. **Use semantic HTML** - Proper ARIA labels and keyboard navigation
 12. **Optimize bundle size** - Monitor with Bundle Analyzer, tree-shake imports
 
 ### Quick Reference {#quick-reference}
 
 #### Common Commands {#common-commands}
+
 ```bash
 # Development
 npm run dev              # Start dev server (Vite)
@@ -1585,6 +1772,7 @@ npm run generate:api        # Generate API service
 ```
 
 #### Key Import Patterns {#key-import-patterns}
+
 ```typescript
 // Components
 import { Button } from '@/components/ui/button';
@@ -1606,6 +1794,7 @@ import type { Document } from '@/types/models';
 ```
 
 #### File Naming Conventions {#file-naming-conventions}
+
 ```
 components/
   Button.tsx              # Component
@@ -1622,6 +1811,7 @@ services/
 ```
 
 #### Project-Specific Patterns {#project-specific-patterns}
+
 ```typescript
 // Feature module export pattern
 // features/document-editor/index.ts
@@ -1645,13 +1835,13 @@ try {
 const cleanup = documentService.streamProposals(
   sectionId,
   context,
-  (chunk) => {
+  chunk => {
     // Handle chunk
   },
   () => {
     // Handle complete
   },
-  (error) => {
+  error => {
     // Handle error
   }
 );
@@ -1672,13 +1862,15 @@ The React frontend communicates with the Express.js backend through:
 2. **Server-Sent Events (SSE)** for streaming AI responses
 3. **WebSocket** connections for real-time collaboration (Phase 2)
 
-All API calls include Clerk authentication tokens and follow the error handling patterns defined in the backend architecture document.
+All API calls include Clerk authentication tokens and follow the error handling
+patterns defined in the backend architecture document.
 
 ## Constitutional Compliance {#constitutional-compliance-frontend}
 
 This frontend architecture maintains alignment with Constitutional requirements:
 
-- **Library-First**: Features organized as standalone modules with clear boundaries
+- **Library-First**: Features organized as standalone modules with clear
+  boundaries
 - **CLI Interfaces**: Component generation scripts and development tools
 - **Test-First Development**: Testing templates and patterns enforced
 - **Observability**: Comprehensive error tracking and performance monitoring

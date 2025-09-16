@@ -18,7 +18,12 @@ import { Command } from 'commander';
 import { TemplateEngine } from './templates/index.js';
 import { YAMLParser, VariableParser } from './parsers/index.js';
 import { TemplateValidator } from './validators/index.js';
-import { TemplateWatcher, TemplateCache, TemplatePathUtils, TemplatePerformanceUtils } from './utils/index.js';
+import {
+  TemplateWatcher,
+  TemplateCache,
+  TemplatePathUtils,
+  TemplatePerformanceUtils,
+} from './utils/index.js';
 import { PACKAGE_INFO } from './index.js';
 
 /**
@@ -43,9 +48,7 @@ class TemplatesCLI {
       .version(PACKAGE_INFO.version);
 
     // Template processing commands
-    const processCmd = this.program
-      .command('process')
-      .description('Process and render templates');
+    const processCmd = this.program.command('process').description('Process and render templates');
 
     processCmd
       .command('render <template>')
@@ -76,9 +79,7 @@ class TemplatesCLI {
       });
 
     // Template management commands
-    const manageCmd = this.program
-      .command('manage')
-      .description('Template management operations');
+    const manageCmd = this.program.command('manage').description('Template management operations');
 
     manageCmd
       .command('list [directory]')
@@ -107,9 +108,7 @@ class TemplatesCLI {
       });
 
     // Development commands
-    const devCmd = this.program
-      .command('dev')
-      .description('Development utilities');
+    const devCmd = this.program.command('dev').description('Development utilities');
 
     devCmd
       .command('watch <directory>')
@@ -131,9 +130,7 @@ class TemplatesCLI {
       });
 
     // Utility commands
-    const utilCmd = this.program
-      .command('util')
-      .description('Template utilities');
+    const utilCmd = this.program.command('util').description('Template utilities');
 
     utilCmd
       .command('convert <input> <output>')
@@ -162,9 +159,7 @@ class TemplatesCLI {
       });
 
     // Performance commands
-    const perfCmd = this.program
-      .command('perf')
-      .description('Performance analysis');
+    const perfCmd = this.program.command('perf').description('Performance analysis');
 
     perfCmd
       .command('benchmark <template>')
@@ -181,19 +176,17 @@ class TemplatesCLI {
       .description('Show template performance statistics')
       .option('--json', 'Output in JSON format')
       .option('--clear', 'Clear statistics after showing')
-      .action(async (options) => {
+      .action(async options => {
         await this.showPerformanceStats(options);
       });
 
     // Cache commands
-    const cacheCmd = this.program
-      .command('cache')
-      .description('Template cache management');
+    const cacheCmd = this.program.command('cache').description('Template cache management');
 
     cacheCmd
       .command('clear [template]')
       .description('Clear template cache')
-      .action((template) => {
+      .action(template => {
         this.clearCache(template);
       });
 
@@ -201,7 +194,7 @@ class TemplatesCLI {
       .command('stats')
       .description('Show cache statistics')
       .option('--json', 'Output in JSON format')
-      .action((options) => {
+      .action(options => {
         this.showCacheStats(options);
       });
   }
@@ -209,7 +202,10 @@ class TemplatesCLI {
   /**
    * Render template with variables
    */
-  private async renderTemplate(templatePath: string, options: any): Promise<void> {
+  private async renderTemplate(
+    templatePath: string,
+    options: Record<string, unknown>
+  ): Promise<void> {
     try {
       const fs = await import('fs');
 
@@ -217,10 +213,10 @@ class TemplatesCLI {
       const template = await this.templateEngine.loadTemplateFromFile(templatePath);
 
       // Load variables
-      let variables = {};
-      if (options.variables) {
+      let variables: Record<string, unknown> = {};
+      if ('variables' in options && typeof options.variables === 'string') {
         variables = JSON.parse(options.variables);
-      } else if (options.variablesFile) {
+      } else if ('variablesFile' in options && typeof options.variablesFile === 'string') {
         const variablesContent = fs.readFileSync(options.variablesFile, 'utf-8');
         variables = JSON.parse(variablesContent);
       }
@@ -234,11 +230,11 @@ class TemplatesCLI {
       TemplatePerformanceUtils.trackRenderTime(template.metadata.name, duration);
 
       // Output result
-      if (options.output) {
+      if ('output' in options && typeof options.output === 'string') {
         fs.writeFileSync(options.output, rendered);
         console.log(`Template rendered to ${options.output} (${duration}ms)`);
       } else {
-        if (options.pretty) {
+        if ('pretty' in options && options.pretty) {
           console.log('Rendered Template:');
           console.log('=================');
         }
@@ -253,7 +249,10 @@ class TemplatesCLI {
   /**
    * Validate template
    */
-  private async validateTemplate(templatePath: string, options: any): Promise<void> {
+  private async validateTemplate(
+    templatePath: string,
+    options: Record<string, unknown>
+  ): Promise<void> {
     try {
       const fs = await import('fs');
       const content = fs.readFileSync(templatePath, 'utf-8');
@@ -264,13 +263,22 @@ class TemplatesCLI {
 
       // Validate variables if present
       let variablesResult: { valid: boolean; errors: string[] } = { valid: true, errors: [] };
-      if (parsed.variables) {
-        variablesResult = TemplateValidator.validateVariables(parsed.variables);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        'variables' in parsed &&
+        parsed.variables
+      ) {
+        variablesResult = TemplateValidator.validateVariables(
+          parsed.variables as Record<string, unknown>
+        );
       }
 
       // Extract template variables from content
-      const extractedVars = VariableParser.extractVariables(parsed.content || '');
-      const extractedFunctions = VariableParser.extractFunctions(parsed.content || '');
+      const parsedObj = parsed as Record<string, unknown>;
+      const templateContent = (parsedObj.content as string) || '';
+      const extractedVars = VariableParser.extractVariables(templateContent);
+      const extractedFunctions = VariableParser.extractFunctions(templateContent);
 
       const result = {
         valid: structureResult.valid && variablesResult.valid,
@@ -280,11 +288,15 @@ class TemplatesCLI {
         analysis: {
           extractedVariables: extractedVars,
           extractedFunctions,
-          hasPartials: (parsed.sections && Object.keys(parsed.sections).length > 0)
-        }
+          hasPartials:
+            parsedObj.sections &&
+            typeof parsedObj.sections === 'object' &&
+            parsedObj.sections !== null &&
+            Object.keys(parsedObj.sections as Record<string, unknown>).length > 0,
+        },
       };
 
-      if (options.json) {
+      if ('json' in options && options.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log('Template Validation Results');
@@ -326,11 +338,11 @@ class TemplatesCLI {
   /**
    * List templates in directory
    */
-  private async listTemplates(directory: string, options: any): Promise<void> {
+  private async listTemplates(directory: string, options: Record<string, unknown>): Promise<void> {
     try {
       const templates = TemplatePathUtils.listTemplates(directory);
 
-      if (options.json) {
+      if ('json' in options && options.json) {
         const templateInfo = [];
         for (const templatePath of templates) {
           try {
@@ -339,13 +351,13 @@ class TemplatesCLI {
               path: templatePath,
               name: template.metadata.name,
               version: template.metadata.version,
-              description: template.metadata.description
+              description: template.metadata.description,
             });
           } catch {
             templateInfo.push({
               path: templatePath,
               name: TemplatePathUtils.getTemplateName(templatePath),
-              error: 'Failed to load template'
+              error: 'Failed to load template',
             });
           }
         }
@@ -362,12 +374,16 @@ class TemplatesCLI {
         for (const templatePath of templates) {
           try {
             const template = await this.templateEngine.loadTemplateFromFile(templatePath);
-            console.log(`${template.metadata.name} (v${template.metadata.version}) - ${templatePath}`);
+            console.log(
+              `${template.metadata.name} (v${template.metadata.version}) - ${templatePath}`
+            );
             if (template.metadata.description) {
               console.log(`  ${template.metadata.description}`);
             }
           } catch {
-            console.log(`${TemplatePathUtils.getTemplateName(templatePath)} - ${templatePath} [Error loading]`);
+            console.log(
+              `${TemplatePathUtils.getTemplateName(templatePath)} - ${templatePath} [Error loading]`
+            );
           }
         }
       }
@@ -380,11 +396,14 @@ class TemplatesCLI {
   /**
    * Show template information
    */
-  private async showTemplateInfo(templatePath: string, options: any): Promise<void> {
+  private async showTemplateInfo(
+    templatePath: string,
+    options: Record<string, unknown>
+  ): Promise<void> {
     try {
       const template = await this.templateEngine.loadTemplateFromFile(templatePath);
 
-      if (options.json) {
+      if ('json' in options && options.json) {
         console.log(JSON.stringify(template, null, 2));
       } else {
         console.log('Template Information');
@@ -414,18 +433,26 @@ class TemplatesCLI {
   /**
    * Show template variables
    */
-  private async showTemplateVariables(templatePath: string, options: any): Promise<void> {
+  private async showTemplateVariables(
+    templatePath: string,
+    options: Record<string, unknown>
+  ): Promise<void> {
     try {
       const template = await this.templateEngine.loadTemplateFromFile(templatePath);
       let variables = Object.entries(template.variables);
 
-      if (options.requiredOnly) {
+      if ('requiredOnly' in options && options.requiredOnly) {
         variables = variables.filter(([, def]) => {
-          return typeof def === 'object' && def?.required;
+          return (
+            typeof def === 'object' &&
+            def !== null &&
+            'required' in def &&
+            (def as Record<string, unknown>).required
+          );
         });
       }
 
-      if (options.json) {
+      if ('json' in options && options.json) {
         console.log(JSON.stringify(Object.fromEntries(variables), null, 2));
       } else {
         console.log('Template Variables');
@@ -438,16 +465,17 @@ class TemplatesCLI {
 
         for (const [name, definition] of variables) {
           if (typeof definition === 'object' && definition !== null) {
-            const required = definition.required ? ' (required)' : '';
-            const type = definition.type ? ` [${definition.type}]` : '';
+            const defObj = definition as Record<string, unknown>;
+            const required = 'required' in defObj && defObj.required ? ' (required)' : '';
+            const type = 'type' in defObj && defObj.type ? ` [${defObj.type}]` : '';
             console.log(`${name}${type}${required}`);
 
-            if (definition.description) {
-              console.log(`  ${definition.description}`);
+            if ('description' in defObj && defObj.description) {
+              console.log(`  ${defObj.description}`);
             }
 
-            if (definition.default !== undefined) {
-              console.log(`  Default: ${JSON.stringify(definition.default)}`);
+            if ('default' in defObj && defObj.default !== undefined) {
+              console.log(`  Default: ${JSON.stringify(defObj.default)}`);
             }
           } else {
             console.log(`${name}`);
@@ -464,19 +492,19 @@ class TemplatesCLI {
   /**
    * Watch templates for changes
    */
-  private async watchTemplates(directory: string, options: any): Promise<void> {
+  private async watchTemplates(directory: string, options: Record<string, unknown>): Promise<void> {
     console.log(`Watching templates in ${directory}...`);
 
     const watcher = new TemplateWatcher();
 
-    watcher.on('change', async (path) => {
+    watcher.on('change', async path => {
       console.log(`Template changed: ${path}`);
 
-      if (options.output) {
+      if ('output' in options && typeof options.output === 'string') {
         try {
           await this.renderTemplate(path, {
             ...options,
-            output: path.replace(directory, options.output)
+            output: path.replace(directory, options.output),
           });
         } catch (error) {
           console.error(`Failed to render ${path}:`, error);
@@ -484,15 +512,15 @@ class TemplatesCLI {
       }
     });
 
-    watcher.on('add', (path) => {
+    watcher.on('add', path => {
       console.log(`Template added: ${path}`);
     });
 
-    watcher.on('remove', (path) => {
+    watcher.on('remove', path => {
       console.log(`Template removed: ${path}`);
     });
 
-    watcher.on('error', (error) => {
+    watcher.on('error', error => {
       console.error('Watcher error:', error);
     });
 
@@ -509,12 +537,18 @@ class TemplatesCLI {
   /**
    * Benchmark template rendering
    */
-  private async benchmarkTemplate(templatePath: string, options: any): Promise<void> {
+  private async benchmarkTemplate(
+    templatePath: string,
+    options: Record<string, unknown>
+  ): Promise<void> {
     try {
-      const iterations = parseInt(options.iterations, 10);
-      let variables = {};
+      const iterations =
+        'iterations' in options && typeof options.iterations === 'string'
+          ? parseInt(options.iterations, 10)
+          : 10;
+      let variables: Record<string, unknown> = {};
 
-      if (options.variables) {
+      if ('variables' in options && typeof options.variables === 'string') {
         variables = JSON.parse(options.variables);
       }
 
@@ -542,11 +576,11 @@ class TemplatesCLI {
           total: Math.round(total * 100) / 100,
           average: Math.round(average * 100) / 100,
           min: Math.round(min * 100) / 100,
-          max: Math.round(max * 100) / 100
-        }
+          max: Math.round(max * 100) / 100,
+        },
       };
 
-      if (options.json) {
+      if ('json' in options && options.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log('Benchmark Results');
@@ -568,30 +602,46 @@ class TemplatesCLI {
   /**
    * Additional CLI methods would be implemented here...
    */
-  private async compileTemplate(_template: string, _options: any): Promise<void> {
+  private async compileTemplate(
+    _template: string,
+    _options: Record<string, unknown>
+  ): Promise<void> {
     console.log('Template compilation not implemented yet');
   }
 
-  private async serveTemplates(_directory: string, _options: any): Promise<void> {
+  private async serveTemplates(
+    _directory: string,
+    _options: Record<string, unknown>
+  ): Promise<void> {
     console.log('Template development server not implemented yet');
   }
 
-  private async convertTemplate(_input: string, _output: string, _options: any): Promise<void> {
+  private async convertTemplate(
+    _input: string,
+    _output: string,
+    _options: Record<string, unknown>
+  ): Promise<void> {
     console.log('Template conversion not implemented yet');
   }
 
-  private async minifyTemplate(_template: string, _options: any): Promise<void> {
+  private async minifyTemplate(
+    _template: string,
+    _options: Record<string, unknown>
+  ): Promise<void> {
     console.log('Template minification not implemented yet');
   }
 
-  private async prettifyTemplate(_template: string, _options: any): Promise<void> {
+  private async prettifyTemplate(
+    _template: string,
+    _options: Record<string, unknown>
+  ): Promise<void> {
     console.log('Template prettification not implemented yet');
   }
 
-  private async showPerformanceStats(options: any): Promise<void> {
+  private async showPerformanceStats(options: Record<string, unknown>): Promise<void> {
     const stats = TemplatePerformanceUtils.getAllRenderStats();
 
-    if (options.json) {
+    if ('json' in options && options.json) {
       console.log(JSON.stringify(stats, null, 2));
     } else {
       console.log('Performance Statistics');
@@ -613,7 +663,7 @@ class TemplatesCLI {
       }
     }
 
-    if (options.clear) {
+    if ('clear' in options && options.clear) {
       TemplatePerformanceUtils.clearStats();
       console.log('Performance statistics cleared');
     }
@@ -629,10 +679,10 @@ class TemplatesCLI {
     }
   }
 
-  private showCacheStats(options: any): void {
+  private showCacheStats(options: Record<string, unknown>): void {
     const stats = this.cache.getStats();
 
-    if (options.json) {
+    if ('json' in options && options.json) {
       console.log(JSON.stringify(stats, null, 2));
     } else {
       console.log('Cache Statistics');

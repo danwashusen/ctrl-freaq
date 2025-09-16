@@ -5,16 +5,16 @@
  */
 
 // User model
-export * from './user.js';
+export * from './user';
 
 // Project model
-export * from './project.js';
+export * from './project';
 
 // Configuration model
-export * from './configuration.js';
+export * from './configuration';
 
 // App version model
-export * from './app-version.js';
+export * from './app-version';
 
 // Activity log model
-export * from './activity-log.js';
+export * from './activity-log';

@@ -1,27 +1,34 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { ClerkProvider } from '@clerk/clerk-react'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App'
-import './index.css'
+import { ClerkProvider } from '@clerk/clerk-react';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+// React Router is handled inside App via RouterProvider
 
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+import App from './App';
+import './index.css';
+
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!publishableKey) {
-  throw new Error("Missing Publishable Key")
+  throw new Error('Missing Publishable Key');
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={publishableKey} appearance={{
-      baseTheme: undefined,
-      variables: {
-        colorPrimary: '#3b82f6',
-      }
-    }}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      appearance={{
+        baseTheme: undefined,
+        variables: {
+          colorPrimary: '#3b82f6',
+        },
+      }}
+    >
+      <App />
     </ClerkProvider>
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

@@ -1,63 +1,68 @@
 # Research Findings: CI Pipeline Setup
 
 ## Executive Summary
-This document consolidates research findings for implementing GitHub Actions CI pipeline for the CTRL FreaQ monorepo. All clarification questions from the specification have been resolved through stakeholder input.
+
+This document consolidates research findings for implementing GitHub Actions CI
+pipeline for the CTRL FreaQ monorepo. All clarification questions from the
+specification have been resolved through stakeholder input.
 
 ## Resolved Decisions
 
 ### 1. Node.js Version Strategy
-**Decision**: Use Node.js 20.x LTS
-**Rationale**:
+
+**Decision**: Use Node.js 20.x LTS **Rationale**:
+
 - Provides stability for CI environment
 - Matches development environment per architecture.md
-- LTS ensures long-term support and security updates
-**Alternatives Considered**:
+- LTS ensures long-term support and security updates **Alternatives
+  Considered**:
 - Latest Node.js: Rejected due to potential breaking changes
 - Node.js 18.x: Rejected as project uses 20.x features
 
 ### 2. Visual Testing Inclusion
-**Decision**: Exclude visual regression tests from MVP
-**Rationale**:
+
+**Decision**: Exclude visual regression tests from MVP **Rationale**:
+
 - Reduces CI complexity for initial implementation
 - Speeds up CI execution time
-- Can be added post-MVP when UI stabilizes
-**Alternatives Considered**:
+- Can be added post-MVP when UI stabilizes **Alternatives Considered**:
 - Include Playwright visual tests: Deferred to post-MVP
 - Screenshot-only tests: Insufficient value for MVP phase
 
 ### 3. Dependency Caching Strategy
-**Decision**: Cache pnpm store only
-**Rationale**:
+
+**Decision**: Cache pnpm store only **Rationale**:
+
 - Optimal balance between speed and cache size
 - pnpm's content-addressable store is efficient
-- Avoids node_modules duplication across packages
-**Alternatives Considered**:
+- Avoids node_modules duplication across packages **Alternatives Considered**:
 - Cache both pnpm store and node_modules: Excessive cache size
 - No caching: Too slow for developer experience
 
 ### 4. Workflow Timeout
-**Decision**: 5-minute maximum duration
-**Rationale**:
+
+**Decision**: 5-minute maximum duration **Rationale**:
+
 - Prevents runaway jobs consuming resources
 - Forces optimization of slow tests
-- Aligns with fast feedback goals
-**Alternatives Considered**:
+- Aligns with fast feedback goals **Alternatives Considered**:
 - 10 minutes: Too lenient for MVP scope
 - 3 minutes: Too restrictive for full build
 
 ### 5. Workspace Validation Scope
-**Decision**: Include dependency version consistency checks
-**Rationale**:
+
+**Decision**: Include dependency version consistency checks **Rationale**:
+
 - Prevents version conflicts in monorepo
 - Ensures all packages use same major versions
-- Catches issues before runtime
-**Alternatives Considered**:
+- Catches issues before runtime **Alternatives Considered**:
 - Basic structure validation only: Insufficient for monorepo health
 - Full dependency graph analysis: Over-engineered for MVP
 
 ## GitHub Actions Best Practices
 
 ### Monorepo Optimization
+
 1. **Turborepo Integration**:
    - Use `turbo run` commands for parallelization
    - Leverage Turborepo's dependency graph
@@ -69,12 +74,14 @@ This document consolidates research findings for implementing GitHub Actions CI 
    - Utilize pnpm's built-in parallelization
 
 ### Performance Optimization
+
 1. **Job Parallelization**:
    - Run lint, typecheck, and test in parallel
    - Use job matrix for package-level parallelization
    - Fail fast on first error
 
 2. **Caching Strategy**:
+
    ```yaml
    - uses: actions/setup-node@v4
      with:
@@ -88,6 +95,7 @@ This document consolidates research findings for implementing GitHub Actions CI 
    - Use path filters for targeted workflows
 
 ### Security Considerations
+
 1. **Permissions**:
    - Use least-privilege principle
    - Explicitly declare required permissions
@@ -101,6 +109,7 @@ This document consolidates research findings for implementing GitHub Actions CI 
 ## Implementation Approach
 
 ### Workflow Structure
+
 ```
 .github/workflows/
 ├── ci.yml              # Main CI pipeline
@@ -111,6 +120,7 @@ This document consolidates research findings for implementing GitHub Actions CI 
 ```
 
 ### Job Architecture
+
 1. **Setup Job**: Install dependencies, setup caching
 2. **Quality Jobs** (parallel):
    - Lint: ESLint across all packages
@@ -121,6 +131,7 @@ This document consolidates research findings for implementing GitHub Actions CI 
 5. **Metrics Job**: Generate and upload artifacts
 
 ### Status Check Configuration
+
 - Required checks: lint, typecheck, build, test
 - Optional checks: format, metrics
 - Branch protection: enforce on main
@@ -128,6 +139,7 @@ This document consolidates research findings for implementing GitHub Actions CI 
 ## Metrics and Observability
 
 ### Workflow Artifacts
+
 1. **Execution Metrics**:
    - Job duration per package
    - Warning counts
@@ -139,18 +151,22 @@ This document consolidates research findings for implementing GitHub Actions CI 
    - Performance profiling data
 
 ### Monitoring Approach
+
 - GitHub Actions dashboard for trends
 - Slack notifications for failures (future)
 - Weekly CI performance reports (future)
 
 ## Migration Path
+
 For existing projects adopting this CI:
+
 1. Start with basic workflow
 2. Add checks incrementally
 3. Enable branch protection gradually
 4. Monitor and optimize based on metrics
 
 ## References
+
 - [GitHub Actions Documentation](https://docs.github.com/actions)
 - [Turborepo CI/CD Guide](https://turbo.build/repo/docs/ci-cd)
 - [pnpm CI Recommendations](https://pnpm.io/continuous-integration)

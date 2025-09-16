@@ -20,21 +20,27 @@ export function cli(argv?: string[]): void {
     .option('-v, --variables <variables>', 'Variables file (JSON or YAML)')
     .option('-o, --output <output>', 'Output file or directory')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Template resolution functionality not yet implemented',
-          template: options.template,
-          variables: options.variables,
-          output: options.output,
-          resolution: {
-            resolvedTemplates: [],
-            dependencies: [],
-            variables: {},
-            warnings: []
-          }
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Template resolution functionality not yet implemented',
+              template: options.template,
+              variables: options.variables,
+              output: options.output,
+              resolution: {
+                resolvedTemplates: [],
+                dependencies: [],
+                variables: {},
+                warnings: [],
+              },
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Template Resolution`);
         console.log(`Template: ${options.template || 'No template specified'}`);
@@ -50,24 +56,30 @@ export function cli(argv?: string[]): void {
     .option('-t, --template <template>', 'Template file or directory to validate')
     .option('-s, --strict', 'Strict validation mode', false)
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Template validation functionality not yet implemented',
-          template: options.template,
-          strict: options.strict,
-          validation: {
-            valid: true,
-            errors: [],
-            warnings: [],
-            dependencies: {
-              resolved: [],
-              missing: [],
-              circular: []
-            }
-          }
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Template validation functionality not yet implemented',
+              template: options.template,
+              strict: options.strict,
+              validation: {
+                valid: true,
+                errors: [],
+                warnings: [],
+                dependencies: {
+                  resolved: [],
+                  missing: [],
+                  circular: [],
+                },
+              },
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Template Validation`);
         console.log(`Template: ${options.template || 'No template specified'}`);
@@ -83,21 +95,27 @@ export function cli(argv?: string[]): void {
     .option('-d, --depth <depth>', 'Maximum dependency depth to analyze', '5')
     .option('-g, --graph', 'Generate dependency graph', false)
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          message: 'Dependency analysis functionality not yet implemented',
-          template: options.template,
-          depth: parseInt(options.depth),
-          generateGraph: options.graph,
-          dependencies: {
-            direct: [],
-            indirect: [],
-            circular: [],
-            missing: []
-          }
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              message: 'Dependency analysis functionality not yet implemented',
+              template: options.template,
+              depth: parseInt(options.depth),
+              generateGraph: options.graph,
+              dependencies: {
+                direct: [],
+                indirect: [],
+                circular: [],
+                missing: [],
+              },
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Dependency Analysis`);
         console.log(`Template: ${options.template || 'No template specified'}`);
@@ -113,21 +131,27 @@ export function cli(argv?: string[]): void {
     .option('-a, --action <action>', 'Cache action (clear, status, warm)', 'status')
     .option('-t, --template <template>', 'Template to cache (for warm action)')
     .option('--json', 'Output in JSON format', false)
-    .action((options) => {
+    .action(options => {
       const cacheStatus = {
         size: '0KB',
         entries: 0,
         hitRate: 0,
-        lastCleared: null
+        lastCleared: null,
       };
-      
+
       if (options.json) {
-        console.log(JSON.stringify({
-          status: 'success',
-          action: options.action,
-          template: options.template,
-          cache: cacheStatus
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              status: 'success',
+              action: options.action,
+              template: options.template,
+              cache: cacheStatus,
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`Template Cache Management`);
         console.log(`Action: ${options.action}`);

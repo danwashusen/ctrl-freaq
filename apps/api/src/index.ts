@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Load environment variables from local env files before anything else.
+// This ensures Clerk keys and other config are present in development.
+import './load-env.js';
+
 /**
  * CTRL FreaQ API Server Entry Point
  *
@@ -32,7 +36,7 @@ async function main(): Promise<void> {
 
 // Start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
+  main().catch(error => {
     console.error('Unhandled error:', error);
     process.exit(1);
   });

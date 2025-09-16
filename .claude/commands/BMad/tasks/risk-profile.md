@@ -6,7 +6,8 @@ When this command is used, execute the following task:
 
 # risk-profile
 
-Generate a comprehensive risk assessment matrix for a story implementation using probability × impact analysis.
+Generate a comprehensive risk assessment matrix for a story implementation using
+probability × impact analysis.
 
 ## Inputs
 
@@ -20,7 +21,8 @@ required:
 
 ## Purpose
 
-Identify, assess, and prioritize risks in the story implementation. Provide risk mitigation strategies and testing focus areas based on risk levels.
+Identify, assess, and prioritize risks in the story implementation. Provide risk
+mitigation strategies and testing focus areas based on risk levels.
 
 ## Risk Assessment Framework
 
@@ -107,7 +109,8 @@ Evaluate each risk using probability × impact:
 
 **Impact Levels:**
 
-- `High (3)`: Severe consequences (data breach, system down, major financial loss)
+- `High (3)`: Severe consequences (data breach, system down, major financial
+  loss)
 - `Medium (2)`: Moderate consequences (degraded performance, minor data issues)
 - `Low (1)`: Minor consequences (cosmetic issues, slight inconvenience)
 
@@ -193,8 +196,7 @@ risk_summary:
 ```markdown
 # Risk Profile: Story {epic}.{story}
 
-Date: {date}
-Reviewer: Quinn (Test Architect)
+Date: {date} Reviewer: Quinn (Test Architect)
 
 ## Executive Summary
 
@@ -207,14 +209,11 @@ Reviewer: Quinn (Test Architect)
 
 ### 1. [ID]: Risk Title
 
-**Score: 9 (Critical)**
-**Probability**: High - Detailed reasoning
-**Impact**: High - Potential consequences
-**Mitigation**:
+**Score: 9 (Critical)** **Probability**: High - Detailed reasoning **Impact**:
+High - Potential consequences **Mitigation**:
 
 - Immediate action required
-- Specific steps to take
-  **Testing Focus**: Specific test scenarios needed
+- Specific steps to take **Testing Focus**: Specific test scenarios needed
 
 ## Risk Distribution
 

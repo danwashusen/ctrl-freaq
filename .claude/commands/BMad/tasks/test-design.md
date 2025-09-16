@@ -6,7 +6,8 @@ When this command is used, execute the following task:
 
 # test-design
 
-Create comprehensive test scenarios with appropriate test level recommendations for story implementation.
+Create comprehensive test scenarios with appropriate test level recommendations
+for story implementation.
 
 ## Inputs
 
@@ -20,7 +21,9 @@ required:
 
 ## Purpose
 
-Design a complete test strategy that identifies what to test, at which level (unit/integration/e2e), and why. This ensures efficient test coverage without redundancy while maintaining appropriate test boundaries.
+Design a complete test strategy that identifies what to test, at which level
+(unit/integration/e2e), and why. This ensures efficient test coverage without
+redundancy while maintaining appropriate test boundaries.
 
 ## Dependencies
 
@@ -90,13 +93,13 @@ Ensure:
 
 ### Output 1: Test Design Document
 
-**Save to:** `qa.qaLocation/assessments/{epic}.{story}-test-design-{YYYYMMDD}.md`
+**Save to:**
+`qa.qaLocation/assessments/{epic}.{story}-test-design-{YYYYMMDD}.md`
 
 ```markdown
 # Test Design: Story {epic}.{story}
 
-Date: {date}
-Designer: Quinn (Test Architect)
+Date: {date} Designer: Quinn (Test Architect)
 
 ## Test Strategy Overview
 

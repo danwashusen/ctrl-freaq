@@ -64,7 +64,8 @@ NODE_ENV=development
 EOF
 ```
 
-**Note**: Replace `<your-clerk-*-key>` with actual Clerk development keys from https://clerk.com
+**Note**: Replace `<your-clerk-*-key>` with actual Clerk development keys from
+https://clerk.com
 
 ### 4. Database Setup
 
@@ -205,6 +206,7 @@ pnpm lint:fix
 **Error**: `Error: listen EADDRINUSE: address already in use :::5001`
 
 **Solution**:
+
 ```bash
 # Find and kill process using the port
 lsof -i :5001
@@ -219,6 +221,7 @@ PORT=5002 pnpm dev:api
 **Error**: `Clerk: Missing publishable key`
 
 **Solution**:
+
 1. Ensure `.env.development` files have correct Clerk keys
 2. Sign up for free Clerk account at https://clerk.com
 3. Create a development application
@@ -229,6 +232,7 @@ PORT=5002 pnpm dev:api
 **Error**: `Database connection failed`
 
 **Solution**:
+
 ```bash
 # Ensure SQLite is installed
 sqlite3 --version
@@ -243,6 +247,7 @@ pnpm --filter @ctrl-freaq/shared-data migrate
 **Error**: `Cannot find module '@ctrl-freaq/...'`
 
 **Solution**:
+
 ```bash
 # Rebuild workspace links
 pnpm install
@@ -257,6 +262,7 @@ pnpm install
 **Error**: Various TypeScript compilation errors
 
 **Solution**:
+
 ```bash
 # Ensure TypeScript version is correct
 pnpm list typescript
@@ -356,10 +362,12 @@ After successful setup:
 ## Support
 
 For issues or questions:
+
 - Check the existing documentation in `/docs`
 - Review the architecture documents
 - Consult the Constitutional requirements
 - Check GitHub issues for known problems
 
 ---
-*Quickstart guide version: 0.1.0 | Last updated: 2025-09-13*
+
+_Quickstart guide version: 0.1.0 | Last updated: 2025-09-13_

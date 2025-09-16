@@ -22,7 +22,11 @@ out/
 *.tsbuildinfo
 .tsbuildinfo
 lib/
+!**/src/lib/
+!**/src/lib/**
 types/
+!**/src/types/
+!**/src/types/**
 
 # Vite
 .vite/
@@ -92,3 +96,11 @@ Thumbs.db
 .CLAUDE.md.bak
 docs/archive/
 /apps/api/data/ctrl-freaq.db
+/packages/shared-data/data/
+**/data/*.db
+**/data/*.sqlite
+**/data/*.sqlite3
+/.audit/*
+/.audit-*
+.workspaces.json
+.ls.json

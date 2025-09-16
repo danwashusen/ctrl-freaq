@@ -1,7 +1,10 @@
-import pino, { Logger, LoggerOptions } from 'pino';
-import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
-import type { IncomingMessage, ServerResponse } from 'http';
+import type { IncomingMessage, ServerResponse, OutgoingHttpHeaders } from 'http';
+import type { Request, Response, NextFunction } from 'express';
+
+import pino from 'pino';
+import type { Logger, LoggerOptions } from 'pino';
+import pinoHttp from 'pino-http';
 
 /**
  * Structured Logging Configuration with Pino
@@ -35,7 +38,7 @@ export interface LogContext {
   resource?: string;
   duration?: number;
   statusCode?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -51,13 +54,13 @@ const SENSITIVE_PATTERNS = [
   /private[_-]?key/i,
   /credit[_-]?card/i,
   /ssn/i,
-  /social[_-]?security/i
+  /social[_-]?security/i,
 ];
 
 /**
  * Redacts sensitive information from log data
  */
-function redactSensitiveData(obj: any): any {
+function redactSensitiveData(obj: unknown): unknown {
   if (typeof obj !== 'object' || obj === null) {
     return obj;
   }
@@ -66,58 +69,67 @@ function redactSensitiveData(obj: any): any {
     return obj.map(redactSensitiveData);
   }
 
-  const redacted: any = {};
-
-  for (const [key, value] of Object.entries(obj)) {
+  const entries: [string, unknown][] = [];
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
     const keyLower = key.toLowerCase();
 
     // Check if key matches sensitive patterns
     const isSensitive = SENSITIVE_PATTERNS.some(pattern => pattern.test(keyLower));
 
-    if (isSensitive) {
-      redacted[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      redacted[key] = redactSensitiveData(value);
-    } else {
-      redacted[key] = value;
-    }
+    const redactedValue = isSensitive
+      ? '[REDACTED]'
+      : typeof value === 'object' && value !== null
+        ? redactSensitiveData(value)
+        : value;
+    entries.push([key, redactedValue]);
   }
 
-  return redacted;
+  return Object.fromEntries(entries);
 }
 
 /**
  * Custom serializers for different log contexts
  */
 const customSerializers = {
-  req: (req: IncomingMessage & { headers: any }) => ({
+  req: (req: IncomingMessage & { headers: NodeJS.Dict<string | string[] | undefined> }) => ({
     method: req.method,
     url: req.url,
     userAgent: req.headers['user-agent'],
     // Redact authorization header
-    headers: redactSensitiveData(req.headers)
+    headers: redactSensitiveData(req.headers),
   }),
 
   res: (res: ServerResponse & { statusCode: number }) => ({
     statusCode: res.statusCode,
-    headers: redactSensitiveData(res.getHeaders())
+    headers: redactSensitiveData(res.getHeaders()),
   }),
 
   err: pino.stdSerializers.err,
 
-  user: (user: any) => ({
-    id: user?.id,
-    email: user?.email ? `${user.email.split('@')[0]}@[REDACTED]` : undefined
-  }),
+  user: (u: unknown) => {
+    const user = (u || {}) as { id?: unknown; email?: string };
+    return {
+      id: user?.id,
+      email: user?.email ? `${user.email.split('@')[0]}@[REDACTED]` : undefined,
+    };
+  },
 
-  database: (query: any) => ({
-    operation: query?.operation,
-    table: query?.table,
-    duration: query?.duration,
-    // Log parameter keys (not values) for debugging
-    parameterKeys: query?.parameters ? Object.keys(query.parameters) : [],
-    hasParameters: query?.parameters && Object.keys(query.parameters).length > 0
-  })
+  database: (q: unknown) => {
+    const query = (q || {}) as {
+      operation?: string;
+      table?: string;
+      duration?: number;
+      parameters?: Record<string, unknown>;
+    };
+    return {
+      operation: query?.operation,
+      table: query?.table,
+      duration: query?.duration,
+      // Log parameter keys (not values) for debugging
+      parameterKeys: query?.parameters ? Object.keys(query.parameters) : [],
+      hasParameters: !!(query?.parameters && Object.keys(query.parameters).length > 0),
+    };
+  },
 };
 
 /**
@@ -132,18 +144,18 @@ export function createLogger(config: LoggingConfig): Logger {
       version: config.version,
       environment: config.environment,
       pid: process.pid,
-      hostname: process.env.HOSTNAME || 'unknown'
+      hostname: process.env.HOSTNAME || 'unknown',
     },
     timestamp: pino.stdTimeFunctions.isoTime,
     formatters: {
       level: (label: string) => ({ level: label }),
-      bindings: (bindings: any) => ({
+      bindings: (bindings: Record<string, unknown>) => ({
         service: bindings.service,
         version: bindings.version,
         environment: bindings.environment,
         pid: bindings.pid,
-        hostname: bindings.hostname
-      })
+        hostname: bindings.hostname,
+      }),
     },
     redact: {
       paths: [
@@ -152,10 +164,10 @@ export function createLogger(config: LoggingConfig): Logger {
         'res.headers["set-cookie"]',
         'password',
         'token',
-        'secret'
+        'secret',
       ],
-      censor: '[REDACTED]'
-    }
+      censor: '[REDACTED]',
+    },
   };
 
   // Enable pretty printing for development
@@ -165,8 +177,8 @@ export function createLogger(config: LoggingConfig): Logger {
       options: {
         colorize: true,
         translateTime: 'SYS:standard',
-        ignore: 'pid,hostname'
-      }
+        ignore: 'pid,hostname',
+      },
     };
   }
 
@@ -176,18 +188,20 @@ export function createLogger(config: LoggingConfig): Logger {
 /**
  * Creates HTTP request logging middleware
  */
-export function createHttpLogger(
-  logger: Logger,
-  config: LoggingConfig
-) {
+export function createHttpLogger(logger: Logger, _config: LoggingConfig) {
   return pinoHttp({
     logger,
 
     // Custom request ID generator (will be overridden by request-id middleware)
-    genReqId: (req: any) => req.headers['x-request-id'] || `req_${randomUUID()}`,
+    genReqId: (req: IncomingMessage & { headers: NodeJS.Dict<string | string[] | undefined> }) =>
+      (req.headers['x-request-id'] as string | undefined) || `req_${randomUUID()}`,
 
     // Custom log level based on status code
-    customLogLevel: (req: any, res: any, error: any) => {
+    customLogLevel: (
+      _req: IncomingMessage,
+      res: ServerResponse & { statusCode: number },
+      error?: Error
+    ) => {
       if (error || res.statusCode >= 500) {
         return 'error';
       }
@@ -201,12 +215,19 @@ export function createHttpLogger(
     },
 
     // Custom success message
-    customSuccessMessage: (req: any, res: any) => {
+    customSuccessMessage: (
+      req: IncomingMessage & { method?: string; url?: string },
+      res: ServerResponse & { statusCode: number }
+    ) => {
       return `${req.method} ${req.url} - ${res.statusCode}`;
     },
 
     // Custom error message
-    customErrorMessage: (req: any, res: any, error: any) => {
+    customErrorMessage: (
+      req: IncomingMessage & { method?: string; url?: string },
+      res: ServerResponse & { statusCode: number },
+      error: Error
+    ) => {
       return `${req.method} ${req.url} - ${res.statusCode} - ${error.message}`;
     },
 
@@ -215,34 +236,34 @@ export function createHttpLogger(
       req: 'request',
       res: 'response',
       err: 'error',
-      responseTime: 'duration'
+      responseTime: 'duration',
     },
 
     // Auto-logging configuration
     autoLogging: {
-      ignore: (req: any) => {
+      ignore: (req: IncomingMessage & { url?: string }) => {
         // Don't log health check requests to reduce noise
         return req.url === '/health' && process.env.NODE_ENV === 'production';
-      }
+      },
     },
 
     // Custom request/response serializers
     serializers: {
-      req: (req: any) => ({
+      req: (req: Request) => ({
         method: req.method,
         url: req.url,
         userAgent: req.headers['user-agent'],
         ip: req.ip || req.connection?.remoteAddress,
         // Include user context if available
-        userId: req.userId,
-        headers: redactSensitiveData(req.headers)
+        userId: (req as unknown as { userId?: string }).userId,
+        headers: redactSensitiveData(req.headers),
       }),
 
-      res: (res: any) => ({
+      res: (res: Response | (ServerResponse & { getHeaders: () => OutgoingHttpHeaders })) => ({
         statusCode: res.statusCode,
-        headers: redactSensitiveData(res.getHeaders())
-      })
-    }
+        headers: 'getHeaders' in res ? redactSensitiveData(res.getHeaders()) : {},
+      }),
+    },
   });
 }
 
@@ -255,15 +276,12 @@ export class PerformanceLogger {
     private readonly slowThreshold: number = 1000
   ) {}
 
-  logDuration(
-    operation: string,
-    duration: number,
-    context: LogContext = {}
-  ): void {
+  logDuration(operation: string, duration: number, context: LogContext = {}): void {
+    const safeContext = redactSensitiveData(context) as Record<string, unknown>;
     const logData = {
       operation,
       duration,
-      ...redactSensitiveData(context)
+      ...safeContext,
     };
 
     if (duration > this.slowThreshold) {
@@ -285,14 +303,15 @@ export class PerformanceLogger {
 
       if (result instanceof Promise) {
         return result.then(
-          (value) => {
+          value => {
             this.logDuration(operation, Date.now() - start, context);
             return value;
           },
-          (error) => {
+          error => {
+            const safeContext = redactSensitiveData(context) as Record<string, unknown>;
             this.logDuration(operation, Date.now() - start, {
-              ...context,
-              error: error.message
+              ...safeContext,
+              error: error.message,
             });
             throw error;
           }
@@ -301,12 +320,14 @@ export class PerformanceLogger {
         this.logDuration(operation, Date.now() - start, context);
         return result;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const safeContext = redactSensitiveData(context) as Record<string, unknown>;
       this.logDuration(operation, Date.now() - start, {
-        ...context,
-        error: error.message
+        ...safeContext,
+        error: message,
       });
-      throw error;
+      throw error as unknown as Error;
     }
   }
 }
@@ -324,14 +345,15 @@ export class DatabaseLogger {
     rowCount?: number,
     context: LogContext = {}
   ): void {
+    const safeContext = redactSensitiveData(context) as Record<string, unknown>;
     const logData = {
       database: {
         operation,
         table,
         duration,
-        rowCount
+        rowCount,
       },
-      ...redactSensitiveData(context)
+      ...safeContext,
     };
 
     if (duration > 100) {
@@ -353,13 +375,14 @@ export class SecurityLogger {
     userId?: string,
     context: LogContext = {}
   ): void {
+    const safeContext = redactSensitiveData(context) as Record<string, unknown>;
     const logData = {
       security: {
         event,
         userId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
-      ...redactSensitiveData(context)
+      ...safeContext,
     };
 
     if (event === 'failed_login') {
@@ -375,18 +398,22 @@ export class SecurityLogger {
     action: string,
     context: LogContext = {}
   ): void {
+    const safeContext = redactSensitiveData(context) as Record<string, unknown>;
     const logData = {
       security: {
         event: 'authorization_failure',
         userId,
         resource,
         action,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
-      ...redactSensitiveData(context)
+      ...safeContext,
     };
 
-    this.logger.warn(logData, `Authorization failed: user ${userId} attempted ${action} on ${resource}`);
+    this.logger.warn(
+      logData,
+      `Authorization failed: user ${userId} attempted ${action} on ${resource}`
+    );
   }
 }
 
@@ -397,13 +424,15 @@ export function createDefaultLoggingConfig(): LoggingConfig {
   const environment = (process.env.NODE_ENV as LoggingConfig['environment']) || 'development';
 
   return {
-    level: (process.env.LOG_LEVEL as LoggingConfig['level']) || (environment === 'production' ? 'info' : 'debug'),
+    level:
+      (process.env.LOG_LEVEL as LoggingConfig['level']) ||
+      (environment === 'production' ? 'info' : 'debug'),
     service: 'ctrl-freaq-api',
     version: process.env.APP_VERSION || '0.1.0',
     environment,
     enablePrettyPrint: environment === 'development',
     enablePerformanceLogging: true,
-    slowRequestThreshold: parseInt(process.env.SLOW_REQUEST_THRESHOLD || '1000', 10)
+    slowRequestThreshold: parseInt(process.env.SLOW_REQUEST_THRESHOLD || '1000', 10),
   };
 }
 
@@ -411,29 +440,35 @@ export function createDefaultLoggingConfig(): LoggingConfig {
  * Graceful shutdown logging
  */
 export function logShutdown(logger: Logger, signal: string): void {
-  logger.info({
-    shutdown: {
-      signal,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    }
-  }, `Graceful shutdown initiated by ${signal}`);
+  logger.info(
+    {
+      shutdown: {
+        signal,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+      },
+    },
+    `Graceful shutdown initiated by ${signal}`
+  );
 }
 
 /**
  * Process error logging
  */
 export function setupProcessErrorLogging(logger: Logger): void {
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', error => {
     logger.fatal({ error }, 'Uncaught exception occurred');
     process.exit(1);
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger.error({
-      error: reason,
-      promise: promise.toString()
-    }, 'Unhandled promise rejection');
+    logger.error(
+      {
+        error: reason,
+        promise: promise.toString(),
+      },
+      'Unhandled promise rejection'
+    );
   });
 }
 
@@ -441,26 +476,24 @@ export function setupProcessErrorLogging(logger: Logger): void {
  * Express error logging middleware
  */
 export function createErrorLoggingMiddleware(logger: Logger) {
-  return (
-    error: Error,
-    req: Express.Request,
-    res: Express.Response,
-    next: Express.NextFunction
-  ): void => {
+  return (error: Error, req: Request, _res: Response, next: NextFunction): void => {
     const requestLogger = req.services?.get<Logger>('logger') || logger;
 
-    requestLogger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+    requestLogger.error(
+      {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+        request: {
+          method: req.method,
+          url: req.url,
+          userAgent: req.headers['user-agent'],
+        },
       },
-      request: {
-        method: req.method,
-        url: req.url,
-        userAgent: req.headers['user-agent']
-      }
-    }, `Request error: ${error.message}`);
+      `Request error: ${error.message}`
+    );
 
     next(error);
   };

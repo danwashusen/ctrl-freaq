@@ -1,6 +1,8 @@
-import { Router, Request, Response } from 'express';
-import { z } from 'zod';
 import Database from 'better-sqlite3';
+import { Router } from 'express';
+import type { Request, Response, Router as ExpressRouter } from 'express';
+import type { Logger } from 'pino';
+import { z } from 'zod';
 
 /**
  * Health check response schema
@@ -14,39 +16,29 @@ const HealthResponseSchema = z.object({
   environment: z.string(),
   database: z.object({
     status: z.enum(['connected', 'disconnected']),
-    type: z.string()
-  })
+    type: z.string(),
+  }),
 });
 
-const ErrorResponseSchema = z.object({
+const _ErrorResponseSchema = z.object({
   status: z.enum(['unhealthy']),
   error: z.string(),
-  timestamp: z.string().datetime()
+  timestamp: z.string().datetime(),
 });
 
 type HealthResponse = z.infer<typeof HealthResponseSchema>;
-type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
-
-/**
- * Server start time for uptime calculation
- */
-const SERVER_START_TIME = Date.now();
+type ErrorResponse = z.infer<typeof _ErrorResponseSchema>;
 
 /**
  * Health check router
  */
-export const healthRouter = Router();
+export const healthRouter: ExpressRouter = Router();
 
-/**
- * GET /health
- * Basic health check endpoint
- */
-healthRouter.get('/health', async (req: Request, res: Response<HealthResponse | ErrorResponse>) => {
-  const logger = req.services?.get('logger');
+function handleHealth(req: Request, res: Response<HealthResponse | ErrorResponse>): void {
+  const logger = req.services?.get('logger') as Logger | undefined;
   const db = req.services?.get('database') as Database.Database;
 
   try {
-    // Check database connection
     const dbStatus = checkDatabaseConnection(db);
 
     const healthData: HealthResponse = {
@@ -54,79 +46,84 @@ healthRouter.get('/health', async (req: Request, res: Response<HealthResponse | 
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '0.1.0',
       service: 'ctrl-freaq-api',
-      uptime: Math.floor((Date.now() - SERVER_START_TIME) / 1000),
+      uptime: Math.max(1, Math.floor(process.uptime())),
       environment: process.env.NODE_ENV || 'development',
-      database: dbStatus
+      database: dbStatus,
     };
 
-    // Validate response
     const validated = HealthResponseSchema.parse(healthData);
 
-    logger?.info({
-      requestId: req.requestId,
-      action: 'health_check',
-      status: 'success'
-    }, 'Health check performed');
+    logger?.info(
+      {
+        requestId: req.requestId || 'unknown',
+        action: 'health_check',
+        status: 'success',
+      },
+      'Health check performed'
+    );
 
     res.status(200).json(validated);
   } catch (error) {
     const errorResponse: ErrorResponse = {
       status: 'unhealthy',
       error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
-    logger?.error({
-      requestId: req.requestId,
-      action: 'health_check',
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, 'Health check failed');
+    logger?.error(
+      {
+        requestId: req.requestId || 'unknown',
+        action: 'health_check',
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      'Health check failed'
+    );
 
     res.status(503).json(errorResponse);
   }
+}
+
+/**
+ * GET /health
+ * Basic health check endpoint
+ */
+healthRouter.get('/health', async (req: Request, res: Response<HealthResponse | ErrorResponse>) => {
+  handleHealth(req, res);
 });
 
 /**
  * GET /api/v1/health
  * Versioned health check endpoint (same implementation)
  */
-healthRouter.get('/api/v1/health', async (req: Request, res: Response<HealthResponse | ErrorResponse>) => {
-  // Reuse the same logic by calling the /health endpoint handler
-  const healthHandler = healthRouter.stack.find(layer =>
-    layer.route?.path === '/health' && layer.route.methods.get
-  );
-
-  if (healthHandler && healthHandler.route?.stack[0]?.handle) {
-    await healthHandler.route.stack[0].handle(req, res);
-  } else {
-    // Fallback implementation
-    res.status(503).json({
-      status: 'unhealthy',
-      error: 'Health check endpoint not properly configured',
-      timestamp: new Date().toISOString()
-    });
+healthRouter.get(
+  '/api/v1/health',
+  async (req: Request, res: Response<HealthResponse | ErrorResponse>) => {
+    handleHealth(req, res);
   }
-});
+);
 
 /**
  * Check database connection status
  */
-function checkDatabaseConnection(db: Database.Database): { status: 'connected' | 'disconnected'; type: string } {
+function checkDatabaseConnection(db: Database.Database): {
+  status: 'connected' | 'disconnected';
+  type: string;
+} {
   try {
     if (!db) {
       return { status: 'disconnected', type: 'sqlite' };
     }
 
     // Test database connection with a simple query
-    const result = db.prepare('SELECT 1 as test').get();
+    const result = db.prepare('SELECT 1 as test').get() as { test?: number } | undefined;
 
-    if (result && (result as any).test === 1) {
+    if (result && result.test === 1) {
       return { status: 'connected', type: 'sqlite' };
     } else {
       return { status: 'disconnected', type: 'sqlite' };
     }
-  } catch (error) {
+  } catch {
     return { status: 'disconnected', type: 'sqlite' };
   }
 }

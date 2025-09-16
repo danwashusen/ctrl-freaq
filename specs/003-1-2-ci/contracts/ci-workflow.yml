@@ -72,7 +72,7 @@ jobs:
     name: Run Tests
     needs: setup
     strategy:
-      fail-fast: false  # Let all tests run to see full results
+      fail-fast: false # Let all tests run to see full results
     commands:
       - pnpm test
       - pnpm test:coverage (optional)

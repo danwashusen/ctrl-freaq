@@ -1,8 +1,9 @@
-import Database, { type Database as DatabaseType } from 'better-sqlite3';
+import { createHash } from 'crypto';
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createHash } from 'crypto';
+
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import type { Logger } from 'pino';
 
 /**
@@ -51,7 +52,7 @@ export interface Migration {
   checksum: string;
 }
 
-export interface QueryResult<T = any> {
+export interface QueryResult<T = unknown> {
   data: T[];
   rowCount: number;
   duration: number;
@@ -81,7 +82,7 @@ export class DatabaseManager {
   private queryStats = {
     totalQueries: 0,
     slowQueries: 0,
-    totalQueryTime: 0
+    totalQueryTime: 0,
   };
 
   constructor(config: DatabaseConfig, logger: Logger) {
@@ -141,14 +142,16 @@ export class DatabaseManager {
         performance: {
           averageQueryTime: 0,
           slowQueries: 0,
-          totalQueries: 0
-        }
+          totalQueries: 0,
+        },
       };
     }
 
     try {
       // Get SQLite version
-      const versionResult = this.db.prepare('SELECT sqlite_version() as version').get() as { version: string };
+      const versionResult = this.db.prepare('SELECT sqlite_version() as version').get() as {
+        version: string;
+      };
 
       // Get database file size
       const { stat } = await import('fs/promises');
@@ -166,12 +169,13 @@ export class DatabaseManager {
         size: stats.size,
         lastMigration: migrationResult.lastMigration,
         performance: {
-          averageQueryTime: this.queryStats.totalQueries > 0
-            ? this.queryStats.totalQueryTime / this.queryStats.totalQueries
-            : 0,
+          averageQueryTime:
+            this.queryStats.totalQueries > 0
+              ? this.queryStats.totalQueryTime / this.queryStats.totalQueries
+              : 0,
           slowQueries: this.queryStats.slowQueries,
-          totalQueries: this.queryStats.totalQueries
-        }
+          totalQueries: this.queryStats.totalQueries,
+        },
       };
     } catch (error) {
       this.logger.error({ error }, 'Failed to get database health');
@@ -184,8 +188,8 @@ export class DatabaseManager {
         performance: {
           averageQueryTime: 0,
           slowQueries: 0,
-          totalQueries: 0
-        }
+          totalQueries: 0,
+        },
       };
     }
   }
@@ -193,7 +197,7 @@ export class DatabaseManager {
   /**
    * Execute query with performance monitoring
    */
-  async query<T = any>(sql: string, params: any[] = []): Promise<QueryResult<T>> {
+  async query<T = unknown>(sql: string, params: unknown[] = []): Promise<QueryResult<T>> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -217,16 +221,19 @@ export class DatabaseManager {
         data,
         rowCount: data.length,
         duration,
-        query: sql
+        query: sql,
       };
     } catch (error) {
       const duration = Date.now() - start;
-      this.logger.error({
-        error,
-        sql,
-        params,
-        duration
-      }, 'Query execution failed');
+      this.logger.error(
+        {
+          error,
+          sql,
+          params,
+          duration,
+        },
+        'Query execution failed'
+      );
       throw error;
     }
   }
@@ -234,7 +241,7 @@ export class DatabaseManager {
   /**
    * Execute single row query
    */
-  async queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  async queryOne<T = unknown>(sql: string, params: unknown[] = []): Promise<T | null> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -255,12 +262,15 @@ export class DatabaseManager {
       return result || null;
     } catch (error) {
       const duration = Date.now() - start;
-      this.logger.error({
-        error,
-        sql,
-        params,
-        duration
-      }, 'Single query execution failed');
+      this.logger.error(
+        {
+          error,
+          sql,
+          params,
+          duration,
+        },
+        'Single query execution failed'
+      );
       throw error;
     }
   }
@@ -268,7 +278,10 @@ export class DatabaseManager {
   /**
    * Execute insert/update/delete with affected rows count
    */
-  async exec(sql: string, params: any[] = []): Promise<{ changes: number; lastInsertRowid: number }> {
+  async exec(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<{ changes: number; lastInsertRowid: number }> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -288,16 +301,19 @@ export class DatabaseManager {
 
       return {
         changes: result.changes,
-        lastInsertRowid: result.lastInsertRowid as number
+        lastInsertRowid: result.lastInsertRowid as number,
       };
     } catch (error) {
       const duration = Date.now() - start;
-      this.logger.error({
-        error,
-        sql,
-        params,
-        duration
-      }, 'Exec query failed');
+      this.logger.error(
+        {
+          error,
+          sql,
+          params,
+          duration,
+        },
+        'Exec query failed'
+      );
       throw error;
     }
   }
@@ -310,8 +326,9 @@ export class DatabaseManager {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     const transaction = this.db.transaction(() => {
-      return callback(this.db!);
+      return callback(db);
     });
 
     try {
@@ -391,14 +408,15 @@ export class DatabaseManager {
     for (const applied of appliedMigrations) {
       const migration = migrations.find(m => m.version === applied.version);
       if (migration && migration.checksum !== applied.checksum) {
-        throw new Error(`Migration ${applied.version} checksum mismatch. Database may be corrupted.`);
+        throw new Error(
+          `Migration ${applied.version} checksum mismatch. Database may be corrupted.`
+        );
       }
     }
 
     // Apply new migrations
-    const lastAppliedVersion = appliedMigrations.length > 0
-      ? Math.max(...appliedMigrations.map(m => m.version))
-      : 0;
+    const lastAppliedVersion =
+      appliedMigrations.length > 0 ? Math.max(...appliedMigrations.map(m => m.version)) : 0;
 
     const pendingMigrations = migrations.filter(m => m.version > lastAppliedVersion);
 
@@ -409,16 +427,20 @@ export class DatabaseManager {
 
     // Apply migrations in transaction
     this.transaction(() => {
+      const db = this.db;
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
       for (const migration of pendingMigrations) {
         this.logger.info(`Applying migration ${migration.version}: ${migration.name}`);
 
         // Execute migration SQL
-        this.db!.exec(migration.up);
+        db.exec(migration.up);
 
         // Record migration as applied
-        this.db!
-          .prepare(`INSERT INTO ${this.config.migrations.table} (version, name, checksum) VALUES (?, ?, ?)`)
-          .run(migration.version, migration.name, migration.checksum);
+        db.prepare(
+          `INSERT INTO ${this.config.migrations.table} (version, name, checksum) VALUES (?, ?, ?)`
+        ).run(migration.version, migration.name, migration.checksum);
 
         this.logger.info(`Migration ${migration.version} applied successfully`);
       }
@@ -446,13 +468,14 @@ export class DatabaseManager {
 
     for (const file of files) {
       const match = file.match(/^(\d+)_(.+)\.sql$/);
-      if (!match) {
+      if (!match || !match[1] || !match[2]) {
         this.logger.warn(`Invalid migration filename: ${file}`);
         continue;
       }
 
-      const version = parseInt(match[1], 10);
-      const name = match[2].replace(/_/g, ' ');
+      const [, vStr, nameSlug] = match;
+      const version = parseInt(vStr, 10);
+      const name = nameSlug.replace(/_/g, ' ');
       const path = join(migrationsDir, file);
       const content = readFileSync(path, 'utf-8');
 
@@ -463,7 +486,7 @@ export class DatabaseManager {
         version,
         name,
         up: content,
-        checksum
+        checksum,
       });
     }
 
@@ -485,17 +508,22 @@ export class DatabaseManager {
   /**
    * Log query execution
    */
-  private logQuery(sql: string, params: any[], duration: number, rowCount: number): void {
-    const logLevel = duration > this.config.performance.slowQueryThreshold ? 'warn' : 'debug';
-
-    this.logger[logLevel]({
+  private logQuery(sql: string, params: unknown[], duration: number, rowCount: number): void {
+    const isWarn = duration > this.config.performance.slowQueryThreshold;
+    const payload = {
       database: {
         query: sql.replace(/\s+/g, ' ').trim(),
         params: params.length,
         duration,
-        rowCount
-      }
-    }, `Database query executed in ${duration}ms`);
+        rowCount,
+      },
+    };
+    const message = `Database query executed in ${duration}ms`;
+    if (isWarn) {
+      this.logger.warn(payload, message);
+    } else {
+      this.logger.debug(payload, message);
+    }
   }
 
   /**
@@ -525,24 +553,27 @@ export function createDefaultDatabaseConfig(): DatabaseConfig {
   const __dirname = dirname(fileURLToPath(import.meta.url));
 
   return {
-    path: process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
+    path:
+      process.env.NODE_ENV === 'test'
+        ? ':memory:'
+        : process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
     migrations: {
       directory: join(__dirname, '..', '..', 'migrations'),
-      table: '_migrations'
+      table: '_migrations',
     },
     backup: {
       enabled: process.env.NODE_ENV === 'production',
-      directory: process.env.BACKUP_DIRECTORY || join(process.cwd(), 'backups')
+      directory: process.env.BACKUP_DIRECTORY || join(process.cwd(), 'backups'),
     },
     performance: {
       enableQueryLogging: process.env.NODE_ENV === 'development',
       slowQueryThreshold: parseInt(process.env.SLOW_QUERY_THRESHOLD || '100', 10),
-      enableWALMode: true
+      enableWALMode: true,
     },
     development: {
-      enableForeignKeys: true,
-      enableQueryPlan: process.env.NODE_ENV === 'development'
-    }
+      enableForeignKeys: process.env.NODE_ENV !== 'test',
+      enableQueryPlan: process.env.NODE_ENV === 'development',
+    },
   };
 }
 
@@ -570,8 +601,8 @@ export class TestDatabaseUtils {
       performance: {
         enableQueryLogging: false,
         slowQueryThreshold: 1000,
-        enableWALMode: false
-      }
+        enableWALMode: false,
+      },
     };
   }
 
@@ -584,8 +615,6 @@ export class TestDatabaseUtils {
 /**
  * Database health check for monitoring
  */
-export async function checkDatabaseHealth(
-  manager: DatabaseManager
-): Promise<DatabaseHealth> {
+export async function checkDatabaseHealth(manager: DatabaseManager): Promise<DatabaseHealth> {
   return manager.getHealth();
 }

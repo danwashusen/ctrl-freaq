@@ -54,12 +54,12 @@ paths:
                   minLength: 1
                   maxLength: 100
                   description: Project name
-                  example: "My Project"
+                  example: 'My Project'
                 description:
                   type: string
                   maxLength: 500
                   description: Optional project description
-                  example: "AI-optimized documentation project"
+                  example: 'AI-optimized documentation project'
       responses:
         '201':
           description: Project created successfully
@@ -178,8 +178,8 @@ paths:
                 additionalProperties:
                   type: string
                 example:
-                  theme: "dark"
-                  logLevel: "info"
+                  theme: 'dark'
+                  logLevel: 'info'
                   editorPreferences: '{"fontSize": 14, "tabSize": 2}'
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -203,8 +203,8 @@ paths:
               additionalProperties:
                 type: string
               example:
-                theme: "dark"
-                logLevel: "debug"
+                theme: 'dark'
+                logLevel: 'debug'
       responses:
         '200':
           description: Configuration updated successfully
@@ -237,34 +237,34 @@ components:
           type: string
           format: uuid
           description: Project ID
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          example: '123e4567-e89b-12d3-a456-426614174000'
         ownerUserId:
           type: string
           description: Clerk user ID
-          example: "user_2abc123def456"
+          example: 'user_2abc123def456'
         name:
           type: string
           description: Project name
-          example: "My Project"
+          example: 'My Project'
         slug:
           type: string
           description: URL-friendly identifier
-          example: "my-project"
+          example: 'my-project'
         description:
           type: string
           nullable: true
           description: Project description
-          example: "AI-optimized documentation project"
+          example: 'AI-optimized documentation project'
         createdAt:
           type: string
           format: date-time
           description: Creation timestamp
-          example: "2025-09-13T10:00:00.000Z"
+          example: '2025-09-13T10:00:00.000Z'
         updatedAt:
           type: string
           format: date-time
           description: Last update timestamp
-          example: "2025-09-13T10:00:00.000Z"
+          example: '2025-09-13T10:00:00.000Z'
 
     ErrorResponse:
       type: object
@@ -276,19 +276,19 @@ components:
         error:
           type: string
           description: Error code
-          example: "VALIDATION_ERROR"
+          example: 'VALIDATION_ERROR'
         message:
           type: string
           description: Human-readable error message
-          example: "Project name is required"
+          example: 'Project name is required'
         requestId:
           type: string
           description: Request correlation ID
-          example: "req_abc123"
+          example: 'req_abc123'
         timestamp:
           type: string
           format: date-time
-          example: "2025-09-13T10:00:00.000Z"
+          example: '2025-09-13T10:00:00.000Z'
         details:
           type: object
           additionalProperties: true
@@ -302,10 +302,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "VALIDATION_ERROR"
-            message: "Invalid request parameters"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'VALIDATION_ERROR'
+            message: 'Invalid request parameters'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
     Unauthorized:
       description: Unauthorized - authentication required
@@ -314,10 +314,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "UNAUTHORIZED"
-            message: "Authentication required"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'UNAUTHORIZED'
+            message: 'Authentication required'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
     Forbidden:
       description: Forbidden - insufficient permissions
@@ -326,10 +326,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "FORBIDDEN"
-            message: "You do not have permission to access this resource"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'FORBIDDEN'
+            message: 'You do not have permission to access this resource'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
     NotFound:
       description: Resource not found
@@ -338,10 +338,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "NOT_FOUND"
-            message: "Project not found"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'NOT_FOUND'
+            message: 'Project not found'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
     Conflict:
       description: Conflict - resource already exists
@@ -350,10 +350,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "CONFLICT"
-            message: "Project already exists for this user"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'CONFLICT'
+            message: 'Project already exists for this user'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
     InternalError:
       description: Internal server error
@@ -362,10 +362,10 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "INTERNAL_ERROR"
-            message: "An unexpected error occurred"
-            requestId: "req_abc123"
-            timestamp: "2025-09-13T10:00:00.000Z"
+            error: 'INTERNAL_ERROR'
+            message: 'An unexpected error occurred'
+            requestId: 'req_abc123'
+            timestamp: '2025-09-13T10:00:00.000Z'
 
   securitySchemes:
     ClerkAuth:

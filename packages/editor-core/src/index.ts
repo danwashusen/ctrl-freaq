@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/editor-core - WYSIWYG editor core library
- * 
+ *
  * This package provides the core WYSIWYG editor functionality for CTRL FreaQ
  * documentation editing, built on TipTap and ProseMirror with extensible
  * architecture for custom content types and behaviors.
@@ -20,14 +20,14 @@ export interface EditorConfig {
   editable?: boolean;
   autofocus?: boolean;
   injectCSS?: boolean;
-  parseOptions?: Record<string, any>;
+  parseOptions?: Record<string, unknown>;
 }
 
 export interface Extension {
   name: string;
   type: 'node' | 'mark' | 'extension';
   priority?: number;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 export interface EditorState {
@@ -39,7 +39,7 @@ export interface EditorState {
 export interface DocumentNode {
   type: string;
   content?: DocumentNode[];
-  attrs?: Record<string, any>;
+  attrs?: Record<string, unknown>;
   text?: string;
 }
 
@@ -51,7 +51,7 @@ export interface Selection {
 
 export interface Mark {
   type: string;
-  attrs?: Record<string, any>;
+  attrs?: Record<string, unknown>;
 }
 
 export interface EditorView {
@@ -102,19 +102,21 @@ export class Editor {
       state: {
         doc: {
           type: 'doc',
-          content: [{
-            type: 'paragraph',
-            content: [{ type: 'text', text: this.config.content || '' }]
-          }]
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: this.config.content || '' }],
+            },
+          ],
         },
-        selection: { type: 'text', anchor: 0, head: 0 }
+        selection: { type: 'text', anchor: 0, head: 0 },
       },
       dom: element || document.createElement('div'),
       dispatch: () => {},
       focus: () => {},
-      blur: () => {}
+      blur: () => {},
     };
-    
+
     this.view = mockView;
     return mockView;
   }
@@ -166,5 +168,5 @@ export class ExtensionManager {
 export const packageInfo = {
   name: '@ctrl-freaq/editor-core',
   version: '0.1.0',
-  description: 'WYSIWYG editor core library for CTRL FreaQ documentation editing'
+  description: 'WYSIWYG editor core library for CTRL FreaQ documentation editing',
 };

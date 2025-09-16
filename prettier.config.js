@@ -9,19 +9,20 @@ export default {
   bracketSameLine: false,
   arrowParens: 'avoid',
   endOfLine: 'lf',
+  plugins: ['prettier-plugin-packagejson', 'prettier-plugin-tailwindcss'],
   overrides: [
     {
       files: '*.json',
       options: {
-        printWidth: 80
-      }
+        printWidth: 80,
+      },
     },
     {
       files: '*.md',
       options: {
         printWidth: 80,
-        proseWrap: 'always'
-      }
-    }
-  ]
+        proseWrap: 'always',
+      },
+    },
+  ],
 };

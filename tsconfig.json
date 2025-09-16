@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
+    "allowImportingTsExtensions": false,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -19,6 +19,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -40,7 +43,9 @@
       "@ctrl-freaq/editor-core": ["./packages/editor-core/src"],
       "@ctrl-freaq/editor-core/*": ["./packages/editor-core/src/*"],
       "@ctrl-freaq/editor-persistence": ["./packages/editor-persistence/src"],
-      "@ctrl-freaq/editor-persistence/*": ["./packages/editor-persistence/src/*"],
+      "@ctrl-freaq/editor-persistence/*": [
+        "./packages/editor-persistence/src/*"
+      ],
       "@ctrl-freaq/template-resolver": ["./packages/template-resolver/src"],
       "@ctrl-freaq/template-resolver/*": ["./packages/template-resolver/src/*"]
     }
@@ -57,11 +62,5 @@
     { "path": "./packages/editor-persistence" },
     { "path": "./packages/template-resolver" }
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    ".next",
-    "coverage"
-  ]
+  "exclude": ["node_modules", "dist", "build", ".next", "coverage"]
 }

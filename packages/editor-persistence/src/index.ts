@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/editor-persistence - Client-side persistence library
- * 
+ *
  * This package provides client-side persistence capabilities for CTRL FreaQ
  * editor state management, including local storage, IndexedDB, synchronization,
  * and backup functionality with compression and conflict resolution.
@@ -51,8 +51,8 @@ export interface SyncState {
 export interface SyncConflict {
   id: string;
   key: string;
-  clientValue: any;
-  serverValue: any;
+  clientValue: unknown;
+  serverValue: unknown;
   timestamp: Date;
 }
 
@@ -66,16 +66,16 @@ export interface BackupConfig {
 export interface Backup {
   id: string;
   timestamp: Date;
-  data: any;
+  data: unknown;
   size: number;
   compressed: boolean;
   checksum: string;
 }
 
 export interface EditorState {
-  content: any;
-  selection?: any;
-  metadata?: Record<string, any>;
+  content: unknown;
+  selection?: unknown;
+  metadata?: Record<string, unknown>;
   timestamp: Date;
   version: number;
 }
@@ -115,7 +115,7 @@ export class PersistenceManager {
       data: state,
       size: JSON.stringify(state).length,
       compressed: useCompression,
-      checksum: 'placeholder_checksum'
+      checksum: 'placeholder_checksum',
     };
 
     await this.storage.set(`backup_${backup.id}`, backup);
@@ -127,12 +127,12 @@ export class PersistenceManager {
     const keys = await this.storage.keys();
     const backupKeys = keys.filter(key => key.startsWith('backup_'));
     const backups: Backup[] = [];
-    
+
     for (const key of backupKeys) {
       const backup = await this.storage.get<Backup>(key);
       if (backup) backups.push(backup);
     }
-    
+
     return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
@@ -143,7 +143,7 @@ export class PersistenceManager {
       lastSync: isEnabled ? new Date() : null,
       pendingChanges: 0,
       conflicts: [],
-      status: isEnabled ? 'idle' : 'idle'
+      status: isEnabled ? 'idle' : 'idle',
     };
   }
 }
@@ -159,10 +159,10 @@ export class LocalStorageProvider implements StorageProvider {
 
   async get<T>(key: string): Promise<T | null> {
     if (!this.available) return null;
-    
+
     const item = localStorage.getItem(this.prefix + key);
     if (!item) return null;
-    
+
     try {
       return JSON.parse(item) as T;
     } catch {
@@ -172,19 +172,19 @@ export class LocalStorageProvider implements StorageProvider {
 
   async set<T>(key: string, value: T): Promise<void> {
     if (!this.available) return;
-    
+
     localStorage.setItem(this.prefix + key, JSON.stringify(value));
   }
 
   async remove(key: string): Promise<void> {
     if (!this.available) return;
-    
+
     localStorage.removeItem(this.prefix + key);
   }
 
   async clear(): Promise<void> {
     if (!this.available) return;
-    
+
     const keys = await this.keys();
     for (const key of keys) {
       localStorage.removeItem(this.prefix + key);
@@ -193,7 +193,7 @@ export class LocalStorageProvider implements StorageProvider {
 
   async keys(): Promise<string[]> {
     if (!this.available) return [];
-    
+
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -206,7 +206,7 @@ export class LocalStorageProvider implements StorageProvider {
 
   async size(): Promise<number> {
     if (!this.available) return 0;
-    
+
     let size = 0;
     const keys = await this.keys();
     for (const key of keys) {
@@ -221,5 +221,5 @@ export class LocalStorageProvider implements StorageProvider {
 export const packageInfo = {
   name: '@ctrl-freaq/editor-persistence',
   version: '0.1.0',
-  description: 'Client-side persistence library for CTRL FreaQ editor state management'
+  description: 'Client-side persistence library for CTRL FreaQ editor state management',
 };

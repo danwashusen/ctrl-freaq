@@ -1,37 +1,34 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { UserButton } from '@clerk/clerk-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, User, Bell, Shield, Database } from 'lucide-react'
+import { UserButton } from '@clerk/clerk-react';
+import { ArrowLeft, User, Bell, Shield, Database } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 
 export default function Settings() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
-    updates: true
-  })
+    updates: true,
+  });
 
   const toggleNotification = (type: keyof typeof notifications) => {
     setNotifications(prev => ({
       ...prev,
-      [type]: !prev[type]
-    }))
-  }
+      [type]: !prev[type],
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="border-b bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Dashboard
               </Button>
               <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
@@ -43,19 +40,17 @@ export default function Settings() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Settings</h2>
-          <p className="text-gray-600">
-            Manage your account preferences and application settings.
-          </p>
+          <h2 className="mb-2 text-3xl font-bold text-gray-900">Settings</h2>
+          <p className="text-gray-600">Manage your account preferences and application settings.</p>
         </div>
 
         <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2" />
+                <User className="mr-2 h-5 w-5" />
                 Account Settings
               </CardTitle>
               <CardDescription>
@@ -83,12 +78,10 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Bell className="h-5 w-5 mr-2" />
+                <Bell className="mr-2 h-5 w-5" />
                 Notifications
               </CardTitle>
-              <CardDescription>
-                Configure how you want to receive notifications
-              </CardDescription>
+              <CardDescription>Configure how you want to receive notifications</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -97,11 +90,11 @@ export default function Settings() {
                   <p className="text-sm text-gray-600">Receive updates via email</p>
                 </div>
                 <Button
-                  variant={notifications.email ? "default" : "outline"}
+                  variant={notifications.email ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => toggleNotification('email')}
                 >
-                  {notifications.email ? "Enabled" : "Disabled"}
+                  {notifications.email ? 'Enabled' : 'Disabled'}
                 </Button>
               </div>
               <div className="flex items-center justify-between">
@@ -110,11 +103,11 @@ export default function Settings() {
                   <p className="text-sm text-gray-600">Browser push notifications</p>
                 </div>
                 <Button
-                  variant={notifications.push ? "default" : "outline"}
+                  variant={notifications.push ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => toggleNotification('push')}
                 >
-                  {notifications.push ? "Enabled" : "Disabled"}
+                  {notifications.push ? 'Enabled' : 'Disabled'}
                 </Button>
               </div>
               <div className="flex items-center justify-between">
@@ -123,11 +116,11 @@ export default function Settings() {
                   <p className="text-sm text-gray-600">News about new features</p>
                 </div>
                 <Button
-                  variant={notifications.updates ? "default" : "outline"}
+                  variant={notifications.updates ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => toggleNotification('updates')}
                 >
-                  {notifications.updates ? "Enabled" : "Disabled"}
+                  {notifications.updates ? 'Enabled' : 'Disabled'}
                 </Button>
               </div>
             </CardContent>
@@ -136,12 +129,10 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Shield className="h-5 w-5 mr-2" />
+                <Shield className="mr-2 h-5 w-5" />
                 Privacy & Security
               </CardTitle>
-              <CardDescription>
-                Control your privacy settings and data management
-              </CardDescription>
+              <CardDescription>Control your privacy settings and data management</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -164,12 +155,10 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Database className="h-5 w-5 mr-2" />
+                <Database className="mr-2 h-5 w-5" />
                 Application Settings
               </CardTitle>
-              <CardDescription>
-                Configure application behavior and preferences
-              </CardDescription>
+              <CardDescription>Configure application behavior and preferences</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -198,5 +187,5 @@ export default function Settings() {
         </div>
       </main>
     </div>
-  )
+  );
 }

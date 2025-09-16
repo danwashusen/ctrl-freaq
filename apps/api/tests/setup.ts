@@ -1,13 +1,8 @@
-import { beforeAll, afterAll } from 'vitest';
+import { beforeEach } from 'vitest';
 
-// Global test setup
-beforeAll(async () => {
-  // Set test environment variables
-  process.env.NODE_ENV = 'test';
-  process.env.LOG_LEVEL = 'error';
-  process.env.DATABASE_PATH = ':memory:';
-});
+process.env.API_TEST_AUTO_RESET = process.env.API_TEST_AUTO_RESET || 'true';
 
-afterAll(async () => {
-  // Cleanup after all tests
+beforeEach(async () => {
+  const { resetAllRegisteredApps } = await import('../src/testing/reset');
+  resetAllRegisteredApps();
 });

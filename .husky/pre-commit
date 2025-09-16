@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# Your tasks
+npx lint-staged --allow-empty

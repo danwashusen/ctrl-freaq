@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/qa - Quality assurance and validation library
- * 
+ *
  * This package provides quality assurance and validation capabilities
  * for CTRL FreaQ documentation, including schema validation, content
  * quality checks, and compliance gates.
@@ -76,11 +76,13 @@ export class DocumentValidator {
       valid: true,
       errors: [],
       warnings: [],
-      info: [{
-        rule: 'placeholder',
-        message: 'Validation functionality not yet implemented',
-        severity: 'info'
-      }]
+      info: [
+        {
+          rule: 'placeholder',
+          message: 'Validation functionality not yet implemented',
+          severity: 'info',
+        },
+      ],
     };
   }
 }
@@ -103,7 +105,7 @@ export class QualityGateRunner {
       valid: true,
       errors: [],
       warnings: [],
-      info: []
+      info: [],
     };
   }
 
@@ -116,5 +118,5 @@ export class QualityGateRunner {
 export const packageInfo = {
   name: '@ctrl-freaq/qa',
   version: '0.1.0',
-  description: 'Quality assurance and validation library for CTRL FreaQ documentation'
+  description: 'Quality assurance and validation library for CTRL FreaQ documentation',
 };

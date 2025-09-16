@@ -26,5 +26,5 @@ export * from './utils/index.js';
 export const PACKAGE_INFO = {
   name: '@ctrl-freaq/templates',
   version: '0.1.0',
-  description: 'YAML template engine for CTRL FreaQ documentation generation'
+  description: 'YAML template engine for CTRL FreaQ documentation generation',
 } as const;

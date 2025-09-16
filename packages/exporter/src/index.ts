@@ -1,6 +1,6 @@
 /**
  * @ctrl-freaq/exporter - Document export library
- * 
+ *
  * This package provides document export capabilities for CTRL FreaQ
  * supporting multiple formats including PDF, HTML, DOCX, Markdown,
  * and EPUB with customizable templates.
@@ -26,14 +26,14 @@ export interface ExportTemplate {
   format: string;
   description: string;
   path: string;
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
 }
 
 export interface ExportOptions {
   format: string;
   template?: string;
   output?: string;
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
   includeMetadata?: boolean;
   compress?: boolean;
 }
@@ -51,7 +51,7 @@ export interface ExportResult {
 export interface DocumentContent {
   title: string;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   assets?: Asset[];
 }
 
@@ -84,7 +84,7 @@ export class DocumentExporter {
       size: 0,
       pageCount: 1,
       warnings: ['Export functionality not yet implemented'],
-      errors: []
+      errors: [],
     };
   }
 
@@ -133,5 +133,5 @@ export class TemplateRegistry {
 export const packageInfo = {
   name: '@ctrl-freaq/exporter',
   version: '0.1.0',
-  description: 'Document export library for CTRL FreaQ supporting multiple formats'
+  description: 'Document export library for CTRL FreaQ supporting multiple formats',
 };

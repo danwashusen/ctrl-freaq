@@ -1,7 +1,8 @@
-import { z } from 'zod';
 import Database from 'better-sqlite3';
+import type { Logger } from 'pino';
+import { z } from 'zod';
+
 import { BaseRepository } from '../repositories/base-repository';
-import { Logger } from 'pino';
 
 /**
  * User entity schema for Clerk authentication integration.
@@ -102,12 +103,15 @@ export class UserRepository extends BaseRepository<User> {
         return undefined;
       }
 
-      return this.mapRowToEntity(row);
+      return this.mapRowToEntity(row as Record<string, unknown>);
     } catch (error) {
-      this.logger.error({
-        clerkId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }, 'Failed to find user by Clerk ID');
+      this.logger.error(
+        {
+          clerkId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to find user by Clerk ID'
+      );
       throw error;
     }
   }
@@ -124,20 +128,26 @@ export class UserRepository extends BaseRepository<User> {
         return undefined;
       }
 
-      return this.mapRowToEntity(row);
+      return this.mapRowToEntity(row as Record<string, unknown>);
     } catch (error) {
-      this.logger.error({
-        email,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }, 'Failed to find user by email');
+      this.logger.error(
+        {
+          email,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to find user by email'
+      );
       throw error;
     }
   }
 
-  async findMany(filters: UserFilters = {}, options: { limit?: number; offset?: number } = {}): Promise<User[]> {
+  async findMany(
+    filters: UserFilters = {},
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<User[]> {
     try {
       const conditions = ['deleted_at IS NULL'];
-      const params: any[] = [];
+      const params: unknown[] = [];
 
       if (filters.clerk_id) {
         conditions.push('clerk_id = ?');
@@ -173,13 +183,16 @@ export class UserRepository extends BaseRepository<User> {
       const stmt = this.db.prepare(query);
       const rows = stmt.all(...params);
 
-      return rows.map((row) => this.mapRowToEntity(row as Record<string, any>));
+      return rows.map(row => this.mapRowToEntity(row as Record<string, unknown>));
     } catch (error) {
-      this.logger.error({
-        filters,
-        options,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }, 'Failed to find users with filters');
+      this.logger.error(
+        {
+          filters,
+          options,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to find users with filters'
+      );
       throw error;
     }
   }
@@ -245,7 +258,9 @@ export const UserUtils = {
     const lastName = user.last_name || '';
 
     if (firstName && lastName) {
-      return (firstName[0]! + lastName[0]!).toUpperCase();
+      const firstInitial = firstName.charAt(0);
+      const lastInitial = lastName.charAt(0);
+      return (firstInitial + lastInitial).toUpperCase();
     }
 
     if (firstName) {
@@ -257,7 +272,7 @@ export const UserUtils = {
     }
 
     return user.email.substring(0, 2).toUpperCase();
-  }
+  },
 };
 
 /**
@@ -266,5 +281,5 @@ export const UserUtils = {
 export const USER_CONSTANTS = {
   MAX_NAME_LENGTH: 100,
   MIN_ID_LENGTH: 5,
-  DEFAULT_IMAGE_SIZE: 80
+  DEFAULT_IMAGE_SIZE: 80,
 } as const;

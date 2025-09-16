@@ -6,13 +6,18 @@ When this command is used, execute the following task:
 
 # trace-requirements
 
-Map story requirements to test cases using Given-When-Then patterns for comprehensive traceability.
+Map story requirements to test cases using Given-When-Then patterns for
+comprehensive traceability.
 
 ## Purpose
 
-Create a requirements traceability matrix that ensures every acceptance criterion has corresponding test coverage. This task helps identify gaps in testing and ensures all requirements are validated.
+Create a requirements traceability matrix that ensures every acceptance
+criterion has corresponding test coverage. This task helps identify gaps in
+testing and ensures all requirements are validated.
 
-**IMPORTANT**: Given-When-Then is used here for documenting the mapping between requirements and tests, NOT for writing the actual test code. Tests should follow your project's testing standards (no BDD syntax in test code).
+**IMPORTANT**: Given-When-Then is used here for documenting the mapping between
+requirements and tests, NOT for writing the actual test code. Tests should
+follow your project's testing standards (no BDD syntax in test code).
 
 ## Prerequisites
 
@@ -34,7 +39,8 @@ Identify all testable requirements from:
 
 ### 2. Map to Test Cases
 
-For each requirement, document which tests validate it. Use Given-When-Then to describe what the test validates (not how it's written):
+For each requirement, document which tests validate it. Use Given-When-Then to
+describe what the test validates (not how it's written):
 
 ```yaml
 requirement: 'AC1: User can login with valid credentials'
@@ -202,7 +208,8 @@ Use Given-When-Then to document what each test validates:
 - State changes checked
 - Values validated
 
-**Note**: This is for documentation only. Actual test code follows your project's standards (e.g., describe/it blocks, no BDD syntax).
+**Note**: This is for documentation only. Actual test code follows your
+project's standards (e.g., describe/it blocks, no BDD syntax).
 
 ### Coverage Priority
 

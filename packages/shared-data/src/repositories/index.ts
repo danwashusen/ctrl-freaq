@@ -5,5 +5,5 @@
  */
 
 // Base repository
-export * from './base-repository.js';
-export type { Repository, QueryOptions } from '../types/index.js';
+export * from './base-repository';
+export type { Repository, QueryOptions } from '../types/index';

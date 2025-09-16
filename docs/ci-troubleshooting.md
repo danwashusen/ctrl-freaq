@@ -1,10 +1,12 @@
 # CI Pipeline Troubleshooting Guide
 
-This guide helps developers diagnose and fix common issues with the CTRL FreaQ CI pipeline.
+This guide helps developers diagnose and fix common issues with the CTRL FreaQ
+CI pipeline.
 
 ## Quick Diagnostics
 
 ### Check CI Status
+
 ```bash
 # View recent workflow runs
 gh run list --workflow=ci.yml --limit=10
@@ -17,6 +19,7 @@ gh run view [RUN_ID] --log-failed
 ```
 
 ### Local Testing
+
 ```bash
 # Test CI pipeline locally
 ./scripts/ci/test-ci-locally.sh
@@ -33,10 +36,12 @@ gh run view [RUN_ID] --log-failed
 ### 1. Lint Failures
 
 **Symptoms:**
+
 - ESLint job fails with style violations
 - Code format inconsistencies reported
 
 **Diagnosis:**
+
 ```bash
 # Run linting locally
 pnpm lint
@@ -46,6 +51,7 @@ pnpm lint:fix --dry-run
 ```
 
 **Solutions:**
+
 ```bash
 # Fix auto-fixable issues
 pnpm lint:fix
@@ -61,6 +67,7 @@ pnpm lint
 ```
 
 **Prevention:**
+
 - Set up ESLint integration in your editor
 - Enable format-on-save with Prettier
 - Run `pnpm lint` before committing
@@ -68,10 +75,12 @@ pnpm lint
 ### 2. TypeScript Compilation Errors
 
 **Symptoms:**
+
 - TypeScript job fails with compilation errors
 - Type checking errors in specific packages
 
 **Diagnosis:**
+
 ```bash
 # Run typecheck locally
 pnpm typecheck
@@ -84,6 +93,7 @@ pnpm typecheck --verbose
 ```
 
 **Solutions:**
+
 ```bash
 # Common type issues:
 # 1. Missing type definitions
@@ -100,6 +110,7 @@ pnpm update typescript @types/node
 ```
 
 **Prevention:**
+
 - Use TypeScript strict mode in development
 - Enable TypeScript checking in your editor
 - Add type annotations for complex types
@@ -107,10 +118,12 @@ pnpm update typescript @types/node
 ### 3. Build Failures
 
 **Symptoms:**
+
 - Build job fails during compilation
 - Missing build artifacts
 
 **Diagnosis:**
+
 ```bash
 # Build locally
 pnpm build
@@ -123,6 +136,7 @@ pnpm build --dry-run
 ```
 
 **Solutions:**
+
 ```bash
 # Clear build cache and rebuild
 rm -rf dist build .turbo node_modules/.cache
@@ -143,10 +157,12 @@ pnpm build
 ### 4. Test Failures
 
 **Symptoms:**
+
 - Test job reports failing tests
 - Test timeouts or crashes
 
 **Diagnosis:**
+
 ```bash
 # Run tests locally
 pnpm test
@@ -162,6 +178,7 @@ pnpm test --watch
 ```
 
 **Solutions:**
+
 ```bash
 # Update failing tests:
 # 1. Fix test logic errors
@@ -183,11 +200,13 @@ pnpm test --watch
 ### 5. Dependency Issues
 
 **Symptoms:**
+
 - Workspace validation fails
 - Version conflicts detected
 - Security vulnerabilities found
 
 **Diagnosis:**
+
 ```bash
 # Check dependency consistency
 ./scripts/ci/check-dependencies.sh
@@ -200,6 +219,7 @@ pnpm outdated
 ```
 
 **Solutions:**
+
 ```bash
 # Fix version inconsistencies:
 # 1. Standardize versions across workspace
@@ -220,11 +240,13 @@ pnpm update --recursive
 ### 6. Cache Issues
 
 **Symptoms:**
+
 - Jobs running slower than expected
 - Cache misses in CI logs
 - Inconsistent build results
 
 **Diagnosis:**
+
 ```bash
 # Check cache status in CI logs
 gh run view [RUN_ID] --log | grep -i cache
@@ -235,6 +257,7 @@ pnpm store prune
 ```
 
 **Solutions:**
+
 ```bash
 # Force cache refresh:
 # 1. Update dependencies to change lockfile hash
@@ -249,11 +272,13 @@ pnpm build
 ### 7. Timeout Issues
 
 **Symptoms:**
+
 - Jobs timeout after 5 minutes
 - Hanging processes
 - Resource exhaustion
 
 **Diagnosis:**
+
 ```bash
 # Check job duration in CI logs
 gh run view [RUN_ID]
@@ -263,6 +288,7 @@ timeout 300s pnpm [command]
 ```
 
 **Solutions:**
+
 ```bash
 # Optimize performance:
 # 1. Enable parallel execution where possible
@@ -280,6 +306,7 @@ timeout 300s pnpm [command]
 ### Node.js Version Issues
 
 **Problem:** CI fails due to Node.js version mismatch
+
 ```bash
 # Check current version
 node --version
@@ -294,6 +321,7 @@ nvm use
 ### pnpm Version Issues
 
 **Problem:** pnpm commands fail or behave unexpectedly
+
 ```bash
 # Check pnpm version
 pnpm --version
@@ -308,6 +336,7 @@ npm install -g pnpm@9
 ### GitHub Actions Limits
 
 **Problem:** CI fails due to GitHub Actions limitations
+
 - **Resource limits:** Reduce parallel jobs or optimize build
 - **API rate limits:** Add delays between API calls
 - **Artifact size limits:** Compress or exclude large files
@@ -316,6 +345,7 @@ npm install -g pnpm@9
 ## Advanced Debugging
 
 ### Enable Debug Logging
+
 ```bash
 # Set environment variables in workflow
 env:
@@ -324,6 +354,7 @@ env:
 ```
 
 ### Inspect CI Environment
+
 ```bash
 # Add debugging step to workflow
 - name: Debug Environment
@@ -340,6 +371,7 @@ env:
 ```
 
 ### SSH Debug Access
+
 ```bash
 # Add to workflow for interactive debugging (use sparingly)
 - name: Setup tmate session
@@ -352,6 +384,7 @@ env:
 ## Monitoring and Alerts
 
 ### Set up Notifications
+
 ```bash
 # GitHub repository settings → Notifications
 # Configure email/Slack notifications for:
@@ -364,6 +397,7 @@ gh api repos/:owner/:repo/commits/main/status
 ```
 
 ### Performance Monitoring
+
 ```bash
 # Review CI metrics regularly
 ./scripts/ci/generate-metrics.js
@@ -378,18 +412,21 @@ gh api repos/:owner/:repo/commits/main/status
 ## Getting Help
 
 ### Internal Resources
+
 - **CI Pipeline Documentation:** `docs/ci-repository-setup.md`
 - **Workflow Validation:** `scripts/ci/validate-workflows.sh`
 - **Local Testing:** `scripts/ci/test-ci-locally.sh`
 - **Dependency Checker:** `scripts/ci/check-dependencies.sh`
 
 ### External Resources
+
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [pnpm Workspace Guide](https://pnpm.io/workspaces)
 - [Turborepo Documentation](https://turbo.build/repo/docs)
 - [Vitest Testing Framework](https://vitest.dev/)
 
 ### Escalation Process
+
 1. **Self-Service:** Use this troubleshooting guide and local testing scripts
 2. **Team Discussion:** Share findings with team members
 3. **Issue Creation:** Create GitHub issue with:
@@ -399,7 +436,9 @@ gh api repos/:owner/:repo/commits/main/status
    - Attempted solutions
 
 ### Emergency Procedures
+
 If CI is completely broken and blocking development:
+
 1. **Immediate:** Skip CI checks temporarily via repository settings
 2. **Communicate:** Notify team of CI bypass and expected fix timeline
 3. **Fix:** Address root cause using this guide
@@ -407,5 +446,6 @@ If CI is completely broken and blocking development:
 5. **Post-mortem:** Document issue and prevention measures
 
 ---
-*Generated: 2025-09-14*
-*Task: T024 - Create CI troubleshooting guide in docs/ci-troubleshooting.md*
+
+_Generated: 2025-09-14_ _Task: T024 - Create CI troubleshooting guide in
+docs/ci-troubleshooting.md_
