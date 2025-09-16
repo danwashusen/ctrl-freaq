@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import type { Logger } from 'pino';
 
+import { loadSharedDataMigrations } from '@ctrl-freaq/shared-data';
+
 /**
  * Database Connection and Migration Utilities
  *
@@ -490,7 +492,14 @@ export class DatabaseManager {
       });
     }
 
-    return migrations;
+    const sharedMigrations = loadSharedDataMigrations().map(migration => ({
+      version: migration.version,
+      name: migration.name.replace(/_/g, ' '),
+      up: migration.sql,
+      checksum: migration.checksum,
+    }));
+
+    return [...migrations, ...sharedMigrations].sort((a, b) => a.version - b.version);
   }
 
   /**

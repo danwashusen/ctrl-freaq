@@ -6,6 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
 const sharedDataSrc = resolve(rootDir, '..', 'packages', 'shared-data', 'src');
+const templatesSrc = resolve(rootDir, '..', 'packages', 'templates', 'src');
 
 export default defineConfig({
   test: {
@@ -31,6 +32,7 @@ export default defineConfig({
     alias: {
       '@': '/src',
       '@ctrl-freaq/shared-data': sharedDataSrc,
+      '@ctrl-freaq/templates': templatesSrc,
     },
   },
 });

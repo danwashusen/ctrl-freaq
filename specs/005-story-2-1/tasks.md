@@ -147,19 +147,19 @@ begins**
 
 ### Backend API Implementation
 
-- [ ] T035 Register template repositories, validator factory, and resolver in
+- [x] T035 Register template repositories, validator factory, and resolver in
       `apps/api/src/services/container.ts`
-- [ ] T036 Implement GET /api/v1/templates handler in
+- [x] T036 Implement GET /api/v1/templates handler in
       `apps/api/src/routes/templates.ts`
-- [ ] T037 Implement GET /api/v1/templates/:templateId handler in
+- [x] T037 Implement GET /api/v1/templates/:templateId handler in
       `apps/api/src/routes/templates.ts`
-- [ ] T038 Implement GET /api/v1/templates/:templateId/versions handler in
+- [x] T038 Implement GET /api/v1/templates/:templateId/versions handler in
       `apps/api/src/routes/templates.ts`
-- [ ] T039 Implement GET /api/v1/templates/:templateId/versions/:version handler
+- [x] T039 Implement GET /api/v1/templates/:templateId/versions/:version handler
       in `apps/api/src/routes/templates.ts`
-- [ ] T040 Implement POST /api/v1/templates/:templateId/versions (publish) with
+- [x] T040 Implement POST /api/v1/templates/:templateId/versions (publish) with
       Zod validation + schema persistence in `apps/api/src/routes/templates.ts`
-- [ ] T041 Implement POST
+- [x] T041 Implement POST
       /api/v1/templates/:templateId/versions/:version/activate with audit
       logging in `apps/api/src/routes/templates.ts`
 - [ ] T042 Add template validation + auto-upgrade middleware in

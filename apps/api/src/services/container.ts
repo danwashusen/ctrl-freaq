@@ -1,11 +1,16 @@
-import type { Request, Response, NextFunction } from 'express';
 import type Database from 'better-sqlite3';
+import type { Request, Response, NextFunction } from 'express';
+import type { Logger } from 'pino';
 
 import {
   ProjectRepositoryImpl,
   ConfigurationRepositoryImpl,
   ActivityLogRepositoryImpl,
+  DocumentTemplateRepositoryImpl,
+  TemplateVersionRepositoryImpl,
+  DocumentTemplateMigrationRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
+import { TemplateCatalogService } from './template-catalog.service.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -23,6 +28,29 @@ export function createRepositoryRegistrationMiddleware() {
     container.register('projectRepository', () => new ProjectRepositoryImpl(getDb()));
     container.register('configurationRepository', () => new ConfigurationRepositoryImpl(getDb()));
     container.register('activityLogRepository', () => new ActivityLogRepositoryImpl(getDb()));
+    container.register(
+      'documentTemplateRepository',
+      () => new DocumentTemplateRepositoryImpl(getDb())
+    );
+    container.register(
+      'templateVersionRepository',
+      () => new TemplateVersionRepositoryImpl(getDb())
+    );
+    container.register(
+      'documentTemplateMigrationRepository',
+      () => new DocumentTemplateMigrationRepositoryImpl(getDb())
+    );
+
+    container.register('templateCatalogService', currentContainer => {
+      const templateRepo = currentContainer.get(
+        'documentTemplateRepository'
+      ) as DocumentTemplateRepositoryImpl;
+      const versionRepo = currentContainer.get(
+        'templateVersionRepository'
+      ) as TemplateVersionRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+      return new TemplateCatalogService(templateRepo, versionRepo, logger);
+    });
 
     next();
   };

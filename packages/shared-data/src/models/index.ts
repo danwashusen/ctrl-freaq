@@ -18,3 +18,12 @@ export * from './app-version';
 
 // Activity log model
 export * from './activity-log';
+
+// Document template catalog
+export * from './document-template';
+
+// Template version snapshots
+export * from './template-version';
+
+// Document template migration events
+export * from './document-template-migration';
