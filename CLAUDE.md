@@ -1,5 +1,34 @@
 ---
+# Document Schema & Template System
+- **Feature**: Template catalog with versioned YAML source, shared validation, migration support
+- **Packages**:
+  - `@ctrl-freaq/templates`: compile/publish/activate CLI, shared Zod validators
+  - `@ctrl-freaq/template-resolver`: version-aware resolver + cache invalidation hooks
+  - `@ctrl-freaq/shared-data`: Template repositories + migrations
+- **API Endpoints**:
+  - `GET /api/v1/templates` — Catalog listing with active version metadata
+  - `POST /api/v1/templates/:id/versions` — Publish new YAML version (manager scope)
+  - `POST /api/v1/templates/:id/versions/:version/activate` — Promote version
+  - `GET /api/v1/templates/:id/versions/:version` — Retrieve compiled schema + sections
+- **CLI Commands**:
+  - `pnpm --filter @ctrl-freaq/templates publish --file templates/architecture.yaml --version X.Y.Z`
+  - `pnpm --filter @ctrl-freaq/templates activate --template architecture --version X.Y.Z`
+  - `pnpm --filter @ctrl-freaq/templates migrate --document DOC123 --to-version X.Y.Z`
+- **Validation & Upgrade**:
+  - Backend: template validation middleware + auto-upgrade handler in `apps/api/src/middleware/template-validation.ts`
+  - Frontend: editor guard + inline errors + block-state UI in `apps/web/src/features/editor/template-validation.ts`
+  - Shared schema: `packages/templates/src/validators/document-template.ts`
+  - Removed-version handling: editor disables editing when API returns `TEMPLATE_VERSION_REMOVED`
+- **Tests**:
+  - Contract tests: `apps/api/tests/contract/templates.spec.ts`
+  - Repository tests: `packages/shared-data/src/repositories/template/*.test.ts`
+  - UI validation tests: `apps/web/src/features/editor/__tests__/template-validation.test.tsx`
+- **Quick Verify**: See specs/005-story-2-1/quickstart.md
+
+---
+
 # Dashboard & Authenticated Layout
+
 - **Feature**: Two-column layout with sidebar navigation and dashboard view
 - **Components**:
   - Sidebar: Projects list sorted alphabetically, user profile placeholder
@@ -16,22 +45,32 @@
 - **Quick Verify**: See specs/004-1-4-authenticated/quickstart.md
 
 ## Pointers (004-1-4-authenticated)
+
 - Backend
-  - Request ID + logging: `apps/api/src/middleware/request-id.ts`, `apps/api/src/core/logging.ts`
+  - Request ID + logging: `apps/api/src/middleware/request-id.ts`,
+    `apps/api/src/core/logging.ts`
   - Error handling (standard shapes): `apps/api/src/middleware/error-handler.ts`
-  - Service Locator + repos: `apps/api/src/core/service-locator.ts`, `apps/api/src/services/container.ts`
-  - Routes: `apps/api/src/routes/{projects.ts,dashboard.ts,activities.ts,projects.select.ts}`
+  - Service Locator + repos: `apps/api/src/core/service-locator.ts`,
+    `apps/api/src/services/container.ts`
+  - Routes:
+    `apps/api/src/routes/{projects.ts,dashboard.ts,activities.ts,projects.select.ts}`
   - Tests avoid `app.listen`: supertest against `createApp()`
 - Frontend
-  - ApiClient public methods: `apps/web/src/lib/api.ts` (`listProjects`, `getDashboard`, `listActivities`)
+  - ApiClient public methods: `apps/web/src/lib/api.ts` (`listProjects`,
+    `getDashboard`, `listActivities`)
   - Services: `apps/web/src/lib/api/services/*`
   - Store: `apps/web/src/stores/project-store.ts`
   - Lazy routes: `apps/web/src/App.tsx` (React.lazy + Suspense)
-  - Removed prod alias for `zustand`; test-only mock in `apps/web/tests/setup.ts`
+  - Removed prod alias for `zustand`; test-only mock in
+    `apps/web/tests/setup.ts`
 - Tests
-  - API contract: `apps/api/tests/contract/*` (request-id and error-handler assertions added)
-  - Repo unit tests: `packages/shared-data/src/repositories/project.repository.test.ts`
-  - Web unit/integration: `apps/web/src/components/common/__tests__/Avatar.test.tsx`, existing integration tests
+  - API contract: `apps/api/tests/contract/*` (request-id and error-handler
+    assertions added)
+  - Repo unit tests:
+    `packages/shared-data/src/repositories/project.repository.test.ts`
+  - Web unit/integration:
+    `apps/web/src/components/common/__tests__/Avatar.test.tsx`, existing
+    integration tests
 
 ---
 

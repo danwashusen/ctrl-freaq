@@ -10,11 +10,13 @@
   "include": [
     "src/**/*",
     "tests/**/*",
-    "../../packages/shared-data/src/**/*.ts"
+    "../../packages/shared-data/src/**/*.ts",
+    "../../packages/templates/src/**/*.ts"
   ],
   "exclude": [
     "dist",
     "node_modules",
-    "../../packages/shared-data/src/**/*.test.ts"
+    "../../packages/shared-data/src/**/*.test.ts",
+    "../../packages/templates/src/**/*.test.ts"
   ]
 }

@@ -19,6 +19,10 @@
     "./types/*": {
       "import": "./dist/types/*.js",
       "types": "./dist/types/*.d.ts"
+    },
+    "./migrations": {
+      "import": "./dist/migrations/index.js",
+      "types": "./dist/migrations/index.d.ts"
     }
   },
   "main": "dist/index.js",
