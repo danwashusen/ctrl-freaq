@@ -244,3 +244,19 @@ Task: "Implement DocumentTemplateMigration model + repository in packages/shared
 Task: "Build TemplateValidationGate component enforcing inline errors in apps/web/src/components/editor/TemplateValidationGate.tsx"
 Task: "Wire browser Pino template logging + correlation propagation in apps/web/src/lib/logger.ts"
 ```
+
+## Phase 3.6: Code Review Feedback from 2025-09-17 09:21
+
+- [x] T107 [Correctness] Restore removed-version banner —
+      apps/web/src/stores/template-store.ts - Why: API returns HTTP 409 for
+      removed template versions; client expects 200 with decision payload, so
+      editors hit fatal load error - Severity: Major - Fix: Teach template store
+      to detect 409, surface blocked decision/banner, add integration test
+      <!-- completed: 2025-09-16 23:34 UTC -->
+
+- [x] T108 [Correctness] Surface auto-upgrade failures —
+      apps/web/src/stores/template-store.ts - Why: Middleware sends 422 on
+      validation failure; UI expects success response and never shows
+      upgrade-failed state - Severity: Major - Fix: Handle 422 path, map to
+      failure banner, add integration coverage
+      <!-- completed: 2025-09-16 23:34 UTC -->

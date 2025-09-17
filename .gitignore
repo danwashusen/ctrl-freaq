@@ -104,3 +104,4 @@ docs/archive/
 /.audit-*
 .workspaces.json
 .ls.json
+.codex/*

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createTemplateValidator } from '../lib/template-validator';
 
 import type ApiClient from '../lib/api';
+import type { ApiError } from '../lib/api';
 import { logger } from '../lib/logger';
 
 interface TemplateSectionOutline {
@@ -110,7 +111,19 @@ interface LoadDocumentOptions {
   documentId: string;
 }
 
-type TemplateStoreStatus = 'idle' | 'loading' | 'ready' | 'blocked' | 'error';
+type TemplateStoreStatus = 'idle' | 'loading' | 'ready' | 'blocked' | 'upgrade_failed' | 'error';
+
+interface TemplateUpgradeIssue {
+  path: Array<string | number>;
+  message: string;
+  code?: string;
+}
+
+interface TemplateUpgradeFailureState {
+  message: string;
+  issues: TemplateUpgradeIssue[];
+  requestId?: string;
+}
 
 interface TemplateStoreState {
   status: TemplateStoreStatus;
@@ -123,6 +136,8 @@ interface TemplateStoreState {
   error?: string;
   formValue: Record<string, unknown> | null;
   decision: TemplateUpgradeDecision | null;
+  errorCode: string | null;
+  upgradeFailure: TemplateUpgradeFailureState | null;
   loadDocument: (options: LoadDocumentOptions) => Promise<void>;
   reset: () => void;
   setFormValue: (value: Record<string, unknown>) => void;
@@ -139,12 +154,20 @@ const initialState: Omit<TemplateStoreState, 'loadDocument' | 'reset' | 'setForm
   error: undefined,
   formValue: null,
   decision: null,
+  errorCode: null,
+  upgradeFailure: null,
 };
 
 export const useTemplateStore = create<TemplateStoreState>(set => ({
   ...initialState,
   async loadDocument({ apiClient, documentId }: LoadDocumentOptions) {
-    set({ status: 'loading', error: undefined });
+    set({
+      status: 'loading',
+      error: undefined,
+      errorCode: null,
+      upgradeFailure: null,
+      removedVersion: null,
+    });
 
     try {
       const response = (await apiClient.getDocument(documentId)) as DocumentApiResponse;
@@ -214,6 +237,9 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
           },
           formValue,
           decision,
+          error: undefined,
+          errorCode: 'TEMPLATE_VERSION_REMOVED',
+          upgradeFailure: null,
         });
         logger.setTemplateContext({
           templateId: decision.requestedVersion.templateId,
@@ -233,6 +259,9 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
         removedVersion: null,
         formValue,
         decision,
+        error: undefined,
+        errorCode: null,
+        upgradeFailure: null,
       });
 
       logger.setTemplateContext({
@@ -241,8 +270,108 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
         templateSchemaHash: response.document.templateSchemaHash,
       });
     } catch (error) {
+      if (isApiError(error)) {
+        if (error.status === 409) {
+          const body = (error.body ?? {}) as Record<string, unknown>;
+          const templateId = typeof body.templateId === 'string' ? body.templateId : null;
+          const missingVersion =
+            typeof body.missingVersion === 'string' ? body.missingVersion : null;
+          const message =
+            (typeof body.message === 'string' && body.message.length > 0
+              ? body.message
+              : error.message) ?? 'Template version is no longer available.';
+
+          set({
+            status: 'blocked',
+            document: null,
+            template: null,
+            migration: null,
+            validator: null,
+            sections: [],
+            removedVersion:
+              templateId && missingVersion ? { templateId, version: missingVersion } : null,
+            formValue: null,
+            decision: null,
+            error: message,
+            errorCode: typeof error.code === 'string' ? error.code : 'TEMPLATE_VERSION_REMOVED',
+            upgradeFailure: null,
+          });
+
+          logger.warn('template.store.version_removed', {
+            documentId,
+            templateId: templateId ?? 'unknown',
+            missingVersion: missingVersion ?? 'unknown',
+            requestId: typeof body.requestId === 'string' ? body.requestId : undefined,
+          });
+          return;
+        }
+
+        if (error.status === 422) {
+          const body = (error.body ?? {}) as Record<string, unknown>;
+          const message =
+            (typeof body.message === 'string' && body.message.length > 0
+              ? body.message
+              : error.message) ?? 'Template auto-upgrade failed.';
+          const issues = normalizeValidationIssues(
+            error.details ??
+              (body as { details?: unknown }).details ??
+              (body as { issues?: unknown }).issues
+          );
+
+          set({
+            status: 'upgrade_failed',
+            document: null,
+            template: null,
+            migration: null,
+            validator: null,
+            sections: [],
+            removedVersion: null,
+            formValue: null,
+            decision: null,
+            error: message,
+            errorCode:
+              typeof body.error === 'string' && body.error.length > 0
+                ? body.error
+                : typeof error.code === 'string'
+                  ? error.code
+                  : 'TEMPLATE_VALIDATION_FAILED',
+            upgradeFailure: {
+              message,
+              issues,
+              requestId:
+                typeof (body as { requestId?: unknown }).requestId === 'string'
+                  ? (body as { requestId?: string }).requestId
+                  : undefined,
+            },
+          });
+
+          logger.warn('template.store.upgrade_failed', {
+            documentId,
+            issues: issues.length,
+            requestId:
+              typeof (body as { requestId?: unknown }).requestId === 'string'
+                ? (body as { requestId?: string }).requestId
+                : undefined,
+          });
+          return;
+        }
+      }
+
       const message = error instanceof Error ? error.message : 'Failed to load template context';
-      set({ status: 'error', error: message, decision: null });
+      set({
+        status: 'error',
+        document: null,
+        template: null,
+        migration: null,
+        validator: null,
+        sections: [],
+        removedVersion: null,
+        formValue: null,
+        decision: null,
+        error: message,
+        errorCode: isApiError(error) && typeof error.code === 'string' ? error.code : null,
+        upgradeFailure: null,
+      });
       logger.warn('template.store.load_failed', {
         documentId,
         error: error instanceof Error ? error.message : String(error ?? 'unknown'),
@@ -257,3 +386,50 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
     set({ formValue: value });
   },
 }));
+
+function isApiError(error: unknown): error is ApiError {
+  return error instanceof Error && 'status' in error;
+}
+
+function normalizeValidationIssues(input: unknown): TemplateUpgradeIssue[] {
+  if (!input) {
+    return [];
+  }
+
+  if (Array.isArray(input)) {
+    return input
+      .map(issue => normalizeIssue(issue))
+      .filter((issue): issue is TemplateUpgradeIssue => issue !== null);
+  }
+
+  if (typeof input === 'object' && input !== null) {
+    const nested = (input as { issues?: unknown }).issues;
+    if (Array.isArray(nested)) {
+      return normalizeValidationIssues(nested);
+    }
+  }
+
+  return [];
+}
+
+function normalizeIssue(issue: unknown): TemplateUpgradeIssue | null {
+  if (!issue || typeof issue !== 'object') {
+    return null;
+  }
+
+  const pathValue = (issue as { path?: unknown }).path;
+  const messageValue = (issue as { message?: unknown }).message;
+  const codeValue = (issue as { code?: unknown }).code;
+
+  const path = Array.isArray(pathValue)
+    ? pathValue.filter(
+        (segment): segment is string | number =>
+          typeof segment === 'string' || typeof segment === 'number'
+      )
+    : [];
+
+  const message = typeof messageValue === 'string' ? messageValue : 'Template validation failed';
+  const code = typeof codeValue === 'string' ? codeValue : undefined;
+
+  return { path, message, code };
+}

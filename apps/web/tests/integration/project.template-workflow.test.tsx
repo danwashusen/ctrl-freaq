@@ -269,28 +269,16 @@ describe('Project template workflow', () => {
       }
       if (url.endsWith('/documents/project-2')) {
         return Promise.resolve({
-          ok: true,
+          ok: false,
+          status: 409,
+          statusText: 'Conflict',
           json: () =>
             Promise.resolve({
-              document: {
-                id: 'project-2',
-                projectId: 'project-2',
-                title: 'Legacy Architecture',
-                content: { introduction: 'Legacy content' },
-                templateId: 'architecture',
-                templateVersion: '0.9.0',
-                templateSchemaHash: 'hash-old',
-              },
-              migration: null,
-              templateDecision: {
-                action: 'blocked',
-                reason: 'removed_version',
-                requestedVersion: {
-                  templateId: 'architecture',
-                  version: '0.9.0',
-                  schemaHash: 'hash-old',
-                },
-              },
+              error: 'TEMPLATE_VERSION_REMOVED',
+              message: 'The referenced template version is no longer available.',
+              templateId: 'architecture',
+              missingVersion: '0.9.0',
+              requestId: 'req_removed',
             }),
         } as Response);
       }
@@ -336,6 +324,68 @@ describe('Project template workflow', () => {
     });
 
     expect(screen.getByTestId('template-removed-banner')).toBeInTheDocument();
+    expect(screen.queryByTestId('document-editor-form')).not.toBeInTheDocument();
+  });
+
+  it('surfaces auto-upgrade failures when validation middleware returns 422', async () => {
+    globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/projects/project-3')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'project-3',
+              ownerUserId: 'user_123',
+              name: 'Upgrade Failure Project',
+              slug: 'upgrade-failure-project',
+              description: 'Auto-upgrade failure scenario',
+              createdAt: '2025-09-16T00:00:00.000Z',
+              updatedAt: '2025-09-16T00:00:00.000Z',
+            }),
+        } as Response);
+      }
+      if (url.endsWith('/documents/project-3')) {
+        return Promise.resolve({
+          ok: false,
+          status: 422,
+          statusText: 'Unprocessable Entity',
+          json: () =>
+            Promise.resolve({
+              error: 'TEMPLATE_VALIDATION_FAILED',
+              message: 'Document content does not satisfy the target template schema',
+              requestId: 'req_upgrade_failed',
+              details: {
+                issues: [
+                  {
+                    path: ['introduction'],
+                    message: 'Executive Summary is required',
+                    code: 'required',
+                  },
+                ],
+              },
+            }),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: () => Promise.resolve({}),
+      } as Response);
+    }) as unknown as typeof fetch;
+
+    renderProject('/project/project-3');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Upgrade Failure Project')[0]).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('template-upgrade-failed-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('template-upgrade-failed-guidance')).toBeInTheDocument();
+    expect(screen.getByTestId('template-upgrade-failed-issues')).toHaveTextContent(
+      'Executive Summary is required'
+    );
     expect(screen.queryByTestId('document-editor-form')).not.toBeInTheDocument();
   });
 });

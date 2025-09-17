@@ -17,18 +17,29 @@ export interface RemovedVersionInfo {
   message: string;
 }
 
+export interface TemplateUpgradeFailure {
+  message: string;
+  issues?: Array<{ path: Array<string | number>; message: string; code?: string }>;
+  requestId?: string;
+}
+
 export interface TemplateUpgradeBannerProps {
   migration: TemplateMigrationSummary | null;
   removedVersion?: RemovedVersionInfo | null;
+  upgradeFailure?: TemplateUpgradeFailure | null;
   children?: ReactNode;
 }
 
 export function TemplateUpgradeBanner(props: TemplateUpgradeBannerProps): JSX.Element {
-  const { migration, removedVersion, children } = props;
+  const { migration, removedVersion, children, upgradeFailure } = props;
 
   const bannerState = useMemo(() => {
     if (removedVersion) {
       return 'removed' as const;
+    }
+
+    if (upgradeFailure) {
+      return 'failed' as const;
     }
 
     if (migration) {
@@ -36,7 +47,7 @@ export function TemplateUpgradeBanner(props: TemplateUpgradeBannerProps): JSX.El
     }
 
     return null;
-  }, [migration, removedVersion]);
+  }, [migration, removedVersion, upgradeFailure]);
 
   useEffect(() => {
     if (migration && migration.status === 'succeeded') {
@@ -94,20 +105,63 @@ export function TemplateUpgradeBanner(props: TemplateUpgradeBannerProps): JSX.El
     );
   }
 
-  if (bannerState === 'failed' && migration) {
-    return (
-      <div
-        role="alert"
-        className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-        data-testid="template-upgrade-failed-banner"
-      >
-        <p className="font-semibold">Template upgrade failed for version {migration.toVersion}.</p>
-        <p className="mt-1 text-amber-800">
-          Please review validation errors and retry. Original version {migration.fromVersion} remains active.
-        </p>
-        {children ? <div className="mt-3">{children}</div> : null}
-      </div>
-    );
+  if (bannerState === 'failed') {
+    if (upgradeFailure) {
+      return (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          data-testid="template-upgrade-failed-banner"
+        >
+          <p className="font-semibold">Template auto-upgrade failed.</p>
+          <p className="mt-1 text-amber-800">{upgradeFailure.message}</p>
+          {upgradeFailure.requestId ? (
+            <p className="mt-2 text-xs text-amber-700">Reference ID: {upgradeFailure.requestId}</p>
+          ) : null}
+          {upgradeFailure.issues && upgradeFailure.issues.length > 0 ? (
+            <ul
+              className="mt-3 list-disc space-y-1 pl-5 text-amber-800"
+              data-testid="template-upgrade-failed-issues"
+            >
+              {upgradeFailure.issues.map((issue, index) => {
+                const path = issue.path
+                  .map(segment =>
+                    typeof segment === 'number' ? `[${segment}]` : (segment?.toString() ?? '')
+                  )
+                  .filter(Boolean)
+                  .join('.');
+                return (
+                  <li key={`${path}:${index}`}>
+                    {path ? <span className="font-medium">{path}: </span> : null}
+                    {issue.message}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          {children ? <div className="mt-3">{children}</div> : null}
+        </div>
+      );
+    }
+
+    if (migration) {
+      return (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          data-testid="template-upgrade-failed-banner"
+        >
+          <p className="font-semibold">
+            Template upgrade failed for version {migration.toVersion}.
+          </p>
+          <p className="mt-1 text-amber-800">
+            Please review validation errors and retry. Original version {migration.fromVersion}{' '}
+            remains active.
+          </p>
+          {children ? <div className="mt-3">{children}</div> : null}
+        </div>
+      );
+    }
   }
 
   if (bannerState === 'pending' && migration) {

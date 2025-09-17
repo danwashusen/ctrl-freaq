@@ -55,6 +55,9 @@ export default function Project() {
   const templateDocument = useTemplateStore(state => state.document);
   const templateMigration = useTemplateStore(state => state.migration);
   const removedVersion = useTemplateStore(state => state.removedVersion);
+  const templateError = useTemplateStore(state => state.error);
+  const templateErrorCode = useTemplateStore(state => state.errorCode);
+  const upgradeFailure = useTemplateStore(state => state.upgradeFailure);
   const sections = useTemplateStore(state => state.sections);
   const validator = useTemplateStore(state => state.validator);
   const formValue = useTemplateStore(state => state.formValue);
@@ -301,7 +304,11 @@ export default function Project() {
         {id !== 'new' && (
           <section className="space-y-4">
             <h3 className="text-xl font-semibold text-gray-900">Document Template</h3>
-            <TemplateUpgradeBanner migration={migrationSummary} removedVersion={removedVersionInfo}>
+            <TemplateUpgradeBanner
+              migration={migrationSummary}
+              removedVersion={removedVersionInfo}
+              upgradeFailure={upgradeFailure}
+            >
               {templateStatus === 'loading' && (
                 <div className="rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-700">
                   Loading template details…
@@ -314,9 +321,22 @@ export default function Project() {
                 </div>
               ) : null}
 
+              {templateStatus === 'upgrade_failed' && upgradeFailure ? (
+                <div
+                  className="rounded-md border border-amber-200 bg-amber-100 p-4 text-sm text-amber-900"
+                  data-testid="template-upgrade-failed-guidance"
+                >
+                  Editing is disabled until the auto-upgrade issues above are resolved and content
+                  passes validation.
+                </div>
+              ) : null}
+
               {templateStatus === 'error' && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-                  Failed to load template details. Try reloading the page.
+                  {templateError ?? 'Failed to load template details. Try reloading the page.'}
+                  {templateErrorCode ? (
+                    <div className="mt-2 text-xs text-red-800">Error code: {templateErrorCode}</div>
+                  ) : null}
                 </div>
               )}
 

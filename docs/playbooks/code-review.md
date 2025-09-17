@@ -205,66 +205,70 @@ Output
   - Deprecation warnings: list distinct messages with counts and primary source
     (e.g., "React Router Future Flag Warning" from test output)
 
-Write‑Back Behavior (optional)
+Write‑Back Behavior (conditional)
 
-- Non‑destructive by default. If permitted, update `tasks.md`:
-  - Update checkboxes per completion state (preserve text).
-  - Append a new section:
-    `## Phase 3.<N>: Code Review Feedback from <YYYY‑MM‑DD HH:MM>`; choose `<N>`
-    after the highest existing 3.<n>.
-  - Continue numbering from the highest existing `T###` (preserve zero‑padding).
-  - For each finding, add a task:
-    - `TXYZ: [Category] Summary — File: path[:line-range]`
-      - Why: impact rationale
-      - Severity: Critical | Major | Minor
-      - Fix: concrete steps (tests first, then implementation)
-      - Links: spec/architecture anchors, commits/PR
-  - Add dependency remediation tasks when applicable:
-    - Upgrade or replace vulnerable/deprecated packages (list packages,
-      versions, and affected workspaces).
-    - Add or update tests covering behavior changes from upgrades.
-    - Document any temporary pins/overrides and create a follow‑up task to
-      remove them.
-    - If an exception is necessary, add an explicit "[NEEDS CLARIFICATION: …]"
-      item or record an exception note with expiry.
-  - Add aggregated quality remediation tasks when applicable (one per category,
-    not per issue):
+- Stay read-only unless the review scope includes changes to a `tasks.md` file.
+- When no `tasks.md` diff is present, capture findings in the review without
+  modifying files.
+- When a `tasks.md` diff is present:
+  - Build a draft amendment containing:
+    - Updated checkboxes reflecting completion state (preserve original text).
+    - A new section
+      `## Phase 3.<N>: Code Review Feedback from <YYYY‑MM‑DD HH:MM>` where `<N>`
+      is one higher than the current maximum `3.<n>`.
+    - Newly numbered tasks continuing from the highest existing `T###` (keep
+      zero padding).
+    - For each finding, a task entry in the form
+      `TXYZ: [Category] Summary — File: path[:line-range]` with:
+      - Why: brief impact rationale.
+      - Severity: Critical | Major | Minor.
+      - Fix: concrete steps, starting with tests, then implementation.
+      - Links: relevant specs, architecture anchors, commits/PRs.
+    - Dependency remediation tasks when required, covering package upgrades,
+      follow-up testing, documentation of pins/overrides, and any needed
+      exceptions with expirations.
+    - Aggregated quality remediation tasks (one per category) when lint,
+      typecheck, test, or other quality signals fail, reusing the acceptance
+      criteria below.
+    - Deprecation warning remediation tasks (one per distinct warning message)
+      including the command emitting the warning and the acceptance condition
+      for clearing it.
+  - Present the draft to the requestor and ask whether to apply it; include the
+    rendered section so they can approve or decline.
+  - Apply the write-back only after explicit approval; otherwise leave the file
+    untouched and keep the findings summarized in the review notes.
+  - When applying, use the same acceptance criteria as before:
     - `TXYZ: [Maintainability] Resolve linting issues (aggregate) — Command: pnpm -w lint`
-      - Why: Lint errors reduce maintainability and mask defects
-      - Severity: Major (unless CI-blocking)
+      - Why: Lint errors reduce maintainability and mask defects.
+      - Severity: Major (unless CI-blocking).
       - Fix: Eliminate all ESLint errors across touched workspaces; remove stray
-        `console.*`; avoid `eslint-disable` except with justification and ticket
-        reference
+        `console.*`; avoid `eslint-disable` without justification and ticket
+        reference.
       - Acceptance: `pnpm -w lint` returns 0 errors; no `.only`/`.skip` in
-        tests; no new global disables
+        tests; no new global disables.
     - `TXYZ: [Correctness] Resolve type check issues (aggregate) — Command: pnpm -w typecheck`
-      - Why: Type errors indicate potential runtime failures and contract drift
-      - Severity: Major (Critical if affecting boundary contracts)
-      - Fix: Address type errors without adding `// @ts-ignore` (unless
-        justified with ticket and expiry); prefer precise types over `any`;
-        update public types/fixtures accordingly
-      - Acceptance: `pnpm -w typecheck` returns 0 errors; no new `@ts-ignore`
-        without justification
+      - Why: Type errors indicate potential runtime failures and contract drift.
+      - Severity: Major (Critical if affecting boundary contracts).
+      - Fix: Resolve type errors without introducing `// @ts-ignore` salvo;
+        prefer precise types; update public types/fixtures as needed.
+      - Acceptance: `pnpm -w typecheck` returns 0 errors; no new justified
+        `@ts-ignore`.
     - `TXYZ: [Testing] Resolve test failures (aggregate) — Command: pnpm -w test`
-      - Why: Failing tests block reliability and regressions go undetected
-      - Severity: Critical if core paths fail; Major otherwise
+      - Why: Failing tests block reliability and conceal regressions.
+      - Severity: Critical if core paths fail; Major otherwise.
       - Fix: Repair failing unit/integration/contract tests; update snapshots
-        only when behavior change is intended and documented; remove
-        `.only`/`.skip`; ensure coverage for new code meets the project
-        threshold
-      - Acceptance: `pnpm -w test` passes; coverage for new/changed code meets
-        threshold; no `.only`/`.skip`
-  - Add deprecation warning remediation tasks (one per distinct warning
-    message):
-    - `TXYZ: [Maintainability] Resolve deprecation warning — React Router Future Flag Warning`
-      - Why: Indicates an upcoming breaking change; unresolved warnings create
-        noise and risk
-      - Severity: Major (Critical if causing failures or blocking upgrades)
-      - Fix: Adopt recommended APIs/configuration or upgrade the affected
-        package; avoid silencing logs; add a test that exercises the path
-        without emitting the warning
-      - Acceptance: Running tests yields no matching warning in output; CI log
-        grep for the exact warning string returns no matches
+        only for intentional behavior changes; remove `.only`/`.skip`; ensure
+        coverage meets project thresholds.
+      - Acceptance: `pnpm -w test` passes; coverage targets met; no
+        `.only`/`.skip`.
+    - `TXYZ: [Maintainability] Resolve deprecation warning — <warning source>`
+      - Why: Indicates forthcoming breaking change; unresolved warnings add
+        noise and risk.
+      - Severity: Major (Critical if already breaking flows).
+      - Fix: Adopt recommended APIs/configuration or upgrade affected package;
+        avoid silencing logs; add a test that exercises the path without
+        emitting the warning.
+      - Acceptance: Tests and builds run without reproducing the warning.
 - If edits are not permitted, emit ready‑to‑apply patch diffs instead.
 
 Important

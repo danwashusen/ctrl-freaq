@@ -8,6 +8,8 @@ interface ApiClientOptions {
 interface ApiError extends Error {
   status?: number;
   code?: string;
+  body?: unknown;
+  details?: unknown;
 }
 
 // Client-facing normalized project shape
@@ -188,11 +190,24 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const error: ApiError = new Error(
-          errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
-        );
+        const normalizedMessage =
+          (typeof errorData.message === 'string' && errorData.message.length > 0
+            ? errorData.message
+            : typeof errorData.error?.message === 'string' && errorData.error.message.length > 0
+              ? errorData.error.message
+              : undefined) ?? `HTTP ${response.status}: ${response.statusText}`;
+        const error: ApiError = new Error(normalizedMessage);
         error.status = response.status;
-        error.code = errorData.error?.code;
+        error.code =
+          typeof errorData.error === 'string'
+            ? errorData.error
+            : typeof errorData.error?.code === 'string'
+              ? errorData.error.code
+              : undefined;
+        error.body = errorData;
+        if (errorData && typeof errorData === 'object' && 'details' in errorData) {
+          error.details = (errorData as { details?: unknown }).details;
+        }
         throw error;
       }
 
