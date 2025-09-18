@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "commander": "^12.0.0",
+    "commander": "^14.0.1",
     "idb": "^8.0.0",
     "localforage": "^1.10.0",
     "lz-string": "^1.5.0",
