@@ -54,7 +54,7 @@
     "@ctrl-freaq/shared-data": "workspace:*",
     "better-sqlite3": "^11.0.0",
     "chokidar": "^4.0.3",
-    "commander": "^12.0.0",
+    "commander": "^14.0.1",
     "mustache": "^4.2.0",
     "pino": "^9.5.0",
     "yaml": "^2.3.0",
