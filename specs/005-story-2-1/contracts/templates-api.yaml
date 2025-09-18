@@ -1,0 +1,518 @@
+openapi: 3.0.0
+info:
+  title: Document Template Management API
+  version: 0.1.0
+  description: Manage document templates, versions, and validation schemas for CTRL FreaQ.
+
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local development server
+
+paths:
+  /templates:
+    get:
+      summary: List available templates
+      description: Returns all catalog entries with active version metadata.
+      operationId: listTemplates
+      tags:
+        - Templates
+      security:
+        - ClerkAuth: []
+      responses:
+        '200':
+          description: Template catalog retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /templates/{templateId}:
+    get:
+      summary: Get template metadata
+      description: Returns catalog details and currently active version info.
+      operationId: getTemplate
+      tags:
+        - Templates
+      security:
+        - ClerkAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: Template metadata retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateMetadataResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /templates/{templateId}/versions:
+    get:
+      summary: List template versions
+      description: Returns paginated versions ordered by publish date.
+      operationId: listTemplateVersions
+      tags:
+        - TemplateVersions
+      security:
+        - ClerkAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: Template versions retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Publish new template version
+      description: Managers upload compiled YAML to create a new version. YAML is validated before persistence.
+      operationId: publishTemplateVersion
+      tags:
+        - TemplateVersions
+      security:
+        - ClerkAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateVersionPublishRequest'
+      responses:
+        '201':
+          description: Template version published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Schema validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                error: TEMPLATE_SCHEMA_INVALID
+                message: "Field 'executive_summary' is required"
+                requestId: req_abc123
+                issues:
+                  - path: ['sections', 1, 'fields', 0]
+                    code: required
+                    message: 'Missing label'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /templates/{templateId}/versions/{version}:
+    get:
+      summary: Get specific template version
+      description: Returns compiled schema, section metadata, and publication info for a given version.
+      operationId: getTemplateVersion
+      tags:
+        - TemplateVersions
+      security:
+        - ClerkAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+        - $ref: '#/components/parameters/TemplateVersion'
+      responses:
+        '200':
+          description: Template version retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateVersionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /templates/{templateId}/versions/{version}/activate:
+    post:
+      summary: Promote template version to active
+      description: Sets the provided version as the active version for the template and records audit metadata.
+      operationId: activateTemplateVersion
+      tags:
+        - TemplateVersions
+      security:
+        - ClerkAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+        - $ref: '#/components/parameters/TemplateVersion'
+      requestBody:
+        required: false
+      responses:
+        '204':
+          description: Template version activated.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    TemplateId:
+      name: templateId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]+$'
+      description: Template slug (e.g., "architecture").
+    TemplateVersion:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^\d+\.\d+\.\d+$'
+      description: Semantic version identifier.
+
+  schemas:
+    TemplateSummary:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          example: architecture
+        name:
+          type: string
+          example: Architecture Document Template
+        description:
+          type: string
+          nullable: true
+          example: Baseline architecture documentation structure.
+        status:
+          type: string
+          enum: [draft, active, deprecated]
+        activeVersion:
+          type: string
+          nullable: true
+          example: 1.2.0
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-09-16T12:00:00.000Z'
+
+    TemplateListResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateSummary'
+
+    TemplateMetadataResponse:
+      type: object
+      properties:
+        template:
+          allOf:
+            - $ref: '#/components/schemas/TemplateSummary'
+            - type: object
+              properties:
+                documentType:
+                  type: string
+                  example: architecture
+                defaultAggressiveness:
+                  type: string
+                  enum: [conservative, balanced, yolo]
+                activeVersionMetadata:
+                  $ref: '#/components/schemas/TemplateVersion'
+
+    TemplateVersionListResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateVersion'
+
+    TemplateVersionPublishRequest:
+      type: object
+      required:
+        - version
+        - templateYaml
+      properties:
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          example: 1.1.0
+        changelog:
+          type: string
+          description: Markdown summary of changes.
+          example: 'Added Non-Functional Requirements section'
+        templateYaml:
+          type: string
+          description: Raw YAML content of the template.
+        publish:
+          type: boolean
+          default: false
+          description: When true, automatically mark this version active if validation succeeds.
+
+    TemplateVersionResponse:
+      type: object
+      properties:
+        template:
+          $ref: '#/components/schemas/TemplateSummary'
+        version:
+          $ref: '#/components/schemas/TemplateVersion'
+
+    TemplateVersion:
+      type: object
+      required:
+        - version
+        - status
+        - schemaHash
+        - sections
+      properties:
+        version:
+          type: string
+          example: 1.1.0
+        status:
+          type: string
+          enum: [draft, active, deprecated]
+        changelog:
+          type: string
+          nullable: true
+        schemaHash:
+          type: string
+          example: '4f7b7f2a9c...'
+        schemaJson:
+          type: object
+          additionalProperties: true
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateSection'
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        publishedBy:
+          type: string
+          nullable: true
+          example: user_2abc123
+        deprecatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    TemplateSection:
+      type: object
+      required:
+        - id
+        - title
+        - orderIndex
+        - required
+        - type
+      properties:
+        id:
+          type: string
+          example: executive-summary
+        title:
+          type: string
+          example: Executive Summary
+        orderIndex:
+          type: integer
+          minimum: 0
+        guidance:
+          type: string
+          nullable: true
+        required:
+          type: boolean
+        type:
+          type: string
+          enum: [markdown, rich-text, table, list, decision-log]
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateField'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateSection'
+
+    TemplateField:
+      type: object
+      required:
+        - id
+        - label
+        - dataType
+        - required
+      properties:
+        id:
+          type: string
+          example: success-criteria
+        label:
+          type: string
+          example: Success Criteria
+        description:
+          type: string
+          nullable: true
+        dataType:
+          type: string
+          enum: [markdown, string, enum, number, url, boolean]
+        required:
+          type: boolean
+        defaultValue:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+        allowedValues:
+          type: array
+          items:
+            type: string
+        minLength:
+          type: integer
+          minimum: 0
+        maxLength:
+          type: integer
+          minimum: 0
+        pattern:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - requestId
+        - issues
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        issues:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - code
+              - message
+            properties:
+              path:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              code:
+                type: string
+                example: required
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid payload or parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: BAD_REQUEST
+            message: Invalid query parameter
+            requestId: req_abc123
+    Unauthorized:
+      description: Authentication required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Manager role required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Template or version not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Version already exists or state conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    ClerkAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk-issued JWT token.
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - requestId
+      properties:
+        error:
+          type: string
+          example: TEMPLATE_NOT_FOUND
+        message:
+          type: string
+        requestId:
+          type: string
+          example: req_abc123
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true

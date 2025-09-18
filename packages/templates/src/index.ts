@@ -13,6 +13,9 @@
 // Export main template engine
 export * from './templates/index.js';
 
+// Export compilers
+export * from './compilers/template-compiler.js';
+
 // Export parsers
 export * from './parsers/index.js';
 

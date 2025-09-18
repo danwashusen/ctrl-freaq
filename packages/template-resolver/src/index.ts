@@ -1,224 +1,245 @@
 /**
- * @ctrl-freaq/template-resolver - Template resolution and dependency management
- *
- * This package provides template resolution and dependency management capabilities
- * for CTRL FreaQ, including YAML template processing, variable substitution,
- * dependency graph analysis, and caching mechanisms.
+ * @ctrl-freaq/template-resolver - Template resolution utilities with
+ * version-aware caching and upgrade helpers.
  */
 
-// Core template resolver functionality exports
-export * from './resolvers/index.js';
-export * from './dependencies/index.js';
+import {
+  VersionedTemplateCache,
+  type VersionedTemplateCacheEntry,
+  type VersionedTemplateCacheStats,
+} from './version-cache.js';
 
-// CLI export
-export { cli } from './cli.js';
-
-// Core types and interfaces
-export interface Template {
-  id: string;
-  path: string;
-  content: string;
-  variables: Record<string, unknown>;
-  dependencies: string[];
-  metadata?: TemplateMetadata;
+export interface TemplateValidator {
+  parse(input: unknown): unknown;
+  safeParse?(input: unknown): { success: boolean; data?: unknown; error?: unknown };
 }
 
-export interface TemplateMetadata {
-  name?: string;
-  description?: string;
-  version?: string;
-  author?: string;
-  created?: Date;
-  modified?: Date;
-  tags?: string[];
+export interface TemplateVersionRecord {
+  templateId: string;
+  version: string;
+  schemaHash: string;
+  sections: unknown;
+  schema?: unknown;
+  validator?: TemplateValidator;
+  metadata?: Record<string, unknown>;
 }
 
-export interface ResolverConfig {
-  templatePaths: string[];
-  variablePaths: string[];
-  cacheEnabled: boolean;
-  cacheSize?: number;
-  strictMode: boolean;
-  maxDepth: number;
+export interface TemplateResolverDependencies {
+  loadVersion(templateId: string, version: string): Promise<TemplateVersionRecord | null>;
+  loadActiveVersion?(templateId: string): Promise<TemplateVersionRecord | null>;
 }
 
-export interface ResolutionContext {
-  template: Template;
-  variables: Record<string, unknown>;
-  resolvedDependencies: Map<string, Template>;
-  depth: number;
-  path: string[];
+export interface TemplateResolverEvent {
+  templateId: string;
+  version: string;
+  schemaHash?: string;
 }
 
-export interface ResolutionResult {
-  success: boolean;
-  resolved: Template[];
-  variables: Record<string, unknown>;
-  dependencies: DependencyInfo[];
-  errors: string[];
-  warnings: string[];
+export type TemplateResolutionSource = 'cache' | 'loader' | 'active';
+
+export interface TemplateResolvedEvent extends TemplateResolverEvent {
+  source: TemplateResolutionSource;
+  template: TemplateVersionRecord;
 }
 
-export interface DependencyInfo {
-  id: string;
-  type: 'template' | 'variable' | 'file';
-  path: string;
-  resolved: boolean;
-  circular?: boolean;
+export interface TemplateResolverErrorEvent extends TemplateResolverEvent {
+  error: unknown;
 }
 
-export interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationWarning[];
-  dependencies: {
-    resolved: string[];
-    missing: string[];
-    circular: string[];
-  };
+export interface TemplateResolverHooks {
+  onCacheHit?(event: TemplateResolverEvent): void;
+  onCacheMiss?(event: TemplateResolverEvent): void;
+  onResolved?(event: TemplateResolvedEvent): void;
+  onError?(event: TemplateResolverErrorEvent): void;
 }
 
-export interface ValidationError {
-  type: 'syntax' | 'dependency' | 'variable';
-  message: string;
-  line?: number;
-  column?: number;
-  path?: string;
+export interface ResolveTemplateOptions {
+  templateId: string;
+  version: string;
+  schemaHash?: string;
+  bypassCache?: boolean;
 }
 
-export interface ValidationWarning {
-  type: 'unused' | 'deprecated' | 'performance';
-  message: string;
-  line?: number;
-  column?: number;
-  path?: string;
+export interface TemplateResolverResult {
+  cacheHit: boolean;
+  template: TemplateVersionRecord;
 }
 
-// Placeholder implementation classes
-export class TemplateResolver {
-  // @ts-ignore - Used in future implementation
-  private _config: ResolverConfig;
-  private cache: Map<string, Template> = new Map();
-  // @ts-ignore - Used in future implementation
-  private _dependencyGraph: Map<string, string[]> = new Map();
+export interface TemplateResolverConfig {
+  dependencies: TemplateResolverDependencies;
+  cache?: VersionedTemplateCache;
+  hooks?: TemplateResolverHooks;
+}
 
-  constructor(config: ResolverConfig) {
-    this._config = config;
+export interface TemplateResolver {
+  resolve(options: ResolveTemplateOptions): Promise<TemplateResolverResult | null>;
+  resolveActiveVersion(templateId: string): Promise<TemplateResolverResult | null>;
+  clearCache(): void;
+  getCacheStats(): VersionedTemplateCacheStats;
+}
+
+interface CachedTemplateVersion {
+  cacheEntry: VersionedTemplateCacheEntry;
+  record: TemplateVersionRecord;
+}
+
+class DefaultTemplateResolver implements TemplateResolver {
+  private readonly dependencies: TemplateResolverDependencies;
+  private readonly hooks: TemplateResolverHooks;
+  private cache: VersionedTemplateCache;
+  private readonly mirror = new Map<string, CachedTemplateVersion>();
+
+  constructor({ dependencies, cache, hooks }: TemplateResolverConfig) {
+    this.dependencies = dependencies;
+    this.cache = cache ?? new VersionedTemplateCache();
+    this.hooks = hooks ?? {};
   }
 
-  async resolve(
-    _templateId: string,
-    variables: Record<string, unknown> = {}
-  ): Promise<ResolutionResult> {
-    // Placeholder implementation
-    return {
-      success: true,
-      resolved: [],
-      variables,
-      dependencies: [],
-      errors: [],
-      warnings: ['Template resolution functionality not yet implemented'],
-    };
+  async resolve(options: ResolveTemplateOptions): Promise<TemplateResolverResult | null> {
+    const { templateId, version, schemaHash, bypassCache } = options;
+    const cached = this.mirror.get(templateId);
+    const expectedHash = schemaHash ?? cached?.cacheEntry.schemaHash;
+
+    if (!bypassCache && cached) {
+      const hit = this.cache.get({
+        templateId,
+        version,
+        schemaHash: expectedHash ?? cached.cacheEntry.schemaHash,
+      });
+
+      if (hit) {
+        this.emitCacheHit(hit);
+        this.emitResolved('cache', cached.record);
+        return { cacheHit: true, template: cached.record };
+      }
+    }
+
+    this.emitCacheMiss({ templateId, version, schemaHash: expectedHash });
+
+    let loaded: TemplateVersionRecord | null;
+    try {
+      loaded = await this.dependencies.loadVersion(templateId, version);
+    } catch (error) {
+      this.emitError({ templateId, version, schemaHash: expectedHash, error });
+      throw error;
+    }
+
+    if (!loaded) {
+      this.mirror.delete(templateId);
+      return null;
+    }
+
+    if (loaded.templateId !== templateId) {
+      const error = new Error(
+        `Resolved template id mismatch: expected ${templateId}, received ${loaded.templateId}`
+      );
+      this.emitError({ templateId, version, schemaHash: loaded.schemaHash, error });
+      throw error;
+    }
+
+    this.track(loaded);
+    this.emitResolved('loader', loaded);
+    return { cacheHit: false, template: loaded };
   }
 
-  async validate(_templateId: string): Promise<ValidationResult> {
-    // Placeholder implementation
-    return {
-      valid: true,
-      errors: [],
-      warnings: [
-        {
-          type: 'unused',
-          message: 'Validation functionality not yet implemented',
-        },
-      ],
-      dependencies: {
-        resolved: [],
-        missing: [],
-        circular: [],
-      },
-    };
-  }
+  async resolveActiveVersion(templateId: string): Promise<TemplateResolverResult | null> {
+    if (!this.dependencies.loadActiveVersion) {
+      throw new Error('Template resolver is not configured with loadActiveVersion');
+    }
 
-  async analyzeDependencies(_templateId: string, _maxDepth: number = 5): Promise<DependencyInfo[]> {
-    // Placeholder implementation
-    return [];
+    let active: TemplateVersionRecord | null;
+    try {
+      active = await this.dependencies.loadActiveVersion(templateId);
+    } catch (error) {
+      this.emitError({ templateId, version: 'active', error });
+      throw error;
+    }
+
+    if (!active) {
+      this.mirror.delete(templateId);
+      return null;
+    }
+
+    const cached = this.mirror.get(templateId);
+    if (cached) {
+      const hit = this.cache.get({
+        templateId,
+        version: active.version,
+        schemaHash: active.schemaHash,
+      });
+      if (hit) {
+        this.emitCacheHit(hit);
+        this.emitResolved('cache', cached.record);
+        return { cacheHit: true, template: cached.record };
+      }
+    }
+
+    this.emitCacheMiss({
+      templateId,
+      version: active.version,
+      schemaHash: active.schemaHash,
+    });
+
+    this.track(active);
+    this.emitResolved('active', active);
+    return { cacheHit: false, template: active };
   }
 
   clearCache(): void {
     this.cache.clear();
+    this.mirror.clear();
   }
 
-  getCacheStatus(): { size: number; hitRate: number; entries: number } {
-    return {
-      size: this.cache.size,
-      hitRate: 0,
-      entries: this.cache.size,
+  getCacheStats(): VersionedTemplateCacheStats {
+    return this.cache.stats();
+  }
+
+  private track(record: TemplateVersionRecord): void {
+    const cacheEntry: VersionedTemplateCacheEntry = {
+      templateId: record.templateId,
+      version: record.version,
+      schemaHash: record.schemaHash,
+      sections: record.sections,
     };
-  }
-}
-
-export class DependencyAnalyzer {
-  private templates: Map<string, Template> = new Map();
-
-  addTemplate(template: Template): void {
-    this.templates.set(template.id, template);
+    this.cache.set(cacheEntry);
+    this.mirror.set(record.templateId, { cacheEntry, record });
   }
 
-  findCircularDependencies(): string[][] {
-    // Placeholder implementation
-    return [];
-  }
-
-  buildDependencyGraph(): Map<string, string[]> {
-    // Placeholder implementation
-    return new Map();
-  }
-
-  getTopologicalOrder(): string[] {
-    // Placeholder implementation
-    return Array.from(this.templates.keys());
-  }
-}
-
-export class VariableResolver {
-  private variables: Map<string, unknown> = new Map();
-
-  setVariable(name: string, value: unknown): void {
-    this.variables.set(name, value);
-  }
-
-  getVariable(name: string): unknown {
-    return this.variables.get(name);
-  }
-
-  resolveVariables(template: string, context: Record<string, unknown> = {}): string {
-    // Placeholder implementation - simple string replacement
-    let resolved = template;
-
-    // Replace context variables first
-    Object.entries(context).forEach(([key, value]) => {
-      const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
-      resolved = resolved.replace(pattern, String(value));
+  private emitCacheHit(entry: VersionedTemplateCacheEntry): void {
+    this.hooks.onCacheHit?.({
+      templateId: entry.templateId,
+      version: entry.version,
+      schemaHash: entry.schemaHash,
     });
-
-    // Replace stored variables
-    this.variables.forEach((value, key) => {
-      const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
-      resolved = resolved.replace(pattern, String(value));
-    });
-
-    return resolved;
   }
 
-  findUnresolvedVariables(template: string): string[] {
-    // Placeholder implementation
-    const matches = template.match(/\$\{[^}]+\}/g) || [];
-    return matches.map(match => match.slice(2, -1)); // Remove ${ and }
+  private emitCacheMiss(event: TemplateResolverEvent): void {
+    this.hooks.onCacheMiss?.(event);
+  }
+
+  private emitResolved(source: TemplateResolutionSource, record: TemplateVersionRecord): void {
+    this.hooks.onResolved?.({
+      templateId: record.templateId,
+      version: record.version,
+      schemaHash: record.schemaHash,
+      source,
+      template: record,
+    });
+  }
+
+  private emitError(event: TemplateResolverErrorEvent): void {
+    this.hooks.onError?.(event);
   }
 }
 
-// Package metadata
+export function createTemplateResolver(config: TemplateResolverConfig): TemplateResolver {
+  return new DefaultTemplateResolver(config);
+}
+
+export { VersionedTemplateCache };
+export type { VersionedTemplateCacheStats } from './version-cache.js';
+export * from './auto-upgrade.js';
+
 export const packageInfo = {
   name: '@ctrl-freaq/template-resolver',
   version: '0.1.0',

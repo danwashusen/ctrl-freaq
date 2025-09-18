@@ -30,7 +30,7 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@ctrl-freaq/shared-data": ["./packages/shared-data/src"],
+      "@ctrl-freaq/shared-data": ["./packages/shared-data/src/index.ts"],
       "@ctrl-freaq/shared-data/*": ["./packages/shared-data/src/*"],
       "@ctrl-freaq/templates": ["./packages/templates/src"],
       "@ctrl-freaq/templates/*": ["./packages/templates/src/*"],

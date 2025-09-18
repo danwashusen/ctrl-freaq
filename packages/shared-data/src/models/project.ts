@@ -81,7 +81,10 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
    * Find project by slug
    */
   async findBySlug(slug: string): Promise<Project | null> {
-    const stmt = this.db.prepare('SELECT * FROM projects WHERE slug = ?');
+    const stmt = this.db.prepare(
+      `SELECT * FROM projects
+        WHERE slug = ? AND (deleted_at IS NULL OR deleted_at = '')`
+    );
     const row = stmt.get(slug) as Record<string, unknown> | undefined;
 
     if (!row) return null;
@@ -93,7 +96,10 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
    * Find project by user ID (MVP: one project per user)
    */
   async findByUserId(userId: string): Promise<Project | null> {
-    const stmt = this.db.prepare('SELECT * FROM projects WHERE owner_user_id = ?');
+    const stmt = this.db.prepare(
+      `SELECT * FROM projects
+        WHERE owner_user_id = ? AND (deleted_at IS NULL OR deleted_at = '')`
+    );
     const row = stmt.get(userId) as Record<string, unknown> | undefined;
 
     if (!row) return null;
@@ -114,7 +120,10 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
    * Count projects for a given user (MVP: 0 or 1)
    */
   async countByUserId(userId: string): Promise<number> {
-    const stmt = this.db.prepare('SELECT COUNT(*) as cnt FROM projects WHERE owner_user_id = ?');
+    const stmt = this.db.prepare(
+      `SELECT COUNT(*) as cnt FROM projects
+        WHERE owner_user_id = ? AND (deleted_at IS NULL OR deleted_at = '')`
+    );
     const row = stmt.get(userId) as { cnt?: unknown } | undefined;
     const count = typeof row?.cnt === 'number' ? row?.cnt : Number(row?.cnt ?? 0);
     return Number.isFinite(count) ? count : 0;

@@ -14,11 +14,21 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
   protected tableName: string;
   protected schema: z.ZodSchema<T>;
   private statementCache = new Map<string, Database.Statement>();
+  private readonly supportsSoftDelete: boolean;
+  private readonly deletedColumnName: string | null;
 
   constructor(db: Database.Database, tableName: string, schema: z.ZodSchema<T>) {
     this.db = db;
     this.tableName = tableName;
     this.schema = schema;
+
+    const schemaIsObject = schema instanceof z.ZodObject;
+    const shape = schemaIsObject ? schema.shape : undefined;
+    const hasDeletedAt = Boolean(shape && 'deletedAt' in shape);
+    const hasDeletedBy = Boolean(shape && 'deletedBy' in shape);
+
+    this.supportsSoftDelete = hasDeletedAt && hasDeletedBy;
+    this.deletedColumnName = this.supportsSoftDelete ? this.toSnakeCase('deletedAt') : null;
   }
 
   /**
@@ -37,7 +47,14 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
    * Find entity by ID.
    */
   async findById(id: string): Promise<T | null> {
-    const stmt = this.getStatement(`SELECT * FROM ${this.tableName} WHERE id = ?`);
+    let stmt: Database.Statement;
+    if (this.supportsSoftDelete && this.deletedColumnName) {
+      stmt = this.getStatement(
+        `SELECT * FROM ${this.tableName} WHERE id = ? AND (${this.deletedColumnName} IS NULL OR ${this.deletedColumnName} = '')`
+      );
+    } else {
+      stmt = this.getStatement(`SELECT * FROM ${this.tableName} WHERE id = ?`);
+    }
     const row = stmt.get(id) as Record<string, unknown> | undefined;
 
     if (!row) return null;
@@ -51,13 +68,22 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
   async findAll(options: QueryOptions = {}): Promise<T[]> {
     let query = `SELECT * FROM ${this.tableName}`;
     const params: unknown[] = [];
+    const whereClauses: string[] = [];
 
     if (options.where) {
       const whereClause = Object.keys(options.where)
         .map(key => `${key} = ?`)
         .join(' AND ');
-      query += ` WHERE ${whereClause}`;
+      whereClauses.push(whereClause);
       params.push(...Object.values(options.where));
+    }
+
+    if (this.supportsSoftDelete && this.deletedColumnName && !options.includeDeleted) {
+      whereClauses.push(`(${this.deletedColumnName} IS NULL OR ${this.deletedColumnName} = '')`);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
     }
 
     if (options.orderBy) {
@@ -157,9 +183,50 @@ export abstract class BaseRepository<T extends { id: string; createdAt: Date; up
   /**
    * Delete entity by ID.
    */
-  async delete(id: string): Promise<boolean> {
-    const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`);
-    const result = stmt.run(id);
+  async delete(id: string, deletedBy: string): Promise<boolean> {
+    const selectStmt = this.getStatement(`SELECT * FROM ${this.tableName} WHERE id = ?`);
+    const row = selectStmt.get(id) as Record<string, unknown> | undefined;
+
+    if (!row) {
+      return false;
+    }
+
+    if (!this.supportsSoftDelete) {
+      const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`);
+      const result = stmt.run(id);
+      return result.changes > 0;
+    }
+
+    const entity = this.mapRowToEntity(row) as T & {
+      deletedAt: Date | null;
+      deletedBy: string | null;
+      updatedBy?: string | null;
+    };
+
+    const now = new Date();
+    entity.deletedAt = now;
+    entity.deletedBy = deletedBy;
+    entity.updatedAt = now;
+
+    if (typeof entity.updatedBy === 'string') {
+      entity.updatedBy = deletedBy;
+    }
+
+    const validated = this.schema.parse(entity as T);
+    const rowData = this.mapEntityToRow(validated);
+
+    const setClause = Object.keys(rowData)
+      .filter(key => key !== 'id')
+      .map(key => `${key} = ?`)
+      .join(', ');
+
+    const values = Object.entries(rowData)
+      .filter(([key]) => key !== 'id')
+      .map(([, value]) => value);
+    values.push(id);
+
+    const stmt = this.db.prepare(`UPDATE ${this.tableName} SET ${setClause} WHERE id = ?`);
+    const result = stmt.run(...values);
 
     return result.changes > 0;
   }

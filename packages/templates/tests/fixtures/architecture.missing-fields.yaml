@@ -1,0 +1,27 @@
+id: architecture
+name: Architecture Document
+version: 1.0.0
+documentType: architecture
+status: draft
+metadata:
+  author: manager_123
+  changelog: Missing field metadata for negative-path validation
+sections:
+  - id: introduction
+    title: Executive Summary
+    order: 1
+    required: true
+    type: markdown
+  - id: metrics
+    title: Success Metrics
+    order: 2
+    required: true
+    type: table
+    fields:
+      - id: metric_name
+        label: Metric Name
+        dataType: string
+        required: true
+      - id: metric_value
+        dataType: number
+        required: true

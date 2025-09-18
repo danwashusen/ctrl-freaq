@@ -1,0 +1,20 @@
+id: architecture
+name: Architecture Document
+version: not-a-semver
+documentType: architecture
+status: draft
+metadata:
+  author: manager_123
+  changelog: Invalid semantic version for negative-path testing
+sections:
+  - id: introduction
+    title: Executive Summary
+    order: 1
+    required: true
+    type: markdown
+  - id: compliance
+    title: Compliance Considerations
+    order: 2
+    required: false
+    type: rich-text
+    guidance: Outline SOC 2 implications and required controls.

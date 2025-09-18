@@ -10,12 +10,21 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "paths": {
+      "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
+      "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],
+      "@ctrl-freaq/template-resolver": [
+        "../../packages/template-resolver/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/template-resolver/*": [
+        "../../packages/template-resolver/dist/*"
+      ]
+    }
   },
   "include": ["src", "tests"],
   "exclude": ["dist", "node_modules"]

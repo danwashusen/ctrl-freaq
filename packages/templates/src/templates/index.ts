@@ -1,206 +1,99 @@
-/**
- * Template engine core functionality
- */
+import { readFile } from 'node:fs/promises';
 
-import * as YAML from 'yaml';
-import Mustache from 'mustache';
 import { z } from 'zod';
 
-/**
- * Template metadata schema
- */
+import {
+  compileTemplateSource,
+  type TemplateCompilationResult,
+} from '../compilers/template-compiler.js';
+
 export const TemplateMetadataSchema = z.object({
-  name: z.string(),
-  version: z.string(),
-  description: z.string().optional(),
-  author: z.string().optional(),
-  extends: z.string().optional(),
-  variables: z.record(z.unknown()).optional(),
-  sections: z.array(z.string()).optional(),
+  id: z.string().min(1, 'Template id is required'),
+  name: z.string().min(1, 'Template name is required'),
+  version: z.string().min(1, 'Template version is required'),
+  documentType: z.string().min(1, 'Document type is required'),
+  description: z.string().nullable().optional(),
+  changelog: z.string().nullable().optional(),
+  author: z.string().nullable().optional(),
+  extends: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
+  variables: z.record(z.unknown()).optional(),
 });
 
 export type TemplateMetadata = z.infer<typeof TemplateMetadataSchema>;
 
-/**
- * Template definition
- */
-export interface Template {
+export interface TemplateRecord {
   metadata: TemplateMetadata;
-  content: string;
-  variables: Record<string, unknown>;
-  sections: Record<string, string>;
+  schemaHash: string;
+  schemaJson: unknown;
+  sections: TemplateCompilationResult['version']['sections'];
+  sourcePath: string;
+  source: string;
 }
 
-/**
- * Template rendering context
- */
-export interface RenderContext {
-  variables: Record<string, unknown>;
-  partials?: Record<string, string>;
-  functions?: Record<string, (...args: unknown[]) => unknown>;
+function createMetadata(compilation: TemplateCompilationResult): TemplateMetadata {
+  return TemplateMetadataSchema.parse({
+    id: compilation.catalog.id,
+    name: compilation.catalog.name,
+    version: compilation.version.version,
+    documentType: compilation.catalog.documentType,
+    description: compilation.catalog.description ?? null,
+    changelog: compilation.version.changelog ?? null,
+    author: null,
+    extends: null,
+    tags: [],
+    variables: undefined,
+  });
 }
 
-/**
- * Main template engine class
- */
+function cacheKey(templateId: string, version: string): string {
+  return `${templateId}@${version}`;
+}
+
+export type Template = TemplateRecord;
+
 export class TemplateEngine {
-  private templates = new Map<string, Template>();
-  private partials = new Map<string, string>();
+  private readonly cache = new Map<string, TemplateRecord>();
 
-  /**
-   * Load template from YAML content
-   */
-  loadTemplate(content: string, templateName?: string): Template {
-    try {
-      const parsed = YAML.parse(content);
+  async loadTemplate(source: string, sourceKey?: string): Promise<TemplateRecord> {
+    const compilation = await compileTemplateSource({
+      source,
+      sourcePath: sourceKey ?? '<inline>',
+    });
 
-      if (!parsed.metadata || !parsed.content) {
-        throw new Error('Template must have metadata and content sections');
-      }
-
-      // Validate metadata
-      const metadata = TemplateMetadataSchema.parse(parsed.metadata);
-
-      const template: Template = {
-        metadata,
-        content: parsed.content,
-        variables: parsed.variables || {},
-        sections: parsed.sections || {},
-      };
-
-      // Register template if name provided
-      if (templateName || metadata.name) {
-        this.templates.set(templateName || metadata.name, template);
-      }
-
-      return template;
-    } catch (error) {
-      throw new Error(`Failed to load template: ${error}`);
-    }
-  }
-
-  /**
-   * Load template from file
-   */
-  async loadTemplateFromFile(filePath: string): Promise<Template> {
-    const fs = await import('fs');
-    const path = await import('path');
-
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const templateName = path.basename(filePath, path.extname(filePath));
-
-    return this.loadTemplate(content, templateName);
-  }
-
-  /**
-   * Register partial template
-   */
-  registerPartial(name: string, content: string): void {
-    this.partials.set(name, content);
-  }
-
-  /**
-   * Get registered template
-   */
-  getTemplate(name: string): Template | undefined {
-    return this.templates.get(name);
-  }
-
-  /**
-   * Render template with context
-   */
-  render(templateNameOrContent: string, context: RenderContext = { variables: {} }): string {
-    let template: Template;
-
-    // Check if it's a template name or direct content
-    if (this.templates.has(templateNameOrContent)) {
-      const foundTemplate = this.templates.get(templateNameOrContent);
-      if (!foundTemplate) {
-        throw new Error(`Template '${templateNameOrContent}' not found`);
-      }
-      template = foundTemplate;
-    } else {
-      // Treat as direct YAML content
-      template = this.loadTemplate(templateNameOrContent);
-    }
-
-    // Merge template variables with context variables
-    const mergedVariables = {
-      ...template.variables,
-      ...context.variables,
+    const record: TemplateRecord = {
+      metadata: createMetadata(compilation),
+      schemaHash: compilation.version.schemaHash,
+      schemaJson: compilation.version.schemaJson,
+      sections: compilation.version.sections,
+      sourcePath: compilation.version.sourcePath,
+      source,
     };
 
-    // Prepare partials for Mustache
-    const partials = {
-      ...Object.fromEntries(this.partials.entries()),
-      ...template.sections,
-      ...context.partials,
-    };
-
-    // Add helper functions to variables
-    const renderContext = {
-      ...mergedVariables,
-      ...context.functions,
-    };
-
-    try {
-      // Render main content
-      const rendered = Mustache.render(template.content, renderContext, partials);
-
-      return rendered;
-    } catch (error) {
-      throw new Error(`Template rendering failed: ${error}`);
-    }
+    this.cache.set(cacheKey(record.metadata.id, record.metadata.version), record);
+    return record;
   }
 
-  /**
-   * Validate template variables against schema
-   */
-  validateContext(
-    templateName: string,
-    context: Record<string, unknown>
-  ): { valid: boolean; errors: string[] } {
-    const template = this.getTemplate(templateName);
-    if (!template) {
-      return { valid: false, errors: [`Template '${templateName}' not found`] };
-    }
-
-    const errors: string[] = [];
-
-    // Basic validation - would be enhanced with proper schema validation
-    for (const [key, value] of Object.entries(template.variables)) {
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        'required' in value &&
-        (value as Record<string, unknown>).required &&
-        !(key in context)
-      ) {
-        errors.push(`Required variable '${key}' is missing`);
-      }
-    }
-
-    return { valid: errors.length === 0, errors };
+  async loadTemplateFromFile(filePath: string): Promise<TemplateRecord> {
+    const source = await readFile(filePath, 'utf-8');
+    return this.loadTemplate(source, filePath);
   }
 
-  /**
-   * List all registered templates
-   */
-  listTemplates(): TemplateMetadata[] {
-    return Array.from(this.templates.values()).map(t => t.metadata);
+  getTemplate(templateId: string, version: string): TemplateRecord | undefined {
+    return this.cache.get(cacheKey(templateId, version));
   }
 
-  /**
-   * Clear all templates and partials
-   */
+  listTemplates(): TemplateRecord[] {
+    return Array.from(this.cache.values());
+  }
+
   clear(): void {
-    this.templates.clear();
-    this.partials.clear();
+    this.cache.clear();
+  }
+
+  render(): never {
+    throw new Error('Template rendering is no longer supported. Use compileTemplateSource instead.');
   }
 }
 
-/**
- * Default template engine instance
- */
 export const templateEngine = new TemplateEngine();

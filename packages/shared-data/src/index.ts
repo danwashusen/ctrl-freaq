@@ -28,6 +28,10 @@ export * from './repositories/index.js';
 // Export utilities
 export * from './utils/index.js';
 
+// Export migrations loader
+export * from './migrations/index.js';
+export { runSharedDataMigrations } from './migrations/run-migrations.js';
+
 // Package metadata
 export const PACKAGE_INFO = {
   name: '@ctrl-freaq/shared-data',

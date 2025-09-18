@@ -2,11 +2,17 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./",
     "noEmit": false,
     "composite": true,
     "allowImportingTsExtensions": false,
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@ctrl-freaq/templates": ["./src"],
+      "@ctrl-freaq/templates/*": ["./src/*"],
+      "@ctrl-freaq/shared-data": ["../shared-data/src/index.ts"],
+      "@ctrl-freaq/shared-data/*": ["../shared-data/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "**/*.test.ts"]

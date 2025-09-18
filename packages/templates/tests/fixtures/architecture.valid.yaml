@@ -1,0 +1,68 @@
+id: architecture
+name: Architecture Document
+version: 1.0.0
+documentType: architecture
+status: draft
+metadata:
+  author: manager_123
+  changelog: Initial architecture baseline publish
+  tags:
+    - architecture
+    - baseline
+sections:
+  - id: introduction
+    title: Executive Summary
+    order: 1
+    required: true
+    type: markdown
+    guidance: Summarize the solution and the key decision drivers.
+  - id: system_overview
+    title: System Overview
+    order: 2
+    required: true
+    type: rich-text
+    guidance: Describe the high-level system architecture and major components.
+    fields:
+      - id: architecture_diagram
+        label: Architecture Diagram URL
+        dataType: url
+        required: true
+        description: Link to the canonical diagram stored in the design system.
+      - id: tech_stack
+        label: Primary Technologies
+        dataType: enum
+        required: true
+        allowedValues:
+          - react
+          - node
+          - sqlite
+          - redis
+  - id: decision_log
+    title: Decision Log
+    order: 3
+    required: false
+    type: decision-log
+    guidance: Track trade-offs and major architectural decisions.
+    children:
+      - id: decision_entry
+        title: Decision Entry
+        order: 1
+        required: false
+        type: list
+        fields:
+          - id: context
+            label: Context
+            dataType: markdown
+            required: true
+          - id: decision
+            label: Decision
+            dataType: markdown
+            required: true
+          - id: status
+            label: Status
+            dataType: enum
+            required: true
+            allowedValues:
+              - proposed
+              - approved
+              - rejected

@@ -5,6 +5,8 @@
 import { z } from 'zod';
 import { TemplateMetadataSchema } from '../templates/index.js';
 
+export { createTemplateValidator } from './template-validator.js';
+
 /**
  * Template structure validator
  */
@@ -35,7 +37,7 @@ export class TemplateValidator {
     // Validate metadata structure
     if (templateObj.metadata) {
       try {
-        TemplateMetadataSchema.parse(templateObj.metadata);
+        TemplateMetadataSchema.partial().parse(templateObj.metadata);
       } catch (error) {
         if (error instanceof z.ZodError) {
           errors.push(...error.errors.map(e => `Metadata ${e.path.join('.')}: ${e.message}`));

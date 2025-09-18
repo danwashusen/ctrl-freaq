@@ -208,10 +208,19 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { dashboardRouter } = await import('./routes/dashboard.js');
   const { activitiesRouter } = await import('./routes/activities.js');
   const { projectSelectionRouter } = await import('./routes/projects.select.js');
-  const { clerkAuthMiddleware, requireAuth } = await import('./middleware/auth.js');
+  const { templatesRouter } = await import('./routes/templates.js');
+  const { documentsRouter } = await import('./routes/documents.js');
+  const { clerkAuthMiddleware, requireAuth, createUserRateLimit } = await import(
+    './middleware/auth.js'
+  );
   const { testAuthShim } = await import('./middleware/test-auth.js');
   const { ensureTestUserMiddleware } = await import('./middleware/test-user-seed.js');
   const { testOnlyRouter } = await import('./routes/test-only.js');
+
+  const userRateLimiter = createUserRateLimit(
+    appConfig.security.rateLimiting.windowMs,
+    appConfig.security.rateLimiting.max
+  );
 
   // Health check routes (no authentication required)
   app.use('/', healthRouter);
@@ -231,10 +240,13 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
     app.use('/api/v1', ensureTestUserMiddleware);
   }
   app.use('/api/v1', requireAuth);
+  app.use('/api/v1', userRateLimiter);
   app.use('/api/v1', projectsRouter);
   app.use('/api/v1', dashboardRouter);
   app.use('/api/v1', activitiesRouter);
   app.use('/api/v1', projectSelectionRouter);
+  app.use('/api/v1', templatesRouter);
+  app.use('/api/v1', documentsRouter);
   if (isTestEnv) {
     app.use('/', testOnlyRouter);
   }

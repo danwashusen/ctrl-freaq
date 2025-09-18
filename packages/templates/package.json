@@ -2,6 +2,12 @@
   "name": "@ctrl-freaq/templates",
   "version": "0.1.0",
   "description": "YAML template engine for CTRL FreaQ documentation generation",
+  "keywords": [
+    "templates",
+    "cli",
+    "documentation",
+    "publish"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -15,6 +21,14 @@
     "./parsers/*": {
       "import": "./dist/parsers/*.js",
       "types": "./dist/parsers/*.d.ts"
+    },
+    "./validators": {
+      "import": "./dist/validators/index.js",
+      "types": "./dist/validators/index.d.ts"
+    },
+    "./validators/*": {
+      "import": "./dist/validators/*.js",
+      "types": "./dist/validators/*.d.ts"
     }
   },
   "main": "dist/index.js",
@@ -26,6 +40,10 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "cli": "tsx src/cli.ts",
+    "cli:activate": "tsx src/cli.ts activate",
+    "cli:list": "tsx src/cli.ts list",
+    "cli:migrate": "tsx src/cli.ts migrate",
+    "cli:publish": "tsx src/cli.ts publish",
     "dev": "tsc --watch",
     "lint": "eslint src/",
     "test": "vitest run --passWithNoTests",
@@ -33,13 +51,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ctrl-freaq/shared-data": "workspace:*",
+    "better-sqlite3": "^11.0.0",
     "chokidar": "^3.5.0",
     "commander": "^12.0.0",
     "mustache": "^4.2.0",
+    "pino": "^9.5.0",
     "yaml": "^2.3.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.9",
     "@types/mustache": "^4.2.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0",

@@ -112,3 +112,6 @@ export function formatDateForDB(date: Date): string {
 export function parseDateFromDB(dateString: string): Date {
   return new Date(dateString);
 }
+
+export { resolveWorkspaceDatabasePath } from './database-path.js';
+export { resolveWorkspaceRoot } from './workspace-path.js';

@@ -198,6 +198,19 @@ class SharedDataCLI {
           name: 'ActivityLog',
           schema: (await import('./models/activity-log.js')).ActivityLogSchema,
         },
+        {
+          name: 'DocumentTemplate',
+          schema: (await import('./models/document-template.js')).DocumentTemplateSchema,
+        },
+        {
+          name: 'TemplateVersion',
+          schema: (await import('./models/template-version.js')).TemplateVersionSchema,
+        },
+        {
+          name: 'DocumentTemplateMigration',
+          schema: (await import('./models/document-template-migration.js')).DocumentTemplateMigrationSchema,
+        },
+        { name: 'Document', schema: (await import('./models/document.js')).DocumentSchema },
       ];
 
       for (const model of models) {
@@ -325,6 +338,13 @@ class SharedDataCLI {
       { name: 'Configuration', description: 'User configuration settings' },
       { name: 'AppVersion', description: 'Application version tracking' },
       { name: 'ActivityLog', description: 'User activity and audit logs' },
+      { name: 'Document', description: 'Project documents with template-bound content' },
+      { name: 'DocumentTemplate', description: 'Template catalog metadata' },
+      { name: 'TemplateVersion', description: 'Versioned template schema snapshots' },
+      {
+        name: 'DocumentTemplateMigration',
+        description: 'Template auto-upgrade and migration audit log entries',
+      },
     ];
 
     if (options.json) {
@@ -382,6 +402,10 @@ class SharedDataCLI {
         { name: 'ConfigurationRepository', status: 'not_implemented' },
         { name: 'AppVersionRepository', status: 'not_implemented' },
         { name: 'ActivityLogRepository', status: 'not_implemented' },
+        { name: 'DocumentRepository', status: 'not_implemented' },
+        { name: 'DocumentTemplateRepository', status: 'not_implemented' },
+        { name: 'TemplateVersionRepository', status: 'not_implemented' },
+        { name: 'DocumentTemplateMigrationRepository', status: 'not_implemented' },
       ],
       database: {
         connected: false,
@@ -419,6 +443,10 @@ class SharedDataCLI {
         configurations: 0,
         app_versions: 0,
         activity_logs: 0,
+        documents: 0,
+        document_templates: 0,
+        template_versions: 0,
+        document_template_migrations: 0,
       },
       totalRecords: 0,
     };
