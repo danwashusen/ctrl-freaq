@@ -260,3 +260,226 @@ Task: "Wire browser Pino template logging + correlation propagation in apps/web/
       upgrade-failed state - Severity: Major - Fix: Handle 422 path, map to
       failure banner, add integration coverage
       <!-- completed: 2025-09-16 23:34 UTC -->
+
+## Phase 3.7: Code Review Feedback from 2025-09-17 01:07
+
+- [x] T109 [Correctness] Restore bundler module resolution for web template
+      validator — apps/web/tsconfig.json:13 - Why: Overriding the workspace
+      bundler resolution prevents TypeScript and ESLint from resolving `zod`, so
+      the template validator import fails and the editor cannot build -
+      Severity: Major - Fix: Drop the local `moduleResolution` override (or
+      configure bundler-compatible paths), then rerun all workspace quality
+      commands to confirm they pass. <!-- completed: 2025-09-17 01:11 UTC -->
+
+- [x] T110 [Maintainability] Resolve linting issues (aggregate) — Command: pnpm
+      -w lint - Why: Lint errors reduce maintainability and mask defects -
+      Severity: Major - Fix: Eliminate all ESLint errors across touched
+      workspaces; remove stray console.\*; avoid eslint-disable without
+      justification and ticket reference - Acceptance: pnpm -w lint returns 0
+      errors; no .only/.skip in tests; no new global disables.
+      <!-- completed: 2025-09-17 01:11 UTC -->
+
+- [x] T111 [Correctness] Resolve type check issues (aggregate) — Command: pnpm
+      -w typecheck - Why: Type errors indicate potential runtime failures and
+      contract drift - Severity: Major - Fix: Resolve type errors without
+      introducing // @ts-ignore salvo; prefer precise types; update public
+      types/fixtures as needed - Acceptance: pnpm -w typecheck returns 0 errors;
+      no new justified @ts-ignore. <!-- completed: 2025-09-17 01:11 UTC -->
+
+- [x] T112 [Reliability] Resolve build failures (aggregate) — Command: pnpm -w
+      build - Why: Build failures block deployability and prevent verification
+      of shipping artifacts - Severity: Major - Fix: Repair build configuration
+      so tsc + vite build succeed end-to-end; document any tooling changes
+      needed; ensure artifacts generate without warnings - Acceptance: pnpm -w
+      build completes successfully; no residual module resolution warnings.
+      <!-- completed: 2025-09-17 01:11 UTC -->
+
+- [x] T113 [Testing] Resolve test failures (aggregate) — Command: pnpm -w test -
+      Why: Failing tests block reliability and conceal regressions - Severity:
+      Critical - Fix: Repair failing unit/integration/contract tests; update
+      snapshots only for intentional behavior changes; remove .only/.skip;
+      ensure coverage meets project thresholds - Acceptance: pnpm -w test
+      passes; coverage targets met; no .only/.skip.
+      <!-- completed: 2025-09-17 01:11 UTC -->
+
+## Phase 3.8: Code Review Feedback from 2025-09-18 06:40
+
+- [x] T114 [Security] Enforce template manager RBAC —
+      apps/api/src/routes/templates.ts — Why: POST publish/activate endpoints
+      only check for authenticated user and ignore `templates:manage`
+      permission, violating Constitution Rule 2 and enabling privilege
+      escalation — Severity: Critical — Fix: gate publish/activate handlers
+      behind explicit authorization (e.g., ensure `req.auth.orgPermissions`
+      contains `templates:manage`), return 403 otherwise, and add failing
+      contract tests before implementation.
+      <!-- completed: 2025-09-17 23:21 UTC -->
+- [x] T115 [Correctness] Implement soft delete contract —
+      packages/shared-data/src/repositories/base-repository.ts — Why: `delete`
+      currently issues hard DELETE statements, breaching Constitution Rule 15
+      requiring `deleted_at`/`deleted_by` audit trails — Severity: Major — Fix:
+      refactor repository delete path to mark soft deletes, ensure queries
+      filter them out, and extend repository tests to cover soft delete
+      behavior. <!-- completed: 2025-09-17 23:21 UTC -->
+- [x] T116 [Security] Apply authenticated rate limiting — apps/api/src/app.ts —
+      Why: User rate limiter factory exists but is not wired into `/api/v1`
+      routes, violating Constitution Rule 17 and leaving endpoints vulnerable to
+      brute-force abuse — Severity: Major — Fix: instantiate per-user limiter
+      from AppConfig, attach before router mounts, emit retry headers, and add
+      integration tests covering 429 and logging.
+      <!-- completed: 2025-09-17 23:21 UTC -->
+
+## Phase 3.9: Code Review Feedback from 2025-09-18 19:45
+
+- [x] T117 [Correctness] Restore template CLI database resolution —
+      packages/templates/src/cli.ts — Why: `pnpm template:list -- --json` fails
+      with "Cannot open database" because the CLI resolves the SQLite path
+      inside each package, breaking Quickstart step 2 — Severity: Major — Fix:
+      add a failing smoke test (e.g., Vitest/fixtures) that publishes and lists
+      a version after calling the shared-data migration, then update the
+      CLI/publisher to resolve the workspace database path (create the directory
+      when missing) and honour `DATABASE_PATH`; rerun the CLI smoke test and
+      Quickstart commands (`pnpm template:publish`, `pnpm template:list`)
+      successfully. <!-- completed: 2025-09-18 00:37 UTC -->
+- [x] T118 [Reliability] Provide shared-data migrate script —
+      packages/shared-data/package.json — Why: Quickstart step 1 references
+      `pnpm --filter @ctrl-freaq/shared-data migrate`, but no script exists, so
+      migrations must be run manually — Severity: Major — Fix: add a test (shell
+      or Vitest) that invokes the new
+      `pnpm --filter @ctrl-freaq/shared-data migrate` command against an empty
+      DB and verifies tables exist, wire the script through the shared-data CLI
+      migration loader, document the command in
+      `specs/005-story-2-1/quickstart.md`, and rerun the quickstart sequence
+      end-to-end. <!-- completed: 2025-09-18 00:37 UTC -->
+- [x] T119 [Correctness] Preserve template metadata on publish —
+      packages/templates/src/publishers/template-publisher.ts — Why:
+      `upsertMetadata` always passes `defaultAggressiveness: null`, wiping
+      existing catalog settings on each publish — Severity: Minor — Fix: write a
+      regression test that publishes a template with non-null aggressiveness,
+      republish, and asserts the value persists; update the publisher/service
+      layer to reuse stored metadata when present.
+      <!-- completed: 2025-09-18 00:37 UTC -->
+- [x] T120 [Performance] Expand resolver cache granularity —
+      packages/template-resolver/src/version-cache.ts — Why: the versioned cache
+      stores only one entry per template ID, so alternating between versions
+      causes repeated DB loads — Severity: Minor — Fix: add a resolver unit test
+      that alternates between two versions and expects cache hits, then refactor
+      the cache/mirror to key by `(templateId, version, schemaHash)` while
+      keeping memory bounded. <!-- completed: 2025-09-18 00:37 UTC -->
+
+## Phase 3.10: Code Review Feedback from 2025-09-18 13:55
+
+- [x] T121 [Correctness] Preserve template metadata on API publish —
+      apps/api/src/services/template-catalog.service.ts:264 — Why:
+      `ensureTemplateCatalog` always writes `defaultAggressiveness: null`, so
+      REST publishes still wipe catalog defaults contrary to T119 acceptance
+      criteria and Quickstart step 2 expectations — Severity: Major — Fix: add
+      an API-level regression test that publishes, updates metadata (e.g., via
+      repository), republish through `/api/v1/templates/:templateId/versions`,
+      and assert metadata persists; update the service to reuse existing
+      template metadata before calling `upsertMetadata`; verify Quickstart
+      publish/activate flows retain defaults — Links:
+      specs/005-story-2-1/tasks.md#L314,
+      apps/api/tests/contract/template.versions.publish.contract.test.ts
+      <!-- completed: 2025-09-18 04:08 UTC -->
+
+## Phase 3.11: Code Review Feedback from 2025-09-18 15:20
+
+- [x] T122 [Correctness] Preserve active version metadata in publish response —
+      apps/api/src/routes/templates.ts:271 — Why: when publishing a draft
+      without `publish=true`, the response clears `activeVersion`, so clients
+      lose awareness of the current active release, breaking Quickstart Step 2
+      verification and UI expectations — Severity: Major — Fix: add a failing
+      contract test that publishes and activates v1, publishes v1.1 without
+      activation, and asserts the response still reports
+      `activeVersion: "1.0.0"`; update the handler to fetch the existing active
+      version before formatting the summary so metadata remains intact. — Links:
+      docs/playbooks/validate-story-impl.md,
+      apps/api/tests/contract/template.versions.publish.contract.test.ts
+      <!-- completed: 2025-09-18 04:32 UTC -->
+
+## Implementation Log - 2025-09-17 23:21
+
+### Session Summary
+
+- Tasks Attempted: 3
+- Tasks Completed: 3
+- Tasks Failed: 0
+- Time Elapsed: ~60 minutes
+
+### Completed Tasks
+
+✅ T114: Enforce template manager RBAC (apps/api/src/routes/templates.ts) —
+contract tests proved 403 for non-manager tokens ✅ T115: Implement soft delete
+contract (packages/shared-data/src/repositories/base-repository.ts) — repository
+tests cover tombstone filtering ✅ T116: Apply authenticated rate limiting
+(apps/api/src/app.ts) — integration test verifies 429 responses and retry
+headers
+
+### Next Steps
+
+- Monitor for additional code review follow-ups on template security surfaces
+
+## Implementation Log - 2025-09-18 00:37
+
+### Session Summary
+
+- Tasks Attempted: 4
+- Tasks Completed: 4
+- Tasks Failed: 0
+- Time Elapsed: ~75 minutes
+
+### Completed Tasks
+
+✅ T117: Template CLI now resolves the workspace SQLite path, provisions missing
+directories, and the new Vitest smoke test exercises `pnpm template:publish` /
+`template:list` with a temporary database. ✅ T118: Added
+`pnpm --filter @ctrl-freaq/shared-data migrate` script with programmatic runner
+and a shell-backed test that verifies migrations create the required tables. ✅
+T119: Regression test confirms template metadata persists across publishes;
+publisher now reuses existing `defaultAggressiveness` instead of nulling it out.
+✅ T120: Version cache keys by `(templateId, version, schemaHash)` with a
+per-template cap, and alternating-version tests now observe cache hits.
+
+### Next Steps
+
+- Execute full workspace quality bundle and keep Quickstart instructions in sync
+  with future tooling changes.
+
+## Implementation Log - 2025-09-18 04:08
+
+### Session Summary
+
+- Tasks Attempted: 1
+- Tasks Completed: 1
+- Tasks Failed: 0
+- Time Elapsed: ~45 minutes
+
+### Completed Tasks
+
+✅ T121: REST publish flow preserves catalog `defaultAggressiveness` via
+regression contract test and `ensureTemplateCatalog` reuse of stored metadata.
+
+### Next Steps
+
+- Monitor for further API metadata regressions tied to template manager
+  workflows.
+
+## Implementation Log - 2025-09-18 04:32
+
+### Session Summary
+
+- Tasks Attempted: 1
+- Tasks Completed: 1
+- Tasks Failed: 0
+- Time Elapsed: ~45 minutes
+
+### Completed Tasks
+
+✅ T122: Publish response retains active version metadata
+(apps/api/tests/contract/template.versions.publish.contract.test.ts,
+apps/api/src/routes/templates.ts) — contract test now guards draft publishes and
+handler reloads catalog summary for active version details.
+
+### Next Steps
+
+- Monitor template publish responses for further metadata regressions.

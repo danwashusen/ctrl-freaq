@@ -95,13 +95,21 @@ Thumbs.db
 # Misc files
 .CLAUDE.md.bak
 docs/archive/
-/apps/api/data/ctrl-freaq.db
-/packages/shared-data/data/
+apps/api/data/ctrl-freaq.db
+packages/shared-data/data/
 **/data/*.db
 **/data/*.sqlite
 **/data/*.sqlite3
-/.audit/*
-/.audit-*
+.audit/*
+.audit-*
+audit/*
+audit-*
+deps/*
+deps-*
 .workspaces.json
 .ls.json
-.codex/*
+.codex/*.json
+.codex/*.jsonl
+.codex/*.toml
+.codex/log
+.codex/sessions

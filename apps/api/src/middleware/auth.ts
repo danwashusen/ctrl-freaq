@@ -250,18 +250,20 @@ export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
 
     const now = Date.now();
     const userKey = userId;
-    const userInfo = userRequestCounts.get(userKey);
+    let userInfo = userRequestCounts.get(userKey);
 
     if (!userInfo || now > userInfo.resetTime) {
-      // Reset or initialize counter
-      userRequestCounts.set(userKey, {
-        count: 1,
+      userInfo = {
+        count: 0,
         resetTime: now + windowMs,
-      });
-      return next();
+      };
+      userRequestCounts.set(userKey, userInfo);
     }
 
     if (userInfo.count >= maxRequests) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((userInfo.resetTime - now) / 1000));
+      const resetEpochSeconds = Math.ceil(userInfo.resetTime / 1000);
+
       logger?.warn(
         {
           requestId: req.requestId,
@@ -272,6 +274,11 @@ export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
         },
         'Rate limit exceeded for user'
       );
+
+      res.setHeader('Retry-After', retryAfterSeconds.toString());
+      res.setHeader('X-RateLimit-Limit', String(maxRequests));
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', resetEpochSeconds.toString());
 
       const errorResponse: AuthErrorResponse = {
         error: 'RATE_LIMIT_EXCEEDED',
@@ -286,6 +293,12 @@ export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
 
     // Increment counter
     userInfo.count++;
+
+    const remaining = Math.max(0, maxRequests - userInfo.count);
+    const resetEpochSeconds = Math.ceil(userInfo.resetTime / 1000);
+    res.setHeader('X-RateLimit-Limit', String(maxRequests));
+    res.setHeader('X-RateLimit-Remaining', remaining.toString());
+    res.setHeader('X-RateLimit-Reset', resetEpochSeconds.toString());
     next();
   };
 };

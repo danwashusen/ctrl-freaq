@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
 
@@ -9,6 +8,7 @@ import {
   DocumentTemplateRepositoryImpl,
   TemplateVersionRepositoryImpl,
   TemplateVersionStatus,
+  resolveWorkspaceDatabasePath,
 } from '@ctrl-freaq/shared-data';
 
 import { templateEngine } from '../templates/index.js';
@@ -46,13 +46,7 @@ export interface TemplatePublisher {
 }
 
 function resolveDatabasePath(config?: TemplatePublisherConfig): string {
-  if (config?.databasePath) {
-    return config.databasePath;
-  }
-  if (process.env.DATABASE_PATH) {
-    return process.env.DATABASE_PATH;
-  }
-  return join(process.cwd(), 'data', 'ctrl-freaq.db');
+  return resolveWorkspaceDatabasePath({ databasePath: config?.databasePath ?? null });
 }
 
 function resolveUserId(config?: TemplatePublisherConfig): string {
@@ -101,12 +95,15 @@ export function createTemplatePublisher(config?: TemplatePublisherConfig): Templ
       );
     }
 
+    const existingTemplate = await documentTemplates.findById(template.metadata.id);
+    const defaultAggressiveness = existingTemplate?.defaultAggressiveness ?? null;
+
     await documentTemplates.upsertMetadata({
       id: template.metadata.id,
       name: template.metadata.name,
       description: template.metadata.description ?? null,
       documentType: template.metadata.documentType,
-      defaultAggressiveness: null,
+      defaultAggressiveness,
       createdBy: userId,
       updatedBy: userId,
     });
@@ -151,9 +148,7 @@ export function createTemplatePublisher(config?: TemplatePublisherConfig): Templ
       options.version
     );
     if (!version) {
-      throw new Error(
-        `Template version not found: ${options.templateId}@${options.version}`
-      );
+      throw new Error(`Template version not found: ${options.templateId}@${options.version}`);
     }
 
     const activated = await templateVersions.markActive({
@@ -196,9 +191,7 @@ export function createTemplatePublisher(config?: TemplatePublisherConfig): Templ
       options.targetVersion
     );
     if (!targetVersion) {
-      throw new Error(
-        `Template version not found: ${options.templateId}@${options.targetVersion}`
-      );
+      throw new Error(`Template version not found: ${options.templateId}@${options.targetVersion}`);
     }
 
     const validator = createTemplateValidator({

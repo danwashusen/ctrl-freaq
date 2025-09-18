@@ -36,6 +36,7 @@
     "cli": "tsx src/cli.ts",
     "dev": "tsc --watch",
     "lint": "eslint src/",
+    "migrate": "tsx src/scripts/migrate.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"

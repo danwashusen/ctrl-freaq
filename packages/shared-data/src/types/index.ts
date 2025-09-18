@@ -22,7 +22,7 @@ export interface Repository<T> {
   findAll(options?: QueryOptions): Promise<T[]>;
   create(entity: Omit<T, 'id' | 'createdAt' | 'updatedAt'>): Promise<T>;
   update(id: string, updates: Partial<T>): Promise<T>;
-  delete(id: string): Promise<boolean>;
+  delete(id: string, deletedBy: string): Promise<boolean>;
 }
 
 export interface QueryOptions {
@@ -31,6 +31,7 @@ export interface QueryOptions {
   orderBy?: string;
   orderDirection?: 'ASC' | 'DESC';
   where?: Record<string, unknown>;
+  includeDeleted?: boolean;
 }
 
 // Database connection interface

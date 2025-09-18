@@ -12,6 +12,8 @@
 ```bash
 pnpm install
 pnpm --filter @ctrl-freaq/shared-data migrate # applies new template tables
+
+> The shared-data migrate script honours `DATABASE_PATH` and will create the parent directory automatically, so you can target alternative SQLite locations without manual setup.
 ```
 
 ## 2. Publish Initial Template Version

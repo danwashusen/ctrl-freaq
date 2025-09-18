@@ -261,13 +261,15 @@ export class TemplateCatalogService {
     },
     userId: string
   ): Promise<DocumentTemplate> {
+    const existingTemplate = await this.templates.findById(compilation.catalog.id);
+
     const upsert: UpsertDocumentTemplateInput = {
       id: compilation.catalog.id,
       name: compilation.catalog.name,
       description: compilation.catalog.description ?? null,
       documentType: compilation.catalog.documentType,
-      defaultAggressiveness: null,
-      createdBy: userId,
+      defaultAggressiveness: existingTemplate?.defaultAggressiveness ?? null,
+      createdBy: existingTemplate?.createdBy ?? userId,
       updatedBy: userId,
     };
 

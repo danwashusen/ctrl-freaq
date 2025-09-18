@@ -79,7 +79,11 @@ export class ConfigurationRepositoryImpl
    * Find configuration by user ID and key
    */
   async findByUserAndKey(userId: string, key: string): Promise<Configuration | null> {
-    const stmt = this.db.prepare('SELECT * FROM configurations WHERE user_id = ? AND key = ?');
+    const stmt = this.db.prepare(
+      `SELECT * FROM configurations
+        WHERE user_id = ? AND key = ?
+          AND (deleted_at IS NULL OR deleted_at = '')`
+    );
     const row = stmt.get(userId, key) as Record<string, unknown> | undefined;
 
     if (!row) return null;
@@ -91,7 +95,11 @@ export class ConfigurationRepositoryImpl
    * Find all configurations for a user
    */
   async findByUserId(userId: string): Promise<Configuration[]> {
-    const stmt = this.db.prepare('SELECT * FROM configurations WHERE user_id = ? ORDER BY key ASC');
+    const stmt = this.db.prepare(
+      `SELECT * FROM configurations
+        WHERE user_id = ? AND (deleted_at IS NULL OR deleted_at = '')
+        ORDER BY key ASC`
+    );
     const rows = stmt.all(userId) as Record<string, unknown>[];
 
     return rows.map(row => this.mapRowToEntity(row));

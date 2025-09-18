@@ -129,7 +129,10 @@ export class DocumentTemplateRepositoryImpl {
   }
 
   async findById(id: string): Promise<DocumentTemplate | null> {
-    const stmt = this.db.prepare('SELECT * FROM document_templates WHERE id = ?');
+    const stmt = this.db.prepare(
+      `SELECT * FROM document_templates
+        WHERE id = ? AND (deleted_at IS NULL OR deleted_at = '')`
+    );
     const row = stmt.get(id) as Record<string, unknown> | undefined;
     if (!row) {
       return null;
@@ -138,7 +141,11 @@ export class DocumentTemplateRepositoryImpl {
   }
 
   async listAll(): Promise<DocumentTemplate[]> {
-    const stmt = this.db.prepare('SELECT * FROM document_templates ORDER BY name ASC');
+    const stmt = this.db.prepare(
+      `SELECT * FROM document_templates
+        WHERE deleted_at IS NULL OR deleted_at = ''
+        ORDER BY name ASC`
+    );
     const rows = stmt.all() as Record<string, unknown>[];
     return rows.map(row => this.mapRow(row));
   }

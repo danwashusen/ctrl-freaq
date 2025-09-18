@@ -28,6 +28,44 @@ function getLogger(req: AuthenticatedRequest): Logger | undefined {
   return req.services?.get('logger') as Logger | undefined;
 }
 
+function ensureTemplateManagerPermission(
+  req: AuthenticatedRequest,
+  res: Response,
+  action: 'publish' | 'activate'
+): string | null {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(403).json({
+      error: 'FORBIDDEN',
+      message: `Template ${action} requires authentication`,
+      timestamp: new Date().toISOString(),
+    });
+    return null;
+  }
+
+  const permissions = req.auth?.orgPermissions ?? [];
+  if (!permissions.includes('templates:manage')) {
+    getLogger(req)?.warn(
+      {
+        requestId: req.requestId,
+        userId,
+        requiredPermission: 'templates:manage',
+        action,
+      },
+      'Template manager permission required'
+    );
+
+    res.status(403).json({
+      error: 'FORBIDDEN',
+      message: 'templates:manage permission required to manage template versions',
+      timestamp: new Date().toISOString(),
+    });
+    return null;
+  }
+
+  return userId;
+}
+
 function formatTemplateSummary(summary: TemplateSummary) {
   const { template, activeVersion } = summary;
   return {
@@ -214,19 +252,15 @@ templatesRouter.post(
       return;
     }
 
-    const userId = req.user?.userId;
+    const userId = ensureTemplateManagerPermission(req, res, 'publish');
     if (!userId) {
-      res.status(403).json({
-        error: 'FORBIDDEN',
-        message: 'Template publish requires authentication',
-        timestamp: new Date().toISOString(),
-      });
       return;
     }
 
     try {
       const { templateId } = req.params as { templateId: string };
-      const details = await getTemplateCatalogService(req).publishVersion({
+      const catalogService = getTemplateCatalogService(req);
+      const details = await catalogService.publishVersion({
         templateId,
         requestedVersion: parseResult.data.version,
         templateYaml: parseResult.data.templateYaml,
@@ -235,14 +269,10 @@ templatesRouter.post(
         userId,
       });
 
-      const templateSummary = formatTemplateSummary({
-        template: details.template,
-        activeVersion:
-          details.template.activeVersionId === details.version.id ? details.version : null,
-      });
+      const summary = await catalogService.getTemplateDetails(templateId);
 
       res.status(201).json({
-        template: templateSummary,
+        template: formatTemplateSummary(summary),
         version: formatVersion(details.version),
       });
     } catch (error) {
@@ -269,13 +299,8 @@ templatesRouter.post(
 templatesRouter.post(
   '/templates/:templateId/versions/:version/activate',
   async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user?.userId;
+    const userId = ensureTemplateManagerPermission(req, res, 'activate');
     if (!userId) {
-      res.status(403).json({
-        error: 'FORBIDDEN',
-        message: 'Template activation requires authentication',
-        timestamp: new Date().toISOString(),
-      });
       return;
     }
 

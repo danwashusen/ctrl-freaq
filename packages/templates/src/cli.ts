@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
 import pino from 'pino';
@@ -9,6 +8,7 @@ import pino from 'pino';
 import {
   DocumentTemplateRepositoryImpl,
   TemplateVersionRepositoryImpl,
+  resolveWorkspaceDatabasePath,
 } from '@ctrl-freaq/shared-data';
 
 import { registerActivateCommand } from './cli/activate-command.js';
@@ -32,9 +32,7 @@ const program = new Command();
 program
   .name('ctrl-freaq-templates')
   .description('Template management CLI for CTRL FreaQ')
-  .option('--database <path>', 'Path to SQLite database', () => {
-    return process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db');
-  })
+  .option('--database <path>', 'Path to SQLite database')
   .option('--user <id>', 'Template manager user id for audit fields', () => {
     return process.env.TEMPLATE_MANAGER_USER_ID || 'cli_template_manager';
   })
@@ -57,6 +55,7 @@ function getLogger(): pino.Logger {
 function createPublisherFactory() {
   return () => {
     const opts = program.opts<RootOptions>();
+    const databasePath = resolveWorkspaceDatabasePath({ databasePath: opts.database ?? null });
     const logger = getLogger();
     const proxy = {
       info: (bindings?: unknown, message?: string) => {
@@ -89,7 +88,7 @@ function createPublisherFactory() {
     } satisfies Pick<Console, 'info' | 'warn' | 'error'>;
 
     return createTemplatePublisher({
-      databasePath: opts.database,
+      databasePath,
       userId: opts.user,
       logger: proxy,
     });
@@ -108,7 +107,8 @@ program
   .action(async (options: ListCommandOptions) => {
     const opts = program.opts<RootOptions>();
     const logger = getLogger();
-    const db = new Database(opts.database || join(process.cwd(), 'data', 'ctrl-freaq.db'));
+    const databasePath = resolveWorkspaceDatabasePath({ databasePath: opts.database ?? null });
+    const db = new Database(databasePath);
     const templates = new DocumentTemplateRepositoryImpl(db);
     const versions = new TemplateVersionRepositoryImpl(db);
 
@@ -137,18 +137,30 @@ program
         })),
       };
 
-      logger.info({ event: 'template_details', templateId: template.id, versionCount: templateVersions.length }, 'Template details loaded');
+      logger.info(
+        {
+          event: 'template_details',
+          templateId: template.id,
+          versionCount: templateVersions.length,
+        },
+        'Template details loaded'
+      );
 
       if (options.json) {
         process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       } else {
         process.stdout.write(`Template: ${template.name} (${template.id})\n`);
-        process.stdout.write(`Status: ${template.status}  Active Version: ${template.activeVersionId ?? 'none'}\n`);
+        process.stdout.write(
+          `Status: ${template.status}  Active Version: ${template.activeVersionId ?? 'none'}\n`
+        );
         process.stdout.write('Versions:\n');
         for (const version of payload.versions) {
-          process.stdout.write(`  - ${version.version} [${version.status}] hash=${version.schemaHash}\n`);
+          process.stdout.write(
+            `  - ${version.version} [${version.status}] hash=${version.schemaHash}\n`
+          );
         }
       }
+      db.close();
       return;
     }
 
@@ -168,7 +180,10 @@ program
       })
     );
 
-    logger.info({ event: 'template_catalog_list', count: summary.length }, 'Template catalog listed');
+    logger.info(
+      { event: 'template_catalog_list', count: summary.length },
+      'Template catalog listed'
+    );
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
@@ -180,6 +195,7 @@ program
         );
       }
     }
+    db.close();
   });
 
 async function main() {

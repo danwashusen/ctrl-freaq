@@ -169,4 +169,36 @@ describe('DocumentRepositoryImpl', () => {
     expect(docs.map(doc => doc.title)).toEqual(expect.arrayContaining(['Doc A', 'Doc B']));
     expect(docs[0].updatedAt.getTime()).toBeGreaterThanOrEqual(docs[1].updatedAt.getTime());
   });
+
+  it('soft deletes documents and retains tombstone metadata for audit', async () => {
+    const document = await repo.create({
+      projectId: 'proj_soft_delete',
+      title: 'Doc to Delete',
+      content: { introduction: 'Soft delete me' },
+      templateId: 'architecture',
+      templateVersion: '1.0.0',
+      templateSchemaHash: 'hash-soft-delete',
+      createdBy: managerId,
+      updatedBy: managerId,
+    });
+
+    const result = await repo.delete(document.id, 'user_soft_delete');
+    expect(result).toBe(true);
+
+    const tombstone = db
+      .prepare(
+        'SELECT deleted_at as deletedAt, deleted_by as deletedBy FROM documents WHERE id = ?'
+      )
+      .get(document.id) as { deletedAt: string | null; deletedBy: string | null } | undefined;
+
+    expect(tombstone).toBeDefined();
+    expect(tombstone?.deletedAt).not.toBeNull();
+    expect(tombstone?.deletedBy).toBe('user_soft_delete');
+
+    const lookup = await repo.findById(document.id);
+    expect(lookup).toBeNull();
+
+    const documents = await repo.listByProject('proj_soft_delete');
+    expect(documents).toHaveLength(0);
+  });
 });
