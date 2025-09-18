@@ -5,28 +5,38 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     },
     "./models/*": {
+      "development": "./src/models/*.ts",
       "import": "./dist/models/*.js",
-      "types": "./dist/models/*.d.ts"
+      "types": "./src/models/*.ts",
+      "default": "./dist/models/*.js"
     },
     "./repositories/*": {
+      "development": "./src/repositories/*.ts",
       "import": "./dist/repositories/*.js",
-      "types": "./dist/repositories/*.d.ts"
+      "types": "./src/repositories/*.ts",
+      "default": "./dist/repositories/*.js"
     },
     "./types/*": {
+      "development": "./src/types/*.ts",
       "import": "./dist/types/*.js",
-      "types": "./dist/types/*.d.ts"
+      "types": "./src/types/*.ts",
+      "default": "./dist/types/*.js"
     },
     "./migrations": {
+      "development": "./src/migrations/index.ts",
       "import": "./dist/migrations/index.js",
-      "types": "./dist/migrations/index.d.ts"
+      "types": "./src/migrations/index.ts",
+      "default": "./dist/migrations/index.js"
     }
   },
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "bin": {
     "ctrl-freaq-shared-data": "dist/cli.js"
   },

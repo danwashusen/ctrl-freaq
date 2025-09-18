@@ -56,6 +56,7 @@ describe.sequential('template CLI smoke test', () => {
       DATABASE_PATH: databasePath,
       TEMPLATE_CLI_LOG_LEVEL: 'error',
       NODE_ENV: 'test',
+      NODE_OPTIONS: '--conditions=development',
     } satisfies NodeJS.ProcessEnv;
 
     await runPnpm(['--filter', '@ctrl-freaq/shared-data', 'migrate'], env);
