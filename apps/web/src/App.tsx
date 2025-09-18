@@ -72,7 +72,7 @@ function App() {
     <div className="bg-background min-h-screen">
       <SignedIn>
         <ApiProvider>
-          <RouterProvider router={router} future={{ v7_startTransition: true }} />
+          <RouterProvider router={router} />
         </ApiProvider>
       </SignedIn>
 
