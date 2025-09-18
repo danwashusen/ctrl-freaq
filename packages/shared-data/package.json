@@ -28,11 +28,23 @@
       "types": "./src/types/*.ts",
       "default": "./dist/types/*.js"
     },
+    "./utils/*": {
+      "development": "./src/utils/*.ts",
+      "import": "./dist/utils/*.js",
+      "types": "./src/utils/*.ts",
+      "default": "./dist/utils/*.js"
+    },
     "./migrations": {
       "development": "./src/migrations/index.ts",
       "import": "./dist/migrations/index.js",
       "types": "./src/migrations/index.ts",
       "default": "./dist/migrations/index.js"
+    },
+    "./migrations/*": {
+      "development": "./src/migrations/*.ts",
+      "import": "./dist/migrations/*.js",
+      "types": "./src/migrations/*.ts",
+      "default": "./dist/migrations/*.js"
     }
   },
   "main": "dist/index.js",
@@ -60,7 +72,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.5.2",
     "@types/uuid": "^10.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.4.0",

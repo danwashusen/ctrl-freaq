@@ -36,7 +36,7 @@
     "@tiptap/core": "^2.0.0",
     "@tiptap/extension-document": "^2.0.0",
     "@tiptap/extension-paragraph": "^2.0.0",
-    "@tiptap/extension-text": "^2.0.0",
+    "@tiptap/extension-text": "^3.4.4",
     "@tiptap/pm": "^2.0.0",
     "commander": "^14.0.1",
     "prosemirror-state": "^1.4.0",
