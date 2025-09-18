@@ -10,8 +10,8 @@
     "paths": {
       "@ctrl-freaq/templates": ["./src"],
       "@ctrl-freaq/templates/*": ["./src/*"],
-      "@ctrl-freaq/shared-data": ["../shared-data/dist/index.d.ts"],
-      "@ctrl-freaq/shared-data/*": ["../shared-data/dist/*"]
+      "@ctrl-freaq/shared-data": ["../shared-data/src/index.ts"],
+      "@ctrl-freaq/shared-data/*": ["../shared-data/src/*"]
     }
   },
   "include": ["src/**/*"],

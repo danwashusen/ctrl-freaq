@@ -10,6 +10,7 @@ import {
   TemplateVersionRepositoryImpl,
   resolveWorkspaceDatabasePath,
 } from '@ctrl-freaq/shared-data';
+import type { DocumentTemplate, TemplateVersion } from '@ctrl-freaq/shared-data';
 
 import { registerActivateCommand } from './cli/activate-command.js';
 import { registerMigrateCommand } from './cli/migrate-command.js';
@@ -128,7 +129,7 @@ program
           status: template.status,
           activeVersionId: template.activeVersionId,
         },
-        versions: templateVersions.map(version => ({
+        versions: templateVersions.map((version: TemplateVersion) => ({
           id: version.id,
           version: version.version,
           status: version.status,
@@ -166,7 +167,7 @@ program
 
     const allTemplates = await templates.listAll();
     const summary = await Promise.all(
-      allTemplates.map(async template => {
+      allTemplates.map(async (template: DocumentTemplate) => {
         const activeVersion = template.activeVersionId
           ? await versions.findById(template.activeVersionId)
           : null;
