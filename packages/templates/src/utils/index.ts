@@ -37,8 +37,8 @@ export class TemplateWatcher extends EventEmitter {
       .on('unlink', (path: string) => {
         this.emit('remove', path);
       })
-      .on('error', (error: Error) => {
-        this.emit('error', error);
+      .on('error', (error: unknown) => {
+        this.emit('error', error instanceof Error ? error : new Error(String(error)));
       });
 
     pathsArray.forEach(path => this.watchedPaths.add(path));
