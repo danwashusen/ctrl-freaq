@@ -84,6 +84,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -148,6 +149,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -212,6 +214,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -274,6 +277,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -352,6 +356,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -433,6 +438,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -482,6 +488,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Generate metrics
         run: |
@@ -542,6 +549,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22.x'
+          package-manager-cache: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
