@@ -185,7 +185,7 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
   });
   return (
     <ClerkProvider publishableKey="pk_test_mock">
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      <RouterProvider router={router} />
     </ClerkProvider>
   );
 };
