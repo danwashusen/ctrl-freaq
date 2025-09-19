@@ -1053,12 +1053,14 @@ await expect(page).toHaveScreenshot('component-name.png', {
 });
 
 // Animation testing example
-const frames = [];
-for (let i = 0; i < 10; i++) {
-  frames.push(await element.screenshot());
+const frames: Buffer[] = [];
+for (let index = 0; index < 10; index += 1) {
+  // Capture frame-by-frame to assert animation progression
+  const frame = await element.screenshot();
+  frames.push(frame);
   await page.waitForTimeout(100);
 }
-// Verify frames show progression
+// Verify frames show progression (e.g., diff neighbouring buffers)
 ```
 
 ### Visual Testing Commands {#visual-testing-commands}
