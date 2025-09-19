@@ -21,7 +21,7 @@ Inputs
 
 Early Gates (stop if any fail)
 
-0. Network Access Gate
+1. Network Access Gate
    - Check CLI context (`network_access`), sandbox policy, or recent command
      failures that indicate restricted network access.
    - If network access is restricted, STOP and warn: "Network access is
@@ -30,12 +30,21 @@ Early Gates (stop if any fail)
    - Do not continue until full network access is available; otherwise
      implementation validation will silently miss critical signals.
 
-1. Tasks Document Gate
+2. Tasks Document Gate
    - Verify tasks.md exists and is valid
    - Parse all tasks and their dependencies
    - If invalid format, output Status: "Invalid Tasks Document". STOP.
 
-2. Completion Audit Gate
+3. Research Briefs Gate
+   - Load `<feature>/research.md` referenced by the tasks document.
+   - Confirm a `## Implementation Briefs` section exists with a
+     `<!-- story-tasks:auto -->` block.
+   - Ensure every phase or remediation group in `tasks.md` has a matching
+     `### Phase 3.x – …` subsection and that task ranges align.
+   - If the block is missing, stale, or mismatched, STOP with Status:
+     "Implementation Briefs Missing" and request a refreshed Story Tasks run.
+
+4. Completion Audit Gate
    - Run intent-based analysis on all tasks (per validate-tasks.md logic)
    - Identify: ✅ Complete, 🟡 Partial, 🔶 Stub, ❌ Not Started
    - Build implementation queue of incomplete tasks
@@ -46,7 +55,7 @@ Early Gates (stop if any fail)
    - Only declare Status: "All Tasks Complete" when the task list is fully
      checked _and_ the quality bundle succeeds in the current session.
 
-3. Dependency Analysis Gate
+5. Dependency Analysis Gate
    - Map task dependencies from document structure and explicit notes
    - Verify prerequisites are met for each task
    - Order tasks respecting: Setup → Tests → Implementation → Integration →
@@ -54,7 +63,7 @@ Early Gates (stop if any fail)
    - If circular dependencies found, output Status: "Circular Dependencies".
      STOP.
 
-4. TDD Compliance Gate
+6. TDD Compliance Gate
    - For implementation tasks, verify corresponding tests exist and fail
    - For test tasks, ensure they will run before implementation
    - If TDD violated, output Status: "TDD Violation - Tests Must Fail First".
@@ -70,6 +79,8 @@ comprehensive analysis:
    - Check git history for previous attempts
 
 2. Context Gathering:
+   - Start with the Implementation Brief for this task's phase (`research.md` →
+     `## Implementation Briefs`) and preload every anchor it references.
    - Load related design documents (plan.md, research.md, data-model.md)
    - Identify patterns from similar completed tasks
    - Check for code review feedback (T0XX tasks) affecting this task
@@ -113,9 +124,37 @@ Implementation Tasks (features, services):
 - Use dependency injection via service locator
 - Include TypeScript types/interfaces
 - Add JSDoc comments for public APIs
-- Immediately run `pnpm typecheck`, `pnpm lint`, and targeted test commands
-  after each implementation change. Keep the task unchecked until the quality
-  trio passes.
+- Refer to the
+  [Quality Gate Command Crib Sheet](#quality-gate-command-crib-sheet) before
+  each checkpoint so you can run the scoped quality gates you need without
+  flooding the transcript.
+- Verify quality gates (typecheck, lint, targeted tests) before checking off the
+  task.
+
+Prefer `pnpm lint:fix` or `pnpm --filter <package> lint -- --fix` before manual
+edits; fall back to `pnpm lint:fix:check` for a dry-run list. Filter command
+output to the actionable lines when pasting into prompts, e.g.
+`pnpm lint:repo -- --format compact | rg -i 'error|warning'` and
+`pnpm typecheck -- --pretty false | rg -i 'error'`. When the scope is known,
+keep runs tight with Turbo filters such as
+`pnpm exec turbo run lint --filter=@ctrl-freaq/web` or
+`pnpm exec turbo run typecheck --filter=packages/<name>`.
+
+<a id="quality-gate-command-crib-sheet"></a>Quality Gate Command Crib Sheet
+
+- `pnpm typecheck -- --pretty false | rg -i 'error'` — concise global typecheck
+  output
+- `pnpm exec turbo run typecheck --filter=packages/<name>` — typecheck a
+  specific package
+- `pnpm lint:repo -- --format compact | rg -i 'error|warning'` — lint output
+  trimmed to issues
+- `pnpm exec turbo run lint --filter=@ctrl-freaq/web` — lint only the web app
+- `pnpm --filter <package> test -- --runInBand` — isolate tests to the impacted
+  package
+- `pnpm lint:fix` / `pnpm --filter <package> lint -- --fix` — bulk apply lint
+  fixes
+- `pnpm lint:fix:check` — dry-run lint fixes to capture only what needs
+  attention
 
 Fix/Review Tasks ([Category] fixes):
 

@@ -34,6 +34,9 @@ raised there apply here.
 
 - Verify the feature’s changes align with the declared plan anchors and
   `tasks.md` items.
+- Treat the Implementation Briefs in `research.md` (`## Implementation Briefs`
+  block) as the canonical phase intent; flag diffs that contradict briefs
+  without an updated tasks run.
 - Confirm that each diffed area maps back to the story acceptance criteria; flag
   unrelated work.
 - Missing planned changes or unexplained additions → Status: "Scope Mismatch"
@@ -44,6 +47,8 @@ raised there apply here.
 1. For each `T###` entry:
 
 - Determine expected artifacts/behavior.
+- Cross-check the matching Implementation Brief subsection to confirm phase
+  intent, anchors, and required quality gates.
 - Verify completeness using primary, secondary, and tertiary signals.
 - Classify as ✅ Complete | 🟡 Partial | 🔶 Stub | ❌ Not Started with
   supporting evidence.

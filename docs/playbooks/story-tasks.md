@@ -7,6 +7,8 @@ Purpose
 - Assign that string to a variable named `ARGUMENTS`.
 - Run playbook `.claude/commands/tasks.md` passing the variable $ARGUMENTS as an
   argument.
+- Expand the feature research document with execution-ready Implementation
+  Briefs covering every phase in the generated task list.
 
 Output Contract
 
@@ -25,61 +27,79 @@ Argument Payload Format
 Primary Sources:
 
 - Plan path: <abs>/specs/<feature>/plan.md#<anchor>
-- Architecture path: docs/architecture.md#<anchor>
-- UI Architecture path: docs/ui-architecture.md#<anchor>
 - Spec path (WHAT/WHY): <abs>/specs/<feature>/spec.md#<anchor>
+- Architecture anchors: <<ARCH_ANCHORS_START>> docs/architecture.md#<anchor-one>
+  docs/architecture.md#<anchor-two> <<ARCH_ANCHORS_END>>
+- UI architecture anchors (if frontend-involved): <<UI_ANCHORS_START>>
+  docs/ui-architecture.md#<anchor> <<UI_ANCHORS_END>>
+- Research path: <abs>/specs/<feature>/research.md
 - Available artifacts:
   - Data model: <abs>/specs/<feature>/data-model.md (if present)
   - Contracts dir: <abs>/specs/<feature>/contracts (if present)
   - Quickstart: <abs>/specs/<feature>/quickstart.md (if present)
-  - Research: <abs>/specs/<feature>/research.md (if present)
 
-Plan excerpt: <<PLAN_EXCERPT_START>> [Paste only the most relevant plan sections
-for task generation: scope, sequencing intent, TDD emphasis, gating]
-<<PLAN_EXCERPT_END>>
+Plan guidance: <<PLAN_NOTES_START>>
 
-Architecture excerpt: <<ARCH_EXCERPT_START>> [Only
-boundaries/services/data-flow/observability that affect task grouping/order]
-<<ARCH_EXCERPT_END>>
-
-UI Architecture excerpt: <<UI_EXCERPT_START>> [Only
-components/routing/state/accessibility that affect task decomposition]
-<<UI_EXCERPT_END>>
+- Scope notes or sequencing signals required for task ordering
+- Gates or assumptions that affect task readiness <<PLAN_NOTES_END>>
 
 Standards Constraints:
 
-- Backend standards: <<STANDARDS_EXCERPT_START>> [Acceptance criteria: Service
-  Locator only; Zod validation at API boundaries; structured Pino logging with
-  requestId; Repository Pattern (no raw SQL in routes); TDD tests first; no
-  console in app code] <<STANDARDS_EXCERPT_END>>
-- UI standards (if frontend-involved): <<UI_STANDARDS_EXCERPT_START>>
-  [Acceptance criteria: React hooks rules; accessibility alt-text and role-based
-  queries; immutable state updates; lazy routes/code-splitting; browser Pino
-  logging with redaction; RTL best practices] <<UI_STANDARDS_EXCERPT_END>>
+- Backend standards anchors: <<BACKEND_STANDARDS_START>>
+  docs/architecture.md#coding-standards docs/architecture.md#logging-standards
+  docs/architecture.md#error-handling-strategy docs/architecture.md#security
+  docs/architecture.md#soc2-guidelines <<BACKEND_STANDARDS_END>>
+- UI standards anchors (if frontend involved): <<UI_STANDARDS_START>>
+  docs/ui-architecture.md#frontend-developer-standards <<UI_STANDARDS_END>>
 
-Constraints:
+Implementation Briefs Write-Back
 
-- Treat plan as the plan-of-record for immediate scope and task boundaries.
-- Treat Architecture/UI excerpts as canonical for HOW boundaries/patterns.
-- Treat spec as canonical for WHAT/WHY; surface and reconcile conflicts before
-  proceeding.
-- Use absolute paths; generate tasks that are directly executable; favor [P]
-  markers when file-level independence exists.
-- Incorporate Standards Constraints as task-level acceptance criteria and
-  explicit checklist items.
+- After generating `tasks.md`, read the latest research document at
+  `<abs>/specs/<feature>/research.md`.
+- Replace (or create) a block that begins with `## Implementation Briefs`
+  followed by `<!-- story-tasks:auto -->` and ends with
+  `<!-- /story-tasks:auto -->`.
+- Inside the block, emit one subsection per phase or remediation group you
+  output in `tasks.md` using the format
+  `### Phase 3.x – <Phase name> (T###–T###)`.
+- Within each subsection include the following bullet groups:
+  - `Anchors:` list 1-3 absolute paths with anchors that justify the phase
+    decisions.
+  - `Intent:` 1-2 bullets (<=20 words each) describing what the phase achieves
+    and why sequencing matters.
+  - `Task coverage:` bullets mapping task IDs to the key work product or
+    acceptance shorthand.
+  - `Acceptance focus:` bullets naming the tests or quality gates that must fail
+    then pass.
+  - `Quality guards:` bullets for cross-cutting requirements (auth, logging,
+    validation, accessibility, performance, observability, etc.).
+- Keep bullets tight (maximum three per group) and reuse anchors already
+  gathered for task generation.
+- Regenerate the entire block on every run so briefs always stay in sync with
+  `tasks.md`.
+
+Constraints
+
+- Treat plan.md as the plan-of-record for scope and sequencing.
+- Treat architecture/UI anchors as canonical for HOW boundaries and controls.
+- Treat spec.md as canonical for WHAT/WHY; flag conflicts as open questions.
+- Implementation Briefs must stay synchronized with the generated tasks. Do not
+  leave stale subsections.
+- Remove unused marker blocks (e.g., `<<UI_ANCHORS_START>>` when no frontend
+  work).
 
 Open Questions:
 
-- [Optional list in “[NEEDS CLARIFICATION: …]” format]
-- Be conservative when resolving items that "NEEDS CLARIFICATION"
+- [Optional list in `[NEEDS CLARIFICATION: …]` format]
+- Be conservative when resolving items that "NEEDS CLARIFICATION".
 
 Rules
 
-- Do not wrap the payload in fences or add any leading/trailing commentary.
-- Use absolute repo-root paths and anchors for traceability; keep excerpts
-  minimal.
+- Do not wrap the payload in fences or add leading/trailing commentary.
+- Maintain whitespace exactly as defined in marker blocks.
+- Avoid duplicating large excerpts; rely on anchors plus intent summaries.
 
 Assignment
 
 - After constructing the payload, assign it to the variable `ARGUMENTS` exactly,
-  e.g., internally set: ARGUMENTS = "<the multi-line payload defined above>"
+  e.g., internally set: ARGUMENTS = "<the multi-line payload defined above>".
