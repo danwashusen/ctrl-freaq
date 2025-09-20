@@ -1,55 +1,53 @@
-# Create a detailed spec for a Story
+# Playbook: Create Story Specification Argument
 
-Purpose
+## Meta Instructions
 
-- Build exactly one plain-text argument string to be consumed by
-  `.claude/commands/specify.md` via `$ARGUMENTS`.
-- Assign that string to a variable named `ARGUMENTS`.
-- Run playbook `.claude/commands/specify.md` passing the variable $ARGUMENTS as
-  an argument.
+- Always produce exactly one plain-text argument string for
+  `.claude/commands/specify.md` and assign it to `ARGUMENTS`.
+- Always follow the slug-plus-Context structure and keep the headings exactly as
+  specified.
+- Always reference repo files with absolute paths and include anchors when
+  available.
+- Always keep PRD and FE excerpts minimal, verbatim, and treated as canonical
+  for WHAT/WHY.
+- Always surface clarification questions when PRD/FE excerpts conflict with user
+  free text.
+- Never wrap the payload in code fences, add commentary, or output multiple
+  argument strings.
 
-Output Contract
+## Reusable Blocks (Functions)
 
-- Set variable: `ARGUMENTS` = the complete, multi-line payload described below.
-- Exactly ONE argument string; no code fences, no JSON/YAML, no CLI prefixes.
-- The value begins with a slug line, followed by a Context block using the exact
-  headings and markers.
+## Steps
 
-Argument Payload Format
-
-- First line (slug):
-  - Story: "{epic_number}.{story_number} - {story_title}"
-  - Non-Story: "<short-branch-friendly slug>"
-
-- Then the Context block (no extra commentary):
-
-Primary Sources:
-
-- PRD path: docs/prd.md#<anchor-if-available>
-- PRD excerpt: <<PRD_EXCERPT_START>> [Paste exact Story text (description, ACs)]
-  <<PRD_EXCERPT_END>>
-- FE spec path: docs/front-end-spec.md#<anchor-or-section>
-- FE excerpt: <<FE_EXCERPT_START>> [Minimal, relevant flow/IA/UX passages]
-  <<FE_EXCERPT_END>>
-
-Constraints:
-
-- Treat PRD/FE excerpts as canonical for WHAT/WHY.
-- If any conflict with user free-text, prefer these excerpts and surface a
-  clarification question.
-
-Open Questions:
-
-- [Optional list in “[NEEDS CLARIFICATION: …]” format]
-- Be conservative when resolving items that "NEEDS CLARIFICATION"
-
-Rules
-
-- Do not wrap the payload in fences or add any leading/trailing commentary.
-- Use absolute repo-root paths when referencing files inside the payload.
-- Keep excerpts minimal; use anchors for traceability.
-
-Assignment
-
-- After constructing the payload, assign it to the variable `ARGUMENTS` exactly,
-  e.g., internally set: ARGUMENTS = "<the multi-line payload defined above>"
+1. Identify story type and prepare the slug line.
+   - If the item is a Story, format the first line as
+     `Story: "{epic_number}.{story_number} - {story_title}"`.
+   - If the item is not a Story, format the first line as
+     `"<short-branch-friendly slug>"`.
+2. Gather PRD source details.
+   - Locate the relevant section in `docs/prd.md` and capture its anchor (if one
+     exists).
+   - Extract the exact story description and acceptance criteria to paste
+     between `<<PRD_EXCERPT_START>>` and `<<PRD_EXCERPT_END>>`.
+3. Gather FE specification details.
+   - Locate the matching section in `docs/front-end-spec.md` and capture its
+     anchor or section label.
+   - Extract only the minimal flow, IA, or UX passages needed and place them
+     between `<<FE_EXCERPT_START>>` and `<<FE_EXCERPT_END>>`.
+4. Document constraints and open questions.
+   - Record the standing rule that PRD/FE excerpts define scope for WHAT/WHY.
+   - If conflicts exist between PRD/FE excerpts and user free text, add an entry
+     in `[NEEDS CLARIFICATION: …]` format and avoid resolving it without
+     confirmation.
+5. Assemble the `Context:` block immediately after the slug line.
+   - Add a line `Context:` followed by the sections below.
+   - List `Primary Sources:` with the PRD path, PRD excerpt block, FE path, and
+     FE excerpt block in that order.
+   - Add a `Constraints:` section repeating the canonical-source rule and any
+     additional constraints discovered.
+   - Add an `Open Questions:` section containing any clarification items or
+     leave it blank if none exist.
+6. Assign the payload string.
+   - Concatenate the slug line and Context block with newline separators and no
+     additional commentary.
+   - Set `ARGUMENTS` equal to that multi-line string.

@@ -1,4 +1,13 @@
-# Development Constitution
+<!--
+Sync Impact Report:
+- Version change: 1.0.0 → 1.1.0
+- Structure reorganized for clarity, consolidating principles without content loss
+- No principles modified, added, or removed - content preserved
+- Templates requiring updates: ✅ all checked and compatible
+- Follow-up TODOs: None
+-->
+
+# CTRL FreaQ Development Constitution
 
 ## Core Principles
 
@@ -38,7 +47,7 @@ Test-driven development is mandatory and strictly enforced:
 
 No implementation without failing tests that define the requirements.
 
-### IV. Integration Testing Requirements
+### IV. Integration Testing & Observability
 
 Integration tests are required for specific change categories:
 
@@ -48,10 +57,6 @@ Integration tests are required for specific change categories:
 - Shared data schemas and protocols
 - Real dependency interactions (no mocking for integration layer)
 
-Focus on contract validation and system boundary verification.
-
-### V. Observability Standards
-
 All systems must provide comprehensive observability through:
 
 - **Structured logging** with consistent formats and levels
@@ -60,22 +65,7 @@ All systems must provide comprehensive observability through:
 - **Error tracking** with context and stack traces
 - **Health checks** and service status endpoints
 
-Debugging capability is non-negotiable.
-
-### VI. Versioning & Breaking Changes
-
-Does NOT apply during MVP.
-
-[//]: # 'Semantic versioning (MAJOR.MINOR.PATCH) with strict change management:'
-[//]: # '- **MAJOR**: Breaking changes require migration documentation'
-[//]: # '- **MINOR**: New features with backward compatibility'
-[//]: # '- **PATCH**: Bug fixes and internal improvements'
-[//]:
-  #
-  '- **Breaking changes** must include deprecation periods and migration paths'
-[//]: # '- **Version dependencies** explicitly tracked and managed'
-
-### VII. Simplicity & Minimalism
+### V. Simplicity & Versioning
 
 Complexity must be justified and minimized:
 
@@ -86,6 +76,8 @@ Complexity must be justified and minimized:
 - **Question every dependency** and abstraction layer
 
 Start simple, evolve incrementally based on real needs.
+
+Versioning & Breaking Changes: Does NOT apply during MVP.
 
 ## SOC 2 Implementation Rules for LLM Code Generation
 
@@ -329,4 +321,4 @@ Constitution changes require:
 - Any attempt to bypass or weaken quality controls is a violation and must be
   rejected during review.
 
-**Version**: 1.0.0 | **Ratified**: 2025-09-11 | **Last Amended**: 2025-09-14
+**Version**: 1.1.0 | **Ratified**: 2025-09-11 | **Last Amended**: 2025-09-20

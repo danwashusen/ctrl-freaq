@@ -7,8 +7,6 @@ Purpose
 - Assign that string to a variable named `ARGUMENTS`.
 - Run playbook `.claude/commands/plan.md` passing the variable $ARGUMENTS as an
   argument.
-- Read the full feature spec and canonical architecture documents before
-  assembling research outputs.
 
 Output Contract
 
@@ -34,18 +32,6 @@ Primary Sources:
 - Supporting docs (data-model, quickstart, contracts, etc.):
   <<SUPPORTING_SOURCES_START>> <abs>/specs/<feature>/research.md#<section>
   <abs>/specs/<feature>/data-model.md#<section> <<SUPPORTING_SOURCES_END>>
-
-Research Deliverables:
-
-- Generate or update Phase 0 `research.md` with:
-  - "Standards Digest" summarizing backend controls derived from architecture
-    anchors.
-  - "UI Standards Digest" when frontend is in scope, derived from UI
-    architecture anchors.
-  - Technical decisions and rationale tied to absolute anchors.
-  - Open questions in `[NEEDS CLARIFICATION: …]` format when unresolved.
-- Reserve Implementation Briefs for the Story Tasks playbook; do not create
-  briefs in this phase.
 
 Constraints:
 

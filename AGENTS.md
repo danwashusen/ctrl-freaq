@@ -7,23 +7,30 @@ React frontend and Express.js backend. The project follows Constitutional
 principles including library-first architecture, mandatory TDD, and CLI
 interfaces for all libraries.
 
+**Current Focus**: Document Editor Core Infrastructure (Story 2.2)
+
+- Building hierarchical Table of Contents navigation
+- Implementing read/edit mode transitions for sections
+- Adding placeholder states for empty sections
+
 ## Project Structure
 
 ```
 ctrl-freaq/
 ├── apps/
-│   ├── web/          # React frontend (adapted from lovable.ai prototype)
+│   ├── web/          # React 18+ frontend with Vite
 │   └── api/          # Express.js backend
 ├── packages/         # Library packages (all with CLI interfaces)
-│   ├── shared-data/  # Repository pattern data access
-│   ├── templates/    # YAML template engine
+│   ├── shared-data/  # Repository pattern, document/template models
+│   ├── templates/    # YAML template engine with Zod validation
 │   ├── ai/          # LLM integration (Vercel AI SDK)
 │   ├── qa/          # Quality gates
 │   ├── exporter/    # Document export
-│   ├── editor-core/ # WYSIWYG editor
-│   ├── editor-persistence/ # Client persistence
-│   └── template-resolver/  # Template resolution
-└── docs/            # Architecture documentation
+│   ├── editor-core/ # TipTap-based WYSIWYG editor (placeholder impl)
+│   ├── editor-persistence/ # IndexedDB/localStorage client persistence
+│   └── template-resolver/  # Version-aware template caching
+└── specs/           # Feature specifications and implementation plans
+    └── 006-story-2-2/  # Current: Document editor infrastructure
 ```
 
 ## Development Commands
@@ -32,18 +39,44 @@ ctrl-freaq/
 
 ```bash
 pnpm dev        # Start frontend (5173) + backend (5001)
-pnpm test       # Run all tests
+pnpm test       # Run all tests with Vitest
+pnpm test:contracts  # Run API contract tests (TDD - should fail first)
 pnpm build      # Build all packages
 pnpm typecheck  # TypeScript checking
 pnpm lint       # ESLint checking
 
 yamllint        # Validate YAML files
 
-# Library CLIs
+# Library CLIs (all packages have CLI interfaces)
 pnpm --filter @ctrl-freaq/shared-data cli --help
 pnpm --filter @ctrl-freaq/templates cli --help
 pnpm --filter @ctrl-freaq/ai cli --help
+pnpm --filter @ctrl-freaq/editor-core cli --help
+pnpm --filter @ctrl-freaq/editor-persistence cli --help
+pnpm --filter @ctrl-freaq/template-resolver cli --help
 ```
+
+## Tech Stack & Patterns
+
+- **Frontend**: React 18+, TypeScript, Zustand (state), Radix UI + Tailwind
+- **Backend**: Express.js, TypeScript, Zod validation
+- **Editor**: TipTap/ProseMirror foundation
+- **Storage**: IndexedDB (client), PostgreSQL (server)
+- **Testing**: Vitest (unit), Playwright (E2E)
+- **Patterns**: Repository pattern, compound components, optimistic UI
+
+## Recent Changes
+
+1. **Document Editor Core** (2025-09-20)
+   - Designed section editing data models
+   - Created OpenAPI contracts for section management
+   - Defined section lock mechanism for concurrent editing
+   - Added contract tests following TDD principles
+
+2. **Template System** (Previous)
+   - Hierarchical section structure from YAML templates
+   - Version-aware caching with VersionedTemplateCache
+   - Zod validation for template schemas
 
 ## Assumption Handling Strategy
 
