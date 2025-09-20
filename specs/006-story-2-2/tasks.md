@@ -42,11 +42,11 @@ plan.md (required), research.md, data-model.md, contracts/sections-api.yaml
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Configure TypeScript project references for editor packages
-- [ ] T002 Install Milkdown 7.15.5 and dependencies in editor-core package
-- [ ] T003 [P] Setup diff-match-patch in editor-core package
-- [ ] T004 [P] Configure localforage in editor-persistence package
-- [ ] T005 [P] Setup Zustand devtools middleware in web app
+- [x] T001 Configure TypeScript project references for editor packages
+- [x] T002 Install Milkdown 7.15.5 and dependencies in editor-core package
+- [x] T003 [P] Setup diff-match-patch in editor-core package
+- [x] T004 [P] Configure localforage in editor-persistence package
+- [x] T005 [P] Setup Zustand devtools middleware in web app
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
