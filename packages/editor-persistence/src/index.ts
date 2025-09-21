@@ -9,6 +9,7 @@
 // Core persistence functionality exports
 export * from './storage/index.js';
 export * from './sync/index.js';
+export * from './local-storage.js';
 
 // CLI export
 export { cli } from './cli.js';

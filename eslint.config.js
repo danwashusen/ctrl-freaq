@@ -28,6 +28,7 @@ export default [
       'node_modules/**',
       'docs/examples/**',
       'specs/**',
+      '.specify/**',
       '.bmad-core/**',
       'packages/shared-data/src/**/*.js',
     ],

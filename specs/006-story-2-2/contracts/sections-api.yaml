@@ -1,0 +1,644 @@
+openapi: 3.0.3
+info:
+  title: Document Editor Sections API
+  version: 1.0.0
+  description: API for managing document sections with read/edit modes and pending changes
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+
+paths:
+  /documents/{docId}/sections:
+    get:
+      summary: Get all sections for a document
+      operationId: getSections
+      tags: [Sections]
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: List of document sections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SectionView'
+                  toc:
+                    $ref: '#/components/schemas/TableOfContents'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /sections/{sectionId}:
+    get:
+      summary: Get a specific section with content
+      operationId: getSection
+      tags: [Sections]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Section details with content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionView'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update section view state
+      operationId: updateSectionState
+      tags: [Sections]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                viewState:
+                  type: string
+                  enum: [idle, read_mode, edit_mode, saving]
+              required: [viewState]
+      responses:
+        200:
+          description: Section state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionView'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+        409:
+          $ref: '#/components/responses/Conflict'
+
+  /sections/{sectionId}/pending-changes:
+    get:
+      summary: Get pending changes for a section
+      operationId: getPendingChanges
+      tags: [PendingChanges]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: List of pending changes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PendingChange'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create pending changes for a section
+      operationId: createPendingChange
+      tags: [PendingChanges]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patches:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PatchDiff'
+                originalContent:
+                  type: string
+                  description: Content before changes
+                previewContent:
+                  type: string
+                  description: Content after applying patches
+              required: [patches, originalContent, previewContent]
+      responses:
+        201:
+          description: Pending change created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingChange'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        409:
+          $ref: '#/components/responses/Conflict'
+
+  /sections/{sectionId}/save:
+    post:
+      summary: Save pending changes to section
+      operationId: saveSectionChanges
+      tags: [Sections]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                changeIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: IDs of pending changes to apply
+              required: [changeIds]
+      responses:
+        200:
+          description: Changes saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  section:
+                    $ref: '#/components/schemas/SectionView'
+                  appliedChanges:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        409:
+          $ref: '#/components/responses/Conflict'
+        429:
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /documents/{docId}/toc:
+    get:
+      summary: Get table of contents for document
+      operationId: getTableOfContents
+      tags: [Navigation]
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Document table of contents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableOfContents'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /documents/{docId}/editor-session:
+    get:
+      summary: Get current editor session
+      operationId: getEditorSession
+      tags: [Session]
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Current editor session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorSession'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update editor session
+      operationId: updateEditorSession
+      tags: [Session]
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditorSessionUpdate'
+      responses:
+        200:
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorSession'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    SectionView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        docId:
+          type: string
+          format: uuid
+        parentSectionId:
+          type: string
+          format: uuid
+          nullable: true
+        key:
+          type: string
+        title:
+          type: string
+        depth:
+          type: integer
+          minimum: 0
+          maximum: 5
+        orderIndex:
+          type: integer
+        contentMarkdown:
+          type: string
+          maxLength: 100000
+        placeholderText:
+          type: string
+        hasContent:
+          type: boolean
+        viewState:
+          type: string
+          enum: [idle, read_mode, edit_mode, saving]
+        editingUser:
+          type: string
+          nullable: true
+        lastModified:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [idle, assumptions, drafting, review, ready]
+        assumptionsResolved:
+          type: boolean
+        qualityGateStatus:
+          type: string
+          enum: [pending, passed, failed]
+          nullable: true
+      required:
+        - id
+        - docId
+        - key
+        - title
+        - depth
+        - orderIndex
+        - contentMarkdown
+        - placeholderText
+        - hasContent
+        - viewState
+        - lastModified
+        - status
+        - assumptionsResolved
+
+    PendingChange:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        patches:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatchDiff'
+        originalContent:
+          type: string
+        previewContent:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        sessionId:
+          type: string
+        status:
+          type: string
+          enum: [pending, applying, applied, failed]
+        conflictsWith:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - id
+        - sectionId
+        - documentId
+        - patches
+        - originalContent
+        - previewContent
+        - createdAt
+        - createdBy
+        - sessionId
+        - status
+
+    PatchDiff:
+      type: object
+      properties:
+        op:
+          type: string
+          enum: [add, remove, replace]
+        path:
+          type: string
+        value:
+          type: string
+        oldValue:
+          type: string
+      required:
+        - op
+        - path
+
+    TableOfContents:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/TocNode'
+        lastUpdated:
+          type: string
+          format: date-time
+      required:
+        - documentId
+        - sections
+        - lastUpdated
+
+    TocNode:
+      type: object
+      properties:
+        sectionId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        depth:
+          type: integer
+        orderIndex:
+          type: integer
+        hasContent:
+          type: boolean
+        status:
+          type: string
+          enum: [idle, assumptions, drafting, review, ready]
+        isExpanded:
+          type: boolean
+        isActive:
+          type: boolean
+        isVisible:
+          type: boolean
+        hasUnsavedChanges:
+          type: boolean
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/TocNode'
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+        - sectionId
+        - title
+        - depth
+        - orderIndex
+        - hasContent
+        - status
+        - children
+
+    EditorSession:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        sessionId:
+          type: string
+        activeSectionId:
+          type: string
+          format: uuid
+          nullable: true
+        expandedSections:
+          type: array
+          items:
+            type: string
+            format: uuid
+        scrollPosition:
+          type: number
+        editorMode:
+          type: string
+          enum: [wysiwyg, markdown, preview]
+        showDiffView:
+          type: boolean
+        autoSaveEnabled:
+          type: boolean
+        autoSaveInterval:
+          type: integer
+          minimum: 10000
+        collaborators:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              userName:
+                type: string
+              activeSectionId:
+                type: string
+                format: uuid
+                nullable: true
+              lastActivity:
+                type: string
+                format: date-time
+        lastSaveTime:
+          type: number
+        pendingChangeCount:
+          type: integer
+      required:
+        - documentId
+        - userId
+        - sessionId
+        - editorMode
+        - showDiffView
+        - autoSaveEnabled
+        - autoSaveInterval
+        - collaborators
+        - pendingChangeCount
+
+    EditorSessionUpdate:
+      type: object
+      properties:
+        activeSectionId:
+          type: string
+          format: uuid
+          nullable: true
+        expandedSections:
+          type: array
+          items:
+            type: string
+            format: uuid
+        scrollPosition:
+          type: number
+        editorMode:
+          type: string
+          enum: [wysiwyg, markdown, preview]
+        showDiffView:
+          type: boolean
+        autoSaveEnabled:
+          type: boolean
+        autoSaveInterval:
+          type: integer
+          minimum: 10000
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - code
+        - message
+        - requestId
+        - timestamp
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: Authentication required
+            requestId: req_123
+            timestamp: '2025-09-20T10:00:00Z'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict with current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

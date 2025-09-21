@@ -10,6 +10,9 @@ import {
   TemplateVersionRepositoryImpl,
   DocumentTemplateMigrationRepositoryImpl,
   DocumentRepositoryImpl,
+  SectionRepositoryImpl,
+  EditorSessionRepositoryImpl,
+  PendingChangeRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
@@ -46,6 +49,11 @@ export function createRepositoryRegistrationMiddleware() {
       () => new DocumentTemplateMigrationRepositoryImpl(getDb())
     );
     container.register('documentRepository', () => new DocumentRepositoryImpl(getDb()));
+
+    // Document Editor repositories
+    container.register('sectionRepository', () => new SectionRepositoryImpl(getDb()));
+    container.register('editorSessionRepository', () => new EditorSessionRepositoryImpl(getDb()));
+    container.register('pendingChangeRepository', () => new PendingChangeRepositoryImpl(getDb()));
 
     container.register('templateCatalogService', currentContainer => {
       const templateRepo = currentContainer.get(

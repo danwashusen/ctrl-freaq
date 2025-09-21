@@ -181,15 +181,15 @@ src/
 
 ### Component Template {#component-template}
 
-````typescript
+````tsx
 // src/features/[feature]/components/[component-name].tsx
-import { FC, memo, useCallback, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ComponentNameProps {
   className?: string;
-  children?: React.ReactNode;
-  // Add specific props with JSDoc comments
+  children?: ReactNode;
   /** Handler called when action occurs */
   onAction?: (value: string) => void;
 }
@@ -204,24 +204,28 @@ export interface ComponentNameProps {
  * </ComponentName>
  * ```
  */
-export const ComponentName: FC<ComponentNameProps> = memo(({
-  className,
-  children,
-  onAction,
-}) => {
-  const [state, setState] = useState<string>('');
+export const ComponentName: FC<ComponentNameProps> = memo(
+  ({ className, children, onAction }) => {
+    const [selectedValue, setSelectedValue] = useState<string>('');
 
-  const handleClick = useCallback((value: string) => {
-    setState(value);
-    onAction?.(value);
-  }, [onAction]);
+    const handleClick = useCallback(
+      (value: string) => {
+        setSelectedValue(value);
+        onAction?.(value);
+      },
+      [onAction]
+    );
 
-  return (
-    <div className={cn('component-base-styles', className)}>
-      {children}
-    </div>
-  );
-});
+    return (
+      <div className={cn('component-base-styles', className)}>
+        {children}
+        <button type="button" onClick={() => handleClick('example')}>
+          Selected: {selectedValue || 'none'}
+        </button>
+      </div>
+    );
+  }
+);
 
 ComponentName.displayName = 'ComponentName';
 ````
@@ -260,6 +264,19 @@ src/stores/
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { documentService } from '@/lib/api/services/document-service';
+
+interface Section {
+  id: string;
+  title: string;
+  content: string;
+}
+
+type PatchDiff = {
+  op: 'add' | 'remove' | 'replace';
+  path: string;
+  value?: unknown;
+};
 
 export interface Document {
   id: string;
@@ -329,25 +346,32 @@ export const useDocumentStore = create<DocumentStore>()(
 
         clearPendingChanges: documentId =>
           set(state => {
-            delete state.pendingChanges[documentId];
+            if (state.pendingChanges[documentId]) {
+              delete state.pendingChanges[documentId];
+            }
           }),
 
         // Async actions
         fetchDocument: async id => {
-          const response = await documentApi.getDocument(id);
+          const document = await documentService.getDocument(id);
           set(state => {
-            state.documents[id] = response.data;
+            state.documents[id] = document;
           });
         },
 
         saveDocument: async id => {
           const document = get().documents[id];
-          const patches = get().pendingChanges[id] || [];
+          if (!document) {
+            return;
+          }
 
-          await documentApi.saveDocument(id, { document, patches });
+          const patches = get().pendingChanges[id] ?? [];
+          await documentService.updateDocument(id, patches);
 
           set(state => {
-            state.clearPendingChanges(id);
+            if (state.pendingChanges[id]) {
+              delete state.pendingChanges[id];
+            }
           });
         },
       })),
@@ -369,34 +393,41 @@ export const useDocumentStore = create<DocumentStore>()(
 ```typescript
 // src/lib/api/services/document-service.ts
 import { apiClient } from '@/lib/api/client';
-import { Document, Section, Assumption, Proposal } from '@/types/models';
+import type { Document } from '@/types/models';
+import type { ValidationResult } from '@ctrl-freaq/qa';
 
-export interface PaginatedResponse<T> {
-  items: T[];
-  nextCursor?: string;
-  total?: number;
+type PatchDiff = {
+  op: 'add' | 'remove' | 'replace';
+  path: string;
+  value?: unknown;
+};
+
+interface ProposalContext {
+  documentId: string;
+  sectionId: string;
+  relatedSections: string[];
 }
 
-export interface ApiError {
+interface ProposalChunk {
+  sectionId: string;
+  content: string;
+  done?: boolean;
+}
+
+interface ApiErrorShape {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   requestId?: string;
 }
 
 class DocumentService {
-  private baseUrl = '/api/v1/documents';
+  private readonly baseUrl = '/api/v1/documents';
 
-  /**
-   * Fetch a document by ID
-   */
   async getDocument(id: string): Promise<Document> {
     return apiClient.get<Document>(`${this.baseUrl}/${id}`);
   }
 
-  /**
-   * Create a new document
-   */
   async createDocument(data: {
     type: 'architecture' | 'prd' | 'ui';
     title: string;
@@ -405,16 +436,10 @@ class DocumentService {
     return apiClient.post<Document>(this.baseUrl, data);
   }
 
-  /**
-   * Update document with patches
-   */
   async updateDocument(id: string, patches: PatchDiff[]): Promise<Document> {
     return apiClient.patch<Document>(`${this.baseUrl}/${id}`, { patches });
   }
 
-  /**
-   * Stream AI proposals for a section
-   */
   streamProposals(
     sectionId: string,
     context: ProposalContext,
@@ -422,23 +447,34 @@ class DocumentService {
     onComplete: () => void,
     onError: (error: Error) => void
   ): () => void {
-    const eventSource = new EventSource(
+    const url = new URL(
       `/api/v1/sections/${sectionId}/proposals.generate`,
-      {
-        withCredentials: true,
-      }
+      window.location.origin
     );
+    url.searchParams.set('documentId', context.documentId);
+    url.searchParams.set('contextSection', context.sectionId);
+    context.relatedSections.forEach(relatedId => {
+      url.searchParams.append('relatedSection', relatedId);
+    });
+
+    const eventSource = new EventSource(url.toString(), {
+      withCredentials: true,
+    });
 
     eventSource.onmessage = event => {
       try {
         const chunk = JSON.parse(event.data) as ProposalChunk;
         onChunk(chunk);
       } catch (error) {
-        console.error('Failed to parse proposal chunk:', error);
+        const message =
+          error instanceof Error
+            ? error
+            : new Error('Failed to parse proposal chunk');
+        onError(message);
       }
     };
 
-    eventSource.onerror = error => {
+    eventSource.onerror = () => {
       onError(new Error('Proposal stream failed'));
       eventSource.close();
     };
@@ -448,21 +484,18 @@ class DocumentService {
       eventSource.close();
     });
 
-    // Return cleanup function
     return () => eventSource.close();
   }
 
-  /**
-   * Run quality gates
-   */
-  async runQualityGates(documentId: string): Promise<QualityGateResult> {
-    return apiClient.post<QualityGateResult>(
+  async runQualityGates(documentId: string): Promise<ValidationResult> {
+    return apiClient.post<ValidationResult>(
       `${this.baseUrl}/${documentId}/gates.run`
     );
   }
 }
 
 export const documentService = new DocumentService();
+export type { ApiErrorShape as ApiError, ProposalChunk, ProposalContext };
 ```
 
 ### API Client Configuration {#api-client-configuration}
@@ -471,132 +504,160 @@ export const documentService = new DocumentService();
 // src/lib/api/client.ts
 import { getAuth } from '@clerk/clerk-react';
 
+type RequestParams = Record<string, string | number | boolean | undefined>;
+
 export interface ApiClientConfig {
-  baseURL: string;
-  timeout?: number;
-  headers?: Record<string, string>;
+  baseUrl: string;
+  timeoutMs?: number;
+  defaultHeaders?: HeadersInit;
+  getAuthToken?: () => Promise<string | null>;
 }
 
-export class ApiClient {
-  private config: ApiClientConfig;
-
-  constructor(config: ApiClientConfig) {
-    this.config = {
-      timeout: 30000,
-      ...config,
-    };
-  }
-
-  private async getHeaders(): Promise<Headers> {
-    const headers = new Headers({
-      'Content-Type': 'application/json',
-      ...this.config.headers,
-    });
-
-    // Add Clerk authentication token
-    try {
-      const { getToken } = getAuth();
-      const token = await getToken();
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
-    } catch (error) {
-      console.warn('Failed to get auth token:', error);
-    }
-
-    return headers;
-  }
-
-  private async handleResponse<T>(response: Response): Promise<T> {
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        code: 'unknown_error',
-        message: 'An unexpected error occurred',
-      }));
-
-      throw new ApiError(
-        error.code || 'unknown_error',
-        error.message || response.statusText,
-        response.status,
-        error.details,
-        error.requestId
-      );
-    }
-
-    // Handle empty responses
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    return response.json();
-  }
-
-  async get<T>(path: string, params?: Record<string, any>): Promise<T> {
-    const url = new URL(`${this.config.baseURL}${path}`);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: await this.getHeaders(),
-    });
-
-    return this.handleResponse<T>(response);
-  }
-
-  async post<T>(path: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.config.baseURL}${path}`, {
-      method: 'POST',
-      headers: await this.getHeaders(),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-
-    return this.handleResponse<T>(response);
-  }
-
-  async patch<T>(path: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.config.baseURL}${path}`, {
-      method: 'PATCH',
-      headers: await this.getHeaders(),
-      body: data ? JSON.stringify(data) : undefined,
-    });
-
-    return this.handleResponse<T>(response);
-  }
-
-  async delete<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.config.baseURL}${path}`, {
-      method: 'DELETE',
-      headers: await this.getHeaders(),
-    });
-
-    return this.handleResponse<T>(response);
-  }
-}
-
-// Export configured instance
-export const apiClient = new ApiClient({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5173',
-});
-
-// Custom error class
 export class ApiError extends Error {
   constructor(
-    public code: string,
+    public readonly code: string,
     message: string,
-    public status: number,
-    public details?: any,
-    public requestId?: string
+    public readonly status: number,
+    public readonly details?: unknown,
+    public readonly requestId?: string
   ) {
     super(message);
     this.name = 'ApiError';
   }
 }
+
+export class ApiClient {
+  private readonly baseUrl: string;
+  private readonly timeoutMs: number;
+  private readonly getAuthToken?: () => Promise<string | null>;
+  private readonly defaultHeaders: HeadersInit;
+
+  constructor(config: ApiClientConfig) {
+    this.baseUrl = config.baseUrl;
+    this.timeoutMs = config.timeoutMs ?? 30_000;
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+      ...config.defaultHeaders,
+    };
+    this.getAuthToken = config.getAuthToken ?? this.createClerkTokenGetter();
+  }
+
+  private createClerkTokenGetter(): (() => Promise<string | null>) | undefined {
+    try {
+      const { getToken } = getAuth();
+      return async () => {
+        try {
+          return await getToken();
+        } catch {
+          return null;
+        }
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private buildQuery(params?: RequestParams): string {
+    if (!params) {
+      return '';
+    }
+
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        search.append(key, String(value));
+      }
+    });
+
+    const queryString = search.toString();
+    return queryString.length > 0 ? `?${queryString}` : '';
+  }
+
+  private async resolveHeaders(overrides?: HeadersInit): Promise<Headers> {
+    const headers = new Headers(this.defaultHeaders);
+    const token = this.getAuthToken ? await this.getAuthToken() : null;
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (overrides) {
+      new Headers(overrides).forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
+
+    return headers;
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: await this.resolveHeaders(init.headers),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => undefined)) as
+          | {
+              code?: string;
+              message?: string;
+              details?: unknown;
+              requestId?: string;
+            }
+          | undefined;
+
+        throw new ApiError(
+          payload?.code ?? 'unknown_error',
+          payload?.message ?? response.statusText,
+          response.status,
+          payload?.details,
+          payload?.requestId
+        );
+      }
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async get<T>(path: string, params?: RequestParams): Promise<T> {
+    return this.request<T>(`${path}${this.buildQuery(params)}`);
+  }
+
+  async post<T, TBody = unknown>(path: string, body?: TBody): Promise<T> {
+    return this.request<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async patch<T, TBody = unknown>(path: string, body?: TBody): Promise<T> {
+    return this.request<T>(path, {
+      method: 'PATCH',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async delete<T>(path: string): Promise<T> {
+    return this.request<T>(path, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export const apiClient = new ApiClient({
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5001/api/v1',
+});
 ```
 
 ## Routing {#routing}
@@ -855,24 +916,60 @@ editing while ensuring data consistency:
 
 ```typescript
 // Example: Preparing document state for assumption resolution
+type ISODateString = string;
+
+interface PatchDiff {
+  op: 'add' | 'remove' | 'replace';
+  path: string;
+  value?: unknown;
+}
+
 interface DocumentState {
   sections: Array<{
     id: string;
-    savedContent: string;        // Last saved version
+    savedContent: string; // Last saved version
     pendingPatches: PatchDiff[]; // Unsaved changes
-    mergedContent: string;       // Computed: savedContent + patches
-    lastModified: timestamp;
+    mergedContent: string; // Computed: savedContent + patches
+    lastModified: ISODateString;
     hasConflicts: boolean;
   }>;
   metadata: {
     documentVersion: string;
-    lastSyncTime: timestamp;
+    lastSyncTime: ISODateString;
     conflictResolution: 'last-write-wins' | 'manual';
   };
 }
 
-// Usage in assumption resolution
+const documentState: DocumentState = {
+  sections: [
+    {
+      id: 'SEC123',
+      savedContent: '# Heading',
+      pendingPatches: [
+        { op: 'replace', path: '/content/0', value: 'Updated paragraph' },
+      ],
+      mergedContent: 'Updated paragraph',
+      lastModified: new Date().toISOString(),
+      hasConflicts: false,
+    },
+  ],
+  metadata: {
+    documentVersion: 'v1.2.3',
+    lastSyncTime: new Date().toISOString(),
+    conflictResolution: 'manual',
+  },
+};
+
+const payload = {
+  sectionId: 'SEC123',
+  currentState: documentState,
+};
+```
+
+```http
 POST /api/v1/documents/{docId}/assumptions/query
+Content-Type: application/json
+
 {
   "sectionId": "SEC123",
   "currentState": {
@@ -881,9 +978,7 @@ POST /api/v1/documents/{docId}/assumptions/query
         "id": "SEC123",
         "content": "merged content with pending changes",
         "hasUnsavedChanges": true
-      },
-      // Include related sections for context
-      ...relatedSections
+      }
     ]
   }
 }
@@ -989,6 +1084,8 @@ function extractGenerationConfig(
 **Cache Structure**:
 
 ```typescript
+type ISODateString = string;
+
 interface TemplateCache {
   templates: Map<string, CachedTemplate>; // templateId -> template
   sections: Map<string, CachedSection>; // sectionKey -> resolved config
@@ -999,7 +1096,7 @@ interface TemplateCache {
 interface CachedTemplate {
   template: DocumentTemplate;
   version: string;
-  loadedAt: timestamp;
+  loadedAt: ISODateString;
   accessCount: number;
 }
 
@@ -1008,7 +1105,7 @@ interface CachedSection {
   sectionId: string;
   config: GenerationConfig;
   templateVersion: string;
-  resolvedAt: timestamp;
+  resolvedAt: ISODateString;
 }
 ```
 
@@ -1088,8 +1185,9 @@ async function generateSectionContent(
 
 ```typescript
 // src/features/document-editor/components/__tests__/DocumentEditor.test.tsx
+import type { FC, ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DocumentEditor } from '../DocumentEditor';
@@ -1099,7 +1197,7 @@ import { documentService } from '@/lib/api/services/document-service';
 vi.mock('@/lib/api/services/document-service');
 
 // Test utilities
-const createWrapper = () => {
+const createWrapper = (): FC<{ children: ReactNode }> => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -1107,11 +1205,11 @@ const createWrapper = () => {
     },
   });
 
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+  const Wrapper: FC<{ children: ReactNode }> = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
+
+  return Wrapper;
 };
 
 describe('DocumentEditor', () => {
@@ -1129,15 +1227,9 @@ describe('DocumentEditor', () => {
   });
 
   it('renders document editor with content', async () => {
-    render(
-      <DocumentEditor documentId="doc-1" />,
-      { wrapper: createWrapper() }
-    );
+    render(<DocumentEditor documentId="doc-1" />, { wrapper: createWrapper() });
 
-    // Wait for document to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Document')).toBeInTheDocument();
-    });
+    await screen.findByText('Test Document');
 
     // Verify editor components
     expect(screen.getByRole('textbox', { name: /editor/i })).toBeInTheDocument();
@@ -1147,14 +1239,9 @@ describe('DocumentEditor', () => {
   it('handles user text input', async () => {
     const user = userEvent.setup();
 
-    render(
-      <DocumentEditor documentId="doc-1" />,
-      { wrapper: createWrapper() }
-    );
+    render(<DocumentEditor documentId="doc-1" />, { wrapper: createWrapper() });
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Document')).toBeInTheDocument();
-    });
+    await screen.findByText('Test Document');
 
     const editor = screen.getByRole('textbox', { name: /editor/i });
     await user.type(editor, 'New content');
@@ -1169,14 +1256,9 @@ describe('DocumentEditor', () => {
       content: 'Updated content',
     });
 
-    render(
-      <DocumentEditor documentId="doc-1" />,
-      { wrapper: createWrapper() }
-    );
+    render(<DocumentEditor documentId="doc-1" />, { wrapper: createWrapper() });
 
-    await waitFor(() => {
-      expect(screen.getByText('Test Document')).toBeInTheDocument();
-    });
+    await screen.findByText('Test Document');
 
     // Make changes
     const editor = screen.getByRole('textbox', { name: /editor/i });
@@ -1187,11 +1269,10 @@ describe('DocumentEditor', () => {
     const saveButton = screen.getByRole('button', { name: /save/i });
     await user.click(saveButton);
 
-    // Verify API call
-    await waitFor(() => {
+    await vi.waitFor(() => {
       expect(documentService.updateDocument).toHaveBeenCalledWith(
         'doc-1',
-        expect.any(Array) // patches
+        expect.any(Array)
       );
     });
   });
@@ -1200,14 +1281,9 @@ describe('DocumentEditor', () => {
     const error = new Error('Failed to load document');
     vi.mocked(documentService.getDocument).mockRejectedValue(error);
 
-    render(
-      <DocumentEditor documentId="doc-1" />,
-      { wrapper: createWrapper() }
-    );
+    render(<DocumentEditor documentId="doc-1" />, { wrapper: createWrapper() });
 
-    await waitFor(() => {
-      expect(screen.getByText(/failed to load document/i)).toBeInTheDocument();
-    });
+    await screen.findByText(/failed to load document/i);
   });
 });
 ```

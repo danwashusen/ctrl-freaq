@@ -24,58 +24,37 @@ Argument Payload Format
 
 Primary Sources:
 
-- Architecture path: docs/architecture.md#<anchor-or-section>
-- Architecture excerpt: <<ARCH_EXCERPT_START>> [Minimal, relevant passages:
-  services/boundaries/data‑flows/constraints] <<ARCH_EXCERPT_END>>
-- UI Architecture path: docs/ui-architecture.md#<anchor-or-section>
-- UI Architecture excerpt: <<UI_EXCERPT_START>> [Minimal, relevant passages:
-  components/routing/state/accessibility/styling] <<UI_EXCERPT_END>>
-
-Standards Digest (Backend):
-
-- Coding Standards path: docs/architecture.md#coding-standards
-- Coding Standards excerpt: <<STANDARDS_EXCERPT_START>> [Top rules with brief
-  bad/good examples tailored to this spec] <<STANDARDS_EXCERPT_END>>
-- Additional Standards:
-  - Logging: docs/architecture.md#logging-standards
-  - Errors: docs/architecture.md#error-handling-strategy
-  - Security: docs/architecture.md#security
-  - SOC 2: docs/architecture.md#soc2-guidelines
-- Additional excerpts: <<ADDL_STANDARDS_EXCERPT_START>> [Minimal, spec‑relevant
-  bullets only] <<ADDL_STANDARDS_EXCERPT_END>>
-
-UI Standards Digest (Frontend, when in scope):
-
-- FE Standards path: docs/ui-architecture.md#frontend-developer-standards
-- UI Standards excerpt: <<UI_STANDARDS_EXCERPT_START>> [React hooks rules, a11y,
-  state immutability, performance, UI security, observability, testing — only
-  items relevant to this spec, with short bad/good examples]
-  <<UI_STANDARDS_EXCERPT_END>>
+- Feature spec: <abs>/specs/<feature>/spec.md#<anchor-or-section>
+- Architecture anchors: <<ARCH_ANCHORS_START>> docs/architecture.md#<anchor-one>
+  docs/architecture.md#<anchor-two> <<ARCH_ANCHORS_END>>
+- UI architecture anchors (if frontend in scope): <<UI_ANCHORS_START>>
+  docs/ui-architecture.md#<anchor-one> <<UI_ANCHORS_END>>
+- Supporting docs (data-model, quickstart, contracts, etc.):
+  <<SUPPORTING_SOURCES_START>> <abs>/specs/<feature>/research.md#<section>
+  <abs>/specs/<feature>/data-model.md#<section> <<SUPPORTING_SOURCES_END>>
 
 Constraints:
 
-- Treat Architecture/UI‑Architecture excerpts and Standards Digest(s) as
-  canonical for HOW‑level boundaries, integrations, observability, error
-  handling, and auth.
-- Treat the feature specification as canonical for WHAT/WHY; pause and reconcile
-  conflicts.
-- Copy “Standards Digest” (Backend) into Phase 0 research.md as a top‑level
-  section named “Standards Digest”.
-- If frontend is in scope, copy “UI Standards Digest” into Phase 0 research.md
-  as a top‑level section named “UI Standards Digest”.
-- Use absolute repo‑root paths only.
+- Treat architecture and UI architecture documents as canonical for HOW-level
+  constraints, integrations, observability, error handling, and auth.
+- Treat the feature specification as canonical for WHAT/WHY; reconcile conflicts
+  before proceeding.
+- Use absolute repo-root paths only; reference anchors explicitly.
+- Research outputs must stay concise and reference-backed; avoid copying entire
+  documents.
 
 Open Questions:
 
-- [Optional list in “[NEEDS CLARIFICATION: …]” format]
-- Be conservative when resolving items that "NEEDS CLARIFICATION"
+- [Optional list in `[NEEDS CLARIFICATION: …]` format]
+- Be conservative when resolving items that "NEEDS CLARIFICATION".
 
 Rules
 
-- Do not wrap the payload in fences or add any leading/trailing commentary.
-- Use absolute paths and anchors for traceability; keep excerpts minimal.
+- Do not wrap the payload in fences or add leading/trailing commentary.
+- Maintain whitespace exactly as defined in markers; remove unused marker blocks
+  entirely.
 
 Assignment
 
 - After constructing the payload, assign it to the variable `ARGUMENTS` exactly,
-  e.g., internally set: ARGUMENTS = "<the multi-line payload defined above>"
+  e.g., internally set: ARGUMENTS = "<the multi-line payload defined above>".

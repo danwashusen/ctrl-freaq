@@ -19,12 +19,14 @@ Early Gates
    - Scan `tasks.md` for any "[NEEDS CLARIFICATION: …]" markers. If present,
      output Status: "Needs Clarification" and STOP.
 
-Alignment Gates (technology‑neutral)
-
 4. Plan Consistency Gate
    - Each task must trace to a concrete section/anchor or bullet in `plan.md`
      (scope, sequencing, gates). Flag tasks with no trace; flag missing tasks
      for planned items.
+   - Confirm `research.md` contains the auto-generated
+     `## Implementation Briefs` block (`<!-- story-tasks:auto -->`) and that
+     each phase subsection aligns with the phases and task ranges in `tasks.md`.
+     Flag mismatches or omissions.
 
 5. Standards/Conventions Conformance Gate
    - Load "Standards/Conventions Digest" (backend) and, if UI is in scope, the
