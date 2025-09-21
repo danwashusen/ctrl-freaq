@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, type ComponentType, type SVGProps } from 'react';
 import { Edit, Eye, Save, Loader2, FileText, Clock, User } from 'lucide-react';
 
 import { Button } from '../../../components/ui/button';
@@ -22,7 +22,7 @@ const stateLabels: Record<SectionViewState, string> = {
   saving: 'Saving...',
 };
 
-const stateIcons: Record<SectionViewState, React.ComponentType<{ className?: string }>> = {
+const stateIcons: Record<SectionViewState, ComponentType<SVGProps<SVGSVGElement>>> = {
   idle: FileText,
   read_mode: Eye,
   edit_mode: Edit,
@@ -57,12 +57,17 @@ export const SectionCard = memo<SectionCardProps>(
     }, [section.id, onCancelClick]);
 
     const formatLastModified = useCallback((timestamp: string) => {
-      try {
-        const date = new Date(timestamp);
-        return date.toLocaleString();
-      } catch {
+      if (!timestamp) {
         return 'Unknown';
       }
+
+      const date = new Date(timestamp);
+
+      if (Number.isNaN(date.getTime())) {
+        return 'Unknown';
+      }
+
+      return date.toLocaleString();
     }, []);
 
     return (
@@ -84,6 +89,8 @@ export const SectionCard = memo<SectionCardProps>(
               </h3>
               <div className="mt-1 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <StateIcon
+                  role="graphics-symbol"
+                  aria-hidden="true"
                   className={cn(
                     'h-3 w-3',
                     stateColors[section.viewState],
@@ -132,9 +139,13 @@ export const SectionCard = memo<SectionCardProps>(
                     data-testid="save-section"
                   >
                     {isSaving ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      <Loader2
+                        role="graphics-symbol"
+                        aria-hidden="true"
+                        className="mr-1 h-3 w-3 animate-spin"
+                      />
                     ) : (
-                      <Save className="mr-1 h-3 w-3" />
+                      <Save role="graphics-symbol" aria-hidden="true" className="mr-1 h-3 w-3" />
                     )}
                     Save
                   </Button>

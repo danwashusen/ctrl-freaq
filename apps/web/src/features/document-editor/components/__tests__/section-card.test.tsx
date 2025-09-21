@@ -533,7 +533,10 @@ describe('SectionCard', () => {
         const { unmount } = render(<SectionCard {...defaultProps} section={section} />);
 
         // Check that the state icon has the correct color class
-        const stateIcon = screen.getByRole('graphics-symbol', { hidden: true });
+        const [stateIcon] = within(screen.getByTestId('section-card')).getAllByRole(
+          'graphics-symbol',
+          { hidden: true }
+        );
         switch (section.viewState) {
           case 'idle':
             expect(stateIcon).toHaveClass('text-gray-500');
