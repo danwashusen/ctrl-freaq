@@ -4,10 +4,10 @@ description:
   description.
 ---
 
-The text the user typed after `/specify` in the triggering message **is** the
-feature description. Assume you always have it available in this conversation
-even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it
-unless they provided an empty command.
+Treat the text the user typed after `/specify` in the triggering message as the
+feature description whenever the assistant surfaces it. Some AI coding
+assistants do not pass arguments through, so if that description is missing or
+incomplete you must prompt the user for the needed details.
 
 Given that feature description, do this:
 

@@ -1019,9 +1019,10 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 ### CI Quality Gates {#ci-quality-gates}
 
-- Lint gate: Lint warnings fail the pipeline (`--max-warnings=0`)
-- YAML: YAML lint rules included in the lint job
+- Lint gate: Lint warnings fail the pipeline (`pnpm run lint:ci`)
 - Typecheck: Run across workspace with project references enabled
+  (`pnpm run typecheck`)
+- Test: Run across workspace with project references enabled (`pnpm run test`)
 - Test coverage thresholds (per package): Lines 80% • Statements 80% • Branches
   70% • Functions 80%
 - Feedback loop: Turborepo tasks for `lint` and `typecheck` do not depend on

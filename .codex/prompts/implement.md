@@ -4,7 +4,12 @@ description:
   in tasks.md
 ---
 
-Given the current feature context, do this:
+The user input can be provided directly by the agent or as a command argument -
+you **MUST** consider it before proceeding with the prompt (if not empty).
+
+User input:
+
+$ARGUMENTS
 
 1. Load Spec Kit configuration:
    - Check for `/.specify.yaml` at the host project root; if it exists, load
@@ -13,8 +18,9 @@ Given the current feature context, do this:
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
    - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
-2. Run `.specify/scripts/bash/check-implementation-prerequisites.sh --json` from
-   repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All future file
+2. Run
+   `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
+   from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All future file
    paths must be absolute.
 
 3. If defined, read documents from `SPEC_KIT_CONFIG.implement.documents`:

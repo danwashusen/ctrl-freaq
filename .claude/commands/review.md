@@ -107,8 +107,9 @@ semantics:
      - Additional controlling documents from `SPEC_KIT_CONFIG`,
        `AVAILABLE_DOCS`, and operator-provided standards digests
    - Read each document and **extract explicit mandates** (architecture
-     boundaries, logging strategy, dependency policy, quality gates, testing
-     posture, risk controls), appending them to `REVIEW_REQUIREMENTS` with:
+     boundaries, logging strategy, dependency policy, quality gates, quality
+     controls governance, testing posture, risk controls), appending them to
+     `REVIEW_REQUIREMENTS` with:
      - `id`, `name`, `level` (MUST/SHOULD/MAY), `rule` (one sentence),
        `rationale`, `source`
    - Keep `CONTROL_INVENTORY` in sync with these mandates by capturing canonical
@@ -144,8 +145,8 @@ semantics:
 
 9. Collect objective evidence
    - Identify mandatory quality commands from `REVIEW_REQUIREMENTS` (e.g., lint,
-     typecheck, unit tests, integration tests, build, contract checks); execute
-     them repo-wide unless governance specifies a narrower scope
+     typecheck, test, build, contract checks); execute them repo-wide unless
+     governance specifies a narrower scope
    - Capture pass/fail status and key diagnostics for each command; aggregate
      multiple errors per category into single findings
    - Establish baseline and current dependency snapshots using the project's

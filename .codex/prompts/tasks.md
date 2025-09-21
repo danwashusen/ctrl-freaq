@@ -4,7 +4,13 @@ description:
   available design artifacts.
 ---
 
-Given the context provided as an argument, do this:
+The user input to you can be provided directly by the agent or as a command
+argument - you **MUST** consider it before proceeding with the prompt (if not
+empty).
+
+User input:
+
+$ARGUMENTS
 
 1. Load Spec Kit configuration:
    - Check for `/.specify.yaml` at the host project root; if it exists, load
@@ -13,8 +19,8 @@ Given the context provided as an argument, do this:
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
    - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
-2. Run `.specify/scripts/bash/check-task-prerequisites.sh --json` from repo root
-   and parse FEATURE_DIR and AVAILABLE_DOCS list. All future file paths must be
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json` from repo root and
+   parse FEATURE_DIR and AVAILABLE_DOCS list. All future file paths must be
    absolute.
 
 3. If defined, read documents from `SPEC_KIT_CONFIG.tasks.documents`:
