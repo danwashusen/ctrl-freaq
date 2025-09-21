@@ -39,7 +39,9 @@
     "@milkdown/preset-commonmark": "7.15.5",
     "@milkdown/react": "7.15.5",
     "@milkdown/theme-nord": "7.15.5",
+    "@types/diff-match-patch": "^1.0.36",
     "commander": "^14.0.1",
+    "diff-match-patch": "^1.0.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {

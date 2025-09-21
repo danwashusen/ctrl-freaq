@@ -9,6 +9,7 @@
 // Core editor functionality exports
 export * from './editor/index.js';
 export * from './extensions/index.js';
+export * from './patch-engine.js';
 
 // CLI export
 export { cli } from './cli.js';

@@ -19,8 +19,6 @@ Early Gates
    - Scan `tasks.md` for any "[NEEDS CLARIFICATION: …]" markers. If present,
      output Status: "Needs Clarification" and STOP.
 
-Alignment Gates (technology‑neutral)
-
 4. Plan Consistency Gate
    - Each task must trace to a concrete section/anchor or bullet in `plan.md`
      (scope, sequencing, gates). Flag tasks with no trace; flag missing tasks
