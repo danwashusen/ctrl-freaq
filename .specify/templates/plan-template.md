@@ -182,7 +182,7 @@ _Prerequisites: research.md complete_
    - Quickstart test = story validation steps
 
 5. **Update agent file incrementally** (O(1) operation):
-   - Run `.specify/scripts/bash/update-agent-context.sh claude` for your AI
+   - Run `.specify/scripts/bash/update-agent-context.sh codex` for your AI
      assistant
    - If exists: Add only NEW tech from current plan
    - Preserve manual additions between markers
