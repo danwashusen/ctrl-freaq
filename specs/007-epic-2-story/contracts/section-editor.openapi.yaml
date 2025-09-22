@@ -1,0 +1,288 @@
+openapi: 3.1.0
+info:
+  title: Section Editor API
+  version: 0.1.0
+  description: REST contracts enabling section editing, autosave, review, and approval flows.
+servers:
+  - url: https://api.ctrl-freaq.local/api/v1
+paths:
+  /sections/{sectionId}:
+    get:
+      summary: Fetch a document section with latest approved and draft metadata.
+      operationId: getSection
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      responses:
+        '200':
+          description: Section retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionView'
+        '404':
+          description: Section not found.
+  /sections/{sectionId}/drafts:
+    post:
+      summary: Create or update a draft snapshot (autosave or manual save).
+      operationId: saveDraft
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveDraftRequest'
+      responses:
+        '201':
+          description: Draft saved and versioned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResource'
+        '409':
+          description: Conflict detected against newer approved content.
+  /sections/{sectionId}/diff:
+    get:
+      summary: Generate a side-by-side diff between draft and approved content.
+      operationId: getSectionDiff
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - in: query
+          name: draftId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Diff artifact produced for UI consumption.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiffResource'
+        '404':
+          description: Draft or section not found.
+  /sections/{sectionId}/review:
+    post:
+      summary: Submit a draft for review, transitioning section to in_review.
+      operationId: submitReview
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitForReviewRequest'
+      responses:
+        '202':
+          description: Review requested and reviewers notified.
+  /sections/{sectionId}/approve:
+    post:
+      summary: Approve a draft and promote it to canonical section content.
+      operationId: approveSection
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveDraftRequest'
+      responses:
+        '200':
+          description: Section approved, returning updated section view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionView'
+        '409':
+          description: Approval blocked due to conflicting draft state.
+components:
+  parameters:
+    SectionId:
+      name: sectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    SectionStatus:
+      type: string
+      enum:
+        - approved
+        - draft
+        - in_review
+        - conflict
+    SectionView:
+      type: object
+      required:
+        - id
+        - documentId
+        - title
+        - status
+        - approvedContent
+        - approvedAt
+        - approvedBy
+        - lastDraft
+        - qualityGateState
+      properties:
+        id:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/SectionStatus'
+        approvedContent:
+          type: string
+          description: Markdown string representing approved body.
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvedBy:
+          type: string
+          format: uuid
+          nullable: true
+        lastDraft:
+          $ref: '#/components/schemas/DraftResource'
+        qualityGateState:
+          type: object
+          additionalProperties: true
+    DraftResource:
+      type: object
+      required:
+        - id
+        - sectionId
+        - authorId
+        - version
+        - content
+        - autosaveState
+        - updatedAt
+        - changeSummary
+      properties:
+        id:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        content:
+          type: string
+        changeSummary:
+          type: string
+          nullable: true
+          maxLength: 500
+        formattingSchema:
+          type: object
+          additionalProperties: true
+        autosaveState:
+          type: string
+          enum:
+            - manual
+            - autosave
+        conflictsWith:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SaveDraftRequest:
+      type: object
+      required:
+        - content
+        - version
+        - autosaveState
+        - changeSummary
+      properties:
+        content:
+          type: string
+        version:
+          type: integer
+          description: Last known version from client for optimistic locking.
+        autosaveState:
+          type: string
+          enum:
+            - manual
+            - autosave
+        changeSummary:
+          type: string
+          nullable: true
+          maxLength: 500
+        formattingSchema:
+          type: object
+          additionalProperties: true
+    SubmitForReviewRequest:
+      type: object
+      required:
+        - draftId
+        - changeSummary
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        changeSummary:
+          type: string
+          maxLength: 500
+    ApproveDraftRequest:
+      type: object
+      required:
+        - draftId
+        - reviewerNotes
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        reviewerNotes:
+          type: string
+          nullable: true
+          maxLength: 1000
+    DiffResource:
+      type: object
+      required:
+        - draftId
+        - approvedContent
+        - draftContent
+        - diff
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        approvedContent:
+          type: string
+        draftContent:
+          type: string
+        diff:
+          type: array
+          items:
+            type: object
+            required:
+              - op
+              - value
+            properties:
+              op:
+                type: string
+                enum:
+                  - add
+                  - remove
+                  - change
+              value:
+                type: string
+              meta:
+                type: object
+                additionalProperties: true
