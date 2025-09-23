@@ -1,27 +1,25 @@
 ---
-
-description:
-Run a scope-driven review that enforces project governance, quality gates, and
-risk controls
+description: |
+  Run a scope-driven review that enforces project governance, quality gates, and
+  risk controls
 version: 2.0
 semantics:
-
-- Levels use RFC 2119 / BCP 14 (MUST/SHOULD/MAY).
+  levels: Levels use RFC 2119 / BCP 14 (MUST/SHOULD/MAY).
   authoritative_sources:
-- NIST SSDF v1.1 (SP 800-218) PW.7–PW.8
-- OWASP ASVS v4.x; OWASP Code Review Guide; OWASP SAMM
-- ISO/IEC 27002:2022 (8.28 Secure Coding); ISO/IEC 27001 ISMS
-- PCI DSS 4.0 (esp. 6.3.2 code review before release)
-- GDPR Article 25 (Data Protection by Design & Default), CCPA
-- SLSA v1.0 (supply chain provenance)
-- Google Engineering Practices (Small CLs, Speed, What to look for)
-- Microsoft Engineering Playbook (Code Reviews)
-- WCAG 2.2 (Level AA)
-- Google SRE (launch/readiness checklists)
+    - NIST SSDF v1.1 (SP 800-218) PW.7–PW.8
+    - OWASP ASVS v4.x; OWASP Code Review Guide; OWASP SAMM
+    - ISO/IEC 27002:2022 (8.28 Secure Coding); ISO/IEC 27001 ISMS
+    - PCI DSS 4.0 (esp. 6.3.2 code review before release)
+    - GDPR Article 25 (Data Protection by Design & Default), CCPA
+    - SLSA v1.0 (supply chain provenance)
+    - Google Engineering Practices (Small CLs, Speed, What to look for)
+    - Microsoft Engineering Playbook (Code Reviews)
+    - WCAG 2.2 (Level AA)
+    - Google SRE (launch/readiness checklists)
   notes:
-- This playbook is stack-agnostic and applies to any language or runtime.
-- Always use absolute paths from the repository root for all file operations.
-
+    - This playbook is stack-agnostic and applies to any language or runtime.
+    - Always use absolute paths from the repository root for all file
+      operations.
 ---
 
 # Code Review Playbook
@@ -48,6 +46,9 @@ semantics:
    - **REQUIRED**: Read `tasks.md` for the complete task list and execution plan
    - **REQUIRED**: Read `plan.md` for tech stack, architecture, and file
      structure
+   - **REQUIRED**: Read `spec.md` within `FEATURE_DIR`; extract the
+     `Requirements` section and flag a missing or malformed spec as
+     `[Open Question]`
    - **IF EXISTS**: Read `data-model.md` for entities and relationships
    - **IF EXISTS**: Read `contracts/` for API specifications and test
      requirements
@@ -80,6 +81,9 @@ semantics:
      consolidated list as `REVIEW_SCOPE_HINTS`
    - Capture explicit guardrails, risk registers, checklist items, or
      out-of-scope statements and store them as `REVIEW_DIRECTIVES`
+   - Parse the `Requirements` section of `spec.md` to build `SPEC_REQUIREMENTS`;
+     for each requirement capture `id` (e.g., `FR-###`), verbatim rule text,
+     related acceptance scenarios/tests, and any embedded clarification markers
    - Start a `CONTROL_INVENTORY` by mapping each cross-cutting control mandated
      in the gathered documents (e.g., logging, authentication, telemetry,
      storage, observability) to the code assets or services that already
@@ -106,6 +110,8 @@ semantics:
        **Requirements Catalog**)
      - Additional controlling documents from `SPEC_KIT_CONFIG`,
        `AVAILABLE_DOCS`, and operator-provided standards digests
+     - Feature-level directives from `SPEC_REQUIREMENTS`, preserving their IDs
+       and original wording
    - Read each document and **extract explicit mandates** (architecture
      boundaries, logging strategy, dependency policy, quality gates, quality
      controls governance, testing posture, risk controls), appending them to
@@ -115,6 +121,10 @@ semantics:
    - Keep `CONTROL_INVENTORY` in sync with these mandates by capturing canonical
      implementations, known extension points, and noted gaps that require
      follow-up; flag missing controls as provisional entries pending remediation
+   - For every entry in `SPEC_REQUIREMENTS`, append a matching record to
+     `REVIEW_REQUIREMENTS` with `source_requirement` set to the original
+     `FR-###`; initialize each entry with `status="unverified"` until evidence
+     or findings resolve it
    - Treat these requirements as authoritative; flag any observed deviation
    - When a mandate is ambiguous, raise `[Open Question]` entries, resolve them,
      and record outcomes in the decision log
@@ -126,6 +136,11 @@ semantics:
      `Blocked: Scope Mismatch`
    - **Unknowns Gate**: unresolved `[NEEDS CLARIFICATION: …]` →
      `Needs Clarification`
+   - **Requirements Coverage Gate**: every `FR-###` in `SPEC_REQUIREMENTS` maps
+     to implementation/test evidence, an explicit finding, or a documented
+     clarification request; otherwise → `Changes Requested` (missing
+     implementation), `Needs Clarification` (ambiguous requirement), or
+     `Blocked: Scope Mismatch` (requirement intentionally deferred)
    - **Separation of Duties Gate**: author cannot self-approve; emergency
      bypasses are exceptional and auditable
    - **Code Owners Gate**: changes under owned paths require owner approval (if
@@ -159,6 +174,9 @@ semantics:
 
 10. Analyze implementation changes
     - Review diffs/files for compliance with each item in `REVIEW_REQUIREMENTS`
+    - For each `FR-###` requirement, trace implementation changes and associated
+      tests; cite concrete files, commands, or scenarios that satisfy the
+      requirement, and open findings when evidence is absent or contradictory
     - Map changes to architecture layers or boundaries; flag violations or
       missing abstractions with proposed remediations
     - Verify cross-cutting controls (validation, logging, error handling,
@@ -200,6 +218,10 @@ semantics:
       currency observations.
     - Update the **Requirements Compliance Checklist** with pass/fail status and
       notes per requirement group.
+    - Generate a **Requirements Coverage Table** sourced from
+      `SPEC_REQUIREMENTS` with columns for requirement id, summary,
+      implementation evidence, validating tests, and linked
+      finding/clarification ids.
     - Append the **Decision Log** with resolved assumptions, constitutional
       interpretations, control reuse, and remediation-audit outcomes.
     - Ensure the **Remediation Logging** section is populated per Step 12 when
@@ -254,27 +276,9 @@ semantics:
 
 ### Governance & Process
 
-- **GOV-01 Policy & Scope** — **MUST**: A published code-review policy defines
-  when review is required, who may approve, and any exemptions. _Rationale_:
-  Organizational control; auditability. _Source_: NIST SSDF PW.7.
-- **GOV-02 Peer Review for Protected Branches** — **MUST**: All merges to
-  protected branches require peer review. _Rationale_: Process integrity.
-  _Source_: Platform enforcement + Microsoft Playbook.
-- **GOV-03 Code Owners** — **MUST**: Owned paths require owner approval (where
-  supported). _Rationale_: Expertise and risk control. _Source_: Platform + CIS
-  supply-chain guidance.
-- **GOV-04 Separation of Duties** — **MUST**: Authors cannot self-approve;
-  emergency bypasses are exceptional, logged, and post-reviewed. _Rationale_:
-  Change-control integrity. _Source_: SOC2/ISO change management norms.
-- **GOV-05 Small, Focused Changes** — **SHOULD**: Prefer small, coherent CLs
+- **GOV-01 Small, Focused Changes** — **SHOULD**: Prefer small, coherent CLs
   with clear descriptions and linked issues. _Rationale_: Improves review
   quality and speed. _Source_: Google Eng Practices.
-- **GOV-06 Review SLAs** — **SHOULD**: First response within one business day;
-  stale reviews escalated. _Rationale_: Flow efficiency. _Source_: Google Eng
-  Practices.
-- **GOV-07 Traceability** — **MUST**: Record reviewers, outcomes, timestamps,
-  and linked issues in the PR. _Rationale_: Audit trail, learning. _Source_:
-  NIST SSDF PW.7.
 
 ### Security & Privacy
 
