@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import MilkdownEditor from '../milkdown-editor';
+import MilkdownEditor from './milkdown-editor';
 
 // Mock the utils function
-vi.mock('../../../lib/utils', () => ({
+vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }));
 

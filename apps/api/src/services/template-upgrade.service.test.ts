@@ -20,7 +20,7 @@ import {
   TemplateUpgradeService,
   TemplateUpgradeNotFoundError,
   TemplateValidationFailedError,
-} from '../../src/services/template-upgrade.service.js';
+} from './template-upgrade.service.js';
 
 describe('TemplateUpgradeService', () => {
   const createdAt = new Date('2025-01-01T00:00:00Z');

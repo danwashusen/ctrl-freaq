@@ -5,15 +5,15 @@ const mockUseEditorStore = vi.fn();
 const mockUseTocStore = vi.fn();
 const mockUsePerformanceStore = vi.fn();
 
-vi.mock('../../../stores/editor-store', () => ({
+vi.mock('@/features/document-editor/stores/editor-store', () => ({
   useEditorStore: mockUseEditorStore,
 }));
 
-vi.mock('../../../stores/toc-store', () => ({
+vi.mock('@/features/document-editor/stores/toc-store', () => ({
   useTocStore: mockUseTocStore,
 }));
 
-vi.mock('../../../stores/performance-store', () => ({
+vi.mock('@/features/document-editor/stores/performance-store', () => ({
   usePerformanceStore: mockUsePerformanceStore,
 }));
 

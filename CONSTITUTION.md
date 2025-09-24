@@ -47,6 +47,39 @@ Test-driven development is mandatory and strictly enforced:
 
 No implementation without failing tests that define the requirements.
 
+#### Test File Organization (NON-NEGOTIABLE)
+
+1. **Unit Tests**
+   - File convention: `*.test.ts(x)` or `*.spec.ts(x)`
+   - Location: colocated with the source file they cover (same folder).
+     `__tests__` directories are forbidden.
+
+2. **Integration Tests**
+   - File convention: `*.test.ts(x)`
+   - Location: package/app-level `tests/integration/` directories only. Source
+     trees must remain free of integration specs.
+
+3. **Contract Tests**
+   - File convention: `*.contract.test.ts`
+   - Location: `tests/contracts/` alongside the owning package/app. Every
+     OpenAPI or contract file must have a sibling contract test here.
+
+4. **End-to-End (Playwright) Tests**
+   - File conventions: `*.e2e.ts` for functional flows, `*.visual.ts` for visual
+     regressions.
+   - Location: `tests/e2e/` exclusively; no other path may contain Playwright
+     suites.
+
+5. **Performance & Specialized Suites**
+   - File convention: `*.performance.test.ts` (or analogous suffix).
+   - Location: dedicated subfolders under `tests/` such as `tests/performance/`.
+     Do not mix with unit or integration suites.
+
+6. **Shared Fixtures & Utilities**
+   - Location: package-level `src/testing/fixtures` (or app-level
+     `tests/fixtures`). Tests must import shared fixtures via documented path
+     aliases; ad hoc fixture folders are prohibited.
+
 ### IV. Integration Testing & Observability
 
 Integration tests are required for specific change categories:

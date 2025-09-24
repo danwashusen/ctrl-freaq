@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Response, NextFunction } from 'express';
 
-import type { AuthenticatedRequest } from '../../src/middleware/auth.js';
-import { createTemplateValidationMiddleware } from '../../src/middleware/template-validation.js';
+import type { AuthenticatedRequest } from './auth.js';
+import { createTemplateValidationMiddleware } from './template-validation.js';
 import {
   DocumentTemplateMigrationStatus,
   DocumentTemplateStatus,
@@ -11,7 +11,7 @@ import {
   type DocumentTemplateMigration,
 } from '@ctrl-freaq/shared-data';
 import type { TemplateUpgradeDecision } from '@ctrl-freaq/template-resolver';
-import { TemplateValidationFailedError } from '../../src/services/template-upgrade.service.js';
+import { TemplateValidationFailedError } from '../services/template-upgrade.service.js';
 
 describe('templateValidationMiddleware', () => {
   function createResponseMock() {

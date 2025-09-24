@@ -1184,13 +1184,13 @@ async function generateSectionContent(
 ### Component Test Template {#component-test-template}
 
 ```typescript
-// src/features/document-editor/components/__tests__/DocumentEditor.test.tsx
+// src/features/document-editor/components/DocumentEditor.test.tsx
 import type { FC, ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DocumentEditor } from '../DocumentEditor';
+import { DocumentEditor } from './DocumentEditor';
 import { documentService } from '@/lib/api/services/document-service';
 
 // Mock API service

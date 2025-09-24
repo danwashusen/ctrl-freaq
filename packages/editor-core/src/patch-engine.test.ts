@@ -6,7 +6,7 @@ import {
   PatchDiff,
   PendingChange,
   PatchEngineConfig,
-} from '../patch-engine';
+} from './patch-engine';
 
 describe('PatchEngine', () => {
   let engine: PatchEngine;
@@ -98,7 +98,7 @@ describe('PatchEngine', () => {
     });
 
     it('warns about performance when patch generation exceeds 100ms', async () => {
-      const { logger } = await import('../logger');
+      const { logger } = await import('./logger');
       const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
       // Mock performance.now to simulate slow operation

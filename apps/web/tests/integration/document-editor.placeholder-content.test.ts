@@ -4,11 +4,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const mockUseSectionStore = vi.fn();
 const mockUseEditorStore = vi.fn();
 
-vi.mock('../../../stores/section-store', () => ({
+vi.mock('@/features/document-editor/stores/section-store', () => ({
   useSectionStore: mockUseSectionStore,
 }));
 
-vi.mock('../../../stores/editor-store', () => ({
+vi.mock('@/features/document-editor/stores/editor-store', () => ({
   useEditorStore: mockUseEditorStore,
 }));
 

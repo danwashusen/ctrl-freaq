@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import TableOfContentsComponent from '../table-of-contents';
-import type { TableOfContents, TocNode } from '../../types/table-of-contents';
+import TableOfContentsComponent from './table-of-contents';
+import type { TableOfContents, TocNode } from '@/features/document-editor/types/table-of-contents';
 
 // Mock the utils function
-vi.mock('../../../lib/utils', () => ({
+vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }));
 

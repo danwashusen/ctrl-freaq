@@ -16,6 +16,7 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "paths": {
+      "@/*": ["apps/web/src/*"],
       "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
       "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],
       "@ctrl-freaq/template-resolver": [

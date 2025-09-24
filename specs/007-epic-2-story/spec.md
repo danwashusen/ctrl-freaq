@@ -5,6 +5,34 @@
 **Status**: Draft  
 **Input**: User description: "Epic 2, Story 3"
 
+## Clarifications
+
+### Session 2025-09-24
+
+- Q: When should the system perform conflict detection to warn about overlapping
+  drafts? → A: Hybrid: initial check on entry plus another on save/submit.
+
+- Q: When the editor detects that a user's draft conflicts with newly approved
+  content for the same section, how should the system handle the resolution
+  before the user can finalize their changes? → A: Force the draft to rebase
+  onto the newest approved content, prompting the user to reapply and review
+  their edits before continuing.
+
+- Q: When a section grows unusually long, how should the editor keep the
+  interface manageable for the user? → A: Render it all.
+
+- Q: If a formatting action fails because it violates validation rules or uses
+  unsupported styling, how should the editor respond in the moment? → A: Allow
+  the formatting but highlight the unsupported portion for later resolution.
+
+- Q: What autosave cadence should the section editor use to preserve drafts
+  without overwhelming the backend? → A: Manual "Save Draft" action only, no
+  automatic sync.
+
+- Q: When a user switches a section from read-only preview into edit mode, what
+  performance target should we hold so the transition feels responsive? → A:
+  Transition completes within 300 ms.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### Primary User Story
@@ -25,12 +53,15 @@ changes before deciding whether to keep editing or finalize the section.
 
 ### Edge Cases
 
-- What happens when multiple unsaved edits conflict with newer approved content
-  from another collaborator?
-- How does the system handle very large sections that exceed typical page length
-  without overwhelming the editor interface?
-- What should the user experience be when formatting options fail to apply due
-  to validation rules or unsupported styling?
+- When multiple unsaved edits conflict with newer approved content from another
+  collaborator, the editor forces the draft to rebase onto the latest approved
+  section and prompts the user to reapply and review edits before continuing.
+- When sections grow unusually long, the editor still renders the full content
+  in one continuous view, relying on standard scrolling and performance
+  optimizations rather than virtualizing or splitting the section.
+- If formatting actions violate validation rules or attempt unsupported styling,
+  the editor still applies the formatting but flags the unsupported portion for
+  later resolution so the user can review before finalizing.
 
 ## Requirements _(mandatory)_
 
@@ -47,18 +78,27 @@ changes before deciding whether to keep editing or finalize the section.
   differences between draft edits and the latest approved section content.
 - **FR-005**: System MUST capture a section-level note or summary of edits so
   reviewers understand why changes were made.
-- **FR-006**: System MUST warn users about conflicting drafts when collaboration
-  overlaps occur and surface options to reconcile the state.
+- **FR-006**: System MUST run conflict detection when entering edit mode and
+  again on save/submit to warn users of overlapping drafts, force the draft to
+  rebase onto the newest approved content, and prompt the user to reapply and
+  review edits before continuing.
 - **FR-007**: System MUST ensure accessibility standards are upheld for the
   editor interface, including keyboard navigation and screen reader support.
-- **FR-008**: System MUST support autosave or draft preservation so the user can
-  safely resume editing after interruptions.
+- **FR-008**: System MUST provide a manual "Save Draft" action to preserve work
+  between sessions; automatic background autosave is not required, but saved
+  drafts MUST persist after closing the editor.
 - **FR-009**: System MUST expose the full range of Markdown-formatting controls
   (headings, emphasis, lists, tables, links, code, quotes) so users can author
   sections without leaving the editor.
 - **FR-010**: System MUST allow any user with access to the project or document
   to approve a section, transitioning it from draft to read-only state while
   recording the approver, timestamp, and decision summary.
+- **FR-011**: System MUST [testing requirements]
+
+### Non-Functional Requirements
+
+- **NFR-001**: Section edit mode transitions MUST complete within 300 ms to
+  maintain a responsive experience when switching from read-only preview.
 
 ### Key Entities _(include if feature involves data)_
 

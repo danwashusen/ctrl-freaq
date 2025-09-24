@@ -16,8 +16,6 @@ spec-kit:
       technical_context:
         - '**Coding Standards**: including Linting & Formatting, TypeScript Compiler Standards, Quality Gates, Quality Controls Governance, Critical Rules [NEEDS CLARIFICATION]'
         - '**Test Strategy and Standards**: [NEEDS CLARIFICATION]'
-      additional_research:
-        - 'Analyse the architecture documents and prepare a summary of the relevant sections as they related to the implementation of the plan.'
       documents:
         - path: 'docs/architecture.md'
           context: 'Documents the architecture of the project and should be considered a primary source of truth.'

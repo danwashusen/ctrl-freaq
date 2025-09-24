@@ -2,16 +2,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import SectionCard from '../section-card';
-import type { SectionView } from '../../types/section-view';
+import SectionCard from './section-card';
+import type { SectionView } from '@/features/document-editor/types/section-view';
 
 // Mock the utils function
-vi.mock('../../../lib/utils', () => ({
+vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }));
 
 // Mock UI components
-vi.mock('../../../components/ui/button', () => ({
+vi.mock('@/components/ui/button', () => ({
   Button: ({
     children,
     onClick,
@@ -33,7 +33,7 @@ vi.mock('../../../components/ui/button', () => ({
   ),
 }));
 
-vi.mock('../../../components/ui/card', () => ({
+vi.mock('@/components/ui/card', () => ({
   Card: ({ children, className, ...props }: any) => (
     <div className={`card ${className}`} {...props}>
       {children}

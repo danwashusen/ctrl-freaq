@@ -43,7 +43,7 @@ describe('load-env', () => {
     writeFileSync(path.join(tempDir, '.env'), 'EMPTY=\nQUOTED="value"\nSINGLE=\'alt\'\n');
 
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await import('../../src/load-env');
+    await import('./load-env.js');
 
     expect(process.env.EMPTY).toBe('');
     expect(typeof process.env.EMPTY).toBe('string');
@@ -57,7 +57,7 @@ describe('load-env', () => {
 
     process.env.EXISTING = 'keep';
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
-    await import('../../src/load-env');
+    await import('./load-env.js');
 
     expect(process.env.SHARED).toBe('base');
     expect(process.env.OVERRIDE).toBe('local');

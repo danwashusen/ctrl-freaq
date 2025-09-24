@@ -11,11 +11,11 @@ vi.mock('@ctrl-freaq/editor-core', () => ({
   previewPatch: vi.fn(),
 }));
 
-vi.mock('../../../stores/patch-store', () => ({
+vi.mock('@/features/document-editor/stores/patch-store', () => ({
   usePatchStore: mockUsePatchStore,
 }));
 
-vi.mock('../../../stores/editor-store', () => ({
+vi.mock('@/features/document-editor/stores/editor-store', () => ({
   useEditorStore: mockUseEditorStore,
 }));
 

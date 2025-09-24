@@ -9,7 +9,7 @@ import {
   EditorSession,
   LocalStorageConfig,
   BackupEntry,
-} from '../local-storage';
+} from './local-storage';
 
 // Mock localforage
 vi.mock('localforage', () => ({
@@ -225,7 +225,7 @@ describe('LocalStorageManager', () => {
     });
 
     it('handles corrupted pending change data gracefully', async () => {
-      const { logger } = await import('../logger');
+      const { logger } = await import('./logger');
       const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
       mockStore.keys.mockResolvedValue(['doc-789:section-456:change-123']);
@@ -330,7 +330,7 @@ describe('LocalStorageManager', () => {
     });
 
     it('handles corrupted editor session data', async () => {
-      const { logger } = await import('../logger');
+      const { logger } = await import('./logger');
       const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
       mockStore.getItem.mockResolvedValue('compressed:invalid-json');
@@ -442,7 +442,7 @@ describe('LocalStorageManager', () => {
     });
 
     it('handles corrupted backup data', async () => {
-      const { logger } = await import('../logger');
+      const { logger } = await import('./logger');
       const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
       mockStore.getItem.mockResolvedValue('compressed:invalid-json');
@@ -539,7 +539,7 @@ describe('LocalStorageManager', () => {
     });
 
     it('handles cleanup errors gracefully', async () => {
-      const { logger } = await import('../logger');
+      const { logger } = await import('./logger');
       const loggerSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
 
       // Create a fresh manager for this test
