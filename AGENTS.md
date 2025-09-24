@@ -53,6 +53,31 @@ inline or in commit messages. Default to repository constraints (library-first,
 mandatory TDD) when uncertain, and update this guide if a new pattern becomes
 binding.
 
+Within the WebStorm MCP server context:
+
+- Agents must never invoke `execute_terminal_command`; use the approved built-in
+  tool instead.
+- Agents must never invoke `get_file_text_by_path`; use the approved built-in
+  tool instead.
+
+## Runtime Conventions
+
+When working with Python:
+
+- Always prefer Python 3 (`python3`) over the deprecated Python 2 (`python`).
+- Do not use `python` (which may be Python 2.x on some systems).
+- Use `/usr/bin/env python3` shebang style for inline execution.
+
+When working with YAML:
+
+- First try `yq eval -o=json <file>` to convert YAML → JSON.
+- If `yq` is not available, then fallback to Python 3 with PyYAML.
+
+When considering how to interact with a third-party library (e.g. 'localforage',
+'react-router-dom', etc.):
+
+- Consult the context7 MCP server for API guidance.
+
 ## Constitutional Compliance
 
 Read and follow the [Constitutional Compliance](CONSTITUTION.md) guidelines.
