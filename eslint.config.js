@@ -64,6 +64,7 @@ export default [
         },
         node: true,
       },
+      'import/core-modules': ['@ctrl-freaq/editor-persistence'],
     },
     rules: {
       // TypeScript rules

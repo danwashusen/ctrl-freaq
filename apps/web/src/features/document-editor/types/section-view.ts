@@ -66,6 +66,30 @@ export interface SectionView {
 
   /** Quality gate validation status */
   qualityGateStatus: QualityGateStatus;
+
+  // Approval metadata
+  /** Latest approved version number */
+  approvedVersion: number | null;
+  /** Timestamp of most recent approval */
+  approvedAt: string | null;
+  /** User who approved most recently */
+  approvedBy: string | null;
+  /** Reviewer summary captured during approval */
+  lastSummary: string | null;
+
+  // Draft + conflict metadata
+  draftId: string | null;
+  draftVersion: number | null;
+  draftBaseVersion: number | null;
+  latestApprovedVersion: number | null;
+  conflictState: 'clean' | 'rebase_required' | 'rebased' | 'blocked';
+  conflictReason: string | null;
+
+  // Manual save metadata
+  summaryNote: string | null;
+  lastSavedAt: string | null;
+  lastSavedBy: string | null;
+  lastManualSaveAt: number | null;
 }
 
 /**
@@ -82,6 +106,20 @@ export interface SectionViewUpdate {
   status?: SectionStatus;
   assumptionsResolved?: boolean;
   qualityGateStatus?: QualityGateStatus;
+  approvedVersion?: number | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  lastSummary?: string | null;
+  draftId?: string | null;
+  draftVersion?: number | null;
+  draftBaseVersion?: number | null;
+  latestApprovedVersion?: number | null;
+  conflictState?: 'clean' | 'rebase_required' | 'rebased' | 'blocked';
+  conflictReason?: string | null;
+  summaryNote?: string | null;
+  lastSavedAt?: string | null;
+  lastSavedBy?: string | null;
+  lastManualSaveAt?: number | null;
 }
 
 /**
@@ -131,6 +169,20 @@ export const DEFAULT_SECTION_VIEW: Partial<SectionView> = {
   status: 'idle',
   assumptionsResolved: false,
   qualityGateStatus: null,
+  approvedVersion: null,
+  approvedAt: null,
+  approvedBy: null,
+  lastSummary: null,
+  draftId: null,
+  draftVersion: null,
+  draftBaseVersion: null,
+  latestApprovedVersion: null,
+  conflictState: 'clean',
+  conflictReason: null,
+  summaryNote: null,
+  lastSavedAt: null,
+  lastSavedBy: null,
+  lastManualSaveAt: null,
 };
 
 /**

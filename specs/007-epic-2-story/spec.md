@@ -45,20 +45,27 @@ changes before deciding whether to keep editing or finalize the section.
 ### Acceptance Scenarios
 
 1. **Given** a document section is in read-only preview, **When** the user
-   chooses to edit it, **Then** the editor presents an intuitive rich text mode
-   with formatting controls aligned to the architecture template guidance.
+   chooses to edit it, **Then** the editor switches to rich text mode within 300
+   ms, shows a formatting toolbar (headings, emphasis, lists, tables, links,
+   code, quotes), accepts ⌘/Ctrl+B for bold, and announces the mode change to
+   screen readers.
 2. **Given** the user has made edits within a section, **When** they request a
    review, **Then** the editor displays a side-by-side comparison of the draft
    and the approved content so the user can confirm the changes before saving.
+3. **Given** a document section is in read-only preview, **When** a user views
+   it, **Then** the interface shows approval status, reviewer summary,
+   timestamp, and an accessible "Edit Section" control aligned with template
+   guidance.
 
 ### Edge Cases
 
 - When multiple unsaved edits conflict with newer approved content from another
   collaborator, the editor forces the draft to rebase onto the latest approved
   section and prompts the user to reapply and review edits before continuing.
-- When sections grow unusually long, the editor still renders the full content
-  in one continuous view, relying on standard scrolling and performance
-  optimizations rather than virtualizing or splitting the section.
+- When sections grow unusually long (50k+ characters), the editor renders the
+  full content in one continuous view without virtualization and MUST maintain
+  an average 60 fps scrolling experience measured via telemetry; show a loading
+  indicator if initial render exceeds 500 ms.
 - If formatting actions violate validation rules or attempt unsupported styling,
   the editor still applies the formatting but flags the unsupported portion for
   later resolution so the user can review before finalizing.
@@ -71,9 +78,11 @@ changes before deciding whether to keep editing or finalize the section.
   view that summarizes current approval status and invites editing when needed.
 - **FR-002**: System MUST allow users to enter and exit section edit mode
   without losing previously approved content or draft changes.
-- **FR-003**: Users MUST be able to apply rich text formatting (headings,
-  emphasis, lists, tables, code blocks, blockquotes) that matches the
-  architecture template guidance.
+- **FR-003**: System MUST expose a formatting toolbar with controls for
+  headings, emphasis, ordered and unordered lists, tables, links, code blocks,
+  and blockquotes, and MUST honor keyboard shortcuts (⌘/Ctrl+B for bold,
+  ⌘/Ctrl+I for italics, ⌘/Ctrl+K for link) while matching architecture template
+  guidance.
 - **FR-004**: System MUST provide an at-a-glance comparison that highlights the
   differences between draft edits and the latest approved section content.
 - **FR-005**: System MUST capture a section-level note or summary of edits so
@@ -87,13 +96,10 @@ changes before deciding whether to keep editing or finalize the section.
 - **FR-008**: System MUST provide a manual "Save Draft" action to preserve work
   between sessions; automatic background autosave is not required, but saved
   drafts MUST persist after closing the editor.
-- **FR-009**: System MUST expose the full range of Markdown-formatting controls
-  (headings, emphasis, lists, tables, links, code, quotes) so users can author
-  sections without leaving the editor.
-- **FR-010**: System MUST allow any user with access to the project or document
-  to approve a section, transitioning it from draft to read-only state while
-  recording the approver, timestamp, and decision summary.
-- **FR-011**: System MUST [testing requirements]
+- **FR-009**: System MUST allow authorized project users to approve a section,
+  transitioning it from draft to read-only while persisting approver identity,
+  timestamp, decision summary, and emitting an auditable event aligned with
+  shared-data schemas.
 
 ### Non-Functional Requirements
 

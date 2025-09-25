@@ -36,7 +36,6 @@ Execution steps:
      that file
    - Otherwise load `.specify/config-default.yaml`
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
-   - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
 2. Run
    `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`

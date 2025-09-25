@@ -24,7 +24,6 @@ Given that feature description, do this:
      that file
    - Otherwise load `.specify/config-default.yaml`
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
-   - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
 2. Run the script
    `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` from the
@@ -50,5 +49,7 @@ Given that feature description, do this:
 Note: The script creates and checks out the new branch and initializes the spec
 file before writing.
 
-Use absolute paths with the repository root for all file operations to avoid
-path issues.
+Use repository-root anchored paths in generated docs (e.g.,
+`/frontend/src/components/`). Avoid host-specific prefixes like `/Users/...` or
+`/home/...`; treat the repository root as `/` for display. Continue using full
+absolute paths when running shell/file operations.

@@ -17,7 +17,23 @@ export type {
   DatabaseConnection,
   QueryOptions,
   Repository,
-} from './types/index';
+} from './types/index.js';
+
+// Section editor model types
+export type {
+  SectionRecord,
+  SectionRecordStatus,
+  SectionRecordQualityGate,
+} from './models/section-record.js';
+export type {
+  SectionDraft,
+  SectionDraftConflictState,
+  CreateSectionDraftInput,
+  UpdateSectionDraftInput,
+} from './models/section-draft.js';
+export type { FormattingAnnotation } from './models/formatting-annotation.js';
+export type { DraftConflictLog } from './models/draft-conflict-log.js';
+export type { SectionReviewSummary } from './models/section-review-summary.js';
 
 // Export models
 export * from './models/index.js';

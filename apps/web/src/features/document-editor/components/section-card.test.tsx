@@ -65,6 +65,20 @@ describe('SectionCard', () => {
     status: 'ready',
     assumptionsResolved: true,
     qualityGateStatus: 'passed',
+    approvedVersion: 5,
+    approvedAt: '2025-09-20T09:55:00Z',
+    approvedBy: 'staff@example.com',
+    lastSummary: 'Approved intro.',
+    draftId: 'draft-section-123',
+    draftVersion: 3,
+    draftBaseVersion: 3,
+    latestApprovedVersion: 5,
+    conflictState: 'clean',
+    conflictReason: null,
+    summaryNote: 'Refresh intro soon.',
+    lastSavedAt: '2025-09-20T09:30:00Z',
+    lastSavedBy: 'staff@example.com',
+    lastManualSaveAt: Date.now(),
   };
 
   const mockSectionEmpty: SectionView = {

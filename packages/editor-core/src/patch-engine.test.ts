@@ -499,6 +499,20 @@ describe('PatchEngine', () => {
       expect(patches.length).toBeGreaterThan(0);
     });
 
+    it('keeps diff generation under 150ms for medium sections', () => {
+      const original = Array.from({ length: 2000 }, (_, index) => `Line ${index}: original`).join(
+        '\n'
+      );
+      const modified = original.replace('Line 1000: original', 'Line 1000: updated content');
+
+      const start = performance.now();
+      const patches = engine.createPatch(original, modified);
+      const duration = performance.now() - start;
+
+      expect(patches.length).toBeGreaterThan(0);
+      expect(duration).toBeLessThan(150);
+    });
+
     it('handles empty content gracefully', () => {
       expect(() => engine.createPatch('', '')).not.toThrow();
       expect(() => engine.createPatch('content', '')).not.toThrow();

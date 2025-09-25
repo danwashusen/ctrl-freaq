@@ -34,10 +34,47 @@ interface EditorStoreState {
   updateSection: (update: SectionViewUpdate) => void;
   markAsSaving: (sectionId: string) => void;
   markAsSaved: (sectionId: string, timestamp?: number) => void;
-  toggleDiffView: () => void;
+  toggleDiffView: (forceValue?: boolean) => void;
+  setDiffView: (value: boolean) => void;
   incrementPendingChanges: () => void;
   decrementPendingChanges: () => void;
   resetPendingChanges: () => void;
+  setDraftMetadata: (
+    sectionId: string,
+    payload: {
+      draftId?: string | null;
+      draftVersion?: number | null;
+      draftBaseVersion?: number | null;
+      latestApprovedVersion?: number | null;
+    }
+  ) => void;
+  setConflictState: (
+    sectionId: string,
+    payload: {
+      conflictState: SectionView['conflictState'];
+      conflictReason?: string | null;
+      latestApprovedVersion?: number | null;
+    }
+  ) => void;
+  recordManualSave: (
+    sectionId: string,
+    payload: {
+      lastSavedAt?: string | null;
+      lastSavedBy?: string | null;
+      lastManualSaveAt?: number | null;
+      summaryNote?: string | null;
+    }
+  ) => void;
+  setApprovalMetadata: (
+    sectionId: string,
+    payload: {
+      approvedVersion: number;
+      approvedAt: string;
+      approvedBy: string;
+      lastSummary?: string | null;
+      contentMarkdown?: string;
+    }
+  ) => void;
   reset: () => void;
 }
 
@@ -172,9 +209,15 @@ export const useEditorStore = create<EditorStoreState>()(
         });
       },
 
-      toggleDiffView: () => {
+      toggleDiffView: forceValue => {
         set(state => {
-          state.showDiffView = !state.showDiffView;
+          state.showDiffView = typeof forceValue === 'boolean' ? forceValue : !state.showDiffView;
+        });
+      },
+
+      setDiffView: value => {
+        set(state => {
+          state.showDiffView = value;
         });
       },
 
@@ -193,6 +236,78 @@ export const useEditorStore = create<EditorStoreState>()(
       resetPendingChanges: () => {
         set(state => {
           state.pendingChangesCount = 0;
+        });
+      },
+
+      setDraftMetadata: (sectionId, payload) => {
+        set(state => {
+          const section = state.sections[sectionId];
+          if (!section) return;
+
+          if (payload.draftId !== undefined) {
+            section.draftId = payload.draftId;
+          }
+          if (payload.draftVersion !== undefined) {
+            section.draftVersion = payload.draftVersion;
+          }
+          if (payload.draftBaseVersion !== undefined) {
+            section.draftBaseVersion = payload.draftBaseVersion;
+          }
+          if (payload.latestApprovedVersion !== undefined) {
+            section.latestApprovedVersion = payload.latestApprovedVersion;
+          }
+        });
+      },
+
+      setConflictState: (sectionId, payload) => {
+        set(state => {
+          const section = state.sections[sectionId];
+          if (!section) return;
+
+          section.conflictState = payload.conflictState;
+          section.conflictReason = payload.conflictReason ?? null;
+          if (payload.latestApprovedVersion !== undefined) {
+            section.latestApprovedVersion = payload.latestApprovedVersion;
+          }
+        });
+      },
+
+      recordManualSave: (sectionId, payload) => {
+        set(state => {
+          const section = state.sections[sectionId];
+          if (!section) return;
+
+          if (payload.lastSavedAt !== undefined) {
+            section.lastSavedAt = payload.lastSavedAt;
+          }
+          if (payload.lastSavedBy !== undefined) {
+            section.lastSavedBy = payload.lastSavedBy;
+          }
+          if (payload.lastManualSaveAt !== undefined) {
+            section.lastManualSaveAt = payload.lastManualSaveAt;
+          }
+          if (payload.summaryNote !== undefined) {
+            section.summaryNote = payload.summaryNote;
+          }
+        });
+      },
+
+      setApprovalMetadata: (sectionId, payload) => {
+        set(state => {
+          const section = state.sections[sectionId];
+          if (!section) return;
+
+          section.approvedVersion = payload.approvedVersion;
+          section.approvedAt = payload.approvedAt;
+          section.approvedBy = payload.approvedBy;
+          section.status = 'ready';
+          section.lastSummary = payload.lastSummary ?? section.lastSummary;
+          if (payload.contentMarkdown) {
+            section.contentMarkdown = payload.contentMarkdown;
+            section.hasContent = payload.contentMarkdown.trim().length > 0;
+          }
+          section.conflictState = 'clean';
+          section.conflictReason = null;
         });
       },
 

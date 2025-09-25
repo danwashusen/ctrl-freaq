@@ -45,6 +45,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@next/eslint-plugin-next": "^15.5.3",
     "@playwright/test": "^1.45.0",
     "@testing-library/jest-dom": "^6.5.0",
