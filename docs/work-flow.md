@@ -11,29 +11,34 @@ This workflow supplements the standard development implementation process.
 
 ## Phase Code Quality Gates
 
-- Run the 'bulk apply lint fixes' command and address any issues found
-- Run the 'concise global typecheck output' command and address any issues found
+- Before running `pnpm lint`, first run `pnpm format` and `pnpm lint:fix`.
 
 ## Code Quality Gate Command Crib Sheet
 
-Use these commands to target specific scopes without overwhelming the
-implementation transcript:
+- `pnpm build`: Turbo build across all workspaces; obeys build graph/caching.
+- `pnpm clean`: turbo clean plus delete node_modules; resets workspace caches.
+- `pnpm commitlint`: Runs Commitlint against staged message (usually via
+  CI/hooks).
+- `pnpm dev`: Turbo dev for everything with concurrency cap of 12.
+- `pnpm dev:apps`: Dev mode limited to @ctrl-freaq/web and @ctrl-freaq/api.
+- `pnpm format`: Prettier write on entire repo.
+- `pnpm format:check`: Prettier check only (fails on diff).
+- `pnpm lint`: Repo-wide Turbo lint with --force (rerun all) then repo ESLint
+  cache pass.
+- `pnpm lint:quick`: Quick cached Turbo lint then repo ESLint cache pass.
+- `pnpm lint:ci`: Repo ESLint with --max-warnings=0.
+- `pnpm lint:fix`: Repo ESLint with --fix.
+- `pnpm lint:fix:check`: ESLint --fix-dry-run preview.
+- `pnpm lint:repo:` Repo ESLint with cache (baseline command).
+- `pnpm lint:yaml`: ESLint focused on .yml/.yaml.
+- `pnpm test`: Turbo test target across workspaces (cached).
+- `pnpm test:e2e`: Playwright e2e for web app only.
+- `pnpm test:visual`: Visual regression suite for web app.
+- `pnpm typecheck`: Repo-wide Turbo typecheck with --force (no cache).
+- `pnpm typecheck:quick`: Quick cached Turbo typecheck.
 
-- `pnpm run typecheck -- --pretty false | rg -i 'error'` — concise global
-  typecheck output (root `typecheck` is `turbo typecheck`; flags after `--` are
-  forwarded to underlying tsconfig runs)
-- `pnpm exec turbo run typecheck --filter=packages/<name>` — typecheck a
-  specific package
-- `pnpm exec eslint . --format compact | rg -i 'error|warning'` — repo lint
-  trimmed to issues (prefer direct eslint; `lint:repo` does not forward flags)
-- `pnpm exec turbo run lint --filter=@ctrl-freaq/web` — lint only the web app
-  package (add `-- --max-warnings=0` if needed)
-- `pnpm --filter <package> test -- --runInBand` — isolate tests to the impacted
-  package
-- `pnpm lint:fix` / `pnpm --filter <package> lint -- --fix` — bulk apply lint
-  fixes
-- `pnpm lint:fix:check` — dry-run lint fixes to capture only what needs
-  attention
+To scope any command to one workspace, add --filter <package> (e.g. pnpm
+--filter @ctrl-freaq/web lint).
 
 ## AI Code Assistant Guardrails
 
