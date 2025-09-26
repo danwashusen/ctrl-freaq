@@ -46,10 +46,16 @@ describe('SectionDiffService', () => {
     expect(diff.metadata?.approvedVersion).toBe(4);
     expect(diff.metadata?.draftVersion).toBe(5);
     expect(diff.segments.some(segment => segment.type === 'added')).toBe(true);
-    expect(diffGenerator).toHaveBeenCalledWith('# Title\nOriginal', '# Title\nUpdated', {
-      approvedVersion: 4,
-      draftVersion: 5,
-    });
+    expect(diffGenerator).toHaveBeenCalledWith(
+      '# Title\nOriginal',
+      '# Title\nUpdated',
+      expect.objectContaining({
+        approvedVersion: 4,
+        draftVersion: 5,
+        mode: 'split',
+        metadata: expect.objectContaining({ sectionId: 'section-1' }),
+      })
+    );
   });
 
   it('loads draft content when draftId is provided', async () => {
@@ -90,10 +96,19 @@ describe('SectionDiffService', () => {
     });
 
     expect(drafts.findById).toHaveBeenCalledWith(draft.id);
-    expect(diffGenerator).toHaveBeenCalledWith('Alpha', 'Alpha Beta', {
-      approvedVersion: 2,
-      draftVersion: draft.draftVersion,
-    });
+    expect(diffGenerator).toHaveBeenCalledWith(
+      'Alpha',
+      'Alpha Beta',
+      expect.objectContaining({
+        approvedVersion: 2,
+        draftVersion: draft.draftVersion,
+        mode: 'split',
+        metadata: expect.objectContaining({
+          sectionId: section.id,
+          draftId: draft.id,
+        }),
+      })
+    );
     expect(diff.metadata?.draftVersion).toBe(draft.draftVersion);
   });
 });

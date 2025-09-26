@@ -21,6 +21,7 @@ import {
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
 import { createTemplateValidator } from '@ctrl-freaq/templates';
+import { generateSectionDiff } from '@ctrl-freaq/editor-core';
 import { TemplateCatalogService } from './template-catalog.service.js';
 import { TemplateUpgradeService } from './template-upgrade.service.js';
 import {
@@ -31,65 +32,6 @@ import {
   SectionApprovalService,
   SectionConflictLogService,
 } from '../modules/section-editor/services/index.js';
-import type { DiffResponse } from '../modules/section-editor/validation/section-editor.schema.js';
-
-const basicDiffGenerator = (
-  originalContent: string,
-  modifiedContent: string,
-  options?: { approvedVersion?: number; draftVersion?: number }
-): DiffResponse => {
-  const originalLines = originalContent.split('\n');
-  const modifiedLines = modifiedContent.split('\n');
-
-  if (originalContent === modifiedContent) {
-    return {
-      mode: 'split',
-      segments: [
-        {
-          type: 'unchanged',
-          content: modifiedContent,
-          startLine: 0,
-          endLine: Math.max(modifiedLines.length - 1, 0),
-        },
-      ],
-      metadata: {
-        approvedVersion: options?.approvedVersion,
-        draftVersion: options?.draftVersion,
-        generatedAt: new Date().toISOString(),
-      },
-    } satisfies DiffResponse;
-  }
-
-  const segments: DiffResponse['segments'] = [];
-
-  if (originalContent.length) {
-    segments.push({
-      type: 'removed',
-      content: originalContent,
-      startLine: 0,
-      endLine: Math.max(originalLines.length - 1, 0),
-    });
-  }
-
-  if (modifiedContent.length) {
-    segments.push({
-      type: 'added',
-      content: modifiedContent,
-      startLine: 0,
-      endLine: Math.max(modifiedLines.length - 1, 0),
-    });
-  }
-
-  return {
-    mode: 'split',
-    segments,
-    metadata: {
-      approvedVersion: options?.approvedVersion,
-      draftVersion: options?.draftVersion,
-      generatedAt: new Date().toISOString(),
-    },
-  } satisfies DiffResponse;
-};
 
 /**
  * Registers repository factories into the per-request service container.
@@ -285,7 +227,7 @@ export function createRepositoryRegistrationMiddleware() {
       const sections = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
       const drafts = currentContainer.get('sectionDraftRepository') as SectionDraftRepositoryImpl;
       const scopedLogger = currentContainer.get('logger') as Logger;
-      return new SectionDiffService(sections, drafts, basicDiffGenerator, scopedLogger);
+      return new SectionDiffService(sections, drafts, generateSectionDiff, scopedLogger);
     });
 
     container.register('sectionReviewService', currentContainer => {

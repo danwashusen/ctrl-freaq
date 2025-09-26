@@ -211,6 +211,10 @@ plan.md (required), research.md, data-model.md, contracts/
   `/specs/007-epic-2-story/quickstart.md` with manual save, approval, and
   performance validation guidance.
 
+## Phase 4.R: Review Follow-Up
+
+- [ ] No review follow-up required for this pass (no open findings).
+
 ## Dependencies
 
 - T004–T014 depend on completing setup tasks T001–T003.

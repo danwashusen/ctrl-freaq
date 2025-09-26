@@ -5,6 +5,7 @@ import {
   SectionRepositoryImpl,
   type SectionDraft,
 } from '@ctrl-freaq/shared-data';
+import type { GenerateSectionDiffOptions, SectionDiffResult } from '@ctrl-freaq/editor-core';
 import { DiffResponseSchema, type DiffResponse } from '../validation/section-editor.schema';
 import { SectionEditorServiceError } from './section-editor.errors';
 
@@ -24,8 +25,8 @@ export class SectionDiffService {
     private readonly diffGenerator: (
       originalContent: string,
       modifiedContent: string,
-      options?: { approvedVersion?: number; draftVersion?: number }
-    ) => DiffResponse,
+      options?: GenerateSectionDiffOptions
+    ) => SectionDiffResult,
     private readonly logger: Logger
   ) {}
 
@@ -41,8 +42,13 @@ export class SectionDiffService {
     const draftVersion = this.resolveDraftVersion(options, draft);
 
     const diff = this.diffGenerator(section.approvedContent, draftContent, {
+      mode: 'split',
       approvedVersion: section.approvedVersion ?? 0,
       draftVersion,
+      metadata: {
+        sectionId: section.id,
+        draftId: options.draftId ?? draft?.id,
+      },
     });
 
     const response = DiffResponseSchema.parse(diff);

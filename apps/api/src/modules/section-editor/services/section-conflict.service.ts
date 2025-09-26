@@ -128,7 +128,7 @@ export class SectionConflictService {
           conflictState: 'rebase_required',
           conflictReason: `Rebase required: section approved version ${section.approvedVersion} exceeded draft base version ${options.draftBaseVersion}`,
         },
-        { actorId: options.userId }
+        { actorId: options.userId, savedAt: draft.savedAt, savedBy: options.userId }
       );
       return;
     }

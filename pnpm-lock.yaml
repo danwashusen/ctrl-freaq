@@ -93,6 +93,9 @@ importers:
       '@clerk/express':
         specifier: ^1.0.0
         version: 1.7.31(express@5.1.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@ctrl-freaq/editor-core':
+        specifier: workspace:*
+        version: link:../../packages/editor-core
       '@ctrl-freaq/template-resolver':
         specifier: workspace:*
         version: link:../../packages/template-resolver

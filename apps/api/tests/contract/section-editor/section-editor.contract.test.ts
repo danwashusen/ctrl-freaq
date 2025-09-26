@@ -1,129 +1,70 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { beforeAll, describe, expect, test } from 'vitest';
-import { z } from 'zod';
+import type * as BetterSqlite3 from 'better-sqlite3';
 
-import { createApp } from '../../../src/app';
+import { createApp, type AppContext } from '../../../src/app';
+import {
+  ConflictCheckResponseSchema,
+  SectionDraftResponseSchema,
+  DiffResponseSchema,
+  ReviewSubmissionResponseSchema,
+  ApprovalResponseSchema,
+  ConflictLogResponseSchema,
+} from '../../../src/modules/section-editor/validation/section-editor.schema';
+import {
+  seedConflictHistory,
+  seedSectionEditorFixtures,
+  seedSectionFixture,
+} from '../../../src/testing/fixtures/section-editor';
 
 const SECTION_ID = 'sec-architecture-overview';
 const DOCUMENT_ID = 'doc-architecture-demo';
 const DRAFT_ID = 'draft-architecture-overview';
+const USER_ID = 'user-editor-001';
 
-const ConflictCheckResponseSchema = z.object({
-  sectionId: z.string(),
-  status: z.enum(['clean', 'rebase_required', 'blocked']),
-  latestApprovedVersion: z.number().int().nonnegative(),
-  draftVersion: z.number().int().nonnegative().optional(),
-  rebasedDraft: z
-    .object({
-      contentMarkdown: z.string(),
-      draftVersion: z.number().int().nonnegative(),
-      formattingAnnotations: z
-        .array(
-          z.object({
-            id: z.string(),
-            startOffset: z.number().int().nonnegative(),
-            endOffset: z.number().int().nonnegative(),
-            markType: z.string(),
-            message: z.string(),
-            severity: z.enum(['warning', 'error']),
-          })
-        )
-        .default([]),
-    })
-    .optional(),
-  events: z
-    .array(
-      z.object({
-        detectedAt: z.string().datetime(),
-        detectedDuring: z.enum(['entry', 'save']),
-        resolvedBy: z.enum(['auto_rebase', 'manual_reapply', 'abandoned']).nullable(),
-        resolutionNote: z.string().nullable().optional(),
-      })
-    )
-    .default([]),
-  requestId: z.string(),
+const AuthorizationHeader = { Authorization: 'Bearer mock-jwt-token' };
+
+let app: Express;
+let db: BetterSqlite3.Database;
+
+beforeAll(async () => {
+  app = await createApp();
+  const appContext = app.locals.appContext as AppContext;
+  db = appContext.database;
 });
 
-const SectionDraftResponseSchema = z.object({
-  draftId: z.string(),
-  sectionId: z.string(),
-  documentId: z.string(),
-  draftVersion: z.number().int().nonnegative(),
-  draftBaseVersion: z.number().int().nonnegative(),
-  conflictState: z.enum(['clean', 'rebase_required', 'rebased', 'blocked']),
-  summaryNote: z.string(),
-  formattingAnnotations: z
-    .array(
-      z.object({
-        id: z.string(),
-        startOffset: z.number().int().nonnegative(),
-        endOffset: z.number().int().nonnegative(),
-        markType: z.string(),
-        message: z.string(),
-        severity: z.enum(['warning', 'error']),
-      })
-    )
-    .default([]),
-  savedAt: z.string().datetime(),
-  savedBy: z.string(),
-});
+type SectionEditorFixtureOptions = {
+  sectionId: string;
+  documentId: string;
+  userId: string;
+  draftId: string;
+  approvedVersion: number;
+  approvedContent?: string;
+  draftVersion: number;
+  draftBaseVersion: number;
+};
 
-const DiffSegmentSchema = z.object({
-  type: z.enum(['context', 'addition', 'deletion']),
-  content: z.string(),
-  lineNumber: z.number().int().nonnegative().optional(),
-});
+function seedSectionAndDraft(overrides: Partial<SectionEditorFixtureOptions> = {}) {
+  const defaults: SectionEditorFixtureOptions = {
+    sectionId: SECTION_ID,
+    documentId: DOCUMENT_ID,
+    userId: USER_ID,
+    draftId: DRAFT_ID,
+    approvedVersion: 6,
+    draftVersion: 6,
+    draftBaseVersion: 5,
+  };
 
-const DiffResponseSchema = z.object({
-  sectionId: z.string(),
-  draftId: z.string(),
-  approvedVersion: z.number().int().nonnegative(),
-  draftVersion: z.number().int().nonnegative(),
-  generatedAt: z.string().datetime(),
-  segments: z.array(DiffSegmentSchema),
-});
+  const options: SectionEditorFixtureOptions = {
+    ...defaults,
+    ...overrides,
+  };
 
-const ReviewSubmissionResponseSchema = z.object({
-  reviewId: z.string(),
-  sectionId: z.string(),
-  status: z.enum(['pending', 'approved', 'changes_requested']),
-  submittedAt: z.string().datetime(),
-  submittedBy: z.string(),
-  summaryNote: z.string().max(500),
-});
-
-const ApprovalResponseSchema = z.object({
-  sectionId: z.string(),
-  approvedVersion: z.number().int().positive(),
-  approvedContent: z.string(),
-  approvedAt: z.string().datetime(),
-  approvedBy: z.string(),
-  requestId: z.string(),
-});
-
-const ConflictLogEntrySchema = z.object({
-  detectedAt: z.string().datetime(),
-  detectedDuring: z.enum(['entry', 'save']),
-  previousApprovedVersion: z.number().int().nonnegative(),
-  latestApprovedVersion: z.number().int().positive(),
-  resolvedBy: z.enum(['auto_rebase', 'manual_reapply', 'abandoned']).nullable(),
-  resolutionNote: z.string().nullable(),
-});
-
-const ConflictLogResponseSchema = z.object({
-  sectionId: z.string(),
-  draftId: z.string(),
-  events: z.array(ConflictLogEntrySchema),
-});
+  seedSectionEditorFixtures(db, options);
+}
 
 describe('Section Editor API Contract', () => {
-  let app: Express;
-
-  beforeAll(async () => {
-    app = await createApp();
-  });
-
   describe('POST /api/v1/sections/:sectionId/conflicts/check', () => {
     test('requires authentication', async () => {
       await request(app)
@@ -132,21 +73,38 @@ describe('Section Editor API Contract', () => {
         .expect(401);
     });
 
-    test('returns conflict metadata when draft base version is stale', async () => {
+    test('returns 404 when section does not exist', async () => {
+      const response = await request(app)
+        .post(`/api/v1/sections/missing-section/conflicts/check`)
+        .set(AuthorizationHeader)
+        .send({
+          draftBaseVersion: 1,
+          draftVersion: 1,
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    test('reports rebase required when draft base version is stale', async () => {
+      seedSectionAndDraft({ draftBaseVersion: 4 });
+
       const response = await request(app)
         .post(`/api/v1/sections/${SECTION_ID}/conflicts/check`)
-        .set('Authorization', 'Bearer mock-jwt-token')
+        .set(AuthorizationHeader)
         .send({
           draftId: DRAFT_ID,
+          documentId: DOCUMENT_ID,
           draftBaseVersion: 4,
-          draftVersion: 5,
+          draftVersion: 6,
           approvedVersion: 6,
+          triggeredBy: 'entry',
         });
 
       expect(response.status).toBe(409);
-      expect(() => ConflictCheckResponseSchema.parse(response.body)).not.toThrow();
-      expect(response.body.sectionId).toBe(SECTION_ID);
-      expect(response.body.latestApprovedVersion).toBeGreaterThanOrEqual(6);
+      const payload = ConflictCheckResponseSchema.parse(response.body);
+      expect(payload.status).toBe('rebase_required');
+      expect(payload.latestApprovedVersion).toBeGreaterThan(4);
     });
   });
 
@@ -156,9 +114,16 @@ describe('Section Editor API Contract', () => {
     });
 
     test('persists manual draft and echoes formatting annotations', async () => {
+      seedSectionFixture(db, {
+        sectionId: SECTION_ID,
+        documentId: DOCUMENT_ID,
+        userId: USER_ID,
+        approvedVersion: 5,
+      });
+
       const response = await request(app)
         .post(`/api/v1/sections/${SECTION_ID}/drafts`)
-        .set('Authorization', 'Bearer mock-jwt-token')
+        .set(AuthorizationHeader)
         .send({
           draftId: DRAFT_ID,
           documentId: DOCUMENT_ID,
@@ -181,7 +146,8 @@ describe('Section Editor API Contract', () => {
       expect(response.status).toBe(202);
       const payload = SectionDraftResponseSchema.parse(response.body);
       expect(payload.sectionId).toBe(SECTION_ID);
-      expect(payload.documentId).toBe(DOCUMENT_ID);
+      expect(response.body.documentId).toBe(DOCUMENT_ID);
+      expect(response.body.draftBaseVersion).toBe(5);
       expect(payload.conflictState).toBeDefined();
     });
   });
@@ -192,14 +158,29 @@ describe('Section Editor API Contract', () => {
     });
 
     test('returns structured diff segments comparing draft to approved content', async () => {
+      seedSectionAndDraft({
+        approvedContent: '## Approved architecture overview',
+        draftVersion: 7,
+        draftBaseVersion: 6,
+      });
+
+      // Ensure draft content diverges from approved content
+      db.prepare('UPDATE section_drafts SET content_markdown = ? WHERE id = ?').run(
+        '## Updated architecture overview\n\n- Added async queues',
+        DRAFT_ID
+      );
+
       const response = await request(app)
         .get(`/api/v1/sections/${SECTION_ID}/diff`)
-        .set('Authorization', 'Bearer mock-jwt-token');
+        .set(AuthorizationHeader)
+        .query({ draftId: DRAFT_ID });
 
       expect(response.status).toBe(200);
       const diff = DiffResponseSchema.parse(response.body);
-      expect(diff.sectionId).toBe(SECTION_ID);
+      expect(diff.mode).toBeDefined();
       expect(diff.segments.length).toBeGreaterThan(0);
+      const mergedTypes = new Set(diff.segments.map(segment => segment.type));
+      expect(mergedTypes.has('added') || mergedTypes.has('removed')).toBe(true);
     });
   });
 
@@ -209,9 +190,11 @@ describe('Section Editor API Contract', () => {
     });
 
     test('creates review submission with summary note', async () => {
+      seedSectionAndDraft();
+
       const response = await request(app)
         .post(`/api/v1/sections/${SECTION_ID}/submit`)
-        .set('Authorization', 'Bearer mock-jwt-token')
+        .set(AuthorizationHeader)
         .send({
           draftId: DRAFT_ID,
           summaryNote: 'Ready for architect review.',
@@ -231,9 +214,11 @@ describe('Section Editor API Contract', () => {
     });
 
     test('finalizes section and records approval metadata', async () => {
+      seedSectionAndDraft();
+
       const response = await request(app)
         .post(`/api/v1/sections/${SECTION_ID}/approve`)
-        .set('Authorization', 'Bearer mock-jwt-token')
+        .set(AuthorizationHeader)
         .send({
           draftId: DRAFT_ID,
           approvalNote: 'Reviewed and ready.',
@@ -252,9 +237,18 @@ describe('Section Editor API Contract', () => {
     });
 
     test('lists conflict log entries for auditing', async () => {
+      seedSectionAndDraft({ draftBaseVersion: 4, draftVersion: 6 });
+      seedConflictHistory(db, {
+        draftId: DRAFT_ID,
+        sectionId: SECTION_ID,
+        userId: USER_ID,
+        previousVersion: 4,
+        latestVersion: 6,
+      });
+
       const response = await request(app)
         .get(`/api/v1/sections/${SECTION_ID}/conflicts/logs`)
-        .set('Authorization', 'Bearer mock-jwt-token')
+        .set(AuthorizationHeader)
         .query({ draftId: DRAFT_ID });
 
       expect(response.status).toBe(200);

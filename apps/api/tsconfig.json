@@ -10,6 +10,7 @@
   "include": [
     "src/**/*",
     "tests/**/*",
+    "../../packages/editor-core/src/**/*.ts",
     "../../packages/shared-data/src/**/*.ts",
     "../../packages/templates/src/**/*.ts",
     "../../packages/template-resolver/src/**/*.ts"
@@ -17,6 +18,7 @@
   "exclude": [
     "dist",
     "node_modules",
+    "../../packages/editor-core/src/**/*.test.ts",
     "../../packages/shared-data/src/**/*.test.ts",
     "../../packages/templates/src/**/*.test.ts",
     "../../packages/template-resolver/src/**/*.test.ts"

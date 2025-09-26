@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import type { Logger } from 'pino';
-import type * as BetterSqlite3 from 'better-sqlite3';
 import { ZodError } from 'zod';
 
 import type { AuthenticatedRequest } from '../middleware/auth.js';
@@ -12,24 +11,24 @@ import {
   createUserRateLimit,
 } from '../middleware/auth.js';
 import {
-  DraftConflictLogRepositoryImpl,
   SectionDraftRepositoryImpl,
   SectionRepositoryImpl,
-  SectionReviewRepositoryImpl,
   type PendingChangeRepository,
   type SectionRepository,
 } from '@ctrl-freaq/shared-data';
 import {
+  SectionDraftConflictError,
+  SectionEditorServiceError,
+} from '../modules/section-editor/services/index.js';
+import type {
   SectionApprovalService,
   SectionConflictLogService,
   SectionConflictService,
   SectionDiffService,
-  SectionDraftConflictError,
   SectionDraftService,
-  SectionEditorServiceError,
   SectionReviewService,
-  type ConflictCheckOptions,
-  type SaveDraftOptions,
+  ConflictCheckOptions,
+  SaveDraftOptions,
 } from '../modules/section-editor/services/index.js';
 import {
   ConflictCheckRequestSchema,
@@ -38,7 +37,6 @@ import {
   ApproveSectionRequestSchema,
   type ConflictTrigger,
   type FormattingAnnotation,
-  type DiffResponse,
 } from '../modules/section-editor/validation/section-editor.schema.js';
 
 export const sectionsRouter: Router = Router();
@@ -59,14 +57,6 @@ const getRequestLogger = (req: AuthenticatedRequest): Logger => {
   return logger;
 };
 
-const getDatabase = (req: AuthenticatedRequest): BetterSqlite3.Database => {
-  const database = req.services?.get('database') as BetterSqlite3.Database | undefined;
-  if (!database) {
-    throw new Error('Database not available');
-  }
-  return database;
-};
-
 const getSectionRepository = (req: AuthenticatedRequest): SectionRepositoryImpl => {
   const repo = req.services?.get('sectionRepository') as SectionRepositoryImpl | undefined;
   if (!repo) {
@@ -75,16 +65,64 @@ const getSectionRepository = (req: AuthenticatedRequest): SectionRepositoryImpl 
   return repo;
 };
 
-const createDraftRepository = (req: AuthenticatedRequest): SectionDraftRepositoryImpl => {
-  return new SectionDraftRepositoryImpl(getDatabase(req));
+const getDraftRepository = (req: AuthenticatedRequest): SectionDraftRepositoryImpl => {
+  const repo = req.services?.get('sectionDraftRepository') as
+    | SectionDraftRepositoryImpl
+    | undefined;
+  if (!repo) {
+    throw new Error('Section draft repository not available');
+  }
+  return repo;
 };
 
-const createConflictLogRepository = (req: AuthenticatedRequest): DraftConflictLogRepositoryImpl => {
-  return new DraftConflictLogRepositoryImpl(getDatabase(req));
+const getSectionConflictService = (req: AuthenticatedRequest): SectionConflictService => {
+  const service = req.services?.get('sectionConflictService') as SectionConflictService | undefined;
+  if (!service) {
+    throw new Error('Section conflict service not available');
+  }
+  return service;
 };
 
-const createReviewRepository = (req: AuthenticatedRequest): SectionReviewRepositoryImpl => {
-  return new SectionReviewRepositoryImpl(getDatabase(req));
+const getSectionDraftService = (req: AuthenticatedRequest): SectionDraftService => {
+  const service = req.services?.get('sectionDraftService') as SectionDraftService | undefined;
+  if (!service) {
+    throw new Error('Section draft service not available');
+  }
+  return service;
+};
+
+const getSectionDiffService = (req: AuthenticatedRequest): SectionDiffService => {
+  const service = req.services?.get('sectionDiffService') as SectionDiffService | undefined;
+  if (!service) {
+    throw new Error('Section diff service not available');
+  }
+  return service;
+};
+
+const getSectionReviewService = (req: AuthenticatedRequest): SectionReviewService => {
+  const service = req.services?.get('sectionReviewService') as SectionReviewService | undefined;
+  if (!service) {
+    throw new Error('Section review service not available');
+  }
+  return service;
+};
+
+const getSectionApprovalService = (req: AuthenticatedRequest): SectionApprovalService => {
+  const service = req.services?.get('sectionApprovalService') as SectionApprovalService | undefined;
+  if (!service) {
+    throw new Error('Section approval service not available');
+  }
+  return service;
+};
+
+const getSectionConflictLogService = (req: AuthenticatedRequest): SectionConflictLogService => {
+  const service = req.services?.get('sectionConflictLogService') as
+    | SectionConflictLogService
+    | undefined;
+  if (!service) {
+    throw new Error('Section conflict log service not available');
+  }
+  return service;
 };
 
 const sendErrorResponse = (
@@ -176,365 +214,6 @@ const handleValidationFailure = (
   sendErrorResponse(res, 400, 'BAD_REQUEST', failureMessage, requestId, error.issues);
 };
 
-const buildBasicDiffResponse = (
-  original: string,
-  modified: string,
-  metadata?: { approvedVersion?: number; draftVersion?: number }
-): DiffResponse => {
-  const originalLines = original.split('\n');
-  const modifiedLines = modified.split('\n');
-
-  const segments: DiffResponse['segments'] = [];
-
-  if (original === modified) {
-    segments.push({
-      type: 'unchanged',
-      content: modified,
-      startLine: 0,
-      endLine: Math.max(modifiedLines.length - 1, 0),
-    });
-  } else {
-    if (original.length) {
-      segments.push({
-        type: 'removed',
-        content: original,
-        startLine: 0,
-        endLine: Math.max(originalLines.length - 1, 0),
-      });
-    }
-
-    if (modified.length) {
-      segments.push({
-        type: 'added',
-        content: modified,
-        startLine: 0,
-        endLine: Math.max(modifiedLines.length - 1, 0),
-      });
-    }
-  }
-
-  return {
-    mode: 'split',
-    segments,
-    metadata: {
-      approvedVersion: metadata?.approvedVersion,
-      draftVersion: metadata?.draftVersion,
-      generatedAt: new Date().toISOString(),
-    },
-  };
-};
-
-const ensureSectionFixtures = (
-  db: BetterSqlite3.Database,
-  params: {
-    sectionId: string;
-    documentId: string;
-    userId: string;
-    approvedVersion?: number;
-    approvedContent?: string;
-  }
-): void => {
-  ensureUserFixture(db, params.userId);
-  ensureUserFixture(db, 'user-reviewer-001');
-
-  const now = new Date().toISOString();
-  const approvedVersion = Math.max(params.approvedVersion ?? 6, 1);
-  const approvedContent = params.approvedContent ?? '## Approved architecture overview';
-
-  const insertDocument = db.prepare(
-    `INSERT OR IGNORE INTO documents (
-        id,
-        project_id,
-        title,
-        content_json,
-        template_id,
-        template_version,
-        template_schema_hash,
-        created_at,
-        created_by,
-        updated_at,
-        updated_by,
-        deleted_at,
-        deleted_by
-     ) VALUES (?, ?, ?, '{}', NULL, NULL, NULL, ?, 'system', ?, 'system', NULL, NULL)`
-  );
-  insertDocument.run(params.documentId, 'project-test', 'Demo Architecture Document', now, now);
-
-  const insertSectionRecord = db.prepare(
-    `INSERT OR IGNORE INTO section_records (
-        id,
-        document_id,
-        template_key,
-        title,
-        depth,
-        order_index,
-        approved_version,
-        approved_content,
-        approved_at,
-        approved_by,
-        last_summary,
-        status,
-        quality_gate,
-        accessibility_score,
-        created_at,
-        created_by,
-        updated_at,
-        updated_by,
-        deleted_at,
-        deleted_by
-     ) VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, 'ready', 'passed', NULL, ?, ?, ?, ?, NULL, NULL)`
-  );
-  insertSectionRecord.run(
-    params.sectionId,
-    params.documentId,
-    'architecture-overview',
-    'Architecture Overview',
-    approvedVersion,
-    approvedContent,
-    now,
-    params.userId,
-    'Initial change summary',
-    now,
-    params.userId,
-    now,
-    params.userId
-  );
-
-  const updateSectionRecord = db.prepare(
-    `UPDATE section_records
-        SET approved_version = ?,
-            approved_content = ?,
-            approved_at = ?,
-            approved_by = ?,
-            updated_at = ?,
-            updated_by = ?,
-            status = 'ready',
-            quality_gate = 'passed'
-      WHERE id = ?`
-  );
-  updateSectionRecord.run(
-    approvedVersion,
-    approvedContent,
-    now,
-    params.userId,
-    now,
-    params.userId,
-    params.sectionId
-  );
-
-  const sectionExists = db
-    .prepare('SELECT id FROM sections WHERE id = ? LIMIT 1')
-    .get(params.sectionId) as { id: string } | undefined;
-
-  if (!sectionExists) {
-    const insertSection = db.prepare(
-      `INSERT INTO sections (
-          id,
-          doc_id,
-          parent_section_id,
-          key,
-          title,
-          depth,
-          order_index,
-          content_markdown,
-          placeholder_text,
-          has_content,
-          view_state,
-          editing_user,
-          last_modified,
-          status,
-          assumptions_resolved,
-          quality_gate_status,
-          created_at,
-          updated_at
-       ) VALUES (?, ?, NULL, ?, ?, 0, 0, ?, '', 1, 'read_mode', NULL, ?, 'ready', 1, 'passed', ?, ?)`
-    );
-    insertSection.run(
-      params.sectionId,
-      params.documentId,
-      'architecture-overview',
-      'Architecture Overview',
-      approvedContent,
-      now,
-      now,
-      now
-    );
-  } else {
-    const updateSection = db.prepare(
-      `UPDATE sections
-          SET content_markdown = ?,
-              has_content = 1,
-              status = 'ready',
-              quality_gate_status = 'passed',
-              last_modified = ?,
-              updated_at = ?
-        WHERE id = ?`
-    );
-    updateSection.run(approvedContent, now, now, params.sectionId);
-  }
-};
-
-const ensureDraftFixture = (
-  db: BetterSqlite3.Database,
-  params: {
-    draftId: string;
-    sectionId: string;
-    documentId: string;
-    userId: string;
-    draftVersion?: number;
-    draftBaseVersion?: number;
-  }
-): void => {
-  const exists = db
-    .prepare('SELECT id FROM section_drafts WHERE id = ? LIMIT 1')
-    .get(params.draftId) as { id: string } | undefined;
-
-  const now = new Date();
-  const targetDraftVersion = params.draftVersion ?? 6;
-  const draftVersionSeed = Math.max(targetDraftVersion - 1, 1);
-  const draftVersion = draftVersionSeed;
-  const draftBaseVersion = Math.max(
-    Math.min(params.draftBaseVersion ?? draftVersionSeed - 1, draftVersionSeed),
-    0
-  );
-  const savedAt = now.toISOString();
-  const rebasedAt = null;
-
-  if (!exists) {
-    db.prepare(
-      `INSERT INTO section_drafts (
-         id,
-         section_id,
-         document_id,
-         user_id,
-         draft_version,
-         draft_base_version,
-         content_markdown,
-         summary_note,
-         conflict_state,
-         conflict_reason,
-         rebased_at,
-         saved_at,
-         saved_by,
-         created_at,
-         created_by,
-         updated_at,
-         updated_by,
-         deleted_at,
-         deleted_by
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, '', 'clean', NULL, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`
-    ).run(
-      params.draftId,
-      params.sectionId,
-      params.documentId,
-      params.userId,
-      draftVersion,
-      draftBaseVersion,
-      '## Draft content for contract tests',
-      rebasedAt,
-      savedAt,
-      params.userId,
-      savedAt,
-      params.userId,
-      savedAt,
-      params.userId
-    );
-  } else {
-    db.prepare(
-      `UPDATE section_drafts
-          SET document_id = ?,
-              user_id = ?,
-              draft_version = ?,
-              draft_base_version = ?,
-              content_markdown = ?,
-              saved_at = ?,
-              saved_by = ?,
-              updated_at = ?,
-              updated_by = ?
-        WHERE id = ?`
-    ).run(
-      params.documentId,
-      params.userId,
-      draftVersion,
-      draftBaseVersion,
-      '## Draft content for contract tests',
-      savedAt,
-      params.userId,
-      savedAt,
-      params.userId,
-      params.draftId
-    );
-  }
-};
-
-const ensureConflictLogFixture = (
-  db: BetterSqlite3.Database,
-  params: {
-    draftId: string;
-    sectionId: string;
-    userId: string;
-    previousVersion: number;
-    latestVersion: number;
-  }
-): void => {
-  const existing = db
-    .prepare('SELECT id FROM draft_conflict_logs WHERE draft_id = ? LIMIT 1')
-    .get(params.draftId) as { id: string } | undefined;
-  if (existing) {
-    return;
-  }
-
-  const detectedAt = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO draft_conflict_logs (
-       id,
-       section_id,
-       draft_id,
-       detected_at,
-       detected_during,
-       previous_approved_version,
-       latest_approved_version,
-       resolved_by,
-       resolution_note,
-       created_at,
-       created_by,
-       updated_at,
-       updated_by,
-       deleted_at,
-       deleted_by
-     ) VALUES (?, ?, ?, ?, 'entry', ?, ?, NULL, NULL, ?, ?, ?, ?, NULL, NULL)`
-  ).run(
-    `conflict-${params.draftId}`,
-    params.sectionId,
-    params.draftId,
-    detectedAt,
-    params.previousVersion,
-    params.latestVersion,
-    detectedAt,
-    params.userId,
-    detectedAt,
-    params.userId
-  );
-};
-
-const ensureUserFixture = (db: BetterSqlite3.Database, userId: string | undefined): void => {
-  if (!userId) return;
-  db.prepare(
-    `INSERT OR IGNORE INTO users (
-       id,
-       email,
-       first_name,
-       last_name,
-       created_at,
-       created_by,
-       updated_at,
-       updated_by,
-       deleted_at,
-       deleted_by
-     ) VALUES (?, ?, NULL, NULL, datetime('now'), 'system', datetime('now'), 'system', NULL, NULL)`
-  ).run(userId, `${userId}@test.local`);
-};
-
 sectionsRouter.post(
   '/sections/:sectionId/conflicts/check',
   async (req: AuthenticatedRequest, res: Response) => {
@@ -549,7 +228,6 @@ sectionsRouter.post(
 
     try {
       const conflictBody = req.body as Partial<{
-        documentId: string;
         draftId: string;
         draftBaseVersion: number;
         draftVersion: number;
@@ -565,22 +243,7 @@ sectionsRouter.post(
         triggeredBy: conflictBody.triggeredBy,
       });
 
-      const documentId: string =
-        typeof conflictBody.documentId === 'string' && conflictBody.documentId.trim().length > 0
-          ? conflictBody.documentId
-          : 'doc-architecture-demo';
-
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId,
-        userId,
-        approvedVersion: conflictInput.approvedVersion,
-      });
-
-      const sections = getSectionRepository(req);
-      const drafts = createDraftRepository(req);
-      const conflictLogs = createConflictLogRepository(req);
-      const conflictService = new SectionConflictService(sections, drafts, conflictLogs, logger);
+      const conflictService = getSectionConflictService(req);
 
       const conflictOptions: ConflictCheckOptions = {
         sectionId,
@@ -598,13 +261,7 @@ sectionsRouter.post(
       const statusCode = result.status === 'clean' ? 200 : 409;
 
       res.status(statusCode).json({
-        sectionId,
-        requestId,
-        status: result.status,
-        latestApprovedVersion: result.latestApprovedVersion,
-        conflictReason: result.conflictReason ?? null,
-        draftVersion: conflictOptions.draftVersion ?? result.rebasedDraft?.draftVersion ?? 0,
-        rebasedDraft: result.rebasedDraft,
+        ...result,
         events: result.events ?? [],
       });
     } catch (error) {
@@ -681,34 +338,13 @@ sectionsRouter.post(
         clientTimestamp: draftBody.clientTimestamp,
       });
 
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId: req.body.documentId,
-        userId,
-        approvedVersion: draftInput.draftBaseVersion ?? draftInput.draftVersion,
-      });
-
       const draftId =
         typeof draftBody.draftId === 'string' && draftBody.draftId.length > 0
           ? draftBody.draftId
           : undefined;
 
-      if (draftId) {
-        ensureDraftFixture(getDatabase(req), {
-          draftId,
-          sectionId,
-          documentId: req.body.documentId,
-          userId,
-          draftVersion: draftInput.draftVersion,
-          draftBaseVersion: draftInput.draftBaseVersion,
-        });
-      }
-
-      const sections = getSectionRepository(req);
-      const drafts = createDraftRepository(req);
-      const conflictLogs = createConflictLogRepository(req);
-      const conflictService = new SectionConflictService(sections, drafts, conflictLogs, logger);
-      const draftService = new SectionDraftService(sections, drafts, conflictService, logger);
+      const draftService = getSectionDraftService(req);
+      const drafts = getDraftRepository(req);
 
       const draftOptions: SaveDraftOptions = {
         sectionId,
@@ -809,12 +445,6 @@ sectionsRouter.get(
     }
 
     try {
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId: 'doc-architecture-demo',
-        userId,
-      });
-
       const sections = getSectionRepository(req);
       const section = await sections.findById(sectionId);
       if (!section) {
@@ -822,18 +452,11 @@ sectionsRouter.get(
         return;
       }
 
-      const drafts = createDraftRepository(req);
+      const drafts = getDraftRepository(req);
       const requestedDraftId =
         typeof req.query.draftId === 'string' && req.query.draftId.length > 0
           ? req.query.draftId
-          : 'draft-architecture-overview';
-
-      ensureDraftFixture(getDatabase(req), {
-        draftId: requestedDraftId,
-        sectionId,
-        documentId: section.docId,
-        userId,
-      });
+          : undefined;
 
       let draft = requestedDraftId ? await drafts.findById(requestedDraftId) : null;
       if (!draft) {
@@ -846,51 +469,17 @@ sectionsRouter.get(
         return;
       }
 
-      const diffService = new SectionDiffService(
-        sections,
-        drafts,
-        (original, modified, inputMetadata) =>
-          buildBasicDiffResponse(original, modified, {
-            approvedVersion: inputMetadata?.approvedVersion,
-            draftVersion: inputMetadata?.draftVersion,
-          }),
-        logger
-      );
-
+      const diffService = getSectionDiffService(req);
       const diffPayload = await diffService.buildDiff({
         sectionId,
         userId,
         draftId: draft.id,
+        draftContent: draft.contentMarkdown,
+        draftVersion: draft.draftVersion,
         requestId,
       });
 
-      const approvedVersion = diffPayload.metadata?.approvedVersion ?? section.approvedVersion ?? 0;
-      const draftVersion = diffPayload.metadata?.draftVersion ?? draft.draftVersion;
-      const generatedAt = diffPayload.metadata?.generatedAt ?? new Date().toISOString();
-
-      const segments = diffPayload.segments.map(segment => {
-        let type: 'context' | 'addition' | 'deletion' = 'context';
-        if (segment.type === 'added') {
-          type = 'addition';
-        } else if (segment.type === 'removed') {
-          type = 'deletion';
-        }
-
-        return {
-          type,
-          content: segment.content,
-          lineNumber: segment.startLine ?? segment.endLine ?? 0,
-        };
-      });
-
-      res.status(200).json({
-        sectionId,
-        draftId: draft.id,
-        approvedVersion,
-        draftVersion,
-        generatedAt,
-        segments,
-      });
+      res.status(200).json(diffPayload);
     } catch (error) {
       if (error instanceof ZodError) {
         handleValidationFailure(
@@ -943,16 +532,10 @@ sectionsRouter.post(
 
     try {
       const submissionBody = req.body as Partial<{
-        documentId: string;
         draftId: string;
         summaryNote?: string;
         reviewers?: string[];
       }>;
-
-      const documentId =
-        typeof submissionBody.documentId === 'string' && submissionBody.documentId.length > 0
-          ? submissionBody.documentId
-          : 'doc-architecture-demo';
 
       const submissionInput = SubmitDraftRequestSchema.parse({
         draftId: submissionBody.draftId,
@@ -960,23 +543,28 @@ sectionsRouter.post(
         reviewers: submissionBody.reviewers,
       });
 
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId,
-        userId,
-      });
-
-      ensureDraftFixture(getDatabase(req), {
-        draftId: submissionInput.draftId,
-        sectionId,
-        documentId,
-        userId,
-      });
-
       const sections = getSectionRepository(req);
-      const drafts = createDraftRepository(req);
-      const reviews = createReviewRepository(req);
-      const reviewService = new SectionReviewService(sections, drafts, reviews, logger);
+      const drafts = getDraftRepository(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(submissionInput.draftId);
+      if (!draft) {
+        sendErrorResponse(
+          res,
+          404,
+          'NOT_FOUND',
+          'Draft not found for review submission',
+          requestId
+        );
+        return;
+      }
+
+      const reviewService = getSectionReviewService(req);
 
       if (process.env.NODE_ENV === 'test') {
         res.status(202).json({
@@ -1052,38 +640,31 @@ sectionsRouter.post(
 
     try {
       const approvalBody = req.body as Partial<{
-        documentId: string;
         draftId: string;
         approvalNote?: string;
       }>;
-
-      const documentId =
-        typeof approvalBody.documentId === 'string' && approvalBody.documentId.length > 0
-          ? approvalBody.documentId
-          : 'doc-architecture-demo';
 
       const approvalInput = ApproveSectionRequestSchema.parse({
         draftId: approvalBody.draftId,
         approvalNote: approvalBody.approvalNote,
       });
 
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId,
-        userId,
-      });
-
-      ensureDraftFixture(getDatabase(req), {
-        draftId: approvalInput.draftId,
-        sectionId,
-        documentId,
-        userId,
-      });
-
       const sections = getSectionRepository(req);
-      const drafts = createDraftRepository(req);
-      const reviews = createReviewRepository(req);
-      const approvalService = new SectionApprovalService(sections, drafts, reviews, logger);
+      const drafts = getDraftRepository(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(approvalInput.draftId);
+      if (!draft) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Draft not found for approval', requestId);
+        return;
+      }
+
+      const approvalService = getSectionApprovalService(req);
 
       const approval = await approvalService.approve({
         sectionId,
@@ -1151,31 +732,27 @@ sectionsRouter.get(
     }
 
     try {
-      ensureSectionFixtures(getDatabase(req), {
-        sectionId,
-        documentId: 'doc-architecture-demo',
-        userId,
-      });
-
-      ensureDraftFixture(getDatabase(req), {
-        draftId,
-        sectionId,
-        documentId: 'doc-architecture-demo',
-        userId,
-      });
-
-      ensureConflictLogFixture(getDatabase(req), {
-        draftId,
-        sectionId,
-        userId,
-        previousVersion: 5,
-        latestVersion: 6,
-      });
-
       const sections = getSectionRepository(req);
-      const drafts = createDraftRepository(req);
-      const conflictLogs = createConflictLogRepository(req);
-      const logService = new SectionConflictLogService(sections, drafts, conflictLogs, logger);
+      const drafts = getDraftRepository(req);
+      const logService = getSectionConflictLogService(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(draftId);
+      if (!draft) {
+        sendErrorResponse(
+          res,
+          404,
+          'NOT_FOUND',
+          'Draft not found for conflict log lookup',
+          requestId
+        );
+        return;
+      }
 
       const payload = await logService.list({
         sectionId,
