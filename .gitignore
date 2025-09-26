@@ -97,7 +97,7 @@ Thumbs.db
 # Misc files
 .CLAUDE.md.bak
 docs/archive/
-apps/api/data/ctrl-freaq.db
+apps/api/data/ctrl-freaq.db*
 packages/shared-data/data/
 **/data/*.db
 **/data/*.sqlite
