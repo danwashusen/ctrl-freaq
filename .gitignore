@@ -24,6 +24,8 @@ out/
 lib/
 !**/src/lib/
 !**/src/lib/**
+!**/src/**/lib/
+!**/src/**/lib/**
 types/
 !**/src/**/types/
 !**/src/**/types/**
