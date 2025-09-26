@@ -19,11 +19,18 @@ Given the implementation details provided as an argument, do this:
      that file
    - Otherwise load `.specify/config-default.yaml`
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
-   - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
 2. Run `.specify/scripts/bash/setup-plan.sh --json` from the repo root and parse
    JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. All future file paths
    must be absolute.
+   - BEFORE proceeding, inspect FEATURE_SPEC for a `## Clarifications` section
+     with at least one `Session` subheading. If missing or clearly ambiguous
+     areas remain (vague adjectives, unresolved critical choices), PAUSE and
+     instruct the user to run `/clarify` first to reduce rework. Only continue
+     if: (a) Clarifications exist OR (b) an explicit user override is provided
+     (e.g., "proceed without clarification"). Do not attempt to fabricate
+     clarifications yourself.
+
 3. Read and analyze the feature specification to understand:
    - The feature requirements and user stories
    - Functional and non-functional requirements
@@ -61,5 +68,7 @@ Given the implementation details provided as an argument, do this:
 
 8. Report results with branch name, file paths, and generated artifacts.
 
-Use absolute paths with the repository root for all file operations to avoid
-path issues.
+Use repository-root anchored paths in generated docs (e.g.,
+`/frontend/src/components/`). Avoid host-specific prefixes like `/Users/...` or
+`/home/...`; treat the repository root as `/` for display. Continue using full
+absolute paths when running shell/file operations.

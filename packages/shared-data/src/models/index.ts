@@ -5,29 +5,35 @@
  */
 
 // User model
-export * from './user';
+export * from './user.js';
 
 // Project model
-export * from './project';
+export * from './project.js';
 
 // Configuration model
-export * from './configuration';
+export * from './configuration.js';
 
 // App version model
-export * from './app-version';
+export * from './app-version.js';
 
 // Activity log model
-export * from './activity-log';
-
+export * from './activity-log.js';
 
 // Document model
-export * from './document';
+export * from './document.js';
 
 // Document template catalog
-export * from './document-template';
+export * from './document-template.js';
 
 // Template version snapshots
-export * from './template-version';
+export * from './template-version.js';
 
 // Document template migration events
-export * from './document-template-migration';
+export * from './document-template-migration.js';
+
+// Section editor domain models
+export * from './section-record.js';
+export * from './section-draft.js';
+export * from './formatting-annotation.js';
+export * from './draft-conflict-log.js';
+export * from './section-review-summary.js';

@@ -1,0 +1,472 @@
+openapi: 3.0.3
+info:
+  title: Section Editor Draft & Review API
+  version: 1.0.0
+  description: >-
+    Endpoints that power manual draft saves, conflict detection, diff previews,
+    and review submissions for document sections.
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local Express server
+security:
+  - bearerAuth: []
+paths:
+  /sections/{sectionId}/conflicts/check:
+    post:
+      summary: Check for conflicts between a draft and the latest approved content
+      operationId: checkSectionConflict
+      tags: [SectionDrafts]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConflictCheckRequest'
+      responses:
+        200:
+          description: Draft is clean and can continue editing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictCheckResponse'
+        409:
+          description: Draft requires rebase or manual reconciliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictCheckResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+  /sections/{sectionId}/drafts:
+    post:
+      summary: Persist a manual draft for a section
+      operationId: saveSectionDraft
+      tags: [SectionDrafts]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveDraftRequest'
+      responses:
+        202:
+          description: Draft accepted and stored for the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionDraftResponse'
+        409:
+          description: Draft base version is stale; conflict resolution required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictCheckResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+  /sections/{sectionId}/diff:
+    get:
+      summary: Retrieve diff between latest draft and approved content
+      operationId: getSectionDiff
+      tags: [SectionDrafts]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      responses:
+        200:
+          description: Structured diff segments for display
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiffResponse'
+        404:
+          $ref: '#/components/responses/NotFound'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+  /sections/{sectionId}/submit:
+    post:
+      summary: Submit a draft for review and approval
+      operationId: submitSectionDraft
+      tags: [SectionDrafts]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitDraftRequest'
+      responses:
+        202:
+          description: Review request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewSubmissionResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        409:
+          description: Pending conflicts block submission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictCheckResponse'
+
+  /sections/{sectionId}/conflicts/logs:
+    get:
+      summary: Retrieve conflict history for auditing and UX messaging
+      operationId: listConflictLogs
+      tags: [SectionDrafts]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      responses:
+        200:
+          description: Conflict events recorded for the draft workflow
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConflictLogEntry'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    SectionId:
+      name: sectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid payload or query string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Section not found for user or document
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ConflictCheckRequest:
+      type: object
+      required: [draftBaseVersion, draftVersion]
+      properties:
+        draftBaseVersion:
+          type: integer
+          minimum: 0
+        draftVersion:
+          type: integer
+          minimum: 0
+        approvedVersion:
+          type: integer
+          minimum: 0
+        requestId:
+          type: string
+          description: Trace id propagated from client
+        triggeredBy:
+          type: string
+          enum: [entry, save]
+      example:
+        draftBaseVersion: 4
+        draftVersion: 2
+        approvedVersion: 5
+        triggeredBy: entry
+
+    ConflictCheckResponse:
+      type: object
+      required:
+        - status
+        - latestApprovedVersion
+      properties:
+        status:
+          type: string
+          enum: [clean, rebase_required, blocked]
+        latestApprovedVersion:
+          type: integer
+          minimum: 0
+        rebasedDraft:
+          $ref: '#/components/schemas/RebasedDraftPayload'
+        conflictReason:
+          type: string
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConflictLogEntry'
+    RebasedDraftPayload:
+      type: object
+      required: [draftVersion, contentMarkdown]
+      properties:
+        draftVersion:
+          type: integer
+          minimum: 0
+        contentMarkdown:
+          type: string
+        formattingAnnotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormattingAnnotation'
+
+    SaveDraftRequest:
+      type: object
+      required:
+        - contentMarkdown
+        - draftVersion
+        - draftBaseVersion
+      properties:
+        contentMarkdown:
+          type: string
+          maxLength: 80000
+        draftVersion:
+          type: integer
+          minimum: 0
+        draftBaseVersion:
+          type: integer
+          minimum: 0
+        summaryNote:
+          type: string
+          maxLength: 500
+        formattingAnnotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormattingAnnotation'
+        clientTimestamp:
+          type: string
+          format: date-time
+      example:
+        contentMarkdown: "# Introduction\nUpdated scope"
+        draftVersion: 2
+        draftBaseVersion: 4
+        summaryNote: 'Clarified scope'
+        clientTimestamp: '2025-09-25T10:05:00Z'
+
+    SectionDraftResponse:
+      type: object
+      required:
+        - draftId
+        - sectionId
+        - draftVersion
+        - conflictState
+        - formattingAnnotations
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        draftVersion:
+          type: integer
+          minimum: 0
+        conflictState:
+          type: string
+          enum: [clean, rebase_required, rebased, blocked]
+        formattingAnnotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormattingAnnotation'
+        savedAt:
+          type: string
+          format: date-time
+        savedBy:
+          type: string
+        summaryNote:
+          type: string
+      example:
+        draftId: 'draft-123'
+        sectionId: 'section-456'
+        draftVersion: 2
+        conflictState: clean
+        formattingAnnotations: []
+        savedAt: '2025-09-25T10:06:00Z'
+        savedBy: 'user-123'
+        summaryNote: 'Clarified overview'
+
+    DiffResponse:
+      type: object
+      required: [mode, segments]
+      properties:
+        mode:
+          type: string
+          enum: [unified, split]
+        segments:
+          type: array
+          items:
+            type: object
+            required: [type, content]
+            properties:
+              type:
+                type: string
+                enum: [added, removed, unchanged, context]
+              content:
+                type: string
+              startLine:
+                type: integer
+                minimum: 0
+              endLine:
+                type: integer
+                minimum: 0
+              metadata:
+                type: object
+                additionalProperties: true
+        metadata:
+          type: object
+          properties:
+            approvedVersion:
+              type: integer
+            draftVersion:
+              type: integer
+            generatedAt:
+              type: string
+              format: date-time
+
+    SubmitDraftRequest:
+      type: object
+      required: [draftId, summaryNote]
+      properties:
+        draftId:
+          type: string
+          format: uuid
+        summaryNote:
+          type: string
+          maxLength: 500
+        reviewers:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Optional hint to route review to specific users
+      example:
+        draftId: 'draft-123'
+        summaryNote: 'Updated intro to align with new architecture'
+        reviewers: ['user-999']
+
+    ReviewSubmissionResponse:
+      type: object
+      required:
+        - reviewId
+        - sectionId
+        - status
+      properties:
+        reviewId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, approved, changes_requested]
+        submittedAt:
+          type: string
+          format: date-time
+        submittedBy:
+          type: string
+        summaryNote:
+          type: string
+
+    ConflictLogEntry:
+      type: object
+      required:
+        - detectedAt
+        - detectedDuring
+        - previousApprovedVersion
+        - latestApprovedVersion
+      properties:
+        detectedAt:
+          type: string
+          format: date-time
+        detectedDuring:
+          type: string
+          enum: [entry, save]
+        previousApprovedVersion:
+          type: integer
+          minimum: 0
+        latestApprovedVersion:
+          type: integer
+          minimum: 0
+        resolvedBy:
+          type: string
+          enum: [auto_rebase, manual_reapply, abandoned]
+          nullable: true
+        resolutionNote:
+          type: string
+          nullable: true
+
+    FormattingAnnotation:
+      type: object
+      required:
+        - id
+        - startOffset
+        - endOffset
+        - markType
+        - message
+        - severity
+      properties:
+        id:
+          type: string
+        startOffset:
+          type: integer
+          minimum: 0
+        endOffset:
+          type: integer
+          minimum: 0
+        markType:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [warning, error]
+
+    ErrorResponse:
+      type: object
+      required: [code, message, requestId, timestamp]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

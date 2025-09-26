@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
-# Your tasks
+pnpm lint && \
+pnpm typecheck && \
+pnpm build && \
 npx lint-staged --allow-empty
+

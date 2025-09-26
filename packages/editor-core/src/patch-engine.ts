@@ -5,13 +5,7 @@
  * Supports content change tracking, patch preview, and conflict resolution.
  */
 
-import {
-  diff_match_patch,
-  patch_obj,
-  DIFF_DELETE,
-  DIFF_INSERT,
-  DIFF_EQUAL,
-} from 'diff-match-patch';
+import DiffMatchPatchModule from 'diff-match-patch';
 import { z } from 'zod';
 import { logger } from './logger';
 
@@ -66,6 +60,16 @@ export interface PatchEngineConfig {
 /**
  * Core patch engine using Google's diff-match-patch library
  */
+const { diff_match_patch, DIFF_DELETE, DIFF_INSERT, DIFF_EQUAL } =
+  DiffMatchPatchModule as typeof DiffMatchPatchModule & {
+    diff_match_patch: typeof import('diff-match-patch').diff_match_patch;
+    DIFF_DELETE: typeof import('diff-match-patch').DIFF_DELETE;
+    DIFF_INSERT: typeof import('diff-match-patch').DIFF_INSERT;
+    DIFF_EQUAL: typeof import('diff-match-patch').DIFF_EQUAL;
+  };
+
+type DmpPatchArray = ReturnType<InstanceType<typeof diff_match_patch>['patch_make']>;
+
 export class PatchEngine {
   private dmp: InstanceType<typeof diff_match_patch>;
   private config: Required<PatchEngineConfig>;
@@ -414,7 +418,7 @@ export class PatchEngine {
   /**
    * Convert our PatchDiff format to diff-match-patch patches
    */
-  private convertToDmpPatches(originalContent: string, patches: PatchDiff[]): patch_obj[] {
+  private convertToDmpPatches(originalContent: string, patches: PatchDiff[]): DmpPatchArray {
     // Create a simple diff representing the changes
     const diffs: [number, string][] = [];
 
@@ -443,8 +447,7 @@ export class PatchEngine {
       }
     }
 
-    return this.dmp.patch_make(originalContent, diffs) as ReturnType<typeof this.dmp.patch_make> &
-      patch_obj[];
+    return this.dmp.patch_make(originalContent, diffs) as DmpPatchArray;
   }
 
   /**

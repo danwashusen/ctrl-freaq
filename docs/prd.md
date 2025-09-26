@@ -270,21 +270,22 @@ Projects UI — all runnable locally for MVP.
 
 **Part E: Test Infrastructure**
 
-- AC15: Test framework setup across monorepo:
-  - Vitest configuration in each package
-  - Test scripts in package.json files
-  - `test/` directories created
-- AC16: Placeholder tests demonstrating patterns:
-  - Unit test: `packages/shared-data/test/unit/repository.test.ts`
-  - Integration test: `packages/shared-data/test/integration/db.test.ts`
-  - Component test: `apps/web/src/components/__tests__/Dashboard.test.tsx`
-    (testing existing component)
-  - API test: `apps/api/test/health.test.ts`
-  - CLI test: `packages/shared-data/test/cli.test.ts`
-- AC17: Test utilities and helpers:
-  - Test database setup/teardown helpers
-  - React Testing Library configuration (may already be partially setup)
-  - Mock service locator for testing
+- AC15: Configure test frameworks per architecture standards:
+  - Vitest (node) for backend packages via `apps/api/vitest.config.ts`
+  - Vitest (jsdom) for frontend via `apps/web/vite.config.ts`
+  - Playwright end-to-end runner in `apps/web/playwright.config.ts`
+  - PNPM scripts (`test`, `test:watch`, coverage) exposed in each package
+- AC16: Seed example specs that match required file conventions:
+  - Unit: `packages/shared-data/src/repositories/document.repository.test.ts`
+  - Frontend component: `apps/web/src/components/common/Avatar.test.tsx`
+  - API contract: `apps/api/tests/contract/request-id.contract.test.ts`
+  - Backend integration: `apps/api/tests/integration/projects.test.ts`
+  - Playwright E2E: `apps/web/tests/e2e/document-editor.e2e.ts`
+- AC17: Provide shared test infrastructure:
+  - SQLite in-memory helpers and reset hooks in `apps/api/tests/setup.ts`
+  - React Testing Library setup in `apps/web/tests/setup.ts`
+  - Playwright device matrix and web server config in
+    `apps/web/playwright.config.ts`
 
 **Part F: Development Scripts & Documentation**
 

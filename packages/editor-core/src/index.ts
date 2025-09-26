@@ -10,6 +10,7 @@
 export * from './editor/index.js';
 export * from './extensions/index.js';
 export * from './patch-engine.js';
+export * from './diff/section-diff.js';
 
 // CLI export
 export { cli } from './cli.js';

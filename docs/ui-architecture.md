@@ -877,6 +877,41 @@ graph TD
 - **Memory Management**: Clear unused editor instances when navigating between
   sections
 
+### Manual Save & Approval Telemetry {#editor-telemetry}
+
+- `useSectionDraft` orchestrates manual saves, conflict rebases, and formatting
+  warnings. The new unit suite at
+  `/apps/web/src/features/section-editor/hooks/use-section-draft.test.ts`
+  exercises clean saves and optimistic conflict handling against the shared
+  store so regressions surface before UI wiring changes ship.
+- Express-side safeguards live in
+  `/apps/api/src/modules/section-editor/services/section-conflict.service.ts`,
+  `/section-draft.service.ts`, and `/section-approval.service.ts`. Dedicated
+  tests (`*.test.ts`) assert conflict logging, draft version checks, and review
+  approval propagation so frontend hooks can rely on consistent payloads.
+- Edit-mode transitions are timed inside
+  `/apps/web/src/features/document-editor/components/document-editor.tsx` via
+  `performanceMonitor.startNavigation()`. The component automatically logs a
+  warning if the switch from preview to edit mode exceeds the 300 ms target
+  mandated by FR-001.
+- Long-form sections (≥50k characters) trigger a one-second frame sampling loop
+  that records the measured FPS to the structured client logger. Anything below
+  60 FPS is flagged, while healthy runs are archived for observability audits.
+
+### Accessibility & WCAG Validation {#editor-accessibility-validation}
+
+- Playwright now runs an automated Axe audit from
+  `/apps/web/tests/e2e/section-editor/accessibility-audit.e2e.ts`, covering WCAG
+  2.1 A/AA rules while ignoring the live contenteditable region that Axe cannot
+  reliably score. Use `pnpm --filter @ctrl-freaq/web test:e2e` to execute the
+  suite locally.
+- Edit-mode components expose `data-testid` attributes (`enter-edit`,
+  `milkdown-editor`, `review-submit-dialog`, etc.) so audits and screen reader
+  assertions remain stable even as UI polish evolves.
+- Telemetry events produced by `DocumentEditor` provide the trace IDs required
+  to correlate accessibility runs, manual saves, and approval decisions with
+  backend contract logs, satisfying the constitution's observability mandate.
+
 ### Document State Synchronization {#document-state-synchronization}
 
 #### State Management Strategy {#state-management-strategy}
@@ -1184,13 +1219,13 @@ async function generateSectionContent(
 ### Component Test Template {#component-test-template}
 
 ```typescript
-// src/features/document-editor/components/__tests__/DocumentEditor.test.tsx
+// src/features/document-editor/components/DocumentEditor.test.tsx
 import type { FC, ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DocumentEditor } from '../DocumentEditor';
+import { DocumentEditor } from './DocumentEditor';
 import { documentService } from '@/lib/api/services/document-service';
 
 // Mock API service

@@ -4,10 +4,18 @@ description:
   description.
 ---
 
-Treat the text the user typed after `/specify` in the triggering message as the
-feature description whenever the assistant surfaces it. Some AI coding
-assistants do not pass arguments through, so if that description is missing or
-incomplete you must prompt the user for the needed details.
+The user input to you can be provided directly by the agent or as a command
+argument - you **MUST** consider it before proceeding with the prompt (if not
+empty).
+
+User input:
+
+$ARGUMENTS
+
+The text the user typed after `/specify` in the triggering message **is** the
+feature description. Assume you always have it available in this conversation
+even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it
+unless they provided an empty command.
 
 Given that feature description, do this:
 
@@ -16,7 +24,6 @@ Given that feature description, do this:
      that file
    - Otherwise load `.specify/config-default.yaml`
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
-   - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
 2. Run the script
    `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` from the
@@ -42,5 +49,7 @@ Given that feature description, do this:
 Note: The script creates and checks out the new branch and initializes the spec
 file before writing.
 
-Use absolute paths with the repository root for all file operations to avoid
-path issues.
+Use repository-root anchored paths in generated docs (e.g.,
+`/frontend/src/components/`). Avoid host-specific prefixes like `/Users/...` or
+`/home/...`; treat the repository root as `/` for display. Continue using full
+absolute paths when running shell/file operations.

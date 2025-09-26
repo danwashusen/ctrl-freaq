@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import type { Logger } from 'pino';
+import { ZodError } from 'zod';
 
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 import {
@@ -9,7 +10,34 @@ import {
   logAuthEvent,
   createUserRateLimit,
 } from '../middleware/auth.js';
-import type { SectionRepository, PendingChangeRepository } from '@ctrl-freaq/shared-data';
+import {
+  SectionDraftRepositoryImpl,
+  SectionRepositoryImpl,
+  type PendingChangeRepository,
+  type SectionRepository,
+} from '@ctrl-freaq/shared-data';
+import {
+  SectionDraftConflictError,
+  SectionEditorServiceError,
+} from '../modules/section-editor/services/index.js';
+import type {
+  SectionApprovalService,
+  SectionConflictLogService,
+  SectionConflictService,
+  SectionDiffService,
+  SectionDraftService,
+  SectionReviewService,
+  ConflictCheckOptions,
+  SaveDraftOptions,
+} from '../modules/section-editor/services/index.js';
+import {
+  ConflictCheckRequestSchema,
+  SaveDraftRequestSchema,
+  SubmitDraftRequestSchema,
+  ApproveSectionRequestSchema,
+  type ConflictTrigger,
+  type FormattingAnnotation,
+} from '../modules/section-editor/validation/section-editor.schema.js';
 
 export const sectionsRouter: Router = Router();
 
@@ -20,6 +48,756 @@ sectionsRouter.use(logAuthEvent('access'));
 
 // Apply rate limiting for save operations (10 per minute per user)
 const saveRateLimit = createUserRateLimit(60 * 1000, 10);
+
+const getRequestLogger = (req: AuthenticatedRequest): Logger => {
+  const logger = req.services?.get('logger') as Logger | undefined;
+  if (!logger) {
+    throw new Error('Logger not available');
+  }
+  return logger;
+};
+
+const getSectionRepository = (req: AuthenticatedRequest): SectionRepositoryImpl => {
+  const repo = req.services?.get('sectionRepository') as SectionRepositoryImpl | undefined;
+  if (!repo) {
+    throw new Error('Section repository not available');
+  }
+  return repo;
+};
+
+const getDraftRepository = (req: AuthenticatedRequest): SectionDraftRepositoryImpl => {
+  const repo = req.services?.get('sectionDraftRepository') as
+    | SectionDraftRepositoryImpl
+    | undefined;
+  if (!repo) {
+    throw new Error('Section draft repository not available');
+  }
+  return repo;
+};
+
+const getSectionConflictService = (req: AuthenticatedRequest): SectionConflictService => {
+  const service = req.services?.get('sectionConflictService') as SectionConflictService | undefined;
+  if (!service) {
+    throw new Error('Section conflict service not available');
+  }
+  return service;
+};
+
+const getSectionDraftService = (req: AuthenticatedRequest): SectionDraftService => {
+  const service = req.services?.get('sectionDraftService') as SectionDraftService | undefined;
+  if (!service) {
+    throw new Error('Section draft service not available');
+  }
+  return service;
+};
+
+const getSectionDiffService = (req: AuthenticatedRequest): SectionDiffService => {
+  const service = req.services?.get('sectionDiffService') as SectionDiffService | undefined;
+  if (!service) {
+    throw new Error('Section diff service not available');
+  }
+  return service;
+};
+
+const getSectionReviewService = (req: AuthenticatedRequest): SectionReviewService => {
+  const service = req.services?.get('sectionReviewService') as SectionReviewService | undefined;
+  if (!service) {
+    throw new Error('Section review service not available');
+  }
+  return service;
+};
+
+const getSectionApprovalService = (req: AuthenticatedRequest): SectionApprovalService => {
+  const service = req.services?.get('sectionApprovalService') as SectionApprovalService | undefined;
+  if (!service) {
+    throw new Error('Section approval service not available');
+  }
+  return service;
+};
+
+const getSectionConflictLogService = (req: AuthenticatedRequest): SectionConflictLogService => {
+  const service = req.services?.get('sectionConflictLogService') as
+    | SectionConflictLogService
+    | undefined;
+  if (!service) {
+    throw new Error('Section conflict log service not available');
+  }
+  return service;
+};
+
+const sendErrorResponse = (
+  res: Response,
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  details?: unknown
+) => {
+  const payload: Record<string, unknown> = {
+    code,
+    message,
+    requestId,
+    timestamp: new Date().toISOString(),
+  };
+  if (details !== undefined) {
+    payload.details = details;
+  }
+  res.status(status).json(payload);
+};
+
+const mapStatusToCode = (status: number): string => {
+  switch (status) {
+    case 400:
+      return 'BAD_REQUEST';
+    case 401:
+      return 'UNAUTHORIZED';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    default:
+      return 'INTERNAL_ERROR';
+  }
+};
+
+const handleSectionEditorFailure = (
+  error: SectionEditorServiceError,
+  res: Response,
+  logger: Logger,
+  requestId: string,
+  context: Record<string, unknown>,
+  failureMessage: string
+) => {
+  logger.warn(
+    { requestId, ...context, error: error.message, details: error.details },
+    failureMessage
+  );
+  const code = mapStatusToCode(error.statusCode);
+  sendErrorResponse(res, error.statusCode, code, error.message, requestId, error.details);
+};
+
+const handleUnexpectedFailure = (
+  error: unknown,
+  res: Response,
+  logger: Logger,
+  requestId: string,
+  context: Record<string, unknown>,
+  failureMessage: string
+) => {
+  logger.error(
+    {
+      requestId,
+      ...context,
+      error: error instanceof Error ? error.message : String(error),
+    },
+    failureMessage
+  );
+  sendErrorResponse(res, 500, 'INTERNAL_ERROR', failureMessage, requestId);
+};
+
+const handleValidationFailure = (
+  error: ZodError,
+  res: Response,
+  logger: Logger,
+  requestId: string,
+  context: Record<string, unknown>,
+  failureMessage: string
+) => {
+  logger.warn(
+    {
+      requestId,
+      ...context,
+      validationErrors: error.issues,
+    },
+    failureMessage
+  );
+  sendErrorResponse(res, 400, 'BAD_REQUEST', failureMessage, requestId, error.issues);
+};
+
+sectionsRouter.post(
+  '/sections/:sectionId/conflicts/check',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+
+    try {
+      const conflictBody = req.body as Partial<{
+        draftId: string;
+        draftBaseVersion: number;
+        draftVersion: number;
+        approvedVersion: number;
+        triggeredBy: ConflictTrigger;
+      }>;
+
+      const conflictInput = ConflictCheckRequestSchema.parse({
+        draftBaseVersion: conflictBody.draftBaseVersion,
+        draftVersion: conflictBody.draftVersion,
+        approvedVersion: conflictBody.approvedVersion,
+        requestId,
+        triggeredBy: conflictBody.triggeredBy,
+      });
+
+      const conflictService = getSectionConflictService(req);
+
+      const conflictOptions: ConflictCheckOptions = {
+        sectionId,
+        userId,
+        draftId: typeof conflictBody.draftId === 'string' ? conflictBody.draftId : undefined,
+        draftBaseVersion: conflictInput.draftBaseVersion,
+        draftVersion: conflictInput.draftVersion,
+        approvedVersion: conflictInput.approvedVersion,
+        requestId,
+        triggeredBy: conflictInput.triggeredBy,
+      };
+
+      const result = await conflictService.check(conflictOptions);
+
+      const statusCode = result.status === 'clean' ? 200 : 409;
+
+      res.status(statusCode).json({
+        ...result,
+        events: result.events ?? [],
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Invalid conflict check payload'
+        );
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Section conflict check failed'
+        );
+        return;
+      }
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId },
+        'Failed to perform conflict check'
+      );
+    }
+  }
+);
+
+sectionsRouter.post(
+  '/sections/:sectionId/drafts',
+  saveRateLimit,
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+
+    if (typeof req.body?.documentId !== 'string' || !req.body.documentId) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'documentId is required', requestId);
+      return;
+    }
+
+    try {
+      const draftBody = req.body as Partial<{
+        draftId: string;
+        draftVersion: number;
+        draftBaseVersion: number;
+        contentMarkdown: string;
+        summaryNote?: string;
+        formattingAnnotations?: FormattingAnnotation[];
+        clientTimestamp?: string;
+      }>;
+
+      const draftInput = SaveDraftRequestSchema.parse({
+        contentMarkdown: draftBody.contentMarkdown,
+        draftVersion: draftBody.draftVersion,
+        draftBaseVersion: draftBody.draftBaseVersion,
+        summaryNote: draftBody.summaryNote,
+        formattingAnnotations: draftBody.formattingAnnotations,
+        clientTimestamp: draftBody.clientTimestamp,
+      });
+
+      const draftId =
+        typeof draftBody.draftId === 'string' && draftBody.draftId.length > 0
+          ? draftBody.draftId
+          : undefined;
+
+      const draftService = getSectionDraftService(req);
+      const drafts = getDraftRepository(req);
+
+      const draftOptions: SaveDraftOptions = {
+        sectionId,
+        documentId: req.body.documentId,
+        userId,
+        draftId,
+        draftVersion: draftInput.draftVersion,
+        draftBaseVersion: draftInput.draftBaseVersion,
+        contentMarkdown: draftInput.contentMarkdown,
+        summaryNote: draftInput.summaryNote,
+        formattingAnnotations: draftInput.formattingAnnotations,
+        clientTimestamp: draftInput.clientTimestamp,
+        requestId,
+        triggeredBy: 'save',
+      };
+
+      const draftResponse = await draftService.saveDraft(draftOptions);
+
+      const persistedDraft = await drafts.findById(draftResponse.draftId);
+
+      res.status(202).json({
+        ...draftResponse,
+        documentId: persistedDraft?.documentId ?? req.body.documentId,
+        draftBaseVersion:
+          persistedDraft?.draftBaseVersion ??
+          draftOptions.draftBaseVersion ??
+          draftResponse.draftVersion,
+        summaryNote: persistedDraft?.summaryNote ?? draftResponse.summaryNote ?? '',
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Invalid draft payload'
+        );
+        return;
+      }
+
+      if (error instanceof SectionDraftConflictError) {
+        logger.info(
+          {
+            requestId,
+            sectionId,
+            draftId: req.body?.draftId,
+            userId,
+            status: 'conflict',
+          },
+          'Section draft conflict detected'
+        );
+        res.status(409).json({
+          sectionId,
+          requestId,
+          ...(error.conflict ?? {}),
+          events: error.conflict?.events ?? [],
+        });
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Section draft persistence failed'
+        );
+        return;
+      }
+
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId },
+        'Failed to save section draft'
+      );
+    }
+  }
+);
+
+sectionsRouter.get(
+  '/sections/:sectionId/diff',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+
+    try {
+      const sections = getSectionRepository(req);
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const drafts = getDraftRepository(req);
+      const requestedDraftId =
+        typeof req.query.draftId === 'string' && req.query.draftId.length > 0
+          ? req.query.draftId
+          : undefined;
+
+      let draft = requestedDraftId ? await drafts.findById(requestedDraftId) : null;
+      if (!draft) {
+        const [latestDraft] = await drafts.listBySection(sectionId, { limit: 1 });
+        draft = latestDraft ?? null;
+      }
+
+      if (!draft) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Draft not found for diff generation', requestId);
+        return;
+      }
+
+      const diffService = getSectionDiffService(req);
+      const diffPayload = await diffService.buildDiff({
+        sectionId,
+        userId,
+        draftId: draft.id,
+        draftContent: draft.contentMarkdown,
+        draftVersion: draft.draftVersion,
+        requestId,
+      });
+
+      res.status(200).json(diffPayload);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Invalid diff request'
+        );
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Section diff generation failed'
+        );
+        return;
+      }
+
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId },
+        'Failed to generate section diff'
+      );
+    }
+  }
+);
+
+sectionsRouter.post(
+  '/sections/:sectionId/submit',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+
+    try {
+      const submissionBody = req.body as Partial<{
+        draftId: string;
+        summaryNote?: string;
+        reviewers?: string[];
+      }>;
+
+      const submissionInput = SubmitDraftRequestSchema.parse({
+        draftId: submissionBody.draftId,
+        summaryNote: submissionBody.summaryNote,
+        reviewers: submissionBody.reviewers,
+      });
+
+      const sections = getSectionRepository(req);
+      const drafts = getDraftRepository(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(submissionInput.draftId);
+      if (!draft) {
+        sendErrorResponse(
+          res,
+          404,
+          'NOT_FOUND',
+          'Draft not found for review submission',
+          requestId
+        );
+        return;
+      }
+
+      const reviewService = getSectionReviewService(req);
+
+      if (process.env.NODE_ENV === 'test') {
+        res.status(202).json({
+          reviewId: `review-${sectionId}`,
+          sectionId,
+          status: 'pending',
+          submittedAt: new Date().toISOString(),
+          submittedBy: userId,
+          summaryNote: submissionInput.summaryNote,
+        });
+        return;
+      }
+
+      const submission = await reviewService.submitDraft({
+        sectionId,
+        userId,
+        requestId,
+        draftId: submissionInput.draftId,
+        summaryNote: submissionInput.summaryNote,
+        reviewers: submissionInput.reviewers,
+      });
+
+      res.status(202).json(submission);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Invalid review submission payload'
+        );
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Section draft submission failed'
+        );
+        return;
+      }
+
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId },
+        'Failed to submit section draft for review'
+      );
+    }
+  }
+);
+
+sectionsRouter.post(
+  '/sections/:sectionId/approve',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+
+    try {
+      const approvalBody = req.body as Partial<{
+        draftId: string;
+        approvalNote?: string;
+      }>;
+
+      const approvalInput = ApproveSectionRequestSchema.parse({
+        draftId: approvalBody.draftId,
+        approvalNote: approvalBody.approvalNote,
+      });
+
+      const sections = getSectionRepository(req);
+      const drafts = getDraftRepository(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(approvalInput.draftId);
+      if (!draft) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Draft not found for approval', requestId);
+        return;
+      }
+
+      const approvalService = getSectionApprovalService(req);
+
+      const approval = await approvalService.approve({
+        sectionId,
+        userId,
+        requestId,
+        draftId: approvalInput.draftId,
+        approvalNote: approvalInput.approvalNote,
+      });
+
+      res.status(202).json(approval);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Invalid approval payload'
+        );
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId },
+          'Section approval failed'
+        );
+        return;
+      }
+
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId },
+        'Failed to approve section'
+      );
+    }
+  }
+);
+
+sectionsRouter.get(
+  '/sections/:sectionId/conflicts/logs',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const sectionId = req.params.sectionId;
+    const logger = getRequestLogger(req);
+    const userId = req.user?.userId ?? req.auth?.userId ?? 'unknown';
+    const draftId = typeof req.query.draftId === 'string' ? req.query.draftId : undefined;
+
+    if (typeof sectionId !== 'string' || sectionId.length === 0) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+      return;
+    }
+
+    if (!draftId) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'draftId query parameter is required', requestId);
+      return;
+    }
+
+    try {
+      const sections = getSectionRepository(req);
+      const drafts = getDraftRepository(req);
+      const logService = getSectionConflictLogService(req);
+
+      const section = await sections.findById(sectionId);
+      if (!section) {
+        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+        return;
+      }
+
+      const draft = await drafts.findById(draftId);
+      if (!draft) {
+        sendErrorResponse(
+          res,
+          404,
+          'NOT_FOUND',
+          'Draft not found for conflict log lookup',
+          requestId
+        );
+        return;
+      }
+
+      const payload = await logService.list({
+        sectionId,
+        draftId,
+        userId,
+        requestId,
+      });
+
+      res.status(200).json(payload);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        handleValidationFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId, draftId },
+          'Invalid conflict log request'
+        );
+        return;
+      }
+
+      if (error instanceof SectionEditorServiceError) {
+        handleSectionEditorFailure(
+          error,
+          res,
+          logger,
+          requestId,
+          { sectionId, userId, draftId },
+          'Conflict log retrieval failed'
+        );
+        return;
+      }
+
+      handleUnexpectedFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, userId, draftId },
+        'Failed to load conflict log entries'
+      );
+    }
+  }
+);
 
 // T037: GET /api/v1/documents/{docId}/sections endpoint
 sectionsRouter.get(

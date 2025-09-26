@@ -7,6 +7,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@ctrl-freaq/editor-persistence': path.resolve(
+        __dirname,
+        '../..',
+        'packages/editor-persistence/src'
+      ),
     },
   },
   server: {

@@ -13,10 +13,6 @@ spec-kit:
         - path: 'docs/front-end-spec.md'
           context: 'Documents the front-end specifications and should be considered a primary source of truth.'
   - plan:
-      technical_context:
-        - '**Coding Standards**: [NEEDS CLARIFICATION]'
-      additional_research:
-        - 'Analyse the architecture documents and prepare a summary of the relevant sections as they related to the implementation of the plan.'
       documents:
         - path: 'docs/architecture.md'
           context: 'Documents the architecture of the project and should be considered a primary source of truth.'
@@ -32,11 +28,21 @@ spec-kit:
           context: 'Documents the UI architecture of the project and should be considered a primary source of truth.'
         - path: 'docs/front-end-spec.md'
           context: 'Documents the front-end specifications and should be considered a primary source of truth.'
+  - analyze:
+      documents:
+        - path: 'docs/prd.md'
+          context: 'Documents the product requirements and should be considered a primary source of truth, any deviations should be called out.'
+        - path: 'docs/architecture.md'
+          context: 'Documents the architecture of the project and should be considered a primary source of truth, any deviations should be called out.'
+        - path: 'docs/ui-architecture.md'
+          context: 'Documents the UI architecture of the project and should be considered a primary source of truth, any deviations should be called out.'
+        - path: 'docs/front-end-spec.md'
+          context: 'Documents the front-end specifications and should be considered a primary source of truth, any deviations should be called out.'
   - implement:
       documents:
         - path: 'docs/work-flow.md'
           context: 'Documents the implementation work-flow for the project and should be considered a primary source of truth.'
-  - review:
+  - audit:
       documents:
         - path: 'docs/prd.md'
           context: 'Documents the product requirements and should be considered a primary source of truth, any deviations should be called out.'

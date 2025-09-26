@@ -69,7 +69,7 @@ spec-kit:
   attributes instead of role queries for SVG elements
 - **Source Requirement**: Constitution III - Test-First Development
 - **Files**:
-  `apps/web/src/features/document-editor/components/__tests__/section-card.test.tsx`
+  `apps/web/src/features/document-editor/components/section-card.test.tsx`
 
 ### Finding F002: Incomplete API Implementation Verification
 
@@ -220,8 +220,8 @@ The project demonstrates established control patterns:
   2. Verify spinner icon is properly rendered with accessible attributes
   3. Run test suite to confirm all tests pass
 - **Verification**: Run
-  `pnpm test src/features/document-editor/components/__tests__/section-card.test.tsx`
-  and confirm 47/47 tests pass
+  `pnpm test src/features/document-editor/components/section-card.test.tsx` and
+  confirm 47/47 tests pass
 
 ---
 

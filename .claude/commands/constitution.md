@@ -2,8 +2,15 @@
 description:
   Create or update the project constitution from interactive or provided
   principle inputs, ensuring all dependent templates stay in sync.
-# (No scripts section: constitution edits are manual authoring assisted by the agent)
 ---
+
+The user input to you can be provided directly by the agent or as a command
+argument - you **MUST** consider it before proceeding with the prompt (if not
+empty).
+
+User input:
+
+$ARGUMENTS
 
 You are updating the project constitution at the path specified by
 `SPEC_KIT_CONFIG.constitution.path`. This file is a TEMPLATE containing

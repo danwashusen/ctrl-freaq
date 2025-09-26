@@ -61,28 +61,27 @@ research.md (✓), data-model.md (✓), contracts/ (✓), quickstart.md (✓)
 implementation**
 
 - [x] T005 [P] Contract test GET /api/v1/documents/{docId}/sections in
-      `apps/web/src/features/document-editor/__tests__/contracts/sections-get.test.ts`
+      `apps/web/tests/contracts/document-editor.sections-get.test.ts`
 - [x] T006 [P] Contract test GET /api/v1/sections/{sectionId} in
-      `apps/web/src/features/document-editor/__tests__/contracts/section-get.test.ts`
+      `apps/web/tests/contracts/document-editor.section-get.test.ts`
 - [x] T007 [P] Contract test PATCH /api/v1/sections/{sectionId} in
-      `apps/web/src/features/document-editor/__tests__/contracts/section-patch.test.ts`
+      `apps/web/tests/contracts/document-editor.section-patch.test.ts`
 - [x] T008 [P] Contract test POST /api/v1/sections/{sectionId}/pending-changes
-      in
-      `apps/web/src/features/document-editor/__tests__/contracts/pending-changes-post.test.ts`
+      in `apps/web/tests/contracts/document-editor.pending-changes-post.test.ts`
 - [x] T009 [P] Contract test POST /api/v1/sections/{sectionId}/save in
-      `apps/web/src/features/document-editor/__tests__/contracts/section-save.test.ts`
+      `apps/web/tests/contracts/document-editor.section-save.test.ts`
 - [x] T010 [P] Contract test GET /api/v1/documents/{docId}/toc in
-      `apps/web/src/features/document-editor/__tests__/contracts/toc-get.test.ts`
+      `apps/web/tests/contracts/document-editor.toc-get.test.ts`
 - [x] T011 [P] Integration test ToC navigation in
-      `apps/web/src/features/document-editor/__tests__/integration/toc-navigation.test.ts`
+      `apps/web/tests/integration/document-editor.toc-navigation.test.ts`
 - [x] T012 [P] Integration test section mode transitions in
-      `apps/web/src/features/document-editor/__tests__/integration/section-modes.test.ts`
+      `apps/web/tests/integration/document-editor.section-modes.test.ts`
 - [x] T013 [P] Integration test placeholder content in
-      `apps/web/src/features/document-editor/__tests__/integration/placeholder-content.test.ts`
+      `apps/web/tests/integration/document-editor.placeholder-content.test.ts`
 - [x] T014 [P] Integration test patch generation in
-      `apps/web/src/features/document-editor/__tests__/integration/patch-generation.test.ts`
+      `apps/web/tests/integration/document-editor.patch-generation.test.ts`
 - [x] T015 [P] Performance test section navigation (<300ms) in
-      `apps/web/src/features/document-editor/__tests__/performance/navigation.test.ts`
+      `apps/web/tests/performance/document-editor.navigation.performance.test.ts`
 
 ## Phase 3.3: Core Data Models (ONLY after tests are failing)
 
@@ -173,15 +172,15 @@ implementation**
 ## Phase 3.10: Integration & Polish
 
 - [x] T049 [P] Unit tests for patch engine in
-      `packages/editor-core/src/__tests__/patch-engine.test.ts`
+      `packages/editor-core/src/patch-engine.test.ts`
 - [x] T050 [P] Unit tests for local persistence in
-      `packages/editor-persistence/src/__tests__/local-storage.test.ts`
+      `packages/editor-persistence/src/local-storage.test.ts`
 - [x] T051 [P] Component tests for TableOfContents in
-      `apps/web/src/features/document-editor/components/__tests__/table-of-contents.test.tsx`
+      `apps/web/src/features/document-editor/components/table-of-contents.test.tsx`
 - [x] T052 [P] Component tests for SectionCard in
-      `apps/web/src/features/document-editor/components/__tests__/section-card.test.tsx`
+      `apps/web/src/features/document-editor/components/section-card.test.tsx`
 - [x] T053 [P] Component tests for MilkdownEditor in
-      `apps/web/src/features/document-editor/components/__tests__/milkdown-editor.test.tsx`
+      `apps/web/src/features/document-editor/components/milkdown-editor.test.tsx`
 - [x] T054 [P] E2E tests with Playwright in `tests/e2e/document-editor.e2e.ts`
 - [x] T055 [P] Performance optimization and lazy loading in
       `apps/web/src/features/document-editor/utils/performance.ts`
@@ -205,10 +204,10 @@ implementation**
 
 ```bash
 # Phase 3.2 - Launch contract tests together:
-Task: "Contract test GET /api/v1/documents/{docId}/sections in apps/web/src/features/document-editor/__tests__/contracts/sections-get.test.ts"
-Task: "Contract test GET /api/v1/sections/{sectionId} in apps/web/src/features/document-editor/__tests__/contracts/section-get.test.ts"
-Task: "Contract test PATCH /api/v1/sections/{sectionId} in apps/web/src/features/document-editor/__tests__/contracts/section-patch.test.ts"
-Task: "Contract test POST /api/v1/sections/{sectionId}/pending-changes in apps/web/src/features/document-editor/__tests__/contracts/pending-changes-post.test.ts"
+Task: "Contract test GET /api/v1/documents/{docId}/sections in apps/web/tests/contracts/document-editor.sections-get.test.ts"
+Task: "Contract test GET /api/v1/sections/{sectionId} in apps/web/tests/contracts/document-editor.section-get.test.ts"
+Task: "Contract test PATCH /api/v1/sections/{sectionId} in apps/web/tests/contracts/document-editor.section-patch.test.ts"
+Task: "Contract test POST /api/v1/sections/{sectionId}/pending-changes in apps/web/tests/contracts/document-editor.pending-changes-post.test.ts"
 
 # Phase 3.3 - Launch data models together:
 Task: "SectionView model in apps/web/src/features/document-editor/types/section-view.ts"

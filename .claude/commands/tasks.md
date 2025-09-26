@@ -4,7 +4,13 @@ description:
   available design artifacts.
 ---
 
-Given the context provided as an argument, do this:
+The user input to you can be provided directly by the agent or as a command
+argument - you **MUST** consider it before proceeding with the prompt (if not
+empty).
+
+User input:
+
+$ARGUMENTS
 
 1. Load Spec Kit configuration:
    - Check for `/.specify.yaml` at the host project root; if it exists, load
@@ -13,8 +19,8 @@ Given the context provided as an argument, do this:
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
    - Output the resulting `SPEC_KIT_CONFIG` for operator visibility
 
-2. Run `.specify/scripts/bash/check-task-prerequisites.sh --json` from repo root
-   and parse FEATURE_DIR and AVAILABLE_DOCS list. All future file paths must be
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json` from repo root and
+   parse FEATURE_DIR and AVAILABLE_DOCS list. All future file paths must be
    absolute.
 
 3. If defined, read documents from `SPEC_KIT_CONFIG.tasks.documents`:
@@ -69,6 +75,20 @@ Given the context provided as an argument, do this:
    - Clear file paths for each task
    - Dependency notes
    - Parallel execution guidance
+
+10. Prepare a System Context section for the research.md document:
+
+- The available design documents (e.e. research.md, data-model.md) are meant to
+  provide _ALL_ the information and context required for an AI coding to
+  implement the tasks consistently within a potentially complex codebase.
+- The AI coding assistant is expected to rely on the available design documents
+  for ALL the information it needs to implement the tasks
+- Think hard to determine what additional information is required from the
+  documents and context to fully and best implement the tasks and append that
+  information to the research.md document under a "System Context" heading.
+- Think hard to analyze the existing codebase and prepare a detailed summary to
+  help an AI coding assistant fully and best implement these tasks, append the
+  summary to the research.md document under a "Codebase Summary" heading.
 
 Context for task generation: $ARGUMENTS
 
