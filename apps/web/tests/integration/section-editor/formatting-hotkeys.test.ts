@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { createShortcutHandlers } from '@/features/section-editor/lib/keyboard-shortcuts';
+import type { ShortcutBinding } from '@/features/section-editor/lib/keyboard-shortcuts';
 
 describe('Section Editor formatting keyboard shortcuts', () => {
   it('maps bold, italic, and link commands to Control/Command combos', () => {
@@ -16,9 +17,15 @@ describe('Section Editor formatting keyboard shortcuts', () => {
       },
     });
 
-    const boldBinding = bindings.find(binding => binding.shortcut === 'mod+b');
-    const italicBinding = bindings.find(binding => binding.shortcut === 'mod+i');
-    const linkBinding = bindings.find(binding => binding.shortcut === 'mod+k');
+    const boldBinding = bindings.find(
+      (binding): binding is ShortcutBinding => binding.shortcut === 'mod+b'
+    );
+    const italicBinding = bindings.find(
+      (binding): binding is ShortcutBinding => binding.shortcut === 'mod+i'
+    );
+    const linkBinding = bindings.find(
+      (binding): binding is ShortcutBinding => binding.shortcut === 'mod+k'
+    );
 
     expect(boldBinding).toBeDefined();
     expect(italicBinding).toBeDefined();
@@ -43,7 +50,9 @@ describe('Section Editor formatting keyboard shortcuts', () => {
       },
     });
 
-    const boldBinding = bindings.find(binding => binding.shortcut === 'mod+b');
+    const boldBinding = bindings.find(
+      (binding): binding is ShortcutBinding => binding.shortcut === 'mod+b'
+    );
     expect(boldBinding).toBeDefined();
 
     const preventDefault = vi.fn();
