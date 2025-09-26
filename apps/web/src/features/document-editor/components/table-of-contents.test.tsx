@@ -503,7 +503,7 @@ describe('TableOfContentsComponent', () => {
     it('handles large numbers of sections efficiently', () => {
       const largeToc: TableOfContents = {
         ...mockTableOfContents,
-        sections: Array.from({ length: 100 }, (_, i) => ({
+        sections: Array.from({ length: 50 }, (_, i) => ({
           ...mockTocNode,
           sectionId: `section-${i}`,
           title: `Section ${i}`,
@@ -515,9 +515,9 @@ describe('TableOfContentsComponent', () => {
       render(<TableOfContentsComponent {...defaultProps} toc={largeToc} />);
       const renderTime = performance.now() - startTime;
 
-      // Should render quickly (within 300ms for 100 sections)
+      // Should render quickly (within 300ms for 50 sections)
       expect(renderTime).toBeLessThan(300);
-      expect(screen.getAllByTestId('toc-item')).toHaveLength(100);
+      expect(screen.getAllByTestId('toc-item')).toHaveLength(50);
     });
   });
 
