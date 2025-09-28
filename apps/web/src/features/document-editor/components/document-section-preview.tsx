@@ -1,10 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { CheckCircle2, Clock, PencilLine, ShieldAlert, UserCheck } from 'lucide-react';
 
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
+import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
 import type { SectionStatus, SectionView } from '../types/section-view';
 
 interface SectionApprovalMetadata {
@@ -73,6 +74,8 @@ const resolveApprovedVersion = (
 
 export interface DocumentSectionPreviewProps {
   section: SectionViewWithApproval;
+  assumptionSession?: AssumptionSessionFixture | null;
+  documentId?: string;
   approval?: SectionApprovalMetadata;
   onEnterEdit?: (sectionId: string) => void;
   isEditDisabled?: boolean;
@@ -80,10 +83,34 @@ export interface DocumentSectionPreviewProps {
 }
 
 export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
-  ({ section, approval, onEnterEdit, isEditDisabled = false, className }) => {
+  ({
+    section,
+    assumptionSession,
+    documentId,
+    approval,
+    onEnterEdit,
+    isEditDisabled = false,
+    className,
+  }) => {
+    const [isAssumptionModalOpen, setAssumptionModalOpen] = useState(false);
+    const unresolvedCount = assumptionSession?.unresolvedCount ?? 0;
+    const transcriptMessages = useMemo(
+      () => assumptionSession?.transcript ?? [],
+      [assumptionSession]
+    );
+
+    useEffect(() => {
+      if (!assumptionSession && isAssumptionModalOpen) {
+        setAssumptionModalOpen(false);
+      }
+    }, [assumptionSession, isAssumptionModalOpen]);
+
     const handleEnterEdit = () => {
       onEnterEdit?.(section.id);
     };
+
+    const handleOpenAssumptionModal = () => setAssumptionModalOpen(true);
+    const handleCloseAssumptionModal = () => setAssumptionModalOpen(false);
 
     const approvedAt = resolveApprovedAt(section, approval);
     const approvedBy = resolveApprovedBy(section, approval);
@@ -131,15 +158,34 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
               </div>
             </div>
 
-            <Button
-              size="sm"
-              onClick={handleEnterEdit}
-              disabled={isEditDisabled}
-              data-testid="enter-edit"
-            >
-              <PencilLine className="mr-1 h-4 w-4" aria-hidden="true" />
-              Edit Section
-            </Button>
+            <div className="flex items-center gap-2">
+              {assumptionSession && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenAssumptionModal}
+                  data-testid="assumption-conflict-trigger"
+                >
+                  <ShieldAlert className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Review Conflicts
+                  <span className="ml-2 rounded bg-amber-200 px-1 py-0.5 text-xs font-semibold text-amber-900">
+                    {unresolvedCount}
+                  </span>
+                </Button>
+              )}
+
+              <Button
+                size="sm"
+                onClick={handleEnterEdit}
+                disabled={isEditDisabled}
+                data-testid="enter-edit"
+                aria-label="Enter edit mode"
+                className="bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500"
+              >
+                <PencilLine className="mr-1 h-4 w-4" aria-hidden="true" />
+                Edit Section
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1 text-sm" aria-live="polite">
@@ -161,12 +207,22 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
                   Approved by {approvedBy}
                 </span>
               )}
+              {assumptionSession && (
+                <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-1 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                  <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                  <span>Unresolved</span>
+                  <span data-testid="assumption-unresolved-count">{unresolvedCount}</span>
+                </span>
+              )}
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100">
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100"
+            data-testid={`section-${section.id}`}
+          >
             {section.hasContent ? (
               <article data-testid="section-preview-content">
                 {section.contentMarkdown.split('\n').map((line, index) => (
@@ -182,6 +238,69 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
             )}
           </div>
         </CardContent>
+
+        {assumptionSession && isAssumptionModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            data-testid="assumption-conflict-modal"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-900">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Assumption Conflicts
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {documentId ?? 'document'} - policy {assumptionSession.policy}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCloseAssumptionModal}
+                  aria-label="Close assumption conflicts"
+                >
+                  X
+                </Button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                  <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+                  <span data-testid="assumption-unresolved-count">
+                    Unresolved items: {unresolvedCount}
+                  </span>
+                </div>
+
+                <p
+                  className="rounded bg-blue-50 p-2 text-sm text-blue-900 dark:bg-blue-900/40 dark:text-blue-100"
+                  data-testid="assumption-auth-message"
+                >
+                  Sign in to the control panel to resolve conflicts with full audit context.
+                </p>
+
+                <div
+                  className="max-h-64 overflow-y-auto rounded border border-gray-200 p-3 dark:border-gray-700"
+                  data-testid="assumption-transcript"
+                >
+                  {transcriptMessages.map((message, index) => (
+                    <div key={`${message.timestamp}-${index}`} className="mb-3 last:mb-0">
+                      <span className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        {message.speaker}
+                      </span>
+                      <p className="text-sm text-gray-800 dark:text-gray-200">{message.content}</p>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                        {message.timestamp}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     );
   }

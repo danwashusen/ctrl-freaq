@@ -1,3 +1,7 @@
+---
+description: 'Implementation plan template for feature development'
+---
+
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
@@ -167,15 +171,6 @@ _Prerequisites: research.md complete_
    - Each story → integration test scenario
    - Quickstart test = story validation steps
 
-5. **Update agent file incrementally** (O(1) operation):
-   - Run `.specify/scripts/bash/update-agent-context.sh codex` **IMPORTANT**:
-     Execute it exactly as specified above. Do not add or remove any arguments.
-   - If exists: Add only NEW tech from current plan
-   - Preserve manual additions between markers
-   - Update recent changes (keep last 3)
-   - Keep under 150 lines for token efficiency
-   - Output to repository root
-
 **Output**: data-model.md, /contracts/\*, failing tests, quickstart.md,
 agent-specific file
 
@@ -186,7 +181,7 @@ _This section describes what the /tasks command will do - DO NOT execute during
 
 **Task Generation Strategy**:
 
-- Load `.specify/templates/tasks-template.md` as base
+- Load `/templates/tasks-template.md` as base
 - Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
 - Each contract → contract test task [P]
 - Each entity → model creation task [P]

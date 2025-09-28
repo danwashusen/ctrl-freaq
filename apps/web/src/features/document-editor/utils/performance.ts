@@ -497,15 +497,37 @@ export class AnimationManager {
 }
 
 // Bundle optimization utilities
+const ROUTE_MODULE_LOADERS: Record<string, () => Promise<unknown>> = {
+  'components/document-editor': () => import('../components/document-editor'),
+  'components/document-section-preview': () => import('../components/document-section-preview'),
+  'components/section-card': () => import('../components/section-card'),
+  'components/diff-preview': () => import('../components/diff-preview'),
+  'components/table-of-contents': () => import('../components/table-of-contents'),
+  'components/milkdown-editor': () => import('../components/milkdown-editor'),
+};
+
 export function preloadRoute(routePath: string): Promise<void> {
-  // Dynamic import preloading for route-based code splitting
-  return import(/* webpackChunkName: "[request]" */ `../${routePath}`)
+  const loader = ROUTE_MODULE_LOADERS[routePath];
+
+  if (!loader) {
+    logger.warn(
+      { operation: 'route_preload', routePath },
+      `No preloading strategy registered for route "${routePath}"`
+    );
+    return Promise.resolve();
+  }
+
+  return loader()
     .then(() => {
       logger.info({ operation: 'route_preload', routePath }, `Preloaded route: ${routePath}`);
     })
     .catch(error => {
       logger.warn(
-        { operation: 'route_preload', routePath, error: error.message },
+        {
+          operation: 'route_preload',
+          routePath,
+          error: error instanceof Error ? error.message : String(error),
+        },
         `Failed to preload route ${routePath}`
       );
     });

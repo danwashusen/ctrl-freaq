@@ -1,4 +1,4 @@
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@/lib/clerk-client';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Project from '../../src/pages/Project';
 import { ApiProvider } from '../../src/lib/api-context';
 
-type ClerkModule = typeof import('@clerk/clerk-react');
+type ClerkModule = typeof import('@/lib/clerk-client');
 
-vi.mock('@clerk/clerk-react', () => {
+vi.mock('@/lib/clerk-client', () => {
   const UserButtonMock = (() => (
     <div data-testid="user-button">User</div>
   )) as unknown as ClerkModule['UserButton'];

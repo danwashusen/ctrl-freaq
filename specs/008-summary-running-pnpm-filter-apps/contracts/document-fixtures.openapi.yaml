@@ -1,0 +1,209 @@
+openapi: 3.0.3
+info:
+  title: Document Editor E2E Fixture API
+  version: 0.1.0
+  description: >-
+    Fixture endpoints served only when `VITE_E2E=true`. Provides deterministic
+    payloads for document and section editors so Playwright scenarios execute
+    without backend services.
+servers:
+  - url: http://localhost:5173
+    description: Vite dev server running in e2e mode
+paths:
+  /__fixtures/documents/{documentId}:
+    get:
+      summary: Fetch deterministic document fixture by id
+      description: >-
+        Returns metadata, table of contents, and section map required to render
+        the document editor shell without invoking live APIs.
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Canonical document identifier (e.g., demo-architecture)
+      responses:
+        '200':
+          description: Document fixture found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentFixture'
+        '404':
+          description: Fixture missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /__fixtures/documents/{documentId}/sections/{sectionId}:
+    get:
+      summary: Fetch deterministic section fixture
+      description: Returns section-level content, lifecycle state, and assumption session data.
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Section fixture found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionFixture'
+        '404':
+          description: Section fixture missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    DocumentFixture:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - tableOfContents
+        - updatedAt
+        - lifecycleStatus
+        - sections
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        tableOfContents:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionReference'
+        updatedAt:
+          type: string
+          format: date-time
+        lifecycleStatus:
+          type: string
+          enum: [draft, review, ready]
+        sections:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SectionFixture'
+    SectionFixture:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - editable
+        - lifecycleState
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        editable:
+          type: boolean
+        lifecycleState:
+          type: string
+          enum: [idle, assumptions, drafting, review, ready]
+        assumptionSession:
+          anyOf:
+            - $ref: '#/components/schemas/AssumptionSessionFixture'
+            - type: 'null'
+        lastAuthoredBy:
+          type: string
+        lastUpdatedAt:
+          type: string
+          format: date-time
+    SectionReference:
+      type: object
+      required:
+        - id
+        - title
+        - state
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        state:
+          type: string
+          enum: [idle, assumptions, drafting, review, ready]
+        hasConflicts:
+          type: boolean
+    AssumptionSessionFixture:
+      type: object
+      required:
+        - sessionId
+        - policy
+        - questions
+        - transcript
+      properties:
+        sessionId:
+          type: string
+        policy:
+          type: string
+          enum: [conservative, balanced, yolo]
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssumptionQuestion'
+        unresolvedCount:
+          type: integer
+        transcript:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptMessage'
+    AssumptionQuestion:
+      type: object
+      required:
+        - id
+        - prompt
+        - decision
+        - status
+      properties:
+        id:
+          type: string
+        prompt:
+          type: string
+        decision:
+          type: string
+        status:
+          type: string
+          enum: [open, resolved]
+    TranscriptMessage:
+      type: object
+      required:
+        - speaker
+        - content
+        - timestamp
+      properties:
+        speaker:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string

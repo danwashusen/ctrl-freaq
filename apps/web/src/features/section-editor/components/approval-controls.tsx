@@ -38,7 +38,7 @@ export interface ApprovalControlsProps {
 const statusIcon = (status: SectionStatus) => {
   switch (status) {
     case 'ready':
-      return <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />;
+      return <CheckCircle2 className="h-4 w-4 text-emerald-800" aria-hidden="true" />;
     case 'review':
       return <ClipboardCheck className="h-4 w-4 text-blue-600" aria-hidden="true" />;
     case 'drafting':
@@ -54,7 +54,7 @@ const statusLabel: Record<SectionStatus, string> = {
   idle: 'Idle',
   assumptions: 'Assumptions Pending',
   drafting: 'Drafting',
-  review: 'Awaiting Approval',
+  review: 'Review Pending',
   ready: 'Approved',
 };
 
@@ -135,7 +135,7 @@ export const ApprovalControls: FC<ApprovalControlsProps> = ({
           </span>
         </div>
         <p className="text-sm text-slate-600" data-testid="review-summary-note">
-          {resolvedSummary}
+          <span data-testid="latest-review-summary">{resolvedSummary}</span>
         </p>
       </header>
 

@@ -7,6 +7,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { isE2EModeEnabled, useOptionalE2EFixtures } from '@/lib/fixtures/e2e/fixture-provider';
+import { buildFixtureDocumentView } from '@/lib/fixtures/e2e/transformers';
+import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
+
 import type { SectionView } from '../types/section-view';
 import type { PendingChange } from '../types/pending-change';
 import type { TableOfContents } from '../types/table-of-contents';
@@ -26,6 +30,7 @@ export const QUERY_KEYS = {
 interface DocumentSectionsResponse {
   sections: SectionView[];
   toc: TableOfContents;
+  assumptionSessions?: Record<string, AssumptionSessionFixture | null>;
 }
 
 interface PendingChangesResponse {
@@ -58,11 +63,22 @@ function createSectionsHooks(_apiClient: ApiClient) {
    * Query hook for fetching all sections in a document
    */
   function useDocumentSections(docId: string, options?: { enabled?: boolean }) {
+    const fixtures = useOptionalE2EFixtures();
+    const useFixtures = isE2EModeEnabled() && Boolean(fixtures);
+
     return useQuery({
       queryKey: QUERY_KEYS.documentSections(docId),
       queryFn: async (): Promise<DocumentSectionsResponse> => {
-        // TODO: This will be replaced with actual API client call in Phase 3.7
-        // For now, throw an error to indicate this needs proper implementation
+        if (useFixtures && fixtures) {
+          const document = await fixtures.fetchDocument(docId);
+          const view = buildFixtureDocumentView(document);
+          return {
+            sections: view.sections,
+            toc: view.toc,
+            assumptionSessions: view.assumptionSessions,
+          };
+        }
+
         throw new Error(`Document sections API not yet implemented for document ${docId}`);
       },
       enabled: options?.enabled ?? true,
@@ -74,11 +90,27 @@ function createSectionsHooks(_apiClient: ApiClient) {
   /**
    * Query hook for fetching a specific section
    */
-  function useSection(sectionId: string, options?: { enabled?: boolean }) {
+  function useSection(sectionId: string, options?: { enabled?: boolean; documentId?: string }) {
+    const fixtures = useOptionalE2EFixtures();
+    const useFixtures = isE2EModeEnabled() && Boolean(fixtures);
+
     return useQuery({
       queryKey: QUERY_KEYS.section(sectionId),
       queryFn: async (): Promise<SectionView> => {
-        // TODO: This will be replaced with actual API client call in Phase 3.7
+        if (useFixtures && fixtures) {
+          const documentId = options?.documentId;
+          if (!documentId) {
+            throw new Error('Document identifier required for fixture section lookup.');
+          }
+          const document = await fixtures.fetchDocument(documentId);
+          const view = buildFixtureDocumentView(document);
+          const section = view.sections.find(candidate => candidate.id === sectionId);
+          if (!section) {
+            throw new Error(`Section fixture missing for ${documentId}/${sectionId}`);
+          }
+          return section;
+        }
+
         throw new Error(`Section API not yet implemented for section ${sectionId}`);
       },
       enabled: options?.enabled ?? true,
@@ -105,10 +137,18 @@ function createSectionsHooks(_apiClient: ApiClient) {
    * Query hook for fetching table of contents
    */
   function useTableOfContents(docId: string, options?: { enabled?: boolean }) {
+    const fixtures = useOptionalE2EFixtures();
+    const useFixtures = isE2EModeEnabled() && Boolean(fixtures);
+
     return useQuery({
       queryKey: QUERY_KEYS.tableOfContents(docId),
       queryFn: async (): Promise<TableOfContents> => {
-        // TODO: This will be replaced with actual API client call in Phase 3.7
+        if (useFixtures && fixtures) {
+          const document = await fixtures.fetchDocument(docId);
+          const view = buildFixtureDocumentView(document);
+          return view.toc;
+        }
+
         throw new Error(`Table of contents API not yet implemented for document ${docId}`);
       },
       enabled: options?.enabled ?? true,

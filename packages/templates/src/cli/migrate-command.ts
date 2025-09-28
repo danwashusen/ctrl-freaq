@@ -1,6 +1,9 @@
 import { Command } from 'commander';
 
-import { createTemplatePublisher, type TemplatePublisher } from '../publishers/template-publisher.js';
+import {
+  createTemplatePublisher,
+  type TemplatePublisher,
+} from '../publishers/template-publisher.js';
 
 export function registerMigrateCommand(
   program: Command,

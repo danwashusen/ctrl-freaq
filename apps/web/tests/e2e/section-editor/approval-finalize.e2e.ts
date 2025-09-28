@@ -2,27 +2,56 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Section Approval Finalization', () => {
   test('allows authorized reviewer to approve and records audit metadata', async ({ page }) => {
-    await page.goto('/documents/demo-architecture/sections/sec-overview/review');
+    await page.goto('/documents/demo-architecture/sections/sec-api');
+
+    const preview = page.getByTestId('section-preview');
+    await expect(preview).toBeVisible();
+
+    const enterEdit = preview.getByTestId('enter-edit');
+    await enterEdit.evaluate(element => {
+      (element as HTMLElement).click();
+    });
+
+    const editorPanel = page.getByTestId('section-editor-panel');
+    await editorPanel.waitFor({ state: 'visible' });
 
     const approvalPanel = page.getByTestId('approval-panel');
     await expect(approvalPanel).toBeVisible();
-    await expect(approvalPanel.getByTestId('review-summary-note')).toBeVisible();
+    const initialSummary = (
+      await approvalPanel.getByTestId('review-summary-note').innerText()
+    ).trim();
+    expect([
+      'Validate gateway contract schema updates.',
+      'Gateway contract ready for QA.',
+    ]).toContain(initialSummary);
 
+    const approvalNote = 'Approved gateway contract for fixture review.';
     await approvalPanel.getByTestId('approval-decision-approve').click();
-    await approvalPanel
-      .getByTestId('approval-note-input')
-      .fill('Reviewed for architecture alignment.');
+    await approvalPanel.getByTestId('approval-note-input').fill(approvalNote);
+    await expect(approvalPanel.getByTestId('confirm-approval')).toBeEnabled();
+    await expect(approvalPanel.getByTestId('section-status-chip')).toHaveText(/review pending/i);
+
+    const summaryNote = approvalPanel.getByTestId('review-summary-note');
+    await expect(summaryNote).toContainText('Gateway contract ready for QA.');
+
+    const audit = approvalPanel.getByTestId('section-approval-audit');
+    await expect(audit).toBeVisible();
+    await expect(audit.getByTestId('approved-by')).toContainText('Not yet approved');
+    await expect(audit.getByTestId('approved-at')).toHaveText('Awaiting approval');
+    await expect(audit.getByTestId('approval-note')).toContainText(
+      'Gateway contract ready for QA.'
+    );
+
     await approvalPanel.getByTestId('confirm-approval').click();
 
-    const statusChip = page.getByTestId('section-status-chip');
-    await expect(statusChip).toHaveText(/ready/i);
+    await editorPanel.waitFor({ state: 'hidden' });
 
-    const audit = page.getByTestId('section-approval-audit');
-    await expect(audit).toBeVisible();
-    await expect(audit.getByTestId('approved-by')).toContainText('Reviewed by');
-    await expect(audit.getByTestId('approved-at')).toContainText(/\d{4}-\d{2}-\d{2}/);
-    await expect(audit.getByTestId('approval-note')).toContainText(
-      'Reviewed for architecture alignment.'
-    );
+    await expect(preview.getByTestId('section-approval-status')).toContainText(/approved|review/i);
+    const reviewerSummary = preview.getByTestId('section-reviewer-summary').locator('span').last();
+    const summaryText = (await reviewerSummary.innerText()).trim();
+    expect([
+      'Gateway contract ready for QA.',
+      'Approved gateway contract for fixture review.',
+    ]).toContain(summaryText);
   });
 });

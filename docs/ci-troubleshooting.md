@@ -164,17 +164,20 @@ pnpm build
 **Diagnosis:**
 
 ```bash
-# Run tests locally
+# Run the full gauntlet (Vitest + fixture + visual)
 pnpm test
 
-# Run specific test suite
-pnpm --filter @ctrl-freaq/[package-name] test
+# Vitest-only loop across workspaces
+pnpm test:quick
 
-# Run tests with verbose output
-pnpm test --verbose
+# Target Playwright fixture suite
+pnpm --filter @ctrl-freaq/web test:e2e:quick
 
-# Run tests in watch mode for debugging
-pnpm test --watch
+# Target visual regression suite
+pnpm --filter @ctrl-freaq/web test:visual:quick
+
+# Watch mode for a specific workspace
+pnpm --filter @ctrl-freaq/[package-name] test:watch
 ```
 
 **Solutions:**

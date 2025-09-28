@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Document Editor Core Infrastructure', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to document editor
-    await page.goto('/documents/test-doc-123/edit');
+    await page.goto('/documents/demo-architecture/sections/sec-api');
 
-    // Wait for editor to load
     await page.waitForLoadState('networkidle');
+
+    await expect(page.getByTestId('toc-panel')).toBeVisible();
   });
 
   test.describe('Table of Contents Navigation', () => {
@@ -27,12 +27,12 @@ test.describe('Document Editor Core Infrastructure', () => {
       // Click on a ToC item
       const firstTocItem = page.getByTestId('toc-item').first();
       const sectionId = await firstTocItem.getAttribute('data-section-id');
+      expect(sectionId).not.toBeNull();
 
       await firstTocItem.click();
 
-      // Verify the section becomes active
       await expect(
-        page.getByTestId('toc-item').filter({ hasText: sectionId || '' })
+        page.locator(`[data-testid="toc-item"][data-section-id="${sectionId}"]`)
       ).toHaveAttribute('data-active', 'true');
 
       // Verify the section is in viewport
@@ -94,6 +94,22 @@ test.describe('Document Editor Core Infrastructure', () => {
 
         // Should show edit button
         await expect(sectionCard.getByTestId('edit-button')).toBeVisible();
+      }
+    });
+
+    test('surfaces approval metadata with ISO timestamp', async ({ page }) => {
+      const sectionCard = page.getByTestId('section-card').first();
+
+      if ((await sectionCard.count()) > 0) {
+        const preview = page.getByTestId('section-preview').first();
+        await expect(preview).toBeVisible();
+
+        const approvedTimestamp = preview.getByTestId('section-approved-timestamp');
+        await expect(approvedTimestamp).toBeVisible();
+
+        const timestampText = (await approvedTimestamp.innerText()).trim();
+        const parsedTimestamp = new Date(timestampText);
+        expect(parsedTimestamp.toISOString()).toBe(timestampText);
       }
     });
 
@@ -473,6 +489,49 @@ test.describe('Document Editor Core Infrastructure', () => {
       // This would test error recovery mechanisms
       // Implementation depends on error handling strategy
       await expect(page.getByTestId('toc-panel')).toBeVisible();
+    });
+  });
+
+  test.describe('Assumption Conflict Modal', () => {
+    test('surfaces fixture transcript and auth guidance during conflict resolution', async ({
+      page,
+    }) => {
+      await page.goto('/documents/demo-architecture/sections/sec-assumptions');
+
+      const conflictDialog = page.getByTestId('conflict-dialog');
+      if (await conflictDialog.isVisible()) {
+        await page.getByTestId('dismiss-conflict').click();
+        await conflictDialog.waitFor({ state: 'hidden' });
+      }
+
+      const preview = page.getByTestId('section-preview');
+      await expect(preview).toBeVisible();
+
+      const trigger = preview.getByTestId('assumption-conflict-trigger');
+      await expect(trigger).toBeVisible();
+      await trigger.evaluate(element => {
+        (element as HTMLElement).click();
+      });
+
+      const conflictModal = page.getByTestId('assumption-conflict-modal');
+      await conflictModal.waitFor({ state: 'visible' });
+
+      const transcript = conflictModal.getByTestId('assumption-transcript');
+      await expect(transcript).toBeVisible();
+      await expect(transcript).toContainText(
+        'Assistant: Highlighting gaps in the governance controls. Recommend addressing escalation paths before sign-off.'
+      );
+      await expect(transcript).toContainText(
+        'System: Transcript locked for audit after policy review window closed.'
+      );
+
+      const authMessage = conflictModal.getByTestId('assumption-auth-message');
+      await expect(authMessage).toHaveText(
+        'Sign in to the control panel to resolve conflicts with full audit context.'
+      );
+
+      const unresolvedBadge = conflictModal.getByTestId('assumption-unresolved-count');
+      await expect(unresolvedBadge).toHaveText(/Unresolved items:\s*2/);
     });
   });
 

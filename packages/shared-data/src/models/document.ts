@@ -153,7 +153,9 @@ export class DocumentRepositoryImpl extends BaseRepository<Document> {
           content = parsed;
         }
       } catch (error) {
-        throw new Error(`Failed to parse document content_json for id=${row.id}: ${(error as Error).message}`);
+        throw new Error(
+          `Failed to parse document content_json for id=${row.id}: ${(error as Error).message}`
+        );
       }
     }
 
@@ -178,7 +180,8 @@ export class DocumentRepositoryImpl extends BaseRepository<Document> {
       updatedAt: new Date(String(row.updated_at)),
       updatedBy: String(row.updated_by),
       deletedAt: row.deleted_at ? new Date(String(row.deleted_at)) : null,
-      deletedBy: row.deleted_by === null || row.deleted_by === undefined ? null : String(row.deleted_by),
+      deletedBy:
+        row.deleted_by === null || row.deleted_by === undefined ? null : String(row.deleted_by),
     } satisfies Document;
 
     return this.schema.parse(entity);

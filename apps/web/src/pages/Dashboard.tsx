@@ -1,4 +1,4 @@
-import { useUser, UserButton } from '@clerk/clerk-react';
+import { useUser, UserButton } from '@/lib/clerk-client';
 import { Plus, FileText, Settings, Activity } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';

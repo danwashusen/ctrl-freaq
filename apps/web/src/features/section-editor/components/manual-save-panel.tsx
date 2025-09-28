@@ -15,7 +15,7 @@ const conflictStateCopy: Record<
   clean: {
     label: 'Draft is clean',
     description: 'Ready to submit when you finish writing.',
-    tone: 'text-emerald-600',
+    tone: 'text-emerald-800',
     icon: ShieldCheck,
   },
   rebase_required: {

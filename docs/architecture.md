@@ -1105,9 +1105,10 @@ Local Dev → Git Push → CI Tests → Merge to Main
 #### E2E Tests with Playwright {#e2e-tests-playwright}
 
 - **Framework:** Playwright Test Framework
-- **Location:** `tests/e2e/` directory
-- **File Convention:** `*.e2e.ts` for functional tests, `*.visual.ts` for visual
-  regression
+- **Location:** Fixture-backed suites live in `tests/e2e/`; live-service suites
+  reside in `tests/live/`
+- **File Convention:** `*.e2e.ts` for fixture flows, `*.visual.ts` for visual
+  regression, `*.live.ts` for live coverage
 - **Scope:** Critical user flows, visual regression, cross-browser compatibility
 - **Test Infrastructure:**
   - **Browsers:** Chromium, Firefox, WebKit (Safari)
@@ -1115,6 +1116,22 @@ Local Dev → Git Push → CI Tests → Merge to Main
     (1920px)
   - **Visual Regression:** Screenshot comparison with configurable thresholds
   - **Performance:** FPS monitoring during animations
+
+Fixture mode is enabled through `pnpm --filter @ctrl-freaq/web dev:e2e` /
+`test:e2e:quick`, which set `VITE_E2E=true` and serve deterministic data. Live
+suites use `pnpm --filter @ctrl-freaq/web dev:live` / `test:live`, leaving
+`VITE_E2E` unset so the app exercises real API clients.
+
+Command matrix:
+
+- `pnpm test` runs the gauntlet: Vitest across workspaces (invoked with
+  `--force --no-cache`), then fixture and visual Playwright suites.
+- `pnpm test:quick` executes Vitest-only passes for fast feedback.
+- `pnpm --filter @ctrl-freaq/web test:e2e:quick` targets the fixture harness;
+  append `:ci` to mirror headless CI settings.
+- `pnpm --filter @ctrl-freaq/web test:visual:quick` focuses on screenshots; use
+  `:ci` for the serialized CI reporter stack.
+- Live Playwright remains opt-in via `pnpm --filter @ctrl-freaq/web test:live`.
 
 **AI Agent Requirements:**
 

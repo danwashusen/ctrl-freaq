@@ -92,7 +92,9 @@ export class TemplateEngine {
   }
 
   render(): never {
-    throw new Error('Template rendering is no longer supported. Use compileTemplateSource instead.');
+    throw new Error(
+      'Template rendering is no longer supported. Use compileTemplateSource instead.'
+    );
   }
 }
 

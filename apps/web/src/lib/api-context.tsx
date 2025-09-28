@@ -1,10 +1,11 @@
-import { useAuth } from '@clerk/clerk-react';
-import { createContext, useContext, useMemo } from 'react';
+import { useAuth } from '@/lib/clerk-client';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { createApiClient } from './api';
 import type ApiClient from './api';
 import { logger } from './logger';
+import { E2EFixtureProvider, isE2EModeEnabled } from './fixtures/e2e/fixture-provider';
 
 interface ApiContextValue {
   apiClient: ApiClient;
@@ -19,6 +20,16 @@ interface ApiProviderProps {
 
 export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
   const auth = useAuth();
+  const isE2E = isE2EModeEnabled();
+
+  useEffect(() => {
+    if (isE2E) {
+      logger.warn('VITE_E2E fixture mode enabled. API calls will be short-circuited.', {
+        baseUrl,
+      });
+    }
+  }, [isE2E, baseUrl]);
+
   const tokenFetcher = useMemo(() => {
     const maybeAuth = auth as unknown as { getToken?: unknown };
     if (typeof maybeAuth.getToken === 'function') {
@@ -54,7 +65,13 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     [apiClient]
   );
 
-  return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
+  const providerTree = <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
+
+  if (isE2E) {
+    return <E2EFixtureProvider>{providerTree}</E2EFixtureProvider>;
+  }
+
+  return providerTree;
 }
 
 export function useApiClient(): ApiClient {

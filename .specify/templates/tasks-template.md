@@ -89,7 +89,8 @@ implementation**
 - [ ] T020 Performance tests (<200ms)
 - [ ] T021 [P] Update docs/api.md
 - [ ] T022 Remove duplication
-- [ ] T023 Run manual-testing.md
+- [ ] T023 Ensure the entire codebase still satisfies the quality gates
+- [ ] T024 Run manual-testing.md
 
 ## Phase 4.R: Review Follow-Up (auto-appended per review run)
 
@@ -103,7 +104,7 @@ implementation**
 - Tests (T004-T007) before implementation (T008-T014)
 - T008 blocks T009, T015
 - T016 blocks T018
-- Implementation before polish (T019-T023)
+- Implementation before polish (T019-T024)
 
 ## Parallel Example
 

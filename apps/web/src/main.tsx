@@ -1,4 +1,4 @@
-import { ClerkProvider } from '@clerk/clerk-react';
+import { ClerkProvider } from '@/lib/clerk-client';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 // React Router is handled inside App via RouterProvider
@@ -8,7 +8,7 @@ import './index.css';
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-if (!publishableKey) {
+if (!publishableKey && import.meta.env.VITE_E2E !== 'true') {
   throw new Error('Missing Publishable Key');
 }
 

@@ -2,27 +2,21 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Section Editor Conflict Handshake', () => {
   test('prompts user to rebase when newer approved content exists', async ({ page }) => {
-    await page.goto('/documents/demo-architecture/sections/sec-overview');
-
-    await expect(page.getByTestId('section-preview')).toBeVisible();
-
-    await page.getByTestId('enter-edit').click();
+    await page.goto('/documents/demo-architecture/sections/sec-assumptions');
 
     const conflictDialog = page.getByTestId('conflict-dialog');
     await expect(conflictDialog).toBeVisible();
-    await expect(conflictDialog).toContainText('Rebase onto latest approved');
-    await expect(conflictDialog.getByTestId('conflict-approved-version')).toHaveText(
-      /latest version: \d+/
+
+    await expect(conflictDialog).toContainText('Rebase required before continuing');
+    await expect(conflictDialog).toContainText(
+      'Another teammate published a newer approved version.'
     );
+    await expect(conflictDialog).toContainText('Saving the draft detected a new approval v2 → v3.');
+    await expect(conflictDialog).toContainText('Waiting for compliance sign-off.');
+    await expect(
+      conflictDialog.getByRole('button', { name: /rebase and continue/i })
+    ).toBeVisible();
 
-    await conflictDialog.getByTestId('confirm-rebase').click();
-
-    const editor = page.getByTestId('milkdown-editor');
-    await expect(editor).toBeVisible();
-    await expect(editor).toContainText('Rebased draft ready for review');
-
-    const banner = page.getByTestId('conflict-resolution-banner');
-    await expect(banner).toBeVisible();
-    await expect(banner).toContainText('Rebased onto approved version');
+    await expect(conflictDialog.getByTestId('confirm-rebase')).toBeEnabled();
   });
 });

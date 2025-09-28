@@ -195,19 +195,26 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   const applyConflict = useSectionDraftStore(state => state.applyConflict);
   const recordConflictEvents = useSectionDraftStore(state => state.recordConflictEvents);
 
+  const lastInitializedSectionRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (lastInitializedSectionRef.current === sectionId) {
+      return;
+    }
+
     initialize({
       sectionId,
-      draftId: initialDraftId,
-      draftVersion: initialDraftVersion,
+      draftId: initialDraftId ?? null,
+      draftVersion: initialDraftVersion ?? null,
       draftBaseVersion: approvedVersion,
-      summaryNote: initialSummaryNote,
+      summaryNote: initialSummaryNote ?? null,
       conflictState: initialConflictState,
       formattingAnnotations: initialFormattingWarnings,
     });
     if (initialSummaryNote) {
       setSummaryInternal(initialSummaryNote);
     }
+    lastInitializedSectionRef.current = sectionId;
   }, [
     initialize,
     sectionId,

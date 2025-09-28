@@ -111,6 +111,23 @@ pnpm lint       # Run ESLint
 pnpm typecheck  # Run TypeScript compiler
 ```
 
+### Document Editor E2E fixtures
+
+- Launch the web app in deterministic fixture mode with
+  `pnpm --filter @ctrl-freaq/web dev:e2e`. Vite forces `VITE_E2E=true`, mounts
+  the `/__fixtures` middleware, and points API clients at
+  `http://localhost:5173/__fixtures/api`.
+- Deep link to `/documents/demo-architecture/sections/sec-api` to verify the
+  document editor renders fixtures for the table of contents, section preview,
+  assumption transcripts, diff previews, and approval state.
+- Navigating to a missing fixture (for example `sec-missing`) surfaces the
+  `DocumentMissing` view with a dashboard link so Playwright can assert graceful
+  failure handling.
+- Run `pnpm --filter @ctrl-freaq/web test:e2e` to execute the Playwright suite
+  with `playwright.fixture.config.ts`. Use
+  `pnpm --filter @ctrl-freaq/web test:live` to scaffold live-service runs once
+  backend orchestration is ready.
+
 ### Technical Stack
 
 - **Frontend:** React 18.3.x, Vite 5.x, shadcn/ui, Tailwind CSS

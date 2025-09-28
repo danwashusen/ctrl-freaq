@@ -10,18 +10,22 @@ test.describe('Section Editor Read-Only Overview', () => {
     await expect(preview.getByTestId('section-approval-status')).toHaveText(
       /(approved|draft|review|ready)/i
     );
-    await expect(preview.getByTestId('section-reviewer-summary')).toBeVisible();
-    await expect(preview.getByTestId('section-reviewer-summary')).not.toHaveText('');
+    const reviewerSummary = preview.getByTestId('section-reviewer-summary').locator('span').last();
+    await expect(reviewerSummary).toBeVisible();
+    const summaryText = (await reviewerSummary.innerText()).trim();
+    expect(summaryText.length).toBeGreaterThan(0);
+    expect(['Reviewed for architecture alignment.', 'Reviewer summary unavailable']).toContain(
+      summaryText
+    );
 
-    await expect(preview.getByTestId('section-approved-timestamp')).toBeVisible();
-    const timestampText = await preview.getByTestId('section-approved-timestamp').textContent();
-    if (!timestampText) {
-      throw new Error('Expected approval timestamp text content');
-    }
-    expect(timestampText).toMatch(/\d{4}-\d{2}-\d{2}T/);
+    const approvedTimestamp = preview.getByTestId('section-approved-timestamp');
+    await expect(approvedTimestamp).toBeVisible();
+    const timestampText = await approvedTimestamp.innerText();
+    const timestamp = new Date(timestampText);
+    expect(timestamp.toISOString()).toBe(timestampText);
 
     const editCta = preview.getByTestId('enter-edit');
     await expect(editCta).toBeVisible();
-    await expect(editCta).toHaveAttribute('role', 'button');
+    await expect(editCta).toHaveRole('button');
   });
 });

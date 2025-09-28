@@ -1,12 +1,19 @@
-export type StateInitializer<TState> = (
-  set: (partial: StateUpdater<TState>) => void,
-  get: () => TState
-) => TState;
-
 export type StateUpdater<TState> =
   | TState
   | Partial<TState>
   | ((state: TState) => TState | Partial<TState>);
+
+export interface StoreApi<TState> {
+  setState: (partial: StateUpdater<TState>, replace?: boolean) => void;
+  getState: () => TState;
+  subscribe: (listener: (state: TState) => void) => () => void;
+}
+
+export type StateInitializer<TState> = (
+  set: (partial: StateUpdater<TState>, replace?: boolean) => void,
+  get: () => TState,
+  api: StoreApi<TState>
+) => TState;
 
 export interface UseStore<TState> {
   <TSelected = TState>(selector?: (state: TState) => TSelected): TSelected;
@@ -15,36 +22,57 @@ export interface UseStore<TState> {
   subscribe: (listener: (state: TState) => void) => () => void;
 }
 
-export const create = <TState>(initializer: StateInitializer<TState>) => {
+function initializeStore<TState>(initializer: StateInitializer<TState>): UseStore<TState> {
   let state: TState;
   const listeners = new Set<(value: TState) => void>();
 
-  const setState = (partial: StateUpdater<TState>) => {
-    const next =
-      typeof partial === 'function'
-        ? (partial as (value: TState) => TState | Partial<TState>)(state)
-        : partial;
-    state = {
-      ...state,
-      ...(next as Partial<TState>),
-    };
-    listeners.forEach(listener => listener(state));
+  const subscribe = (listener: (value: TState) => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   };
 
-  const getState = () => state;
+  const store: StoreApi<TState> = {
+    setState: (partial, replace = false) => {
+      const nextValue =
+        typeof partial === 'function'
+          ? (partial as (value: TState) => TState | Partial<TState>)(state)
+          : partial;
 
-  state = initializer(setState, getState);
+      state = replace
+        ? (nextValue as TState)
+        : {
+            ...state,
+            ...(nextValue as Partial<TState>),
+          };
+
+      listeners.forEach(listener => listener(state));
+    },
+    getState: () => state,
+    subscribe,
+  };
+
+  const set = (partial: StateUpdater<TState>, replace?: boolean) =>
+    store.setState(partial, replace);
+
+  state = initializer(set, store.getState, store);
 
   const useStore = (<TSelected = TState>(
     selector: (value: TState) => TSelected = value => value as unknown as TSelected
   ) => selector(state)) as UseStore<TState>;
 
-  useStore.getState = getState;
-  useStore.setState = setState;
-  useStore.subscribe = (listener: (value: TState) => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
+  useStore.getState = store.getState;
+  useStore.setState = partial => store.setState(partial);
+  useStore.subscribe = store.subscribe;
 
   return useStore;
+}
+
+export const create = <TState>(
+  initializer?: StateInitializer<TState>
+): UseStore<TState> | ((initializer: StateInitializer<TState>) => UseStore<TState>) => {
+  if (initializer) {
+    return initializeStore(initializer);
+  }
+
+  return (nextInitializer: StateInitializer<TState>) => initializeStore(nextInitializer);
 };

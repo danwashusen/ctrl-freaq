@@ -45,6 +45,18 @@ Test-driven development is mandatory and strictly enforced:
 3. **Test coverage** must include edge cases and error conditions
 4. **Test isolation** ensures independent, repeatable execution
 
+5. **Verification Command Discipline** — Every change must rerun the exhaustive
+   quality gates (`pnpm lint`, `pnpm typecheck`, `pnpm test`) before shipping.
+   The gauntlet command re-executes all Vitest suites without cache, then runs
+   fixture and visual Playwright suites. Fast-feedback helpers (e.g.,
+   `pnpm test:quick`, `pnpm --filter @ctrl-freaq/web test:e2e:quick`) are
+   optional during iteration but cannot replace the final gauntlet.
+
+Document the verification commands and notable test deltas in the PR description
+so reviewers can rely on a consistent signal. Live Playwright remains opt-in
+(`pnpm --filter @ctrl-freaq/web test:live`) unless the work explicitly targets
+live dependencies.
+
 No implementation without failing tests that define the requirements.
 
 #### Test File Organization (NON-NEGOTIABLE)
@@ -63,12 +75,21 @@ No implementation without failing tests that define the requirements.
    - File convention: `*.contract.test.ts`
    - Location: `tests/contracts/` alongside the owning package/app. Every
      OpenAPI or contract file must have a sibling contract test here.
+   - **Command Expectations:** Contract suites run with the repository-wide
+     Vitest pass (`pnpm test`, `pnpm test:unit:ci`).
 
 4. **End-to-End (Playwright) Tests**
-   - File conventions: `*.e2e.ts` for functional flows, `*.visual.ts` for visual
-     regressions.
-   - Location: `tests/e2e/` exclusively; no other path may contain Playwright
-     suites.
+   - File conventions: `*.e2e.ts` for fixture-backed functional flows,
+     `*.visual.ts` for visual regressions, and `*.live.ts` for live-service
+     coverage.
+   - Location: Fixture and visual suites live under `tests/e2e/`; live-service
+     suites reside under `tests/live/`. No other paths may contain Playwright
+     specs.
+   - **Command Expectations:** `pnpm test` runs the full gauntlet (Vitest across
+     workspaces plus fixture and visual Playwright). Reach for
+     `pnpm test:quick`, `pnpm --filter @ctrl-freaq/web test:e2e:quick`, or
+     `pnpm --filter @ctrl-freaq/web test:visual:quick` during iteration. Live
+     suites remain opt-in via `pnpm --filter @ctrl-freaq/web test:live`.
 
 5. **Performance & Specialized Suites**
    - File convention: `*.performance.test.ts` (or analogous suffix).
@@ -79,6 +100,30 @@ No implementation without failing tests that define the requirements.
    - Location: package-level `src/testing/fixtures` (or app-level
      `tests/fixtures`). Tests must import shared fixtures via documented path
      aliases; ad hoc fixture folders are prohibited.
+
+#### AI Agent Implementation Checklist (MANDATORY)
+
+Agents contributing code must follow this checklist end-to-end:
+
+1. **Author failing tests first** — capture the intended behaviour with unit,
+   integration, contract, and Playwright specs before touching production code.
+   Every new API surface or route needs a corresponding failing test.
+2. **Extend deterministic fixtures** — when UI flows depend on fixture data,
+   update `/apps/web/src/lib/fixtures/e2e/` (and any contract schemas) so new
+   IDs, sections, transcripts, and approval metadata exist before specs run.
+3. **Wire contract coverage** — amend or add `*.contract.test.ts` files whenever
+   fixture schemas change; `pnpm test` must exercise the updated assertions.
+4. **Refresh documentation** — revise quickstarts, specs, and developer docs to
+   reflect new commands, fixture IDs, or routes introduced by the change.
+5. **Verify the gauntlet** — run `pnpm lint`, `pnpm typecheck`, and `pnpm test`
+   locally, capturing notable failures and final results in the PR notes. Re-run
+   focused commands (e.g., `pnpm --filter @ctrl-freaq/web test:e2e`) after
+   fixture updates.
+6. **Archive Playwright artifacts** — when E2E coverage changes, attach updated
+   screenshots or videos under `apps/web/test-results/` so reviewers can audit
+   UI impacts.
+7. **Log open questions** — if any checklist item cannot be satisfied, pause and
+   record an **Open Questions** entry before proceeding.
 
 ### IV. Integration Testing & Observability
 

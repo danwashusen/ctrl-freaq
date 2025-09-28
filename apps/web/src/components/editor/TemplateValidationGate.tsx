@@ -101,7 +101,9 @@ const FIELD_LABEL_OVERRIDES: Record<string, Record<string, string>> = {
 
 function extractIssues(error: unknown, templateId: string): TemplateValidationIssue[] {
   if (error && typeof error === 'object' && 'issues' in (error as Record<string, unknown>)) {
-    const zodIssues = (error as { issues: Array<{ path: (string | number)[]; message: string; code?: string }> }).issues;
+    const zodIssues = (
+      error as { issues: Array<{ path: (string | number)[]; message: string; code?: string }> }
+    ).issues;
     return zodIssues.map(issue => ({
       path: issue.path,
       message: enrichMessage(issue.message, issue.path, templateId),
@@ -144,9 +146,10 @@ function updateAtPath(source: unknown, path: Array<string | number>, nextValue: 
     return base;
   }
 
-  const base = source && typeof source === 'object' && !Array.isArray(source)
-    ? { ...(source as Record<string, unknown>) }
-    : {};
+  const base =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? { ...(source as Record<string, unknown>) }
+      : {};
 
   const current = base[head];
   base[head] = updateAtPath(current, rest, nextValue);

@@ -177,6 +177,42 @@ src/
     └── fixtures/
 ```
 
+### Route Preloading Strategy {#route-preloading-strategy}
+
+The document editor still relies on route-level code splitting so that large
+feature modules (diff viewer, Milkdown editor, approval controls, and friends)
+only load when a user activates the related workflow. The original webpack
+implementation used ``import(`../${routePath}`)`` in
+`apps/web/src/features/document-editor/utils/performance.ts`. Vite flagged that
+pattern because the interpolated string prevented static analysis. Vite uses the
+static graph to pre-bundle dependencies, optimise HMR boundaries, and avoid
+runtime 404s, so we traded the dynamic expression for an explicit lookup table.
+
+```ts
+const ROUTE_MODULE_LOADERS: Record<string, () => Promise<unknown>> = {
+  'components/document-editor': () => import('../components/document-editor'),
+  'components/diff-preview': () => import('../components/diff-preview'),
+  // ...additional pre-loadable modules
+};
+
+export function preloadRoute(routePath: string): Promise<void> {
+  const loader = ROUTE_MODULE_LOADERS[routePath];
+  if (!loader) {
+    logger.warn({ operation: 'route_preload', routePath });
+    return Promise.resolve();
+  }
+  return loader().then(() => {
+    logger.info({ operation: 'route_preload', routePath });
+  });
+}
+```
+
+Enumerating the allowable chunks keeps the developer ergonomics of a simple
+`preloadRoute('components/diff-preview')` call while restoring Vite’s static
+optimisations and suppressing the startup warning. Unknown keys now
+short-circuit with a warning instead of throwing, which protects the editor from
+accidental typo regressions when adding future modules.
+
 ## Component Standards {#component-standards}
 
 ### Component Template {#component-template}
@@ -903,8 +939,8 @@ graph TD
 - Playwright now runs an automated Axe audit from
   `/apps/web/tests/e2e/section-editor/accessibility-audit.e2e.ts`, covering WCAG
   2.1 A/AA rules while ignoring the live contenteditable region that Axe cannot
-  reliably score. Use `pnpm --filter @ctrl-freaq/web test:e2e` to execute the
-  suite locally.
+  reliably score. Use `pnpm --filter @ctrl-freaq/web test:e2e:quick` for
+  fixture-backed runs; append `:ci` to mirror the pipeline configuration.
 - Edit-mode components expose `data-testid` attributes (`enter-edit`,
   `milkdown-editor`, `review-submit-dialog`, etc.) so audits and screen reader
   assertions remain stable even as UI polish evolves.
@@ -1660,26 +1696,38 @@ test.describe('Visual Performance Tests', () => {
 ### Test Commands {#playwright-test-commands}
 
 ```bash
-# Run all E2E tests
-npm run test:e2e
+# Repository gauntlet (Vitest + fixture + visual)
+pnpm test
 
-# Run visual regression tests only
-npm run test:visual
+# Vitest-only feedback loop
+pnpm test:quick
+
+# Fixture Playwright (fast iteration)
+pnpm --filter @ctrl-freaq/web test:e2e:quick
+
+# Fixture Playwright (CI parity)
+pnpm --filter @ctrl-freaq/web test:e2e:ci
+
+# Live-service Playwright (opt-in)
+pnpm --filter @ctrl-freaq/web test:live
+
+# Visual regression (fast iteration)
+pnpm --filter @ctrl-freaq/web test:visual:quick
+
+# Visual regression (CI parity)
+pnpm --filter @ctrl-freaq/web test:visual:ci
 
 # Update visual snapshots
-npm run test:visual:update
+pnpm --filter @ctrl-freaq/web test:visual:update
 
-# Run tests in specific browser
-npm run test:e2e -- --project="Desktop Chrome"
+# Target a specific browser/project
+pnpm --filter @ctrl-freaq/web test:e2e:quick -- --project="Desktop Chrome"
 
-# Run tests with UI mode (interactive debugging)
-npm run test:e2e -- --ui
+# Interactive debugging UI
+pnpm --filter @ctrl-freaq/web test:e2e:quick -- --ui
 
-# Generate test report
-npm run test:e2e -- --reporter=html
-
-# Run tests in CI mode
-CI=true npm run test:e2e
+# Override reporters for ad-hoc runs
+pnpm --filter @ctrl-freaq/web test:e2e:quick -- --reporter=line
 ```
 
 ### Visual Testing Best Practices {#visual-testing-best-practices}

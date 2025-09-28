@@ -11,6 +11,7 @@ import { immer } from 'zustand/middleware/immer';
 
 import type { SectionView } from '../types/section-view';
 import type { TableOfContents, TocNode } from '../types/table-of-contents';
+import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
 
 interface DocumentInfo {
   id: string;
@@ -34,6 +35,7 @@ interface DocumentStoreState {
   sectionHierarchy: Record<string, string[]>; // parentId -> childIds
 
   // Performance optimization
+  assumptionSessions: Record<string, AssumptionSessionFixture | null>;
   visibleSections: Set<string>;
   lastTocUpdate: number | null;
 
@@ -50,7 +52,8 @@ interface DocumentStoreState {
   toggleSectionExpansion: (sectionId: string) => void;
   setActiveTocNode: (sectionId: string | null) => void;
   markTocNodeVisible: (sectionId: string, visible: boolean) => void;
-  markTocNodeUnsaved: (sectionId: string, hasUnsavedChanges: boolean) => void;
+  setAssumptionSessions: (sessions: Record<string, AssumptionSessionFixture | null>) => void;
+  getAssumptionSession: (sectionId: string) => AssumptionSessionFixture | null;
 
   // Section hierarchy management
   loadSectionHierarchy: (sections: SectionView[]) => void;
@@ -78,6 +81,7 @@ const initialState = {
   rootSections: [],
   sectionHierarchy: {},
   visibleSections: new Set<string>(),
+  assumptionSessions: {},
   lastTocUpdate: null,
 };
 
@@ -192,6 +196,17 @@ export const useDocumentStore = create<DocumentStoreState>()(
 
       markTocNodeUnsaved: (sectionId: string, hasUnsavedChanges: boolean) => {
         get().updateTocNode(sectionId, { hasUnsavedChanges });
+      },
+
+      setAssumptionSessions: (sessions: Record<string, AssumptionSessionFixture | null>) => {
+        set(state => {
+          state.assumptionSessions = sessions;
+        });
+      },
+
+      getAssumptionSession: (sectionId: string) => {
+        const state = get();
+        return state.assumptionSessions[sectionId] ?? null;
       },
 
       loadSectionHierarchy: (sections: SectionView[]) => {

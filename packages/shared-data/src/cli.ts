@@ -208,7 +208,8 @@ class SharedDataCLI {
         },
         {
           name: 'DocumentTemplateMigration',
-          schema: (await import('./models/document-template-migration.js')).DocumentTemplateMigrationSchema,
+          schema: (await import('./models/document-template-migration.js'))
+            .DocumentTemplateMigrationSchema,
         },
         { name: 'Document', schema: (await import('./models/document.js')).DocumentSchema },
       ];

@@ -304,7 +304,8 @@ Projects UI — all runnable locally for MVP.
 - `pnpm dev` starts both frontend (port 5173) and backend (port 5001)
 - Frontend displays existing Dashboard with Clerk auth at http://localhost:5173
 - Backend health check responds at http://localhost:5001/health
-- `pnpm test` runs all placeholder tests successfully
+- `pnpm test` (gauntlet) passes, covering unit, fixture Playwright, and visual
+  placeholder suites
 - `pnpm typecheck` passes with strict mode
 - All Constitutional requirements met (CLI interfaces, structured logging,
   library independence)

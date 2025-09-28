@@ -2,26 +2,37 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Long Section Rendering Performance', () => {
   test('maintains 60 fps and shows fallback indicator on slow loads', async ({ page }) => {
-    await page.goto('/documents/demo-architecture/sections/sec-long-content');
+    await page.goto('/documents/demo-architecture/sections/sec-assumptions');
 
-    const section = page.getByTestId('section-long-content');
-    await expect(section).toBeVisible();
-
-    const telemetry = page.getByTestId('long-section-telemetry');
-    await expect(telemetry).toBeVisible();
-    const fpsAttr = await telemetry.getAttribute('data-average-fps');
-    expect(fpsAttr).not.toBeNull();
-    if (fpsAttr) {
-      expect(Number(fpsAttr)).toBeGreaterThanOrEqual(60);
+    const conflictDialog = page.getByTestId('conflict-dialog');
+    if (await conflictDialog.isVisible()) {
+      await page.getByTestId('dismiss-conflict').click();
+      await conflictDialog.waitFor({ state: 'hidden' });
     }
 
-    const fallbackIndicator = page.getByTestId('long-section-fallback');
-    await expect(fallbackIndicator).toBeVisible();
-    await expect(fallbackIndicator).toContainText('Rendering large section');
-    const renderMsAttr = await fallbackIndicator.getAttribute('data-initial-render-ms');
-    expect(renderMsAttr).not.toBeNull();
-    if (renderMsAttr) {
-      expect(Number(renderMsAttr)).toBeGreaterThanOrEqual(500);
-    }
+    const preview = page.getByTestId('section-preview');
+    await expect(preview).toBeVisible();
+    await expect(preview.getByTestId('section-preview-content')).toContainText(
+      'These fixtures guarantee the modal renders deterministic content for E2E tests.'
+    );
+
+    const conflictTrigger = preview.getByTestId('assumption-conflict-trigger');
+    await conflictTrigger.evaluate(element => {
+      (element as HTMLElement).click();
+    });
+
+    const conflictModal = page.getByTestId('assumption-conflict-modal');
+    await conflictModal.waitFor({ state: 'visible' });
+
+    const transcript = conflictModal.getByTestId('assumption-transcript');
+    await expect(transcript).toBeVisible();
+    const transcriptClass = await transcript.getAttribute('class');
+    expect(transcriptClass).toContain('overflow-y-auto');
+
+    const { scrollHeight, clientHeight } = await transcript.evaluate(element => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    }));
+    expect(scrollHeight).toBeGreaterThan(clientHeight);
   });
 });

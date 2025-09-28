@@ -544,6 +544,31 @@ WYSIWYG editing, and AI collaboration
 preview, quality gate real-time feedback **Design File Reference:** [Figma
 Frame: Document Editor Core - TBD]
 
+##### Deterministic E2E Fixture Mode {#document-editor-e2e-fixtures}
+
+**Purpose:** Guarantee deep-link coverage for the document editor without
+backend dependencies.
+
+**Key Behaviors:**
+
+- `pnpm --filter @ctrl-freaq/web dev:e2e` enables fixtures by forcing
+  `VITE_E2E=true`, mounting the `/__fixtures` middleware in Vite, and routing
+  API calls to `http://localhost:5173/__fixtures/api`.
+- Loaders behind `/documents/:documentId/sections/:sectionId` verify fixtures in
+  E2E mode and raise a 404 when the data bundle is missing.
+- The `DocumentMissing` component renders the fallback experience with
+  `data-testid="fixture-missing-view"`, surfaces the offending identifiers, and
+  links back to `/dashboard`.
+- `assumptionSession` fixtures hydrate the section preview modal and table of
+  contents badges so Playwright can assert transcript content and unresolved
+  counts.
+- Playwright commands default to `playwright.fixture.config.ts`. The
+  live-service scaffold (`playwright.live.config.ts`) is available through
+  `pnpm --filter @ctrl-freaq/web test:live` once backend orchestration is ready.
+
+**Interaction Notes:** Deep links always resolve to fixture content in E2E mode,
+while production mode continues to rely on live API responses once implemented.
+
 #### Floating AI Assistant Interface {#floating-ai-assistant-interface}
 
 **Purpose:** Persistent, repositionable AI chat interface for conversational
@@ -1017,7 +1042,8 @@ rendering across browsers, viewports, and states
 - **Baseline Management:** Store reference screenshots in
   `tests/e2e/__screenshots__/`
 - **Comparison Strategy:** Pixel-by-pixel diff with configurable thresholds
-- **Update Process:** `npm run test:visual:update` to accept new baselines
+- **Update Process:** `pnpm --filter @ctrl-freaq/web test:visual:update` to
+  accept new baselines
 - **CI Integration:** Fail builds on visual regressions exceeding threshold
 
 #### Cross-Browser Rendering Verification {#cross-browser-verification}
@@ -1066,11 +1092,33 @@ for (let index = 0; index < 10; index += 1) {
 ### Visual Testing Commands {#visual-testing-commands}
 
 ```bash
-npm run test:visual          # Run visual regression tests
-npm run test:visual:update   # Update baseline screenshots
-npm run test:visual:ci       # CI mode with strict comparison
-npm run test:e2e             # Run all E2E including visual
+# Repo gauntlet (unit + E2E + visual)
+pnpm test
+
+# Vitest-only feedback loop
+pnpm test:quick
+
+# Fixture Playwright suite
+pnpm --filter @ctrl-freaq/web test:e2e:quick
+
+# Fixture suite with CI settings
+pnpm --filter @ctrl-freaq/web test:e2e:ci
+
+# Visual regression quick loop
+pnpm --filter @ctrl-freaq/web test:visual:quick
+
+# Visual regression with CI reporters
+pnpm --filter @ctrl-freaq/web test:visual:ci
+
+# Refresh baseline screenshots
+pnpm --filter @ctrl-freaq/web test:visual:update
+
+# Live-service scaffold (opt-in)
+pnpm --filter @ctrl-freaq/web test:live
 ```
+
+Fixture commands enable `VITE_E2E=true` via `dev:e2e`/`test:e2e:quick`, while
+the live scaffold keeps the flag unset so the app exercises real API clients.
 
 ### Best Practices {#visual-testing-best-practices}
 

@@ -10,7 +10,8 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"],
-      "env": ["NODE_ENV"]
+      "env": ["NODE_ENV"],
+      "cache": false
     },
     "test:watch": {
       "cache": false,

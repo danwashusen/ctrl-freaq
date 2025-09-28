@@ -46,27 +46,7 @@ solution summary, screenshots for UI changes, and references to spec items
 `pnpm build` succeed before requesting review. Link any related issues and call
 out follow-up work explicitly.
 
-## Agent Workflow Notes
-
-Flag ambiguities as **Open Questions**, propose options, and record decisions
-inline or in commit messages. Default to repository constraints (library-first,
-mandatory TDD) when uncertain, and update this guide if a new pattern becomes
-binding.
-
-Within the WebStorm MCP server context:
-
-- Agents must never invoke `execute_terminal_command`; use the approved built-in
-  tool instead.
-- Agents must never invoke `get_file_text_by_path`; use the approved built-in
-  tool instead.
-
 ## Runtime Conventions
-
-When working with Python:
-
-- Always prefer Python 3 (`python3`) over the deprecated Python 2 (`python`).
-- Do not use `python` (which may be Python 2.x on some systems).
-- Use `/usr/bin/env python3` shebang style for inline execution.
 
 When working with YAML:
 

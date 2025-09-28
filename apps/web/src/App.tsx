@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@/lib/clerk-client';
 import { useEffect, useMemo } from 'react';
 import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom';
 
@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import { Toaster } from './components/ui/toaster';
 import { ApiProvider } from './lib/api-context';
 import logger from './lib/logger';
+import { documentRoutes } from './app/router/document-routes';
 
 function App() {
   const { user } = useUser();
@@ -63,6 +64,7 @@ function App() {
         { path: '/dashboard', element: <Dashboard /> },
         { path: '/project/:id', element: <Project /> },
         { path: '/settings', element: <Settings /> },
+        ...documentRoutes,
         { path: '*', element: <Navigate to="/dashboard" replace /> },
       ]),
     []

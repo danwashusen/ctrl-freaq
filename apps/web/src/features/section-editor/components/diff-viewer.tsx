@@ -98,6 +98,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({
                 key={`${segment.type}-${segment.startLine ?? index}-${index}`}
                 role="listitem"
                 data-segment-type={segment.type}
+                data-testid={`diff-${segment.type}`}
                 className={cn(
                   'border-l-4 px-5 py-4 font-mono text-sm leading-6',
                   segmentClasses[segment.type]

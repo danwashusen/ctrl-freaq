@@ -117,7 +117,12 @@ export class SectionEditorClient {
   constructor(options: SectionEditorClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
     this.getAuthToken = options.getAuthToken;
-    this.fetchImpl = options.fetch ?? fetch;
+
+    const fetchFn = options.fetch ?? fetch;
+    const boundFetch = options.fetch ? fetchFn : fetchFn.bind(globalThis);
+    this.fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) =>
+      boundFetch(input, init)) as typeof fetch;
+
     this.requestId = this.generateRequestId();
   }
 
