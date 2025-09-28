@@ -154,6 +154,13 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const prAuthor = context.payload.pull_request.user?.login ?? '';
+
+            if (['dependabot[bot]', 'dependabot-preview[bot]'].includes(prAuthor)) {
+              console.log(`Skipping PR title enforcement for automated author: ${prAuthor}`);
+              return;
+            }
+
             const title = context.payload.pull_request.title.trim();
 
             // Check for conventional commit format or descriptive format
