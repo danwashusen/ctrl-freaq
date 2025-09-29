@@ -35,7 +35,10 @@ Vitest powers unit and integration tests; name files `*.test.ts(x)` alongside
 the source. Use Playwright for E2E flows ( see `apps/web/tests`). Add regression
 coverage for every bug fix and new feature, keeping mocks in `__mocks__`.
 `pnpm test -- --coverage` is available locally; maintain or increase existing
-coverage deltas. Contract tests in `specs/` must stay green before merging.
+coverage deltas. Contract tests in `specs/` must stay green before merging. When
+your change hits the integration triggers in `CONSTITUTION.md` (new or updated
+public APIs, shared schemas, inter-service flows, etc.), add or update
+integration tests before opening a PR.
 
 ## Commit & Pull Request Guidelines
 
