@@ -777,7 +777,7 @@ export const ProtectedRoute = () => {
 
 - **Purpose**: Provide rich text editing experience while maintaining Markdown
   compatibility
-- **Implementation**: Milkdown v7.15.5 (https://github.com/Milkdown/milkdown) -
+- **Implementation**: Milkdown v7.16.0 (https://github.com/Milkdown/milkdown) -
   Plugin-based WYSIWYG markdown editor built on ProseMirror
 - **Features**:
   - Real-time WYSIWYG editing with Markdown source compatibility

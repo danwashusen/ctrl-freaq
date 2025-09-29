@@ -26,7 +26,7 @@ test-driven development requirements.
 | Date       | Version | Description                                        | Author     |
 | ---------- | ------- | -------------------------------------------------- | ---------- |
 | 2025-09-13 | 1.0     | Initial backend architecture from Old Architecture | Winston AI |
-| 2025-09-12 | 0.8     | Milkdown v7.15.5 WYSIWYG editor implementation     | Architect  |
+| 2025-09-12 | 0.8     | Milkdown v7.16.0 WYSIWYG editor implementation     | Architect  |
 | 2025-09-12 | 0.7     | Rename persistence package for clarity             | Architect  |
 | 2025-09-12 | 0.6     | Section content generation API                     | Architect  |
 | 2025-09-12 | 0.5     | Enhanced assumption resolution API                 | Architect  |
@@ -258,7 +258,7 @@ process.on('exit', () => clearInterval(interval));
 | **Logging**           | Pino             | 9.5.0   | Structured logging           | High-performance JSON logging                   |
 | **UI Framework**      | React            | 18.x    | Frontend framework           | Component model, ecosystem, team expertise      |
 | **CSS**               | Tailwind CSS     | 3.x     | Utility-first styling        | Rapid development, consistent design            |
-| **Editor**            | Milkdown         | 7.15.5  | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
+| **Editor**            | Milkdown         | 7.16.0  | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
 
 ## Data Models {#data-models}
 
@@ -586,7 +586,7 @@ generation
 - Markdown/WYSIWYG conversion
 - Diff visualization
 
-**Dependencies:** Milkdown 7.15.5, diff-match-patch
+**Dependencies:** Milkdown 7.16.0, diff-match-patch
 
 **Technology Stack:** TypeScript, Milkdown
 
