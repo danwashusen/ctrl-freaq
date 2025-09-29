@@ -459,7 +459,7 @@ creation and editing:
 
 4. **Section-Based Editing**: Users navigate to any section and toggle between
    read mode (preview) and edit mode (WYSIWYG Markdown editor using Milkdown
-   v7.15.5). Local pending changes stored as Git-style patch diffs.
+   v7.16.0). Local pending changes stored as Git-style patch diffs.
 
 5. **New Section Content Flow**: For blank sections, trigger assumption
    resolution loop before drafting. For existing content, allow direct WYSIWYG
@@ -509,7 +509,7 @@ Each section follows this state progression:
 
 #### Technical Implementation Notes
 
-- **Editor**: Milkdown v7.15.5 for WYSIWYG Markdown editing
+- **Editor**: Milkdown v7.16.0 for WYSIWYG Markdown editing
 - **Persistence**: Client-side patch storage via `packages/editor-persistence`
 - **Templates**: Backend template resolution via `packages/template-resolver`
 - **AI Integration**: Vercel AI SDK for LLM interactions

@@ -538,7 +538,7 @@ WYSIWYG editing, and AI collaboration
   drafting → diff_preview → ready)
 - Quality gates status panel (integrated, not overlay)
 - Breadcrumb navigation maintaining project context
-- WYSIWYG editor integration (Milkdown v7.15.5) within section contexts
+- WYSIWYG editor integration (Milkdown v7.16.0) within section contexts
 
 **Interaction Notes:** Seamless section navigation, inline editing with diff
 preview, quality gate real-time feedback **Design File Reference:** [Figma
