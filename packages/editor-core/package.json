@@ -42,7 +42,7 @@
     "@types/diff-match-patch": "^1.0.36",
     "commander": "^14.0.1",
     "diff-match-patch": "^1.0.5",
-    "zod": "^3.23.0"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "tsx": "^4.0.0",
