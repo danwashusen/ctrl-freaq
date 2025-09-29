@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 import { BaseRepository } from './base-repository';
 import type { QueryOptions } from '../types/index';
@@ -7,6 +7,16 @@ import {
   SECTION_RECORD_QUALITY_GATES,
   type SectionRecordQualityGate,
 } from '../models/section-record';
+
+const qualityGateErrorMap: ZodErrorMap = (issue, ctx) => {
+  if (issue.code === z.ZodIssueCode.invalid_type) {
+    return { message: 'qualityGate is required' };
+  }
+  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+    return { message: 'Invalid quality gate value' };
+  }
+  return { message: ctx.defaultError };
+};
 
 /**
  * SectionView entity schema
@@ -43,8 +53,7 @@ export const SectionViewSchema = z.object({
   approvedBy: z.string().min(1).nullable(),
   lastSummary: z.string().max(1000, 'lastSummary too long').nullable(),
   qualityGate: z.enum(SECTION_RECORD_QUALITY_GATES, {
-    required_error: 'qualityGate is required',
-    invalid_type_error: 'Invalid quality gate value',
+    errorMap: qualityGateErrorMap,
   }),
   accessibilityScore: z.number().min(0).max(100).nullable(),
 

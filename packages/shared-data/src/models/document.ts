@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { BaseRepository } from '../repositories/base-repository.js';
 
 export const DocumentContentSchema = z.record(z.string(), z.unknown(), {
-  required_error: 'Document content is required',
+  message: 'Document content is required',
 });
 
 export const DocumentSchema = z.object({

@@ -1,10 +1,22 @@
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 export const SECTION_RECORD_STATUSES = ['idle', 'drafting', 'review', 'ready'] as const;
 export type SectionRecordStatus = (typeof SECTION_RECORD_STATUSES)[number];
 
 export const SECTION_RECORD_QUALITY_GATES = ['pending', 'passed', 'failed'] as const;
 export type SectionRecordQualityGate = (typeof SECTION_RECORD_QUALITY_GATES)[number];
+
+const createEnumErrorMap = (requiredMessage: string, invalidMessage: string): ZodErrorMap => {
+  return (issue, ctx) => {
+    if (issue.code === z.ZodIssueCode.invalid_type) {
+      return { message: requiredMessage };
+    }
+    if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+      return { message: invalidMessage };
+    }
+    return { message: ctx.defaultError };
+  };
+};
 
 export const SectionRecordSchema = z.object({
   id: z.string().min(1, 'Section record id must be provided'),
@@ -19,12 +31,10 @@ export const SectionRecordSchema = z.object({
   approvedBy: z.string().min(1).nullable(),
   lastSummary: z.string().max(1000, 'lastSummary too long').nullable(),
   status: z.enum(SECTION_RECORD_STATUSES, {
-    required_error: 'status is required',
-    invalid_type_error: 'Invalid section status',
+    errorMap: createEnumErrorMap('status is required', 'Invalid section status'),
   }),
   qualityGate: z.enum(SECTION_RECORD_QUALITY_GATES, {
-    required_error: 'qualityGate is required',
-    invalid_type_error: 'Invalid qualityGate state',
+    errorMap: createEnumErrorMap('qualityGate is required', 'Invalid qualityGate state'),
   }),
   accessibilityScore: z.number().min(0).max(100).nullable(),
   createdAt: z.date(),

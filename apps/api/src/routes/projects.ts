@@ -39,7 +39,7 @@ const _ErrorResponseSchema = z.object({
   message: z.string(),
   requestId: z.string(),
   timestamp: z.string().datetime(),
-  details: z.record(z.any()).optional(),
+  details: z.record(z.string(), z.any()).optional(),
 });
 
 type ErrorResponse = z.infer<typeof _ErrorResponseSchema>;

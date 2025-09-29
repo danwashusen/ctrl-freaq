@@ -70,7 +70,7 @@ const diffSegmentFixtureSchema = z.object({
   content: z.string().min(1),
   startLine: z.number().int().nonnegative().optional(),
   endLine: z.number().int().nonnegative().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const diffFixtureSchema = z.object({
@@ -207,7 +207,7 @@ export const documentFixtureSchema = z.object({
   tableOfContents: z.array(sectionReferenceSchema).min(1),
   updatedAt: z.string().min(1),
   lifecycleStatus: z.enum(documentLifecycleStatuses),
-  sections: z.record(sectionFixtureSchema),
+  sections: z.record(z.string(), sectionFixtureSchema),
 });
 export type DocumentFixture = z.infer<typeof documentFixtureSchema>;
 
@@ -218,7 +218,7 @@ export const fixtureErrorSchema = z.object({
 export type FixtureErrorResponse = z.infer<typeof fixtureErrorSchema>;
 
 export const fixtureCollectionSchema = z.object({
-  documents: z.record(documentFixtureSchema),
+  documents: z.record(z.string(), documentFixtureSchema),
 });
 export type FixtureCollection = z.infer<typeof fixtureCollectionSchema>;
 

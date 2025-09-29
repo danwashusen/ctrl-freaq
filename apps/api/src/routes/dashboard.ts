@@ -41,7 +41,7 @@ const ActivityItemSchema = z.object({
     'member_removed',
   ]),
   description: z.string().max(255),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   createdAt: z.string(),
 });
 

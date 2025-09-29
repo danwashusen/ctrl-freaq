@@ -1,7 +1,19 @@
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 export const FORMATTING_ANNOTATION_SEVERITIES = ['warning', 'error'] as const;
 export type FormattingAnnotationSeverity = (typeof FORMATTING_ANNOTATION_SEVERITIES)[number];
+
+const createEnumErrorMap = (requiredMessage: string, invalidMessage: string): ZodErrorMap => {
+  return (issue, ctx) => {
+    if (issue.code === z.ZodIssueCode.invalid_type) {
+      return { message: requiredMessage };
+    }
+    if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+      return { message: invalidMessage };
+    }
+    return { message: ctx.defaultError };
+  };
+};
 
 const FormattingAnnotationObjectSchema = z.object({
   id: z.string().uuid('Formatting annotation id must be a valid UUID'),
@@ -12,8 +24,7 @@ const FormattingAnnotationObjectSchema = z.object({
   markType: z.string().min(1, 'markType is required').max(100, 'markType too long'),
   message: z.string().min(1, 'message is required').max(500, 'message too long'),
   severity: z.enum(FORMATTING_ANNOTATION_SEVERITIES, {
-    required_error: 'severity is required',
-    invalid_type_error: 'Invalid severity value',
+    errorMap: createEnumErrorMap('severity is required', 'Invalid severity value'),
   }),
   createdAt: z.date(),
   createdBy: z.string().uuid('createdBy must be a valid UUID'),

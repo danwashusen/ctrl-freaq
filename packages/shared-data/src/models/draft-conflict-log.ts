@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 export const DRAFT_CONFLICT_DETECTION_POINTS = ['entry', 'save'] as const;
 export type DraftConflictDetectionPoint = (typeof DRAFT_CONFLICT_DETECTION_POINTS)[number];
@@ -10,20 +10,36 @@ export const DRAFT_CONFLICT_RESOLUTION_METHODS = [
 ] as const;
 export type DraftConflictResolutionMethod = (typeof DRAFT_CONFLICT_RESOLUTION_METHODS)[number];
 
+const detectedDuringErrorMap: ZodErrorMap = (issue, ctx) => {
+  if (issue.code === z.ZodIssueCode.invalid_type) {
+    return { message: 'detectedDuring is required' };
+  }
+  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+    return { message: 'Invalid detectedDuring value' };
+  }
+  return { message: ctx.defaultError };
+};
+
+const resolvedByErrorMap: ZodErrorMap = (issue, ctx) => {
+  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+    return { message: 'Invalid resolvedBy value' };
+  }
+  return { message: ctx.defaultError };
+};
+
 const DraftConflictLogObjectSchema = z.object({
   id: z.string().min(1, 'Draft conflict log id must be provided'),
   sectionId: z.string().min(1, 'sectionId must be provided'),
   draftId: z.string().min(1, 'draftId must be provided'),
   detectedAt: z.date(),
   detectedDuring: z.enum(DRAFT_CONFLICT_DETECTION_POINTS, {
-    required_error: 'detectedDuring is required',
-    invalid_type_error: 'Invalid detectedDuring value',
+    errorMap: detectedDuringErrorMap,
   }),
   previousApprovedVersion: z.number().int().min(0, 'previousApprovedVersion must be non-negative'),
   latestApprovedVersion: z.number().int().min(0, 'latestApprovedVersion must be non-negative'),
   resolvedBy: z
     .enum(DRAFT_CONFLICT_RESOLUTION_METHODS, {
-      invalid_type_error: 'Invalid resolvedBy value',
+      errorMap: resolvedByErrorMap,
     })
     .nullable(),
   resolutionNote: z.string().max(1000, 'resolutionNote too long').nullable(),

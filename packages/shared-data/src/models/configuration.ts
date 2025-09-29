@@ -170,7 +170,7 @@ export const ConfigValueSchemas = {
     tabSize: z.number().min(1).max(8).optional(),
     theme: z.string().optional(),
   }),
-  apiKeys: z.record(z.string()), // Encrypted API keys
+  apiKeys: z.record(z.string(), z.string()), // Encrypted API keys
   notifications: z.object({
     email: z.boolean().optional(),
     desktop: z.boolean().optional(),

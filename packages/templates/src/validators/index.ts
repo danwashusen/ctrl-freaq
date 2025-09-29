@@ -292,13 +292,14 @@ export const TemplateSchema = z.object({
   content: z.string(),
   variables: z
     .record(
+      z.string(),
       z.union([
         z.unknown(), // Simple default value
         VariableDefinitionSchema, // Complex variable definition
       ])
     )
     .optional(),
-  sections: z.record(z.string()).optional(),
+  sections: z.record(z.string(), z.string()).optional(),
 });
 
 export type VariableDefinition = z.infer<typeof VariableDefinitionSchema>;
