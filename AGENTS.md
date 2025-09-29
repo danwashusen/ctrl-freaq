@@ -20,6 +20,50 @@ needed). Run unit suites via `pnpm test`; execute contract coverage with
 package-specific flows, e.g.
 `pnpm --filter @ctrl-freaq/templates cli validate sample.yaml`.
 
+### Code Quality Gate Command Crib Sheet
+
+- `pnpm build`: Turbo build across all workspaces; obeys build graph/caching.
+- `pnpm clean`: turbo clean plus delete node_modules; resets workspace caches.
+- `pnpm commitlint`: Runs Commitlint against staged message (usually via
+  CI/hooks).
+- `pnpm dev`: Turbo dev for everything with concurrency cap of 12.
+- `pnpm dev:apps`: Dev mode limited to @ctrl-freaq/web and @ctrl-freaq/api.
+- `pnpm --filter @ctrl-freaq/web dev:e2e`: Vite dev server in fixture mode
+  (`VITE_E2E=true`).
+- `pnpm --filter @ctrl-freaq/web dev:live`: Vite dev server pointed at live
+  services (`VITE_E2E` unset).
+- `pnpm format`: Prettier write on entire repo.
+- `pnpm format:check`: Prettier check only (fails on diff).
+- `pnpm lint`: Repo-wide Turbo lint with --force (rerun all) then repo ESLint
+  cache pass.
+- `pnpm lint:quick`: Quick cached Turbo lint then repo ESLint cache pass.
+- `pnpm lint:ci`: Repo ESLint with --max-warnings=0.
+- `pnpm lint:fix`: Repo ESLint with --fix.
+- `pnpm lint:fix:check`: ESLint --fix-dry-run preview.
+- `pnpm lint:repo`: Repo ESLint with cache (baseline command).
+- `pnpm lint:yaml`: ESLint focused on .yml/.yaml.
+- `pnpm test`: Repository gauntlet (Vitest with `--force --no-cache`, then
+  fixture and visual Playwright).
+- `pnpm test:quick`: Vitest-only feedback loop across workspaces.
+- `pnpm test:unit:ci`: Forces Turbo to rerun every Vitest suite without cache.
+- `pnpm test:gauntlet`: Explicit alias when CI scripts need the gauntlet
+  directly.
+- `pnpm test:ci`: Lint, typecheck, and gauntlet in a single command.
+- `pnpm --filter @ctrl-freaq/web test:e2e:quick`: Fixture Playwright suite for
+  fast iteration.
+- `pnpm --filter @ctrl-freaq/web test:e2e:ci`: Fixture Playwright configured for
+  CI parity.
+- `pnpm --filter @ctrl-freaq/web test:live`: Live Playwright harness (opt-in).
+- `pnpm --filter @ctrl-freaq/web test:visual:quick`: Visual regression quick
+  loop.
+- `pnpm --filter @ctrl-freaq/web test:visual:ci`: Visual regression with CI
+  reporters.
+- `pnpm typecheck`: Repo-wide Turbo typecheck with --force (no cache).
+- `pnpm typecheck:quick`: Quick cached Turbo typecheck.
+
+To scope any command to one workspace, add `--filter <package>` (e.g.
+`pnpm --filter @ctrl-freaq/web lint`).
+
 ## Coding Style & Naming Conventions
 
 Codebase is TypeScript-first; avoid stray `.js` unless build output. Follow
