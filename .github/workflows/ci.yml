@@ -344,7 +344,7 @@ jobs:
   test:
     name: Test Suites
     runs-on: ubuntu-latest
-    timeout-minutes: 5 # All tests should complete within timeout limit
+    timeout-minutes: 15 # Allow additional time for full Vitest suite on cold caches
     needs: setup
     strategy:
       fail-fast: false # Continue running all tests even if some packages fail
