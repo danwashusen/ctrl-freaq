@@ -1,6 +1,6 @@
 import { ClerkProvider, useAuth, useUser } from '@/lib/clerk-client';
 import { render, screen, waitFor } from '@testing-library/react';
-import { describe, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import App from '../../src/App';
 
@@ -29,6 +29,58 @@ describe('Routing: dashboard default redirect', () => {
   });
 
   test('authenticated user at "/" is redirected to "/dashboard"', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const target =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      let pathname = '';
+      try {
+        pathname = new URL(target, 'http://localhost').pathname;
+      } catch {
+        pathname = target;
+      }
+
+      if (pathname.endsWith('/dashboard')) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              projects: [],
+              activities: [],
+              stats: { totalProjects: 0, recentActivityCount: 0 },
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-request-id': 'test-request',
+            },
+          }
+        );
+      }
+
+      if (pathname.endsWith('/projects')) {
+        return new Response(JSON.stringify({ projects: [], total: 0 }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-request-id': 'test-request',
+          },
+        });
+      }
+
+      return new Response(JSON.stringify({ data: {} }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': 'test-request',
+        },
+      });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
     vi.mocked(useAuth).mockReturnValue({ isSignedIn: true, isLoaded: true } as any);
     vi.mocked(useUser).mockReturnValue({
       isLoaded: true,
@@ -45,5 +97,10 @@ describe('Routing: dashboard default redirect', () => {
       // The Dashboard page currently renders a welcome message
       expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
     });
+
+    expect(fetchMock).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    global.fetch = originalFetch;
   });
 });
