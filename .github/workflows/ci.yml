@@ -386,7 +386,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm --filter @ctrl-freaq/web exec playwright install --with-deps
 
       - name: Run test suites
         run: |
