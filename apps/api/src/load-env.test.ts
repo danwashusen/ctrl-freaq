@@ -21,8 +21,8 @@ function resetEnv() {
 
 describe('load-env', () => {
   let tempDir: string;
-  let warnSpy: MockInstance<[message?: any, ...optionalParams: any[]], void>;
-  let cwdSpy: MockInstance<[], string> | null;
+  let warnSpy: MockInstance<typeof console.warn>;
+  let cwdSpy: MockInstance<typeof process.cwd> | null;
 
   beforeEach(() => {
     vi.resetModules();
