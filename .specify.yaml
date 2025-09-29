@@ -1,4 +1,6 @@
 spec-kit:
+  - changelog:
+      path: 'CHANGELOG.md'
   - constitution:
       path: 'CONSTITUTION.md'
       documents:

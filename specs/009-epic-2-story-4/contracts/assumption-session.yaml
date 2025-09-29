@@ -1,0 +1,347 @@
+openapi: 3.0.3
+info:
+  title: Assumption Session API
+  version: 1.0.0
+  description: >-
+    Endpoints that power the New Section Content Flow for blank sections,
+    including assumption resolution, override gating, and proposal history.
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Local Express server
+security:
+  - bearerAuth: []
+paths:
+  /sections/{sectionId}/assumptions/session:
+    post:
+      summary: Start a new assumption session for a blank section
+      operationId: startAssumptionSession
+      tags: [AssumptionSessions]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        201:
+          description: Session created with prioritised prompts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartSessionResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        409:
+          description: Section already has an active assumption session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionConflictResponse'
+
+  /sections/{sectionId}/assumptions/{assumptionId}/respond:
+    post:
+      summary: Answer, defer, escalate, or skip a prompt with override tracking
+      operationId: respondToAssumption
+      tags: [AssumptionSessions]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/AssumptionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondAssumptionRequest'
+      responses:
+        200:
+          description: Prompt state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssumptionPromptState'
+        409:
+          description: Section-level decision conflict detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionConflictResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+  /sections/{sectionId}/assumptions/session/{sessionId}/proposals:
+    post:
+      summary: Generate a draft proposal tied to the completed assumption set
+      operationId: createDraftProposal
+      tags: [AssumptionSessions]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProposalRequest'
+      responses:
+        201:
+          description: Proposal created and appended to session history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftProposalResponse'
+        409:
+          description: Unresolved overrides block proposal generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverrideBlockResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      summary: Retrieve proposal history for the session in chronological order
+      operationId: listDraftProposals
+      tags: [AssumptionSessions]
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        200:
+          description: Ordered proposal history with rationale mappings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalHistoryResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    SectionId:
+      name: sectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AssumptionId:
+      name: assumptionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Malformed payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Session or section not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+          description: Correlates logs per constitution observability rules
+
+    StartSessionRequest:
+      type: object
+      required: [templateVersion]
+      properties:
+        templateVersion:
+          type: string
+          description: Template revision used when expanding prompts
+
+    StartSessionResponse:
+      type: object
+      required: [sessionId, prompts, documentDecisionSnapshotId]
+      properties:
+        sessionId:
+          type: string
+        documentDecisionSnapshotId:
+          type: string
+        prompts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssumptionPromptState'
+
+    SessionConflictResponse:
+      type: object
+      required: [status, sessionId]
+      properties:
+        status:
+          type: string
+          enum: [active_session_exists]
+        sessionId:
+          type: string
+
+    RespondAssumptionRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [answer, defer, escalate, skip_override]
+        answer:
+          type: string
+          description: When `action=answer`, contains selected value or text
+        notes:
+          type: string
+          description: Optional context supplied by the user
+        overrideJustification:
+          type: string
+          description: Required when `action=skip_override`
+
+    AssumptionPromptState:
+      type: object
+      required: [id, status, priority, unresolvedOverrideCount, nextActionable]
+      properties:
+        id:
+          type: string
+        priority:
+          type: integer
+        status:
+          type: string
+          enum: [pending, answered, deferred, escalated, override_skipped]
+        answer:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        overrideJustification:
+          type: string
+          nullable: true
+        unresolvedOverrideCount:
+          type: integer
+          description: Overrides to reconcile before drafting can continue
+        nextActionable:
+          type: boolean
+          description: Whether this prompt should surface next in UI/CLI
+
+    DecisionConflictResponse:
+      type: object
+      required: [status, decisionId, message]
+      properties:
+        status:
+          type: string
+          enum: [conflict]
+        decisionId:
+          type: string
+        message:
+          type: string
+
+    CreateProposalRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [ai_generate, manual_submit]
+          default: ai_generate
+        draftOverride:
+          type: string
+          description: Optional manual draft content when source=manual_submit
+        retryToken:
+          type: string
+          description: Idempotency token for AI retries
+
+    DraftProposalResponse:
+      type: object
+      required: [proposalId, proposalIndex, contentMarkdown, rationale, overridesOpen]
+      properties:
+        proposalId:
+          type: string
+        proposalIndex:
+          type: integer
+        contentMarkdown:
+          type: string
+        rationale:
+          type: array
+          items:
+            type: object
+            required: [assumptionId, summary]
+            properties:
+              assumptionId:
+                type: string
+              summary:
+                type: string
+        aiConfidence:
+          type: number
+          format: float
+          nullable: true
+        overridesOpen:
+          type: integer
+          description: Remaining override count blocking submission
+
+    OverrideBlockResponse:
+      type: object
+      required: [status, overridesOpen]
+      properties:
+        status:
+          type: string
+          enum: [overrides_block_submission]
+        overridesOpen:
+          type: integer
+        message:
+          type: string
+
+    ProposalHistoryResponse:
+      type: object
+      required: [sessionId, proposals]
+      properties:
+        sessionId:
+          type: string
+        proposals:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DraftProposalResponse'
+              - type: object
+                properties:
+                  supersededAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  supersededBy:
+                    type: string
+                    nullable: true
