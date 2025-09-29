@@ -38,7 +38,7 @@
     "jspdf": "^3.0.2",
     "markdown-it": "^14.0.0",
     "puppeteer": "^22.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.0",
