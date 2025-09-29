@@ -455,6 +455,9 @@ content generation, quality gates, export functionality, streaming responses
 - QA & Traceability: Quality gates, trace links, citations
 - Exporter: Markdown file generation with sharding
 - Streaming Client: SSE/Web Streams with <300ms TTFB
+- Observability: Assumption session service logs structured telemetry events
+  (`assumption_session.completed`, `assumption_session.latency_ms`,
+  `assumption_override.recorded`) with request-scoped context for dashboards.
 
 ### packages/shared-data - Data Access Layer {#shared-data}
 
@@ -606,6 +609,8 @@ editor-core patch-apply --patch "diff.patch" --content "original"
 - Pending change storage
 - Batch save operations
 - Change history management
+- Assumption session store APIs with CLI parity for
+  `pnpm --filter @ctrl-freaq/editor-persistence cli assumptions` flows.
 
 **Dependencies:** localforage, diff-match-patch
 

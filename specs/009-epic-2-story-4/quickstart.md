@@ -89,9 +89,10 @@ describe('assumption session conflict handling', () => {
 
     const res = await request(
       'POST',
-      `/sections/sec-streaming/assumptions/${session.body.prompts[0].id}/answer`,
+      `/sections/sec-streaming/assumptions/${session.body.prompts[0].id}/respond`,
       {
         body: {
+          action: 'answer',
           answer: 'Use on-prem queues',
         },
       }
@@ -142,6 +143,26 @@ describe('proposal history', () => {
   });
 });
 ```
+
+## Scenario 4: Inspect Assumption Session CLI Parity
+
+**Acceptance Criteria**: NFR-002, DOC-001
+
+```bash
+# List persisted sessions using the shared CLI
+pnpm --filter @ctrl-freaq/editor-persistence cli assumptions list --json
+
+# Fetch proposal history for a specific session
+pnpm --filter @ctrl-freaq/editor-persistence cli assumptions history \
+  --session sess-demo-architecture --json
+
+# Clear local cache to simulate cold start recovery
+pnpm --filter @ctrl-freaq/editor-persistence cli assumptions clear
+```
+
+Verify the CLI output mirrors the web flow: proposal entries include
+`proposalIndex`, `source`, and `recordedAt`, and clearing storage resets the
+resume banner on reload.
 
 ## Exit Criteria
 

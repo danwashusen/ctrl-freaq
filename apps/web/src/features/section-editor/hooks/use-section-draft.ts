@@ -236,7 +236,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
 
     storage
       .loadDraft(documentId, sectionId, userId)
-      .then(record => {
+      .then((record: ManualDraftRecord | null) => {
         if (!record || cancelled) {
           return;
         }
@@ -248,7 +248,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
           setSummary: setSummaryInternal,
         });
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         logger.warn('Failed to hydrate manual draft from persistence', {
           sectionId,
           documentId,

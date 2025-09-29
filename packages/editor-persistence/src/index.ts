@@ -7,12 +7,11 @@
  */
 
 // Core persistence functionality exports
-export * from './storage/index.js';
-export * from './sync/index.js';
-export * from './local-storage.js';
-
-// CLI export
-export { cli } from './cli.js';
+export * from './storage/index';
+export * from './sync/index';
+export * from './local-storage';
+export * from './assumption-sessions/session-store';
+export * from './assumption-sessions/bridge';
 
 // Core types and interfaces
 export interface StorageConfig {

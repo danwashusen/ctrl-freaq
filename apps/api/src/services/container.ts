@@ -17,6 +17,7 @@ import {
   FormattingAnnotationRepositoryImpl,
   DraftConflictLogRepositoryImpl,
   SectionReviewRepositoryImpl,
+  AssumptionSessionRepository,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
@@ -31,7 +32,14 @@ import {
   SectionReviewService,
   SectionApprovalService,
   SectionConflictLogService,
+  AssumptionSessionService,
+  TemplateAssumptionPromptProvider,
 } from '../modules/section-editor/services/index.js';
+import type {
+  AssumptionPromptProvider,
+  DocumentDecisionProvider,
+} from '../modules/section-editor/services/index.js';
+import { DocumentDecisionProviderImpl } from '../modules/section-editor/services/document-decision.provider.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -77,6 +85,34 @@ export function createRepositoryRegistrationMiddleware() {
       () => new DraftConflictLogRepositoryImpl(getDb())
     );
     container.register('sectionReviewRepository', () => new SectionReviewRepositoryImpl(getDb()));
+    container.register(
+      'assumptionSessionRepository',
+      () => new AssumptionSessionRepository(getDb())
+    );
+
+    container.register('assumptionPromptProvider', currentContainer => {
+      const templateResolver = currentContainer.get('templateResolver') as TemplateResolver;
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+
+      return new TemplateAssumptionPromptProvider({
+        templateResolver,
+        documentRepository,
+        sectionRepository,
+        logger,
+      });
+    });
+
+    container.register('documentDecisionProvider', currentContainer => {
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+      return new DocumentDecisionProviderImpl({ documents: documentRepository, logger });
+    });
 
     container.register('templateCatalogService', currentContainer => {
       const templateRepo = currentContainer.get(
@@ -201,6 +237,25 @@ export function createRepositoryRegistrationMiddleware() {
         resolver,
         logger
       );
+    });
+
+    container.register('assumptionSessionService', currentContainer => {
+      const repository = currentContainer.get(
+        'assumptionSessionRepository'
+      ) as AssumptionSessionRepository;
+      const logger = currentContainer.get('logger') as Logger;
+      const promptProvider = currentContainer.get(
+        'assumptionPromptProvider'
+      ) as AssumptionPromptProvider;
+      const decisionProvider = currentContainer.get(
+        'documentDecisionProvider'
+      ) as DocumentDecisionProvider;
+      return new AssumptionSessionService({
+        repository,
+        logger,
+        promptProvider,
+        decisionProvider,
+      });
     });
 
     container.register('sectionConflictService', currentContainer => {

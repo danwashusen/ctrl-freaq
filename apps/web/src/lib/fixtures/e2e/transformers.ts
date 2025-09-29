@@ -7,6 +7,8 @@ import type {
   SectionFixture,
   SectionReference,
 } from './types';
+import type { AssumptionFlowState } from '@/features/document-editor/assumptions-flow';
+import type { AssumptionPromptState } from '@/features/document-editor/types/assumption-session';
 
 type DocumentStoreStatus = 'draft' | 'review' | 'published';
 
@@ -18,7 +20,7 @@ interface FixtureDocumentView {
   updatedAt: string;
   sections: SectionView[];
   toc: TableOfContents;
-  assumptionSessions: Record<string, AssumptionSessionFixture | null>;
+  assumptionSessions: Record<string, AssumptionFlowState | null>;
 }
 
 const sectionStatusToStoreStatus: Record<'draft' | 'review' | 'ready', DocumentStoreStatus> = {
@@ -36,6 +38,49 @@ const lifecycleStateToSectionStatus: Record<
   drafting: 'drafting',
   review: 'review',
   ready: 'ready',
+};
+
+const mapFixtureQuestionToPrompt = (
+  question: AssumptionSessionFixture['questions'][number],
+  index: number,
+  unresolvedCount: number
+): AssumptionPromptState => ({
+  id: question.id,
+  heading: question.prompt,
+  body: question.prompt,
+  responseType: 'text',
+  options: [],
+  priority: index,
+  status: question.status === 'resolved' ? 'answered' : 'pending',
+  answer: question.decision ?? null,
+  overrideJustification: null,
+  unresolvedOverrideCount: question.status === 'resolved' ? 0 : unresolvedCount,
+});
+
+export const convertFixtureSessionToFlowState = (
+  session: AssumptionSessionFixture
+): AssumptionFlowState => {
+  const prompts = session.questions.map((question, index) =>
+    mapFixtureQuestionToPrompt(question, index, session.unresolvedCount)
+  );
+
+  const promptsRemaining = prompts.filter(prompt => prompt.status !== 'answered').length;
+  const summaryMarkdown = session.transcript
+    .map(message => `**${message.speaker}:** ${message.content}`)
+    .join('\n');
+  const proposalHistory = session.proposals.map(proposal => ({
+    proposalId: proposal.proposalId,
+    proposalIndex: proposal.proposalIndex,
+  }));
+
+  return {
+    sessionId: session.sessionId,
+    prompts,
+    promptsRemaining,
+    overridesOpen: session.unresolvedCount,
+    summaryMarkdown: summaryMarkdown.length > 0 ? summaryMarkdown : null,
+    proposalHistory,
+  };
 };
 
 function resolveQualityGateStatus(section: SectionFixture): SectionView['qualityGateStatus'] {
@@ -133,7 +178,7 @@ function buildTocNode(
 export function buildFixtureDocumentView(document: DocumentFixture): FixtureDocumentView {
   const documentStatus = sectionStatusToStoreStatus[document.lifecycleStatus];
   const sections: SectionView[] = [];
-  const assumptionSessions: Record<string, AssumptionSessionFixture | null> = {};
+  const assumptionSessions: Record<string, AssumptionFlowState | null> = {};
   const tocNodes: TocNode[] = [];
 
   document.tableOfContents.forEach((reference, index) => {
@@ -144,7 +189,9 @@ export function buildFixtureDocumentView(document: DocumentFixture): FixtureDocu
     const sectionView = buildSectionViewFromFixture(document.id, sectionFixture, index);
     sections.push(sectionView);
     tocNodes.push(buildTocNode(reference, sectionView, index));
-    assumptionSessions[reference.id] = sectionFixture.assumptionSession;
+    assumptionSessions[reference.id] = sectionFixture.assumptionSession
+      ? convertFixtureSessionToFlowState(sectionFixture.assumptionSession)
+      : null;
   });
 
   const toc: TableOfContents = {

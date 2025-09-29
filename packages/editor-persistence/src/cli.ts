@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { createLocalStorageManager } from './local-storage.js';
-import { promises as fs } from 'fs';
+import { createLocalStorageManager } from './local-storage';
+import { createAssumptionSessionStore } from './assumption-sessions/session-store';
+import * as fs from 'node:fs/promises';
 
 const program = new Command();
 
@@ -193,6 +194,100 @@ export function cli(argv?: string[]): void {
           error instanceof Error ? error.message : 'Unknown error'
         );
         process.exit(1);
+      }
+    });
+
+  program
+    .command('assumptions')
+    .description('Manage persisted assumption session state')
+    .option('-a, --action <action>', 'Action (list, get, history, clear)', 'list')
+    .option('-s, --session <sessionId>', 'Session identifier')
+    .option('-n, --namespace <namespace>', 'Storage namespace override')
+    .option('--json', 'Output in JSON format', false)
+    .action(async options => {
+      const store = createAssumptionSessionStore({ namespace: options.namespace });
+      const asJson = Boolean(options.json);
+
+      switch (options.action) {
+        case 'list': {
+          const sessions = await store.listSessions();
+          if (asJson) {
+            console.log(JSON.stringify({ count: sessions.length, sessions }, null, 2));
+          } else {
+            if (sessions.length === 0) {
+              console.log('No assumption sessions stored.');
+            } else {
+              console.log('Stored Assumption Sessions:');
+              sessions.forEach(item => {
+                console.log(`  - ${item.sessionId} (updated ${item.updatedAt})`);
+              });
+            }
+          }
+          break;
+        }
+
+        case 'get': {
+          if (!options.session) {
+            console.error('--session required for get action');
+            process.exit(1);
+          }
+          const session = await store.getSession(options.session);
+          if (!session) {
+            console.error(`Session not found: ${options.session}`);
+            process.exit(1);
+          }
+
+          if (asJson) {
+            console.log(JSON.stringify(session, null, 2));
+          } else {
+            console.log(`Session ${session.sessionId}`);
+            console.log(`Section: ${session.sectionId}`);
+            console.log(`Document: ${session.documentId}`);
+            console.log(`Prompts: ${session.prompts.length}`);
+            console.log(`Overrides open: ${session.overridesOpen}`);
+            console.log(`Updated: ${session.updatedAt}`);
+          }
+          break;
+        }
+
+        case 'history': {
+          if (!options.session) {
+            console.error('--session required for history action');
+            process.exit(1);
+          }
+          const proposals = await store.getProposals(options.session);
+          if (asJson) {
+            console.log(JSON.stringify({ sessionId: options.session, proposals }, null, 2));
+          } else {
+            if (proposals.length === 0) {
+              console.log(`No proposals stored for session ${options.session}`);
+            } else {
+              console.log(`Proposals for session ${options.session}:`);
+              proposals.forEach(proposal => {
+                console.log(
+                  `  #${proposal.proposalIndex} ${proposal.proposalId} [${proposal.source}] recorded ${proposal.recordedAt}`
+                );
+              });
+            }
+          }
+          break;
+        }
+
+        case 'clear': {
+          await store.clear();
+          if (asJson) {
+            console.log(
+              JSON.stringify({ status: 'success', message: 'Assumption storage cleared' })
+            );
+          } else {
+            console.log('Cleared assumption session storage.');
+          }
+          break;
+        }
+
+        default:
+          console.error(`Unknown action: ${options.action}`);
+          process.exit(1);
       }
     });
 

@@ -11,6 +11,7 @@ export * from './editor/index.js';
 export * from './extensions/index.js';
 export * from './patch-engine.js';
 export * from './diff/section-diff.js';
+export * from './assumptions/index.js';
 
 // CLI export
 export { cli } from './cli.js';

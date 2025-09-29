@@ -15,6 +15,10 @@
     "./sync/*": {
       "import": "./dist/sync/*.js",
       "types": "./dist/sync/*.d.ts"
+    },
+    "./assumption-sessions/*": {
+      "import": "./dist/assumption-sessions/*.js",
+      "types": "./dist/assumption-sessions/*.d.ts"
     }
   },
   "main": "dist/index.js",

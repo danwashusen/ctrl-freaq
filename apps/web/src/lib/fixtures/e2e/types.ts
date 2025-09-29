@@ -42,6 +42,16 @@ export const assumptionSessionSchema = z.object({
   questions: z.array(assumptionQuestionSchema).min(1),
   unresolvedCount: z.number().int().nonnegative(),
   transcript: z.array(transcriptMessageSchema).min(1),
+  proposals: z
+    .array(
+      z.object({
+        proposalId: z.string().min(1),
+        proposalIndex: z.number().int().nonnegative(),
+        source: z.enum(['ai_generated', 'manual_revision', 'ai_retry', 'fallback_manual']),
+        recordedAt: z.string().min(1),
+      })
+    )
+    .default([]),
 });
 export type AssumptionSessionFixture = z.infer<typeof assumptionSessionSchema>;
 

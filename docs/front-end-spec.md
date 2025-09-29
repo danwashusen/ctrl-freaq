@@ -603,6 +603,12 @@ assumptions with AI assistance
 - Interactive response area supporting multiple choice and free-form input
 - Context preservation across assumption sequences
 - Skip/defer options with impact warnings
+- Observability instrumentation surfaces when each prompt is answered or
+  skipped, emitting `assumption_session.*` telemetry with request correlation
+  and override status for QA dashboards.
+- CLI parity: the web flow mirrors
+  `pnpm --filter @ctrl-freaq/editor-persistence cli assumptions` output so
+  offline resume tooling shares persistence keys and proposal history format.
 
 **Interaction Notes:** Keyboard navigation support, contextual help integration,
 progress persistence **Design File Reference:** [Figma Frame: Assumption

@@ -11,7 +11,7 @@ import { immer } from 'zustand/middleware/immer';
 
 import type { SectionView } from '../types/section-view';
 import type { TableOfContents, TocNode } from '../types/table-of-contents';
-import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
+import type { AssumptionFlowState } from '../assumptions-flow';
 
 interface DocumentInfo {
   id: string;
@@ -35,7 +35,7 @@ interface DocumentStoreState {
   sectionHierarchy: Record<string, string[]>; // parentId -> childIds
 
   // Performance optimization
-  assumptionSessions: Record<string, AssumptionSessionFixture | null>;
+  assumptionSessions: Record<string, AssumptionFlowState | null>;
   visibleSections: Set<string>;
   lastTocUpdate: number | null;
 
@@ -52,8 +52,9 @@ interface DocumentStoreState {
   toggleSectionExpansion: (sectionId: string) => void;
   setActiveTocNode: (sectionId: string | null) => void;
   markTocNodeVisible: (sectionId: string, visible: boolean) => void;
-  setAssumptionSessions: (sessions: Record<string, AssumptionSessionFixture | null>) => void;
-  getAssumptionSession: (sectionId: string) => AssumptionSessionFixture | null;
+  setAssumptionSessions: (sessions: Record<string, AssumptionFlowState | null>) => void;
+  setAssumptionSession: (sectionId: string, session: AssumptionFlowState | null) => void;
+  getAssumptionSession: (sectionId: string) => AssumptionFlowState | null;
 
   // Section hierarchy management
   loadSectionHierarchy: (sections: SectionView[]) => void;
@@ -198,9 +199,15 @@ export const useDocumentStore = create<DocumentStoreState>()(
         get().updateTocNode(sectionId, { hasUnsavedChanges });
       },
 
-      setAssumptionSessions: (sessions: Record<string, AssumptionSessionFixture | null>) => {
+      setAssumptionSessions: (sessions: Record<string, AssumptionFlowState | null>) => {
         set(state => {
           state.assumptionSessions = sessions;
+        });
+      },
+
+      setAssumptionSession: (sectionId: string, session: AssumptionFlowState | null) => {
+        set(state => {
+          state.assumptionSessions[sectionId] = session;
         });
       },
 

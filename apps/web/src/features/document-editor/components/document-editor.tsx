@@ -37,6 +37,8 @@ import {
   SectionEditorConflictError,
 } from '@/features/section-editor/api/section-editor.client';
 import { useDocumentFixtureBootstrap } from '../hooks/use-document-fixture';
+import { AssumptionsChecklist } from '../assumptions-flow/components/assumptions-checklist';
+import { useAssumptionsFlow } from '../assumptions-flow/hooks/use-assumptions-flow';
 
 export interface DocumentEditorProps {
   documentId: string;
@@ -142,7 +144,30 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const sectionsList = useMemo(() => sortSections(sections), [sections]);
     const activeSection = activeSectionId ? (sections[activeSectionId] ?? null) : null;
 
-    const activeAssumptionSession = activeSection ? getAssumptionSession(activeSection.id) : null;
+    const shouldEnableAssumptionsFlow =
+      activeSection?.status === 'assumptions' ||
+      (!!activeSection && !activeSection.hasContent && !activeSection.assumptionsResolved);
+
+    const {
+      state: assumptionFlowState,
+      isLoading: isAssumptionFlowLoading,
+      error: assumptionFlowError,
+      respond: respondToAssumptionPrompt,
+    } = useAssumptionsFlow({
+      sectionId: shouldEnableAssumptionsFlow ? activeSection?.id : undefined,
+      documentId,
+      templateVersion: '1.0.0',
+      enabled: shouldEnableAssumptionsFlow,
+    });
+
+    const assumptionSessionFromStore = activeSection
+      ? getAssumptionSession(activeSection.id)
+      : null;
+    const activeAssumptionSession = assumptionFlowState ?? assumptionSessionFromStore;
+    const assumptionFlowBlocking = Boolean(
+      shouldEnableAssumptionsFlow &&
+        (assumptionFlowState?.promptsRemaining ?? 0) + (assumptionFlowState?.overridesOpen ?? 0) > 0
+    );
 
     const sectionDraftState = useSectionDraftStore(state => ({
       conflictReason: state.conflictReason,
@@ -821,7 +846,9 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                     assumptionSession={activeAssumptionSession}
                     documentId={documentId}
                     onEnterEdit={handleEnterEdit}
-                    isEditDisabled={isEditing && activeSection.id !== activeSectionId}
+                    isEditDisabled={
+                      (isEditing && activeSection.id !== activeSectionId) || assumptionFlowBlocking
+                    }
                     approval={{
                       approvedAt: activeSection.approvedAt ?? undefined,
                       approvedBy: activeSection.approvedBy ?? undefined,
@@ -829,6 +856,26 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                       reviewerSummary: activeSection.lastSummary ?? undefined,
                     }}
                   />
+
+                  {shouldEnableAssumptionsFlow && (
+                    <div className="mt-6 space-y-3" data-testid="assumptions-checklist-panel">
+                      {assumptionFlowError && (
+                        <div
+                          className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+                          role="alert"
+                        >
+                          {assumptionFlowError}
+                        </div>
+                      )}
+
+                      <AssumptionsChecklist
+                        prompts={assumptionFlowState?.prompts ?? []}
+                        overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
+                        isLoading={isAssumptionFlowLoading}
+                        onRespond={respondToAssumptionPrompt}
+                      />
+                    </div>
+                  )}
 
                   {isEditing && (
                     <div className="mt-6 space-y-6" data-testid="section-editor-panel">
