@@ -10,7 +10,7 @@
 import localforage from 'localforage';
 import { z } from 'zod';
 
-import { logger as defaultLogger, type Logger } from '../logger.js';
+import { logger as defaultLogger, type Logger } from '../logger';
 
 export const MANUAL_DRAFT_CONFLICT_STATES = [
   'clean',

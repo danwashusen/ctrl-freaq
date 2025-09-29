@@ -95,15 +95,10 @@ out follow-up work explicitly.
 
 ## Runtime Conventions
 
-When working with YAML:
-
-- First try `yq eval -o=json <file>` to convert YAML → JSON.
-- If `yq` is not available, then fallback to Python 3 with PyYAML.
-
-When considering how to interact with a third-party library (e.g. 'localforage',
-'react-router-dom', etc.):
-
-- Consult the context7 MCP server for API guidance.
+- Do not use Python 2. If you need Python, default to Python 3.
+- Consult the context7 MCP server for updated API guidance.
+- To convert YAML → JSON first try `yq eval -o=json <file>`, if `yq` is not
+  available, then fallback to Python 3 with PyYAML.
 
 ## Constitutional Compliance
 

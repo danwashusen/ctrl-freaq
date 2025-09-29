@@ -57,6 +57,20 @@ const architectureAssumptionSession: AssumptionSessionFixture = {
       timestamp: '2025-01-15T15:08:45.000Z',
     },
   ],
+  proposals: [
+    {
+      proposalId: 'prop-architecture-1',
+      proposalIndex: 0,
+      source: 'ai_generated',
+      recordedAt: '2025-01-15T15:09:00.000Z',
+    },
+    {
+      proposalId: 'prop-architecture-2',
+      proposalIndex: 1,
+      source: 'manual_revision',
+      recordedAt: '2025-01-15T15:20:00.000Z',
+    },
+  ],
 };
 
 const apiGatewayAssumptionSession: AssumptionSessionFixture = {
@@ -95,6 +109,14 @@ const apiGatewayAssumptionSession: AssumptionSessionFixture = {
       content:
         'Assistant: Marking one item unresolved until trace evidence lands. Include auth messaging in summary.',
       timestamp: '2025-01-15T14:42:05.000Z',
+    },
+  ],
+  proposals: [
+    {
+      proposalId: 'prop-api-1',
+      proposalIndex: 0,
+      source: 'ai_generated',
+      recordedAt: '2025-01-15T14:43:00.000Z',
     },
   ],
 };

@@ -178,6 +178,76 @@ export const ConflictLogResponseSchema = z.object({
 });
 export type ConflictLogResponse = z.infer<typeof ConflictLogResponseSchema>;
 
+export const AssumptionSessionStartRequestSchema = z.object({
+  templateVersion: z.string().min(1),
+  decisionSnapshotId: z.string().optional(),
+});
+export type AssumptionSessionStartRequest = z.infer<typeof AssumptionSessionStartRequestSchema>;
+
+export const AssumptionPromptStateSchema = z.object({
+  id: z.string().min(1),
+  heading: z.string().min(1),
+  body: z.string().min(1),
+  responseType: z.enum(['single_select', 'multi_select', 'text']),
+  options: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        label: z.string().min(1),
+        description: z.string().nullable(),
+        defaultSelected: z.boolean(),
+      })
+    )
+    .default([]),
+  priority: z.number().int(),
+  status: z.enum(['pending', 'answered', 'deferred', 'escalated', 'override_skipped']),
+  answer: z.string().nullable(),
+  overrideJustification: z.string().nullable(),
+  unresolvedOverrideCount: z.number().int().min(0),
+  escalation: z
+    .object({
+      assignedTo: z.string().min(1),
+      status: z.enum(['pending', 'resolved']),
+      notes: z.string().optional(),
+    })
+    .optional(),
+});
+export type AssumptionPromptState = z.infer<typeof AssumptionPromptStateSchema>;
+
+export const AssumptionRespondRequestSchema = z.object({
+  action: z.enum(['answer', 'defer', 'escalate', 'skip_override']),
+  answer: z.string().optional(),
+  notes: z.string().optional(),
+  overrideJustification: z.string().optional(),
+});
+export type AssumptionRespondRequest = z.infer<typeof AssumptionRespondRequestSchema>;
+
+export const AssumptionProposalRequestSchema = z.object({
+  source: z.enum(['ai_generate', 'manual_submit']),
+  draftOverride: z.string().optional(),
+});
+export type AssumptionProposalRequest = z.infer<typeof AssumptionProposalRequestSchema>;
+
+export const AssumptionProposalResponseSchema = z.object({
+  proposalId: z.string().min(1),
+  proposalIndex: z.number().int().min(0),
+  contentMarkdown: z.string(),
+  rationale: z.array(
+    z.object({
+      assumptionId: z.string().min(1),
+      summary: z.string().min(1),
+    })
+  ),
+  overridesOpen: z.number().int().min(0),
+});
+export type AssumptionProposalResponse = z.infer<typeof AssumptionProposalResponseSchema>;
+
+export const AssumptionProposalsListResponseSchema = z.object({
+  sessionId: z.string().min(1),
+  proposals: z.array(AssumptionProposalResponseSchema),
+});
+export type AssumptionProposalsListResponse = z.infer<typeof AssumptionProposalsListResponseSchema>;
+
 export const SectionEditorSchemas = {
   ConflictCheckRequestSchema,
   ConflictCheckResponseSchema,
@@ -192,4 +262,10 @@ export const SectionEditorSchemas = {
   ApproveSectionRequestSchema,
   ApprovalResponseSchema,
   ConflictLogResponseSchema,
+  AssumptionSessionStartRequestSchema,
+  AssumptionPromptStateSchema,
+  AssumptionRespondRequestSchema,
+  AssumptionProposalRequestSchema,
+  AssumptionProposalResponseSchema,
+  AssumptionProposalsListResponseSchema,
 };

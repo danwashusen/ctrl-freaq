@@ -5,3 +5,6 @@ export * from './section-diff.service';
 export * from './section-review.service';
 export * from './section-approval.service';
 export * from './section-conflict-log.service';
+export * from './assumption-session.service';
+export * from './template-assumption-prompt.provider';
+export * from './document-decision.provider';

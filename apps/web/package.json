@@ -21,6 +21,7 @@
     "test:e2e:quick": "playwright test -c playwright.fixture.config.ts",
     "test:e2e:ui": "playwright test -c playwright.fixture.config.ts --ui",
     "test:live": "playwright test -c playwright.live.config.ts",
+    "test:performance": "vitest run tests/performance",
     "test:visual": "pnpm run test:visual:quick",
     "test:visual:ci": "playwright test tests/e2e/visual --reporter=line,junit --workers=1 --forbid-only --retries=2",
     "test:visual:quick": "playwright test tests/e2e/visual",

@@ -42,9 +42,14 @@
       "@ctrl-freaq/exporter/*": ["./packages/exporter/src/*"],
       "@ctrl-freaq/editor-core": ["./packages/editor-core/src"],
       "@ctrl-freaq/editor-core/*": ["./packages/editor-core/src/*"],
-      "@ctrl-freaq/editor-persistence": ["./packages/editor-persistence/src"],
+      "@ctrl-freaq/editor-persistence": [
+        "./packages/editor-persistence/src/index"
+      ],
       "@ctrl-freaq/editor-persistence/*": [
         "./packages/editor-persistence/src/*"
+      ],
+      "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
+        "./packages/editor-persistence/src/assumption-sessions/*"
       ],
       "@ctrl-freaq/template-resolver": ["./packages/template-resolver/src"],
       "@ctrl-freaq/template-resolver/*": ["./packages/template-resolver/src/*"]

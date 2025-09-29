@@ -34,6 +34,26 @@ export type {
 export type { FormattingAnnotation } from './models/formatting-annotation.js';
 export type { DraftConflictLog } from './models/draft-conflict-log.js';
 export type { SectionReviewSummary } from './models/section-review-summary.js';
+export type {
+  SectionAssumption,
+  AssumptionStatus,
+  AssumptionOption,
+  AssumptionResponseType,
+  SectionAssumptionUpdate,
+} from './models/section-assumption.js';
+export type {
+  AssumptionSession,
+  AssumptionSessionStatus,
+  AssumptionSessionCreateInput,
+  AssumptionSessionUpdateInput,
+} from './models/assumption-session.js';
+export type {
+  DraftProposal,
+  DraftProposalSource,
+  DraftProposalRationale,
+  DraftProposalCreateInput,
+  DraftProposalUpdateInput,
+} from './models/draft-proposal.js';
 
 // Export models
 export * from './models/index.js';

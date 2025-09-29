@@ -17,6 +17,7 @@ import {
   type DiffFixture,
 } from './types';
 import { demoArchitectureDocument } from './demo-architecture';
+import { convertFixtureSessionToFlowState } from './transformers';
 
 const fixturesByDocumentId: Record<string, DocumentFixture> = {
   [demoArchitectureDocument.id]: demoArchitectureDocument,
@@ -48,6 +49,7 @@ type ParsedRequest =
   | { kind: 'apiApprove'; sectionId: string }
   | { kind: 'apiConflictsCheck'; sectionId: string }
   | { kind: 'apiConflictLogs'; sectionId: string }
+  | { kind: 'apiAssumptionsStart'; sectionId: string }
   | { kind: 'unknown' };
 
 const notFoundError: FixtureErrorResponse = fixtureErrorSchema.parse({
@@ -203,7 +205,15 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
     }
     const sectionId = rawSectionId;
 
-    const tail = segments.slice(3).join('/');
+    const tailSegments = segments.slice(3);
+
+    if (tailSegments[0] === 'assumptions') {
+      if (tailSegments.length === 2 && tailSegments[1] === 'session') {
+        return { kind: 'apiAssumptionsStart', sectionId };
+      }
+    }
+
+    const tail = tailSegments.join('/');
 
     switch (tail) {
       case 'drafts':
@@ -555,6 +565,33 @@ function handleConflictLogs(res: ServerResponse, sectionId: string) {
   sendJson(res, 200, { events });
 }
 
+function handleAssumptionsStart(res: ServerResponse, sectionId: string) {
+  const documentId = resolveDocumentIdForSection(sectionId);
+  if (!documentId) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const document = fixturesByDocumentId[documentId];
+  const section = document?.sections[sectionId];
+  const assumptionSession = section?.assumptionSession;
+
+  if (!document || !section || !assumptionSession) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const flowState = convertFixtureSessionToFlowState(assumptionSession);
+
+  sendJson(res, 200, {
+    sessionId: flowState.sessionId,
+    sectionId,
+    prompts: flowState.prompts,
+    overridesOpen: flowState.overridesOpen,
+    summaryMarkdown: flowState.summaryMarkdown,
+  });
+}
+
 export type FixtureRequestHandler = (
   req: IncomingMessage,
   res: ServerResponse,
@@ -629,6 +666,14 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
             return;
           }
           handleConflictLogs(res, parsed.sectionId);
+          return;
+        }
+        case 'apiAssumptionsStart': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleAssumptionsStart(res, parsed.sectionId);
           return;
         }
         default:

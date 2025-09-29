@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import type * as BetterSqlite3 from 'better-sqlite3';
 
 interface SeedSectionParams {
@@ -6,6 +8,10 @@ interface SeedSectionParams {
   userId: string;
   approvedVersion?: number;
   approvedContent?: string;
+  templateId?: string;
+  templateVersion?: string;
+  templateSchemaHash?: string;
+  templateVersionId?: string;
 }
 
 interface SeedDraftParams {
@@ -50,9 +56,161 @@ export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSecti
   const nowIso = new Date().toISOString();
   const approvedVersion = Math.max(params.approvedVersion ?? 6, 1);
   const approvedContent = params.approvedContent ?? DEFAULT_APPROVED_CONTENT;
+  const templateId = params.templateId ?? 'architecture';
+  const templateVersion = params.templateVersion ?? '1.0.0';
+  const templateSchemaHash = params.templateSchemaHash ?? 'hash-architecture-v1';
+  const templateVersionId = params.templateVersionId ?? randomUUID();
 
   seedUserFixture(db, params.userId);
   seedUserFixture(db, 'user-reviewer-001');
+
+  const defaultSections = [
+    {
+      id: 'architecture-overview',
+      title: 'Architecture Overview',
+      orderIndex: 0,
+      required: true,
+      type: 'markdown',
+      guidance: 'Summarise architecture changes and confirm risk posture before drafting.',
+      assumptions: {
+        guidance:
+          'Resolve security, performance, and dependency assumptions prior to generating proposals.',
+        checklist: [
+          {
+            id: 'assumptions.security.baseline',
+            heading: 'Confirm security baseline',
+            body: 'Does this section introduce security changes requiring review?',
+            responseType: 'single_select',
+            options: [
+              {
+                id: 'requires-review',
+                label: 'Requires security review',
+                description: null,
+                defaultSelected: false,
+              },
+              {
+                id: 'no-changes',
+                label: 'No significant change',
+                description: null,
+                defaultSelected: true,
+              },
+            ],
+            priority: 0,
+          },
+          {
+            id: 'assumptions.performance.latency',
+            heading: 'Validate latency targets',
+            body: 'Are the latency SLOs aligned with this change?',
+            responseType: 'text',
+            options: [],
+            priority: 1,
+          },
+          {
+            id: 'assumptions.dependencies.catalog',
+            heading: 'Select integration updates',
+            body: 'Choose dependencies impacted by this section update.',
+            responseType: 'multi_select',
+            options: [
+              {
+                id: 'ai-service',
+                label: 'AI Service',
+                description: null,
+                defaultSelected: false,
+              },
+              {
+                id: 'persistence-layer',
+                label: 'Persistence layer',
+                description: null,
+                defaultSelected: false,
+              },
+              {
+                id: 'telemetry',
+                label: 'Telemetry',
+                description: null,
+                defaultSelected: false,
+              },
+            ],
+            priority: 2,
+          },
+        ],
+      },
+      children: [],
+    },
+  ];
+
+  db.prepare(
+    `INSERT OR IGNORE INTO document_templates (
+        id,
+        name,
+        description,
+        document_type,
+        active_version_id,
+        status,
+        default_aggressiveness,
+        created_at,
+        created_by,
+        updated_at,
+        updated_by,
+        deleted_at,
+        deleted_by
+     ) VALUES (?, ?, ?, ?, ?, 'draft', 'balanced', ?, ?, ?, ?, NULL, NULL)`
+  ).run(
+    templateId,
+    'Architecture Template',
+    'Seeded architecture template for tests',
+    'architecture-document',
+    null,
+    nowIso,
+    params.userId,
+    nowIso,
+    params.userId
+  );
+
+  db.prepare(
+    `INSERT OR REPLACE INTO template_versions (
+        id,
+        template_id,
+        version,
+        status,
+        changelog,
+        schema_hash,
+        schema_json,
+        sections_json,
+        source_path,
+        published_at,
+        published_by,
+        deprecated_at,
+        deprecated_by,
+        created_at,
+        created_by,
+        updated_at,
+        updated_by
+     ) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`
+  ).run(
+    templateVersionId,
+    templateId,
+    templateVersion,
+    'Initial template seed for tests',
+    templateSchemaHash,
+    JSON.stringify({}),
+    JSON.stringify(defaultSections),
+    `templates/${templateId}.yaml`,
+    nowIso,
+    params.userId,
+    nowIso,
+    params.userId,
+    nowIso,
+    params.userId
+  );
+
+  db.prepare(
+    `UPDATE document_templates
+        SET active_version_id = ?,
+            status = 'active',
+            updated_at = ?,
+            updated_by = ?
+      WHERE id = ?`
+  ).run(templateVersionId, nowIso, params.userId, templateId);
 
   db.prepare(
     `INSERT OR IGNORE INTO documents (
@@ -69,8 +227,17 @@ export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSecti
         updated_by,
         deleted_at,
         deleted_by
-     ) VALUES (?, ?, ?, '{}', NULL, NULL, NULL, ?, 'system', ?, 'system', NULL, NULL)`
-  ).run(params.documentId, 'project-test', 'Demo Architecture Document', nowIso, nowIso);
+     ) VALUES (?, ?, ?, '{}', ?, ?, ?, ?, 'system', ?, 'system', NULL, NULL)`
+  ).run(
+    params.documentId,
+    'project-test',
+    'Demo Architecture Document',
+    templateId,
+    templateVersion,
+    templateSchemaHash,
+    nowIso,
+    nowIso
+  );
 
   const documentExists = db
     .prepare('SELECT id FROM documents WHERE id = ? LIMIT 1')
@@ -78,6 +245,16 @@ export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSecti
   if (!documentExists) {
     throw new Error(`Document fixture missing for ${params.documentId}`);
   }
+
+  db.prepare(
+    `UPDATE documents
+        SET template_id = ?,
+            template_version = ?,
+            template_schema_hash = ?,
+            updated_at = ?,
+            updated_by = ?
+      WHERE id = ?`
+  ).run(templateId, templateVersion, templateSchemaHash, nowIso, params.userId, params.documentId);
 
   db.prepare(
     `INSERT OR REPLACE INTO section_records (

@@ -4,12 +4,12 @@ import { Edit, Eye, Save, Loader2, FileText, Clock, User, ShieldAlert } from 'lu
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
-import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
+import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionView, SectionViewState } from '../types/section-view';
 
 interface SectionCardProps {
   section: SectionView;
-  assumptionSession?: AssumptionSessionFixture | null;
+  assumptionSession?: AssumptionFlowState | null;
   isActive?: boolean;
   onEditClick?: (sectionId: string) => void;
   onSaveClick?: (sectionId: string) => void;
@@ -117,7 +117,7 @@ export const SectionCard = memo<SectionCardProps>(
                 {assumptionSession && (
                   <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
                     <ShieldAlert className="h-3 w-3" />
-                    {assumptionSession.policy}
+                    {assumptionSession.promptsRemaining} pending
                   </span>
                 )}
               </div>
@@ -200,19 +200,20 @@ export const SectionCard = memo<SectionCardProps>(
 
           {assumptionSession && (
             <div
-              className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-100"
+              className="mt-4 space-y-2 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-100"
               data-testid="assumption-fixture-snippet"
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold uppercase">Fixture Transcript</span>
+                <span className="font-semibold uppercase">Assumptions</span>
                 <span className="rounded bg-amber-200 px-1 py-0.5 text-[10px] font-semibold text-amber-900">
-                  {assumptionSession.unresolvedCount} unresolved
+                  {assumptionSession.overridesOpen} overrides
                 </span>
               </div>
-              <ul className="mt-2 space-y-1">
-                {assumptionSession.transcript.slice(0, 2).map((message, index) => (
-                  <li key={`${message.timestamp}-${index}`} className="leading-snug">
-                    <span className="font-semibold">{message.speaker}:</span> {message.content}
+              <ul className="space-y-1">
+                {assumptionSession.prompts.slice(0, 2).map(prompt => (
+                  <li key={prompt.id} className="leading-snug">
+                    <span className="font-semibold">{prompt.heading}:</span>{' '}
+                    {prompt.status.replace('_', ' ')}
                   </li>
                 ))}
               </ul>

@@ -37,3 +37,14 @@ export * from './section-draft.js';
 export * from './formatting-annotation.js';
 export * from './draft-conflict-log.js';
 export * from './section-review-summary.js';
+export * from './section-assumption.js';
+export {
+  AssumptionSessionStatusSchema,
+  type AssumptionSessionStatus,
+  AssumptionSessionSchema,
+  type AssumptionSession,
+  type AssumptionSessionCreateInput,
+  type AssumptionSessionUpdateInput,
+  toSnakeCaseColumn as toAssumptionSessionSnakeCaseColumn,
+} from './assumption-session.js';
+export * from './draft-proposal.js';

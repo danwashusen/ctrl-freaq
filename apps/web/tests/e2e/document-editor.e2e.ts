@@ -516,19 +516,15 @@ test.describe('Document Editor Core Infrastructure', () => {
       const conflictModal = page.getByTestId('assumption-conflict-modal');
       await conflictModal.waitFor({ state: 'visible' });
 
-      const transcript = conflictModal.getByTestId('assumption-transcript');
-      await expect(transcript).toBeVisible();
-      await expect(transcript).toContainText(
-        'Assistant: Highlighting gaps in the governance controls. Recommend addressing escalation paths before sign-off.'
-      );
-      await expect(transcript).toContainText(
-        'System: Transcript locked for audit after policy review window closed.'
-      );
+      const promptList = conflictModal.getByTestId('assumption-prompts');
+      await expect(promptList).toBeVisible();
+      await expect(promptList).toContainText('Have we documented escalation paths');
+      await expect(promptList).toContainText('Does the zero-trust rollout cover legacy services?');
+      await expect(promptList).toContainText('Status: pending');
+      await expect(promptList).toContainText('Status: answered');
 
-      const authMessage = conflictModal.getByTestId('assumption-auth-message');
-      await expect(authMessage).toHaveText(
-        'Sign in to the control panel to resolve conflicts with full audit context.'
-      );
+      const entryCount = await promptList.getByTestId('assumption-entry').count();
+      expect(entryCount).toBeGreaterThanOrEqual(3);
 
       const unresolvedBadge = conflictModal.getByTestId('assumption-unresolved-count');
       await expect(unresolvedBadge).toHaveText(/Unresolved items:\s*2/);

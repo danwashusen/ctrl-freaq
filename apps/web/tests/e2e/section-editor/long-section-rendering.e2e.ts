@@ -24,12 +24,12 @@ test.describe('Long Section Rendering Performance', () => {
     const conflictModal = page.getByTestId('assumption-conflict-modal');
     await conflictModal.waitFor({ state: 'visible' });
 
-    const transcript = conflictModal.getByTestId('assumption-transcript');
-    await expect(transcript).toBeVisible();
-    const transcriptClass = await transcript.getAttribute('class');
-    expect(transcriptClass).toContain('overflow-y-auto');
+    const promptList = conflictModal.getByTestId('assumption-prompts');
+    await expect(promptList).toBeVisible();
+    const promptContainerClass = await promptList.getAttribute('class');
+    expect(promptContainerClass).toContain('overflow-y-auto');
 
-    const { scrollHeight, clientHeight } = await transcript.evaluate(element => ({
+    const { scrollHeight, clientHeight } = await promptList.evaluate(element => ({
       scrollHeight: element.scrollHeight,
       clientHeight: element.clientHeight,
     }));

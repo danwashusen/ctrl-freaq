@@ -5,7 +5,7 @@ import { CheckCircle2, Clock, PencilLine, ShieldAlert, UserCheck } from 'lucide-
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
-import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
+import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionStatus, SectionView } from '../types/section-view';
 
 interface SectionApprovalMetadata {
@@ -74,7 +74,7 @@ const resolveApprovedVersion = (
 
 export interface DocumentSectionPreviewProps {
   section: SectionViewWithApproval;
-  assumptionSession?: AssumptionSessionFixture | null;
+  assumptionSession?: AssumptionFlowState | null;
   documentId?: string;
   approval?: SectionApprovalMetadata;
   onEnterEdit?: (sectionId: string) => void;
@@ -93,11 +93,9 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
     className,
   }) => {
     const [isAssumptionModalOpen, setAssumptionModalOpen] = useState(false);
-    const unresolvedCount = assumptionSession?.unresolvedCount ?? 0;
-    const transcriptMessages = useMemo(
-      () => assumptionSession?.transcript ?? [],
-      [assumptionSession]
-    );
+    const unresolvedCount = assumptionSession?.promptsRemaining ?? 0;
+    const overridesOpen = assumptionSession?.overridesOpen ?? 0;
+    const prompts = assumptionSession?.prompts ?? [];
 
     useEffect(() => {
       if (!assumptionSession && isAssumptionModalOpen) {
@@ -167,9 +165,9 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
                   data-testid="assumption-conflict-trigger"
                 >
                   <ShieldAlert className="mr-1 h-4 w-4" aria-hidden="true" />
-                  Review Conflicts
+                  Review Assumptions
                   <span className="ml-2 rounded bg-amber-200 px-1 py-0.5 text-xs font-semibold text-amber-900">
-                    {unresolvedCount}
+                    {overridesOpen}
                   </span>
                 </Button>
               )}
@@ -250,11 +248,13 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Assumption Conflicts
+                    Assumption Checklist
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {documentId ?? 'document'} - policy {assumptionSession.policy}
-                  </p>
+                  {documentId && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Document {documentId}
+                    </p>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -274,26 +274,35 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
                   </span>
                 </div>
 
-                <p
-                  className="rounded bg-blue-50 p-2 text-sm text-blue-900 dark:bg-blue-900/40 dark:text-blue-100"
-                  data-testid="assumption-auth-message"
-                >
-                  Sign in to the control panel to resolve conflicts with full audit context.
-                </p>
+                {assumptionSession?.summaryMarkdown && (
+                  <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-100">
+                    <p className="font-medium">Session Summary</p>
+                    <p className="mt-1 whitespace-pre-line">{assumptionSession.summaryMarkdown}</p>
+                  </div>
+                )}
 
                 <div
-                  className="max-h-64 overflow-y-auto rounded border border-gray-200 p-3 dark:border-gray-700"
-                  data-testid="assumption-transcript"
+                  className="max-h-64 space-y-3 overflow-y-auto"
+                  data-testid="assumption-prompts"
                 >
-                  {transcriptMessages.map((message, index) => (
-                    <div key={`${message.timestamp}-${index}`} className="mb-3 last:mb-0">
-                      <span className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-                        {message.speaker}
-                      </span>
-                      <p className="text-sm text-gray-800 dark:text-gray-200">{message.content}</p>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {message.timestamp}
-                      </span>
+                  {prompts.map(prompt => (
+                    <div
+                      key={prompt.id}
+                      className="rounded border border-gray-200 p-3 text-sm dark:border-gray-700"
+                      data-testid="assumption-entry"
+                    >
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        {prompt.heading}
+                      </p>
+                      <p className="text-gray-600 dark:text-gray-400">{prompt.body}</p>
+                      <p className="mt-2 text-xs uppercase text-gray-500 dark:text-gray-400">
+                        Status: {prompt.status.replace('_', ' ')}
+                      </p>
+                      {prompt.overrideJustification && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                          Override: {prompt.overrideJustification}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

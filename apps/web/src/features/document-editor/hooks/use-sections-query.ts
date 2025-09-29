@@ -9,12 +9,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { isE2EModeEnabled, useOptionalE2EFixtures } from '@/lib/fixtures/e2e/fixture-provider';
 import { buildFixtureDocumentView } from '@/lib/fixtures/e2e/transformers';
-import type { AssumptionSessionFixture } from '@/lib/fixtures/e2e/types';
 
 import type { SectionView } from '../types/section-view';
 import type { PendingChange } from '../types/pending-change';
 import type { TableOfContents } from '../types/table-of-contents';
 import type { EditorSession, EditorSessionUpdate } from '../types/editor-session';
+import type { AssumptionFlowState } from '../assumptions-flow';
 import type ApiClient from '../../../lib/api';
 
 // Query keys for consistent cache management
@@ -30,7 +30,7 @@ export const QUERY_KEYS = {
 interface DocumentSectionsResponse {
   sections: SectionView[];
   toc: TableOfContents;
-  assumptionSessions?: Record<string, AssumptionSessionFixture | null>;
+  assumptionSessions?: Record<string, AssumptionFlowState | null>;
 }
 
 interface PendingChangesResponse {
