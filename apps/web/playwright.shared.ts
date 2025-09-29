@@ -19,32 +19,6 @@ function createProjects(): PlaywrightTestConfig['projects'] {
         viewport: { width: 1440, height: 900 },
       },
     },
-    {
-      name: 'Desktop Firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1440, height: 900 },
-      },
-    },
-    {
-      name: 'Desktop Safari',
-      use: {
-        ...devices['Desktop Safari'],
-        viewport: { width: 1440, height: 900 },
-      },
-    },
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 13'] },
-    },
-    {
-      name: 'iPad',
-      use: { ...devices['iPad Pro'] },
-    },
   ];
 }
 
