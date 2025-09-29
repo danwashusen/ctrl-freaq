@@ -62,7 +62,7 @@ class BrowserLogger {
     this.sessionId = this.generateSessionId();
     this.baseSessionId = this.sessionId;
 
-    if (this.enableRemoteLogging) {
+    if (this.enableRemoteLogging && typeof window !== 'undefined') {
       this.startFlushTimer();
 
       window.addEventListener('beforeunload', () => {
@@ -95,8 +95,8 @@ class BrowserLogger {
       message,
       requestId: this.currentRequestId || this.generateRequestId(),
       sessionId: this.sessionId,
-      url: window.location.href,
-      userAgent: navigator.userAgent,
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
     };
 
     if (context) {
@@ -208,7 +208,7 @@ class BrowserLogger {
         });
       };
 
-      if (sync && navigator.sendBeacon) {
+      if (sync && typeof navigator !== 'undefined' && navigator.sendBeacon) {
         navigator.sendBeacon(`${this.apiBaseUrl}/api/v1/logs`, JSON.stringify(payload));
       } else {
         await sendLogs();
