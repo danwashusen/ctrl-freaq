@@ -393,7 +393,7 @@ export class PatchEngine {
         PatchDiffSchema.parse(patch);
       } catch (error) {
         if (error instanceof z.ZodError) {
-          errors.push(`Patch ${index}: ${error.errors.map(e => e.message).join(', ')}`);
+          errors.push(`Patch ${index}: ${error.issues.map(e => e.message).join(', ')}`);
         }
       }
 

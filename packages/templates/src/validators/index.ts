@@ -40,7 +40,7 @@ export class TemplateValidator {
         TemplateMetadataSchema.partial().parse(templateObj.metadata);
       } catch (error) {
         if (error instanceof z.ZodError) {
-          errors.push(...error.errors.map(e => `Metadata ${e.path.join('.')}: ${e.message}`));
+          errors.push(...error.issues.map(e => `Metadata ${e.path.join('.')}: ${e.message}`));
         }
       }
     }

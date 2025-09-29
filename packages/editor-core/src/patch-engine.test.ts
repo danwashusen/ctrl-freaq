@@ -429,7 +429,7 @@ describe('PatchEngine', () => {
       const result = engine.validatePatches(invalidPatches);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors).toContainEqual(expect.stringContaining('Patch 0: Invalid enum value'));
     });
 
     it('detects missing required fields for add operation', () => {

@@ -64,7 +64,7 @@ generated code
 | Build Tool       | Vite                           | 5.x         | Build and dev server                      | Fast HMR, ESM native, excellent DX                   |
 | Styling          | Tailwind CSS                   | 3.4.x       | Utility-first CSS                         | Rapid development, consistent design system          |
 | Testing          | Vitest + React Testing Library | 1.x / 14.x  | Unit and integration testing              | Vite native, excellent React support                 |
-| Form Handling    | React Hook Form + Zod          | 7.x / 3.x   | Form state and validation                 | Performance, TypeScript integration                  |
+| Form Handling    | React Hook Form + Zod          | 7.x / 4.x   | Form state and validation                 | Performance, TypeScript integration                  |
 | Animation        | Framer Motion                  | 11.x        | Animations and transitions                | Declarative API, gesture support                     |
 | Logging          | Pino                           | 9.5.0       | Browser logging with backend transmission | High-performance JSON logging, browser-optimized     |
 | Dev Tools        | React DevTools + Vite Plugin   | latest      | Development experience                    | Debugging, performance profiling                     |

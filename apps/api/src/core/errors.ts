@@ -78,14 +78,14 @@ export class ValidationError extends AppError {
   }
 
   static fromZodError(error: ZodError): ValidationError {
-    const validationErrors: ValidationErrorDetail[] = error.errors.map(err => ({
+    const validationErrors: ValidationErrorDetail[] = error.issues.map(err => ({
       field: err.path.join('.'),
       message: err.message,
       // omitting input value to avoid leaking sensitive data and because ZodIssue has no 'input' field
     }));
 
     return new ValidationError('Request validation failed', validationErrors, {
-      zodErrors: error.errors,
+      zodIssues: error.issues,
     });
   }
 }
