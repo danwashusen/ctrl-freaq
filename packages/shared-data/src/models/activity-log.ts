@@ -13,7 +13,7 @@ export const ActivityLogSchema = z.object({
   resourceType: z.string().min(1, 'Resource type is required').max(50, 'Resource type too long'),
   resourceId: z.string().min(1, 'Resource ID is required'),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
-  ipAddress: z.string().ip().optional().nullable(),
+  ipAddress: z.union([z.ipv4(), z.ipv6()]).optional().nullable(),
   userAgent: z.string().max(500, 'User agent too long').optional().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),

@@ -3,14 +3,14 @@ import { z, type ZodErrorMap } from 'zod';
 export const SECTION_REVIEW_STATUSES = ['pending', 'approved', 'changes_requested'] as const;
 export type SectionReviewStatus = (typeof SECTION_REVIEW_STATUSES)[number];
 
-const reviewStatusErrorMap: ZodErrorMap = (issue, ctx) => {
-  if (issue.code === z.ZodIssueCode.invalid_type) {
+const reviewStatusErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_type') {
     return { message: 'reviewStatus is required' };
   }
-  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+  if (issue.code === 'invalid_value') {
     return { message: 'Invalid reviewStatus value' };
   }
-  return { message: ctx.defaultError };
+  return issue.message ?? undefined;
 };
 
 const SectionReviewSummaryObjectSchema = z.object({
@@ -20,7 +20,7 @@ const SectionReviewSummaryObjectSchema = z.object({
   draftId: z.string().min(1, 'draftId must be provided'),
   reviewerId: z.string().min(1, 'reviewerId must be provided'),
   reviewStatus: z.enum(SECTION_REVIEW_STATUSES, {
-    errorMap: reviewStatusErrorMap,
+    error: reviewStatusErrorMap,
   }),
   reviewerNote: z.string().min(1, 'reviewerNote is required').max(2000, 'reviewerNote too long'),
   submittedAt: z.date(),
@@ -42,7 +42,7 @@ const withDecisionValidation = <Schema extends z.ZodTypeAny>(schema: Schema) =>
       candidate.decidedAt < candidate.submittedAt
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['decidedAt'],
         message: 'decidedAt cannot be earlier than submittedAt',
       });

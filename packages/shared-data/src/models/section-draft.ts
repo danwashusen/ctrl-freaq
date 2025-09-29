@@ -10,14 +10,14 @@ export const SECTION_DRAFT_CONFLICT_STATES = [
 ] as const;
 export type SectionDraftConflictState = (typeof SECTION_DRAFT_CONFLICT_STATES)[number];
 
-const conflictStateErrorMap: ZodErrorMap = (issue, ctx) => {
-  if (issue.code === z.ZodIssueCode.invalid_type) {
+const conflictStateErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_type') {
     return { message: 'conflictState is required' };
   }
-  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+  if (issue.code === 'invalid_value') {
     return { message: 'Invalid conflictState value' };
   }
-  return { message: ctx.defaultError };
+  return issue.message ?? undefined;
 };
 
 export const SectionDraftSchema = z.object({
@@ -31,7 +31,7 @@ export const SectionDraftSchema = z.object({
   formattingAnnotations: z.array(FormattingAnnotationSchema),
   summaryNote: z.string().max(500, 'summaryNote must be 500 characters or fewer'),
   conflictState: z.enum(SECTION_DRAFT_CONFLICT_STATES, {
-    errorMap: conflictStateErrorMap,
+    error: conflictStateErrorMap,
   }),
   conflictReason: z.string().max(500, 'conflictReason too long').nullable(),
   rebasedAt: z.date().nullable(),

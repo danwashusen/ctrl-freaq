@@ -5,7 +5,7 @@
  * Based on data-model.md validation rules and interface definitions.
  */
 
-import { z } from 'zod';
+import { z, type ZodSafeParseResult } from 'zod';
 import type { TocNode } from '../types/table-of-contents';
 
 // Common validation helpers
@@ -290,7 +290,7 @@ export const ErrorResponseSchema = z.object({
 export function validateSectionViewStateTransition(
   current: string,
   next: string
-): z.SafeParseReturnType<{ current: string; next: string }, { current: string; next: string }> {
+): ZodSafeParseResult<{ current: string; next: string }> {
   const transitionSchema = z
     .object({
       current: SectionViewStateSchema,
@@ -320,7 +320,7 @@ export function validateSectionViewStateTransition(
 export function validateSectionStatusTransition(
   current: string,
   next: string
-): z.SafeParseReturnType<{ current: string; next: string }, { current: string; next: string }> {
+): ZodSafeParseResult<{ current: string; next: string }> {
   const transitionSchema = z
     .object({
       current: SectionStatusSchema,
@@ -351,7 +351,7 @@ export function validateSectionStatusTransition(
 export function validatePendingChangeStatusTransition(
   current: string,
   next: string
-): z.SafeParseReturnType<{ current: string; next: string }, { current: string; next: string }> {
+): ZodSafeParseResult<{ current: string; next: string }> {
   const transitionSchema = z
     .object({
       current: PendingChangeStatusSchema,
@@ -378,9 +378,7 @@ export function validatePendingChangeStatusTransition(
 /**
  * Validates ToC tree structure for cycles and depth constraints
  */
-export function validateTocTreeStructure(
-  sections: unknown
-): z.SafeParseReturnType<unknown[], unknown[]> {
+export function validateTocTreeStructure(sections: unknown): ZodSafeParseResult<unknown[]> {
   const treeStructureSchema = z.array(z.unknown()).refine(
     data => {
       // Parse as ToC nodes first

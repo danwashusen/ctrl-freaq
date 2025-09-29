@@ -1,15 +1,21 @@
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 export const AssumptionResponseTypeSchema = z.enum(['single_select', 'multi_select', 'text']);
 export type AssumptionResponseType = z.infer<typeof AssumptionResponseTypeSchema>;
 
-export const AssumptionStatusSchema = z.enum([
-  'pending',
-  'answered',
-  'deferred',
-  'escalated',
-  'override_skipped',
-]);
+const assumptionStatusErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_value') {
+    return { message: 'Invalid enum value' };
+  }
+  return issue.message ?? undefined;
+};
+
+export const AssumptionStatusSchema = z.enum(
+  ['pending', 'answered', 'deferred', 'escalated', 'override_skipped'],
+  {
+    error: assumptionStatusErrorMap,
+  }
+);
 export type AssumptionStatus = z.infer<typeof AssumptionStatusSchema>;
 
 export const AssumptionOptionSchema = z.object({

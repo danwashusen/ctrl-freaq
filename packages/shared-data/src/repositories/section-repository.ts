@@ -8,14 +8,14 @@ import {
   type SectionRecordQualityGate,
 } from '../models/section-record';
 
-const qualityGateErrorMap: ZodErrorMap = (issue, ctx) => {
-  if (issue.code === z.ZodIssueCode.invalid_type) {
+const qualityGateErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_type') {
     return { message: 'qualityGate is required' };
   }
-  if (issue.code === z.ZodIssueCode.invalid_enum_value) {
+  if (issue.code === 'invalid_value') {
     return { message: 'Invalid quality gate value' };
   }
-  return { message: ctx.defaultError };
+  return issue.message ?? undefined;
 };
 
 /**
@@ -53,7 +53,7 @@ export const SectionViewSchema = z.object({
   approvedBy: z.string().min(1).nullable(),
   lastSummary: z.string().max(1000, 'lastSummary too long').nullable(),
   qualityGate: z.enum(SECTION_RECORD_QUALITY_GATES, {
-    errorMap: qualityGateErrorMap,
+    error: qualityGateErrorMap,
   }),
   accessibilityScore: z.number().min(0).max(100).nullable(),
 

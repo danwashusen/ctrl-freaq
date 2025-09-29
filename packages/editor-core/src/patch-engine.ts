@@ -6,12 +6,19 @@
  */
 
 import DiffMatchPatchModule from 'diff-match-patch';
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 import { logger } from './logger';
 
 // Validation schemas
+const patchOperationErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_value') {
+    return { message: 'Invalid enum value' };
+  }
+  return issue.message ?? undefined;
+};
+
 export const PatchDiffSchema = z.object({
-  op: z.enum(['add', 'remove', 'replace']),
+  op: z.enum(['add', 'remove', 'replace'], { error: patchOperationErrorMap }),
   path: z.string(),
   value: z.string().optional(),
   oldValue: z.string().optional(),
