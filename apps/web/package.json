@@ -35,7 +35,7 @@
     "@milkdown/plugin-history": "7.15.5",
     "@milkdown/plugin-listener": "7.15.5",
     "@milkdown/preset-commonmark": "7.15.5",
-    "@milkdown/react": "7.15.5",
+    "@milkdown/react": "7.16.0",
     "@milkdown/theme-nord": "7.15.5",
     "@radix-ui/react-slot": "^1.1.0",
     "@tanstack/react-query": "^5.89.0",
