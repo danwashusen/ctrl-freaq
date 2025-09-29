@@ -385,6 +385,9 @@ jobs:
         if: needs.setup.outputs.node-modules-cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps
+
       - name: Run test suites
         run: |
           echo "Running Vitest test suites across all packages..."
