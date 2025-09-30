@@ -38,7 +38,7 @@
     "@milkdown/plugin-listener": "7.15.5",
     "@milkdown/preset-commonmark": "7.16.0",
     "@milkdown/react": "7.16.0",
-    "@milkdown/theme-nord": "7.15.5",
+    "@milkdown/theme-nord": "7.16.0",
     "@types/diff-match-patch": "^1.0.36",
     "commander": "^14.0.1",
     "diff-match-patch": "^1.0.5",
