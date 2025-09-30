@@ -40,6 +40,13 @@ import type {
   DocumentDecisionProvider,
 } from '../modules/section-editor/services/index.js';
 import { DocumentDecisionProviderImpl } from '../modules/section-editor/services/document-decision.provider.js';
+import {
+  DraftBundleService,
+  type DraftConflictTelemetry,
+  type DraftBundleAuditLogger,
+  type DraftBundleConflict,
+} from './drafts/draft-bundle.service.js';
+import { DraftBundleRepositoryImpl } from './drafts/draft-bundle.repository.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -90,6 +97,12 @@ export function createRepositoryRegistrationMiddleware() {
       () => new AssumptionSessionRepository(getDb())
     );
 
+    container.register('draftBundleRepository', currentContainer => {
+      const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+      return new DraftBundleRepositoryImpl(sectionRepository, logger);
+    });
+
     container.register('assumptionPromptProvider', currentContainer => {
       const templateResolver = currentContainer.get('templateResolver') as TemplateResolver;
       const documentRepository = currentContainer.get(
@@ -112,6 +125,46 @@ export function createRepositoryRegistrationMiddleware() {
       ) as DocumentRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
       return new DocumentDecisionProviderImpl({ documents: documentRepository, logger });
+    });
+
+    container.register('draftBundleService', currentContainer => {
+      const repo = currentContainer.get('draftBundleRepository') as DraftBundleRepositoryImpl;
+      const logger = currentContainer.get('logger') as Logger;
+
+      const telemetry = {
+        emitBundleAttempt(payload: { documentId: string; sectionCount: number }) {
+          logger.debug(payload, 'Draft bundle attempt');
+        },
+        emitBundleSuccess(payload: { documentId: string; durationMs: number }) {
+          logger.info(payload, 'Draft bundle success');
+        },
+        emitBundleFailure(payload: { documentId: string; reason: string }) {
+          logger.warn(payload, 'Draft bundle failure');
+        },
+      } satisfies DraftConflictTelemetry;
+
+      const audit = {
+        async recordBundleApplied(payload: {
+          documentId: string;
+          authorId: string;
+          sectionCount: number;
+        }) {
+          logger.info(payload, 'Draft bundle applied');
+        },
+        async recordBundleRejected(payload: {
+          documentId: string;
+          authorId: string;
+          conflicts: DraftBundleConflict[];
+        }) {
+          logger.warn(payload, 'Draft bundle rejected');
+        },
+      } satisfies DraftBundleAuditLogger;
+
+      return new DraftBundleService({
+        draftRepo: repo,
+        audit,
+        telemetry,
+      });
     });
 
     container.register('templateCatalogService', currentContainer => {

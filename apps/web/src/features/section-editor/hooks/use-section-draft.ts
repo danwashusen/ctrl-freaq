@@ -2,11 +2,14 @@ import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  createDraftStore,
   createManualDraftStorage,
+  type DraftStore,
   type ManualDraftPayload,
   type ManualDraftRecord,
   type ManualDraftStorage,
 } from '@ctrl-freaq/editor-persistence';
+import { createPatchEngine } from '@ctrl-freaq/editor-core';
 
 import { logger } from '@/lib/logger';
 
@@ -85,6 +88,10 @@ export interface UseSectionDraftOptions {
   approvedVersion: number;
   documentId?: string;
   userId?: string;
+  projectSlug?: string;
+  documentSlug?: string;
+  sectionTitle?: string;
+  sectionPath?: string;
   initialSummaryNote?: string | null;
   initialFormattingWarnings?: FormattingAnnotationDTO[];
   initialConflictState?: SectionDraftHookState['conflictState'];
@@ -104,6 +111,8 @@ export interface UseSectionDraftReturn {
   refreshDiff: () => Promise<DiffResponseDTO | null>;
   resolveConflicts: () => Promise<ConflictCheckResponseDTO | null>;
 }
+
+type DraftPersistenceStatus = 'draft' | 'ready' | 'conflict';
 
 const randomSegment = (length = 6) =>
   Math.random()
@@ -135,6 +144,10 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     approvedVersion,
     documentId,
     userId,
+    projectSlug,
+    documentSlug,
+    sectionTitle,
+    sectionPath,
     initialSummaryNote = null,
     initialFormattingWarnings,
     initialConflictState = 'clean',
@@ -183,6 +196,22 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     }
   }, [storageOverride, sectionId]);
 
+  const draftStore = useMemo<DraftStore | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return createDraftStore();
+    } catch (error) {
+      logger.warn('Failed to initialise draft store; draft persistence features disabled', {
+        sectionId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }, [sectionId]);
+
   const conflictState = useSectionDraftStore(state => state.conflictState);
   const formattingAnnotations = useSectionDraftStore(state => state.formattingAnnotations);
   const isSaving = useSectionDraftStore(state => state.isSaving);
@@ -196,6 +225,39 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   const recordConflictEvents = useSectionDraftStore(state => state.recordConflictEvents);
 
   const lastInitializedSectionRef = useRef<string | null>(null);
+
+  const patchEngineRef = useRef(createPatchEngine());
+  const baselineContentRef = useRef(initialContent);
+  const lastDraftContentRef = useRef(initialContent);
+
+  useEffect(() => {
+    baselineContentRef.current = initialContent;
+    lastDraftContentRef.current = initialContent;
+  }, [initialContent, sectionId]);
+
+  const resolvedProjectSlug = projectSlug ?? documentId ?? 'local-project';
+  const resolvedDocumentSlug = documentSlug ?? documentId ?? 'document-local';
+  const resolvedSectionTitle = sectionTitle ?? sectionId;
+  const resolvedSectionPath = sectionPath ?? sectionId;
+
+  const computePatchPayload = useCallback(
+    (contentValue: string) => {
+      try {
+        const patches = patchEngineRef.current.createPatch(
+          baselineContentRef.current ?? '',
+          contentValue
+        );
+        return JSON.stringify(patches);
+      } catch (error) {
+        logger.warn('Failed to generate patch diff for draft snapshot', {
+          sectionId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+        return contentValue;
+      }
+    },
+    [sectionId]
+  );
 
   useEffect(() => {
     if (lastInitializedSectionRef.current === sectionId) {
@@ -364,6 +426,78 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     };
   }, [enableDiffAutomation, diffPollingIntervalMs, refreshDiff]);
 
+  const persistDraftToStore = useCallback(
+    async (contentValue: string, status: DraftPersistenceStatus) => {
+      if (
+        !draftStore ||
+        !resolvedProjectSlug ||
+        !resolvedDocumentSlug ||
+        !resolvedSectionPath ||
+        typeof window === 'undefined' ||
+        sectionId.startsWith('inactive-') ||
+        !userId
+      ) {
+        return;
+      }
+
+      const draftStateSnapshot = useSectionDraftStore.getState();
+      const baselineFromState = draftStateSnapshot.draftBaseVersion ?? approvedVersion ?? 0;
+      const baselineVersionLabel = `rev-${baselineFromState}`;
+
+      try {
+        const result = await draftStore.saveDraft({
+          projectSlug: resolvedProjectSlug,
+          documentSlug: resolvedDocumentSlug,
+          sectionTitle: resolvedSectionTitle,
+          sectionPath: resolvedSectionPath,
+          authorId: userId,
+          baselineVersion: baselineVersionLabel,
+          patch: computePatchPayload(contentValue),
+          status,
+          lastEditedAt: new Date(),
+          complianceWarning: Boolean(draftStateSnapshot.conflictReason),
+        });
+
+        lastDraftContentRef.current = contentValue;
+
+        window.dispatchEvent(
+          new CustomEvent('draft-storage:updated', {
+            detail: { draftKey: result.record.draftKey },
+          })
+        );
+
+        if (result.prunedDraftKeys.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent('draft-storage:quota-exceeded', {
+              detail: {
+                message:
+                  'Browser storage limit reached. Oldest drafts were removed to continue saving drafts.',
+              },
+            })
+          );
+        }
+      } catch (error) {
+        logger.warn('Failed to persist draft snapshot to DraftStore', {
+          sectionId,
+          projectSlug: resolvedProjectSlug,
+          documentSlug: resolvedDocumentSlug,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [
+      draftStore,
+      resolvedProjectSlug,
+      resolvedDocumentSlug,
+      resolvedSectionTitle,
+      resolvedSectionPath,
+      userId,
+      computePatchPayload,
+      approvedVersion,
+      sectionId,
+    ]
+  );
+
   const persistDraft = useCallback(
     async (payload: ManualDraftPayload) => {
       if (!storage || !documentId || !userId) {
@@ -380,9 +514,48 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
           reason: error instanceof Error ? error.message : String(error),
         });
       }
+
+      const status: DraftPersistenceStatus =
+        payload.conflictState === 'clean' ? 'draft' : 'conflict';
+      void persistDraftToStore(payload.contentMarkdown, status);
     },
-    [storage, documentId, userId, sectionId]
+    [storage, documentId, userId, sectionId, persistDraftToStore]
   );
+
+  useEffect(() => {
+    if (
+      !draftStore ||
+      !resolvedProjectSlug ||
+      !documentId ||
+      !userId ||
+      sectionId.startsWith('inactive-') ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+
+    if (contentRef.current === lastDraftContentRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const conflictState = useSectionDraftStore.getState().conflictState;
+      const status: DraftPersistenceStatus = conflictState === 'clean' ? 'draft' : 'conflict';
+      void persistDraftToStore(contentRef.current, status);
+    }, 750);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    content,
+    draftStore,
+    resolvedProjectSlug,
+    documentId,
+    userId,
+    sectionId,
+    persistDraftToStore,
+  ]);
 
   const manualSave = useCallback(async () => {
     const requestId = createRequestId('section-draft');

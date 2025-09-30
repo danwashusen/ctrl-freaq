@@ -16,6 +16,7 @@ import {
   type SectionFixture,
   type DiffFixture,
 } from './types';
+import { getProjectRetentionPolicy } from '../../../mocks/projectRetention';
 import { demoArchitectureDocument } from './demo-architecture';
 import { convertFixtureSessionToFlowState } from './transformers';
 
@@ -50,6 +51,7 @@ type ParsedRequest =
   | { kind: 'apiConflictsCheck'; sectionId: string }
   | { kind: 'apiConflictLogs'; sectionId: string }
   | { kind: 'apiAssumptionsStart'; sectionId: string }
+  | { kind: 'apiProjectRetention'; projectSlug: string }
   | { kind: 'unknown' };
 
 const notFoundError: FixtureErrorResponse = fixtureErrorSchema.parse({
@@ -233,6 +235,17 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
     }
   }
 
+  if (segments[0] === 'api' && segments[1] === 'projects') {
+    const projectSlug = segments[2];
+    if (!projectSlug) {
+      return { kind: 'unknown' };
+    }
+
+    if (segments.length === 4 && segments[3] === 'retention') {
+      return { kind: 'apiProjectRetention', projectSlug };
+    }
+  }
+
   return { kind: 'unknown' };
 }
 
@@ -302,6 +315,20 @@ function handleSectionResponse(res: ServerResponse, documentId: string, sectionI
   }
 
   sendJson(res, 200, cloneSectionFixture(section));
+}
+
+function handleProjectRetentionResponse(res: ServerResponse, projectSlug: string) {
+  const policy = getProjectRetentionPolicy(projectSlug);
+  if (!policy) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  sendJson(res, 200, {
+    policyId: policy.policyId,
+    retentionWindow: policy.retentionWindow,
+    guidance: policy.guidance,
+  });
 }
 
 async function handleSaveDraft(req: IncomingMessage, res: ServerResponse, sectionId: string) {
@@ -674,6 +701,14 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
             return;
           }
           handleAssumptionsStart(res, parsed.sectionId);
+          return;
+        }
+        case 'apiProjectRetention': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleProjectRetentionResponse(res, parsed.projectSlug);
           return;
         }
         default:

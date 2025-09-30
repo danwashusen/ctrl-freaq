@@ -149,6 +149,7 @@ export const draftMetadataFixtureSchema = z.object({
   formattingWarnings: formattingWarningSchema.array().default([]),
   conflictLog: conflictLogEntryFixtureSchema.array().optional(),
   conflictSnapshot: conflictCheckFixtureSchema.optional(),
+  complianceWarning: z.boolean().optional(),
 });
 export type DraftMetadataFixture = z.infer<typeof draftMetadataFixtureSchema>;
 
@@ -163,6 +164,13 @@ export const reviewSubmissionFixtureSchema = z.object({
     .transform(value => value ?? null),
 });
 export type ReviewSubmissionFixture = z.infer<typeof reviewSubmissionFixtureSchema>;
+
+export const retentionPolicyFixtureSchema = z.object({
+  policyId: z.string().min(1),
+  retentionWindow: z.string().min(1),
+  guidance: z.string().min(1),
+});
+export type RetentionPolicyFixture = z.infer<typeof retentionPolicyFixtureSchema>;
 
 export const approvalFixtureSchema = z.object({
   approvedVersion: z.number().int().positive(),
@@ -204,10 +212,12 @@ export const documentFixtureSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   summary: z.string().min(1),
+  projectSlug: z.string().min(1).default('project-test'),
   tableOfContents: z.array(sectionReferenceSchema).min(1),
   updatedAt: z.string().min(1),
   lifecycleStatus: z.enum(documentLifecycleStatuses),
   sections: z.record(z.string(), sectionFixtureSchema),
+  retentionPolicy: retentionPolicyFixtureSchema.optional(),
 });
 export type DocumentFixture = z.infer<typeof documentFixtureSchema>;
 

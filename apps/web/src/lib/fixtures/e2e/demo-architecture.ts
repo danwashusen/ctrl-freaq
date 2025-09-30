@@ -248,6 +248,7 @@ const sectionFixtures: Record<string, SectionFixture> = {
       lastSavedBy: 'Ibrahim Khan',
       lastManualSaveAt: Date.parse('2025-01-15T14:45:30.000Z'),
       formattingWarnings: [],
+      complianceWarning: true,
     },
     review: {
       reviewId: 'review-sec-api-001',
@@ -337,6 +338,7 @@ const tableOfContents: SectionReference[] = [
 
 export const demoArchitectureDocument: DocumentFixture = documentFixtureSchema.parse({
   id: 'demo-architecture',
+  projectSlug: 'demo-project',
   title: 'CTRL FreaQ Architecture Reference',
   summary:
     'Reference architecture outlining gateway responsibilities, assumption governance, and deployment strategy.',
@@ -344,6 +346,12 @@ export const demoArchitectureDocument: DocumentFixture = documentFixtureSchema.p
   updatedAt: baseUpdatedAt,
   lifecycleStatus: 'review',
   sections: sectionFixtures,
+  retentionPolicy: {
+    policyId: 'retention-client-only',
+    retentionWindow: '30d',
+    guidance:
+      'Client-only drafts must be reviewed or escalated to compliance storage within 30 days.',
+  },
 });
 
 export const demoArchitectureFixtures = {

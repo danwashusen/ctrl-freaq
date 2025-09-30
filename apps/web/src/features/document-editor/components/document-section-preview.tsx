@@ -5,6 +5,8 @@ import { CheckCircle2, Clock, PencilLine, ShieldAlert, UserCheck } from 'lucide-
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
+import { useAuth } from '@/lib/clerk-client';
+import { DraftStatusBadge } from './section-draft/DraftStatusBadge';
 import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionStatus, SectionView } from '../types/section-view';
 
@@ -76,6 +78,7 @@ export interface DocumentSectionPreviewProps {
   section: SectionViewWithApproval;
   assumptionSession?: AssumptionFlowState | null;
   documentId?: string;
+  projectSlug: string;
   approval?: SectionApprovalMetadata;
   onEnterEdit?: (sectionId: string) => void;
   isEditDisabled?: boolean;
@@ -87,6 +90,7 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
     section,
     assumptionSession,
     documentId,
+    projectSlug,
     approval,
     onEnterEdit,
     isEditDisabled = false,
@@ -121,6 +125,9 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
 
     const summary = useMemo(() => buildSummary(section, approval), [section, approval]);
 
+    const auth = useAuth();
+    const authorId = auth.userId ?? 'user-local-author';
+
     return (
       <Card
         className={cn('w-full border border-gray-200 shadow-sm dark:border-gray-800', className)}
@@ -154,6 +161,16 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
                   </span>
                 )}
               </div>
+
+              {documentId && (
+                <DraftStatusBadge
+                  projectSlug={projectSlug}
+                  documentSlug={documentId}
+                  sectionTitle={section.title}
+                  sectionPath={section.id}
+                  authorId={authorId}
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-2">

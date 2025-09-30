@@ -9,6 +9,7 @@
 // Core QA functionality exports
 export * from './validators/index.js';
 export * from './gates/index.js';
+export * from './compliance/drafts.js';
 
 // CLI export
 export { cli } from './cli.js';

@@ -31,6 +31,8 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.0.0",
+    "@ctrl-freaq/editor-core": "workspace:*",
+    "@ctrl-freaq/editor-persistence": "workspace:*",
     "@ctrl-freaq/templates": "workspace:*",
     "@milkdown/core": "7.15.5",
     "@milkdown/plugin-history": "7.16.0",

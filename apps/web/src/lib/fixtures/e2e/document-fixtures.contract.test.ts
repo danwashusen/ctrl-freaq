@@ -52,6 +52,13 @@ const documentFixtureSchema = z.object({
   updatedAt: z.string().min(1),
   lifecycleStatus: z.enum(['draft', 'review', 'ready']),
   sections: z.record(z.string(), sectionFixtureSchema),
+  retentionPolicy: z
+    .object({
+      policyId: z.string().min(1),
+      retentionWindow: z.string().min(1),
+      guidance: z.string().min(1),
+    })
+    .optional(),
 });
 
 describe('document fixture helpers contract', () => {

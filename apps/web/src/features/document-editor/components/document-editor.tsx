@@ -77,8 +77,38 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const [isApprovalSubmitting, setIsApprovalSubmitting] = useState(false);
     const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
     const [isResolvingConflict, setIsResolvingConflict] = useState(false);
+    const [showQuotaBanner, setShowQuotaBanner] = useState(false);
+    const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
     const editEntryTimerRef = useRef<(() => void) | null>(null);
     const editRenderTimerRef = useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const quotaHandler = (event: Event) => {
+        const detail = (event as CustomEvent<{ message?: string }>).detail;
+        setQuotaMessage(
+          detail?.message ??
+            'Browser storage limit reached. Oldest drafts removed to continue editing.'
+        );
+        setShowQuotaBanner(true);
+      };
+
+      const quotaClearedHandler = () => {
+        setShowQuotaBanner(false);
+        setQuotaMessage(null);
+      };
+
+      window.addEventListener('draft-storage:quota-exceeded', quotaHandler);
+      window.addEventListener('draft-storage:quota-cleared', quotaClearedHandler);
+
+      return () => {
+        window.removeEventListener('draft-storage:quota-exceeded', quotaHandler);
+        window.removeEventListener('draft-storage:quota-cleared', quotaClearedHandler);
+      };
+    }, []);
 
     useDocumentFixtureBootstrap({
       documentId,
@@ -122,13 +152,21 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }))
     );
 
-    const { toc, setTableOfContents, getAssumptionSession } = useDocumentStore(
+    const {
+      toc,
+      setTableOfContents,
+      getAssumptionSession,
+      document: documentInfo,
+    } = useDocumentStore(
       useShallow(state => ({
         toc: state.toc,
         setTableOfContents: state.setTableOfContents,
         getAssumptionSession: state.getAssumptionSession,
+        document: state.document,
       }))
     );
+
+    const projectSlug = documentInfo?.projectSlug ?? fixtureDocument?.projectSlug ?? 'project-test';
 
     const { updateScrollPosition, setActiveSection: setSessionActiveSection } = useSessionStore(
       useShallow(state => ({
@@ -218,7 +256,11 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       initialContent: activeSection?.contentMarkdown ?? '',
       approvedVersion: activeSection?.approvedVersion ?? 0,
       documentId,
+      documentSlug: documentId,
       userId: session?.userId ?? 'local-user',
+      projectSlug,
+      sectionTitle: activeSection?.title ?? 'Untitled section',
+      sectionPath: activeSection?.id ?? `inactive-${documentId}`,
       initialSummaryNote: activeSection?.summaryNote ?? activeSection?.lastSummary ?? '',
       initialConflictState: activeSection?.conflictState,
       initialDraftId: activeSection?.draftId,
@@ -752,268 +794,299 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     );
 
     return (
-      <div
-        className={cn(
-          'flex h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950',
-          className
+      <>
+        {showQuotaBanner && (
+          <div
+            data-testid="draft-pruned-banner"
+            role="alert"
+            className="mb-4 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            <span>
+              {quotaMessage ??
+                'Browser storage limit reached. Oldest drafts were pruned so you can continue editing.'}
+            </span>
+            <button
+              type="button"
+              className="text-xs font-semibold uppercase tracking-wide text-amber-800 underline hover:text-amber-900 dark:text-amber-200"
+              onClick={() => {
+                setShowQuotaBanner(false);
+                setQuotaMessage(null);
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
         )}
-      >
         <div
           className={cn(
-            'flex w-80 flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-800',
-            sidebarCollapsed && 'w-12'
+            'flex h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950',
+            className
           )}
         >
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sections</h2>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Refresh diff view"
-                onClick={() => handleOpenDiff()}
-                disabled={!isEditing || draftState.isDiffRefreshing}
-                className={cn(
-                  showDiffView && 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-100'
-                )}
-              >
-                <RefreshCw
-                  className={cn('h-4 w-4', draftState.isDiffRefreshing && 'animate-spin')}
-                  aria-hidden="true"
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={sidebarCollapsed ? 'Expand sections panel' : 'Collapse sections panel'}
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-1"
-              >
-                {sidebarCollapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4" />
-                )}
-              </Button>
+          <div
+            className={cn(
+              'flex w-80 flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-800',
+              sidebarCollapsed && 'w-12'
+            )}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Sections</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Refresh diff view"
+                  onClick={() => handleOpenDiff()}
+                  disabled={!isEditing || draftState.isDiffRefreshing}
+                  className={cn(
+                    showDiffView &&
+                      'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-100'
+                  )}
+                >
+                  <RefreshCw
+                    className={cn('h-4 w-4', draftState.isDiffRefreshing && 'animate-spin')}
+                    aria-hidden="true"
+                  />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={
+                    sidebarCollapsed ? 'Expand sections panel' : 'Collapse sections panel'
+                  }
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="p-1"
+                >
+                  {sidebarCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {!sidebarCollapsed && toc && (
+              <div className="flex-1 overflow-y-auto p-4">
+                <TableOfContentsComponent
+                  toc={{
+                    ...toc,
+                    sections: toc.sections.map(section => ({
+                      ...section,
+                      isExpanded: true,
+                      isActive: section.sectionId === activeSectionId,
+                    })),
+                  }}
+                  activeSectionId={activeSectionId}
+                  onSectionClick={handleSectionClick}
+                  onExpandToggle={() => undefined}
+                />
+              </div>
+            )}
+
+            {!sidebarCollapsed && pendingChangesCount > 0 && (
+              <div className="border-t border-gray-200 p-4 text-sm text-orange-600 dark:border-gray-800 dark:text-orange-400">
+                {pendingChangesCount} unsaved change{pendingChangesCount !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
 
-          {!sidebarCollapsed && toc && (
-            <div className="flex-1 overflow-y-auto p-4">
-              <TableOfContentsComponent
-                toc={{
-                  ...toc,
-                  sections: toc.sections.map(section => ({
-                    ...section,
-                    isExpanded: true,
-                    isActive: section.sectionId === activeSectionId,
-                  })),
-                }}
-                activeSectionId={activeSectionId}
-                onSectionClick={handleSectionClick}
-                onExpandToggle={() => undefined}
-              />
-            </div>
-          )}
-
-          {!sidebarCollapsed && pendingChangesCount > 0 && (
-            <div className="border-t border-gray-200 p-4 text-sm text-orange-600 dark:border-gray-800 dark:text-orange-400">
-              {pendingChangesCount} unsaved change{pendingChangesCount !== 1 ? 's' : ''}
-            </div>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Document Editor
-                </h1>
-                {activeSection && (
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    {activeSection.title}
-                  </p>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Document Editor
+                  </h1>
+                  {activeSection && (
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      {activeSection.title}
+                    </p>
+                  )}
+                </div>
+                {showDiffView && (
+                  <Button variant="outline" size="sm" onClick={handleCloseDiff}>
+                    Close diff view
+                  </Button>
                 )}
               </div>
-              {showDiffView && (
-                <Button variant="outline" size="sm" onClick={handleCloseDiff}>
-                  Close diff view
-                </Button>
-              )}
             </div>
-          </div>
 
-          <div className="flex-1 overflow-hidden" onScroll={handleScroll}>
-            <div className="space-y-6 p-6">
-              {activeSection ? (
-                <div data-section-id={activeSection.id}>
-                  <DocumentSectionPreview
-                    section={activeSection}
-                    assumptionSession={activeAssumptionSession}
-                    documentId={documentId}
-                    onEnterEdit={handleEnterEdit}
-                    isEditDisabled={
-                      (isEditing && activeSection.id !== activeSectionId) || assumptionFlowBlocking
-                    }
-                    approval={{
-                      approvedAt: activeSection.approvedAt ?? undefined,
-                      approvedBy: activeSection.approvedBy ?? undefined,
-                      approvedVersion: activeSection.approvedVersion ?? undefined,
-                      reviewerSummary: activeSection.lastSummary ?? undefined,
-                    }}
-                  />
+            <div className="flex-1 overflow-hidden" onScroll={handleScroll}>
+              <div className="space-y-6 p-6">
+                {activeSection ? (
+                  <div data-section-id={activeSection.id}>
+                    <DocumentSectionPreview
+                      section={activeSection}
+                      assumptionSession={activeAssumptionSession}
+                      documentId={documentId}
+                      projectSlug={projectSlug}
+                      onEnterEdit={handleEnterEdit}
+                      isEditDisabled={
+                        (isEditing && activeSection.id !== activeSectionId) ||
+                        assumptionFlowBlocking
+                      }
+                      approval={{
+                        approvedAt: activeSection.approvedAt ?? undefined,
+                        approvedBy: activeSection.approvedBy ?? undefined,
+                        approvedVersion: activeSection.approvedVersion ?? undefined,
+                        reviewerSummary: activeSection.lastSummary ?? undefined,
+                      }}
+                    />
 
-                  {shouldEnableAssumptionsFlow && (
-                    <div className="mt-6 space-y-3" data-testid="assumptions-checklist-panel">
-                      {assumptionFlowError && (
-                        <div
-                          className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
-                          role="alert"
-                        >
-                          {assumptionFlowError}
-                        </div>
-                      )}
+                    {shouldEnableAssumptionsFlow && (
+                      <div className="mt-6 space-y-3" data-testid="assumptions-checklist-panel">
+                        {assumptionFlowError && (
+                          <div
+                            className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+                            role="alert"
+                          >
+                            {assumptionFlowError}
+                          </div>
+                        )}
 
-                      <AssumptionsChecklist
-                        prompts={assumptionFlowState?.prompts ?? []}
-                        overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
-                        isLoading={isAssumptionFlowLoading}
-                        onRespond={respondToAssumptionPrompt}
-                      />
-                    </div>
-                  )}
+                        <AssumptionsChecklist
+                          prompts={assumptionFlowState?.prompts ?? []}
+                          overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
+                          isLoading={isAssumptionFlowLoading}
+                          onRespond={respondToAssumptionPrompt}
+                        />
+                      </div>
+                    )}
 
-                  {isEditing && (
-                    <div className="mt-6 space-y-6" data-testid="section-editor-panel">
-                      <FormattingToolbar
-                        onToggleHeading={() => updateDraft(`${draftState.content}\n\n# Heading`)}
-                        onToggleBold={() => updateDraft(`${draftState.content} **bold**`)}
-                        onToggleItalic={() => updateDraft(`${draftState.content} _italic_`)}
-                        onToggleOrderedList={() =>
-                          updateDraft(`${draftState.content}\n1. Ordered item`)
-                        }
-                        onToggleBulletList={() =>
-                          updateDraft(`${draftState.content}\n- Bullet item`)
-                        }
-                        onInsertTable={() =>
-                          updateDraft(`${draftState.content}\n| Col A | Col B |\n| --- | --- |`)
-                        }
-                        onInsertLink={() =>
-                          updateDraft(`${draftState.content} [Link](https://example.com)`)
-                        }
-                        onToggleCode={() => {
-                          const snippet = `${draftState.content}
+                    {isEditing && (
+                      <div className="mt-6 space-y-6" data-testid="section-editor-panel">
+                        <FormattingToolbar
+                          onToggleHeading={() => updateDraft(`${draftState.content}\n\n# Heading`)}
+                          onToggleBold={() => updateDraft(`${draftState.content} **bold**`)}
+                          onToggleItalic={() => updateDraft(`${draftState.content} _italic_`)}
+                          onToggleOrderedList={() =>
+                            updateDraft(`${draftState.content}\n1. Ordered item`)
+                          }
+                          onToggleBulletList={() =>
+                            updateDraft(`${draftState.content}\n- Bullet item`)
+                          }
+                          onInsertTable={() =>
+                            updateDraft(`${draftState.content}\n| Col A | Col B |\n| --- | --- |`)
+                          }
+                          onInsertLink={() =>
+                            updateDraft(`${draftState.content} [Link](https://example.com)`)
+                          }
+                          onToggleCode={() => {
+                            const snippet = `${draftState.content}
 
 \`\`\`ts
 console.log('code snippet');
 \`\`\``;
-                          updateDraft(snippet);
-                        }}
-                        onToggleQuote={() => updateDraft(`${draftState.content}\n> Quote`)}
-                      />
-
-                      <MilkdownEditor
-                        value={draftState.content}
-                        onChange={handleContentChange}
-                        onFormattingAnnotationsChange={handleFormattingAnnotationsChange}
-                        onRequestDiff={handleOpenDiff}
-                      />
-
-                      <ManualSavePanel
-                        summaryNote={draftState.summaryNote}
-                        onSummaryChange={handleSummaryChange}
-                        onManualSave={handleManualSave}
-                        isSaving={draftState.isSaving}
-                        formattingWarnings={renderingWarnings}
-                        conflictState={draftState.conflictState}
-                        conflictReason={sectionDraftState.conflictReason}
-                        lastSavedAt={sectionDraftState.lastSavedAt}
-                        lastSavedBy={sectionDraftState.lastSavedBy}
-                        lastManualSaveAt={sectionDraftState.lastManualSaveAt}
-                        saveErrorMessage={manualSaveError}
-                        onOpenDiff={handleOpenDiff}
-                        onSubmitReview={handleSubmitReview}
-                        isDiffLoading={draftState.isDiffRefreshing}
-                        disableManualSave={draftState.isSaving}
-                        isReviewDisabled={isReviewDisabled || isReviewSubmitting}
-                        reviewDisabledReason={reviewDisabledReason}
-                      />
-
-                      {reviewError && (
-                        <div
-                          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
-                          role="alert"
-                        >
-                          {reviewError}
-                        </div>
-                      )}
-
-                      {showDiffView && (
-                        <DiffViewer
-                          diff={draftState.diff}
-                          isLoading={draftState.isDiffRefreshing}
-                          errorMessage={null}
-                          headerSlot={
-                            <Button variant="outline" size="sm" onClick={handleCloseDiff}>
-                              Close
-                            </Button>
-                          }
+                            updateDraft(snippet);
+                          }}
+                          onToggleQuote={() => updateDraft(`${draftState.content}\n> Quote`)}
                         />
-                      )}
 
-                      {(activeSection.status === 'review' || activeSection.status === 'ready') && (
-                        <div className="space-y-3">
-                          {approvalError && (
-                            <div
-                              className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
-                              role="alert"
-                            >
-                              {approvalError}
-                            </div>
-                          )}
-                          <ApprovalControls
-                            sectionTitle={activeSection.title}
-                            currentStatus={activeSection.status}
-                            reviewerSummary={approvalSummary}
-                            draftVersion={sectionDraftState.draftVersion ?? undefined}
-                            approvedVersion={activeSection.approvedVersion ?? undefined}
-                            approvedAt={activeSection.approvedAt}
-                            approvedBy={activeSection.approvedBy}
-                            approvalNote={approvalSummary ?? undefined}
-                            onApprove={({ approvalNote }) => handleApprove({ approvalNote })}
-                            onRequestChanges={({ approvalNote }) =>
-                              handleRequestChanges({ approvalNote })
+                        <MilkdownEditor
+                          value={draftState.content}
+                          onChange={handleContentChange}
+                          onFormattingAnnotationsChange={handleFormattingAnnotationsChange}
+                          onRequestDiff={handleOpenDiff}
+                          dataTestId="draft-markdown-editor"
+                        />
+
+                        <ManualSavePanel
+                          summaryNote={draftState.summaryNote}
+                          onSummaryChange={handleSummaryChange}
+                          onManualSave={handleManualSave}
+                          isSaving={draftState.isSaving}
+                          formattingWarnings={renderingWarnings}
+                          conflictState={draftState.conflictState}
+                          conflictReason={sectionDraftState.conflictReason}
+                          lastSavedAt={sectionDraftState.lastSavedAt}
+                          lastSavedBy={sectionDraftState.lastSavedBy}
+                          lastManualSaveAt={sectionDraftState.lastManualSaveAt}
+                          saveErrorMessage={manualSaveError}
+                          onOpenDiff={handleOpenDiff}
+                          onSubmitReview={handleSubmitReview}
+                          isDiffLoading={draftState.isDiffRefreshing}
+                          disableManualSave={draftState.isSaving}
+                          isReviewDisabled={isReviewDisabled || isReviewSubmitting}
+                          reviewDisabledReason={reviewDisabledReason}
+                        />
+
+                        {reviewError && (
+                          <div
+                            className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+                            role="alert"
+                          >
+                            {reviewError}
+                          </div>
+                        )}
+
+                        {showDiffView && (
+                          <DiffViewer
+                            diff={draftState.diff}
+                            isLoading={draftState.isDiffRefreshing}
+                            errorMessage={null}
+                            headerSlot={
+                              <Button variant="outline" size="sm" onClick={handleCloseDiff}>
+                                Close
+                              </Button>
                             }
-                            isSubmitting={isApprovalSubmitting}
-                            isDisabled={draftState.conflictState !== 'clean'}
                           />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="py-12 text-center text-gray-500 dark:text-gray-400">
-                  <p>Select a section from the table of contents to view details.</p>
-                </div>
-              )}
+                        )}
+
+                        {(activeSection.status === 'review' ||
+                          activeSection.status === 'ready') && (
+                          <div className="space-y-3">
+                            {approvalError && (
+                              <div
+                                className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+                                role="alert"
+                              >
+                                {approvalError}
+                              </div>
+                            )}
+                            <ApprovalControls
+                              sectionTitle={activeSection.title}
+                              currentStatus={activeSection.status}
+                              reviewerSummary={approvalSummary}
+                              draftVersion={sectionDraftState.draftVersion ?? undefined}
+                              approvedVersion={activeSection.approvedVersion ?? undefined}
+                              approvedAt={activeSection.approvedAt}
+                              approvedBy={activeSection.approvedBy}
+                              approvalNote={approvalSummary ?? undefined}
+                              onApprove={({ approvalNote }) => handleApprove({ approvalNote })}
+                              onRequestChanges={({ approvalNote }) =>
+                                handleRequestChanges({ approvalNote })
+                              }
+                              isSubmitting={isApprovalSubmitting}
+                              isDisabled={draftState.conflictState !== 'clean'}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+                    <p>Select a section from the table of contents to view details.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <ConflictDialog
-          open={isConflictDialogOpen}
-          conflictState={draftState.conflictState}
-          conflictReason={sectionDraftState.conflictReason}
-          latestApprovedVersion={sectionDraftState.latestApprovedVersion ?? undefined}
-          rebasedDraft={sectionDraftState.rebasedDraft ?? undefined}
-          events={sectionDraftState.conflictEvents}
-          isProcessing={isResolvingConflict}
-          onConfirm={handleResolveConflicts}
-          onCancel={() => setIsConflictDialogOpen(false)}
-        />
-      </div>
+          <ConflictDialog
+            open={isConflictDialogOpen}
+            conflictState={draftState.conflictState}
+            conflictReason={sectionDraftState.conflictReason}
+            latestApprovedVersion={sectionDraftState.latestApprovedVersion ?? undefined}
+            rebasedDraft={sectionDraftState.rebasedDraft ?? undefined}
+            events={sectionDraftState.conflictEvents}
+            isProcessing={isResolvingConflict}
+            onConfirm={handleResolveConflicts}
+            onCancel={() => setIsConflictDialogOpen(false)}
+          />
+        </div>
+      </>
     );
   }
 );

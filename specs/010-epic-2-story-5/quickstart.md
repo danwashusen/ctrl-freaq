@@ -19,14 +19,17 @@
 3. **Validate offline recovery**
    - Toggle browser offline (DevTools → Network → Offline) and continue editing.
    - Refresh the page; verify drafts rehydrate and the compliance console
-     warning appears if a retention policy flag is set in fixtures. appears if a
-     retention policy flag is set in fixtures.
+     warning appears if a retention policy flag is set in fixtures.
+   - Hit `/__fixtures/api/projects/project-test/retention` or inspect the
+     browser console to confirm the 30-day retention guidance is surfaced for
+     client-only drafts.
 4. **Trigger storage pruning**
    - Use DevTools application tab to reduce available storage (simulate quota)
      or repeatedly duplicate draft content until the browser raises a quota
      error.
    - Observe toast + banner messaging explaining that the browser limit caused
-     pruning; confirm oldest drafts removed first.
+     pruning; confirm oldest drafts removed first and telemetry reports
+     `draft.pruned` with affected keys.
 5. **Run bundled save**
    - Return online, click Save. Ensure a single network request hits
      `/api/projects/:projectSlug/documents/:documentId/draft-bundle`.

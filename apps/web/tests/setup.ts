@@ -4,9 +4,7 @@ import { beforeAll, afterAll, afterEach, vi } from 'vitest';
 
 import * as zustandMock from './__mocks__/zustand';
 
-const useShallowMock = <State, StateSlice>(
-  selector: (state: State) => StateSlice
-) => selector;
+const useShallowMock = <State, StateSlice>(selector: (state: State) => StateSlice) => selector;
 
 // Global test setup
 beforeAll(() => {

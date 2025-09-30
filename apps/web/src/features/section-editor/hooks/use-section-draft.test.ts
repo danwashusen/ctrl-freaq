@@ -9,6 +9,51 @@ import type {
 import { useSectionDraft } from './use-section-draft';
 import { useSectionDraftStore } from '../stores/section-draft-store';
 
+const createDraftStoreMock = () => ({
+  saveDraft: vi.fn().mockResolvedValue({
+    record: {
+      draftKey: 'demo-project/doc-1/Section Title/user-1',
+      projectSlug: 'demo-project',
+      documentSlug: 'doc-1',
+      sectionTitle: 'Section Title',
+      sectionPath: 'section-1',
+      authorId: 'user-1',
+      baselineVersion: 'rev-1',
+      patch: '[]',
+      status: 'draft',
+      lastEditedAt: new Date('2025-09-30T12:00:00.000Z'),
+      updatedAt: new Date('2025-09-30T12:00:00.000Z'),
+      complianceWarning: false,
+    },
+    prunedDraftKeys: [],
+  }),
+  rehydrateDocumentState: vi.fn(),
+  listDrafts: vi.fn(),
+  clearAuthorDrafts: vi.fn(),
+  removeDraft: vi.fn(),
+});
+
+let draftStoreMock = createDraftStoreMock();
+
+vi.mock('@ctrl-freaq/editor-persistence', async () => {
+  const actual = await vi.importActual<typeof import('@ctrl-freaq/editor-persistence')>(
+    '@ctrl-freaq/editor-persistence'
+  );
+
+  return {
+    ...actual,
+    createDraftStore: vi.fn(() => draftStoreMock),
+  };
+});
+
+vi.mock('@ctrl-freaq/editor-core', () => ({
+  createPatchEngine: () => ({
+    createPatch: (_baseline: string, modified: string) => [
+      { op: 'replace', path: '/content', value: modified },
+    ],
+  }),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -38,12 +83,15 @@ const createManualDraftStorageMock = () => ({
 
 describe('useSectionDraft', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    draftStoreMock = createDraftStoreMock();
     useSectionDraftStore.getState().reset();
     withMockedCrypto();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.useRealTimers();
+    vi.clearAllMocks();
     useSectionDraftStore.getState().reset();
   });
 
@@ -81,6 +129,10 @@ describe('useSectionDraft', () => {
         approvedVersion: 5,
         documentId: 'doc-1',
         userId: 'user-1',
+        projectSlug: 'demo-project',
+        documentSlug: 'doc-1',
+        sectionTitle: 'Section Title',
+        sectionPath: 'section-1',
         storage,
         loadPersistedDraft: false,
         autoStartDiffPolling: false,
@@ -90,6 +142,10 @@ describe('useSectionDraft', () => {
     act(() => {
       result.current.updateDraft('# Intro\nNew content');
       result.current.setSummary('Updated summary');
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(800);
     });
 
     let manualSaveResult: SectionDraftResponseDTO | null | ConflictCheckResponseDTO = null;
@@ -113,6 +169,16 @@ describe('useSectionDraft', () => {
         conflictState: 'clean',
       })
     );
+
+    expect(draftStoreMock.saveDraft).toHaveBeenCalled();
+    const draftStoreArgs = draftStoreMock.saveDraft.mock.calls[0]?.[0];
+    expect(draftStoreArgs).toMatchObject({
+      projectSlug: 'demo-project',
+      documentSlug: 'doc-1',
+      sectionTitle: 'Section Title',
+      sectionPath: 'section-1',
+      authorId: 'user-1',
+    });
 
     expect(manualSaveResult).toEqual(saveDraftResponse);
     expect(result.current.state.formattingWarnings).toHaveLength(1);
@@ -148,6 +214,10 @@ describe('useSectionDraft', () => {
         approvedVersion: 5,
         documentId: 'doc-1',
         userId: 'user-1',
+        projectSlug: 'demo-project',
+        documentSlug: 'doc-1',
+        sectionTitle: 'Section Title',
+        sectionPath: 'section-1',
         storage,
         loadPersistedDraft: false,
         autoStartDiffPolling: false,
@@ -169,5 +239,7 @@ describe('useSectionDraft', () => {
         contentMarkdown: '# Intro\nRebased content',
       })
     );
+
+    expect(draftStoreMock.saveDraft).toHaveBeenCalled();
   });
 });

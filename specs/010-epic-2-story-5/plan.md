@@ -207,9 +207,9 @@ _No constitutional deviations identified; table intentionally left empty._
 - [x] Phase 0: Research complete (/plan command)
 - [x] Phase 1: Design complete (/plan command)
 - [x] Phase 2: Task planning complete (/plan command - describe approach only)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
-- [ ] Phase 5: Validation passed
+- [x] Phase 3: Tasks generated (/tasks command)
+- [x] Phase 4: Implementation complete
+- [x] Phase 5: Validation passed
 
 **Gate Status**:
 
@@ -217,6 +217,12 @@ _No constitutional deviations identified; table intentionally left empty._
 - [x] Post-Design Constitution Check: PASS
 - [x] All NEEDS CLARIFICATION resolved
 - [x] Complexity deviations documented
+
+**Runtime Notes**:
+
+- Draft rehydration now flows through the shared `DraftStore`; local harness
+  measurements keep recovery well below the 3s target and broadcast guidance
+  when quota pruning triggers follow-up messaging.
 
 ---
 

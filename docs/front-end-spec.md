@@ -174,6 +174,11 @@ Overview
 8. Save & Export: Batch save all modified sections to document repository.
    Export to `docs/architecture.md` and shards `docs/architecture/*.md` is
    available on-demand via explicit user action (export button/command).
+9. Draft Persistence: While editing, surface a deterministic draft status badge
+   with a revert-to-published control, announce state changes via ARIA live
+   regions, and clear client-only drafts automatically on logout. Display
+   compliance guidance sourced from project retention policies when drafts
+   cannot be escalated server-side.
 
 Section State Machine
 

@@ -20,6 +20,7 @@ interface MilkdownEditorProps {
   onFormattingAnnotationsChange?: (annotations: FormattingAnnotation[]) => void;
   onRequestDiff?: () => void;
   formattingPluginOptions?: UnsupportedFormattingPluginOptions;
+  dataTestId?: string;
 }
 
 export const MilkdownEditor = memo<MilkdownEditorProps>(
@@ -34,6 +35,7 @@ export const MilkdownEditor = memo<MilkdownEditorProps>(
     onFormattingAnnotationsChange,
     onRequestDiff,
     formattingPluginOptions,
+    dataTestId,
   }) => {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const detachPluginRef = useRef<(() => void) | null>(null);
@@ -118,6 +120,7 @@ export const MilkdownEditor = memo<MilkdownEditorProps>(
             'prose prose-sm dark:prose-invert max-w-none',
             'placeholder:text-gray-400 dark:placeholder:text-gray-500'
           )}
+          data-testid={dataTestId}
         />
       </div>
     );

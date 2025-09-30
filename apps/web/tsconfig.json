@@ -18,10 +18,10 @@
     "paths": {
       "@/*": ["apps/web/src/*"],
       "@ctrl-freaq/editor-persistence": [
-        "../../packages/editor-persistence/src/index"
+        "../../packages/editor-persistence/dist/index.d.ts"
       ],
       "@ctrl-freaq/editor-persistence/*": [
-        "../../packages/editor-persistence/src/*"
+        "../../packages/editor-persistence/dist/*"
       ],
       "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
       "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],

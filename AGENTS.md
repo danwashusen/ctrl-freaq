@@ -42,8 +42,8 @@ package-specific flows, e.g.
 - `pnpm lint:fix:check`: ESLint --fix-dry-run preview.
 - `pnpm lint:repo`: Repo ESLint with cache (baseline command).
 - `pnpm lint:yaml`: ESLint focused on .yml/.yaml.
-- `pnpm test`: Repository gauntlet (Vitest with `--force --no-cache`, then
-  fixture and visual Playwright).
+- `pnpm test`: Repository gauntlet (Vitest with
+  `--force --cache=local:,remote:r`, then fixture and visual Playwright).
 - `pnpm test:quick`: Vitest-only feedback loop across workspaces.
 - `pnpm test:unit:ci`: Forces Turbo to rerun every Vitest suite without cache.
 - `pnpm test:gauntlet`: Explicit alias when CI scripts need the gauntlet

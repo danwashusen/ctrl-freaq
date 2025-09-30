@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import { createLocalStorageManager } from './local-storage';
 import { createAssumptionSessionStore } from './assumption-sessions/session-store';
+import { createDraftStore } from './draft-store';
 import * as fs from 'node:fs/promises';
 
 const program = new Command();
@@ -288,6 +289,83 @@ export function cli(argv?: string[]): void {
         default:
           console.error(`Unknown action: ${options.action}`);
           process.exit(1);
+      }
+    });
+
+  program
+    .command('drafts')
+    .description('Inspect and manage persisted section drafts')
+    .option('-a, --author <authorId>', 'Filter by author ID')
+    .option('-p, --project <projectSlug>', 'Filter by project slug')
+    .option('-d, --document <documentSlug>', 'Filter by document slug')
+    .option('--remove <draftKey>', 'Remove a specific draft by composite key')
+    .option('--clear', 'Clear all drafts for the provided author filter')
+    .option('--json', 'Output results in JSON', false)
+    .action(async options => {
+      const store = createDraftStore();
+      const asJson = Boolean(options.json);
+
+      if (options.remove) {
+        await store.removeDraft(options.remove);
+        if (asJson) {
+          console.log(JSON.stringify({ status: 'success', removed: options.remove }, null, 2));
+        } else {
+          console.log(`Removed draft: ${options.remove}`);
+        }
+        return;
+      }
+
+      if (options.clear) {
+        if (!options.author) {
+          console.error('--author required when using --clear');
+          process.exit(1);
+        }
+
+        await store.clearAuthorDrafts(options.author);
+        if (asJson) {
+          console.log(
+            JSON.stringify({ status: 'success', clearedAuthor: options.author }, null, 2)
+          );
+        } else {
+          console.log(`Cleared drafts for author ${options.author}`);
+        }
+        return;
+      }
+
+      const drafts = await store.listDrafts({
+        authorId: options.author,
+        projectSlug: options.project,
+        documentSlug: options.document,
+      });
+
+      const serialized = drafts.map(draft => ({
+        draftKey: draft.draftKey,
+        projectSlug: draft.projectSlug,
+        documentSlug: draft.documentSlug,
+        sectionTitle: draft.sectionTitle,
+        sectionPath: draft.sectionPath,
+        authorId: draft.authorId,
+        baselineVersion: draft.baselineVersion,
+        status: draft.status,
+        lastEditedAt: draft.lastEditedAt.toISOString(),
+        updatedAt: draft.updatedAt.toISOString(),
+        complianceWarning: draft.complianceWarning,
+      }));
+
+      if (asJson) {
+        console.log(JSON.stringify({ count: serialized.length, drafts: serialized }, null, 2));
+      } else if (serialized.length === 0) {
+        console.log('No drafts found for the supplied filters.');
+      } else {
+        console.log(`Drafts (${serialized.length}):`);
+        serialized.forEach(item => {
+          console.log(`- ${item.draftKey}`);
+          console.log(`    Status: ${item.status}`);
+          console.log(`    Updated: ${item.updatedAt}`);
+          if (item.complianceWarning) {
+            console.log('    Compliance: warning pending');
+          }
+        });
       }
     });
 
