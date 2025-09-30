@@ -98,6 +98,11 @@ describe('Routing: dashboard default redirect', () => {
       expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      // Ensure the projects fetch lifecycle has finished before cleanup runs
+      expect(screen.queryByText(/Loading projects/i)).not.toBeInTheDocument();
+    });
+
     expect(fetchMock).toHaveBeenCalled();
 
     vi.unstubAllGlobals();
