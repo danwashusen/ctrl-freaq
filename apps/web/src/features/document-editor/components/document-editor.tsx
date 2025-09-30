@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useShallow } from 'zustand/shallow';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -101,35 +102,39 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       setConflictState,
       recordManualSave,
       setApprovalMetadata,
-    } = useEditorStore(state => ({
-      sections: state.sections,
-      activeSectionId: state.activeSectionId,
-      isEditing: state.isEditing,
-      showDiffView: state.showDiffView,
-      pendingChangesCount: state.pendingChangesCount,
-      setActiveSection: state.setActiveSection,
-      enterEditMode: state.enterEditMode,
-      cancelEditing: state.cancelEditing,
-      updateSection: state.updateSection,
-      toggleDiffView: state.toggleDiffView,
-      setDiffView: state.setDiffView,
-      setDraftMetadata: state.setDraftMetadata,
-      setConflictState: state.setConflictState,
-      recordManualSave: state.recordManualSave,
-      setApprovalMetadata: state.setApprovalMetadata,
-    }));
+    } = useEditorStore(
+      useShallow(state => ({
+        sections: state.sections,
+        activeSectionId: state.activeSectionId,
+        isEditing: state.isEditing,
+        showDiffView: state.showDiffView,
+        pendingChangesCount: state.pendingChangesCount,
+        setActiveSection: state.setActiveSection,
+        enterEditMode: state.enterEditMode,
+        cancelEditing: state.cancelEditing,
+        updateSection: state.updateSection,
+        toggleDiffView: state.toggleDiffView,
+        setDiffView: state.setDiffView,
+        setDraftMetadata: state.setDraftMetadata,
+        setConflictState: state.setConflictState,
+        recordManualSave: state.recordManualSave,
+        setApprovalMetadata: state.setApprovalMetadata,
+      }))
+    );
 
-    const { toc, setTableOfContents, getAssumptionSession } = useDocumentStore(state => ({
-      toc: state.toc,
-      setTableOfContents: state.setTableOfContents,
-      getAssumptionSession: state.getAssumptionSession,
-    }));
+    const { toc, setTableOfContents, getAssumptionSession } = useDocumentStore(
+      useShallow(state => ({
+        toc: state.toc,
+        setTableOfContents: state.setTableOfContents,
+        getAssumptionSession: state.getAssumptionSession,
+      }))
+    );
 
     const { updateScrollPosition, setActiveSection: setSessionActiveSection } = useSessionStore(
-      state => ({
+      useShallow(state => ({
         updateScrollPosition: state.updateScrollPosition,
         setActiveSection: state.setActiveSection,
-      })
+      }))
     );
     const session = useSessionStore(state => state.session);
 
@@ -169,19 +174,21 @@ export const DocumentEditor = memo<DocumentEditorProps>(
         (assumptionFlowState?.promptsRemaining ?? 0) + (assumptionFlowState?.overridesOpen ?? 0) > 0
     );
 
-    const sectionDraftState = useSectionDraftStore(state => ({
-      conflictReason: state.conflictReason,
-      latestApprovedVersion: state.latestApprovedVersion,
-      conflictEvents: state.conflictEvents,
-      rebasedDraft: state.rebasedDraft,
-      draftId: state.draftId,
-      draftVersion: state.draftVersion,
-      draftBaseVersion: state.draftBaseVersion,
-      lastSavedAt: state.lastSavedAt,
-      lastSavedBy: state.lastSavedBy,
-      lastManualSaveAt: state.lastManualSaveAt,
-      setFormattingAnnotations: state.setFormattingAnnotations,
-    }));
+    const sectionDraftState = useSectionDraftStore(
+      useShallow(state => ({
+        conflictReason: state.conflictReason,
+        latestApprovedVersion: state.latestApprovedVersion,
+        conflictEvents: state.conflictEvents,
+        rebasedDraft: state.rebasedDraft,
+        draftId: state.draftId,
+        draftVersion: state.draftVersion,
+        draftBaseVersion: state.draftBaseVersion,
+        lastSavedAt: state.lastSavedAt,
+        lastSavedBy: state.lastSavedBy,
+        lastManualSaveAt: state.lastManualSaveAt,
+        setFormattingAnnotations: state.setFormattingAnnotations,
+      }))
+    );
     const recordConflictEvents = useSectionDraftStore(state => state.recordConflictEvents);
 
     const sectionEditorApi = useMemo(
