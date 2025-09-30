@@ -57,7 +57,7 @@ const diffSegmentSchema = z.object({
   content: z.string(),
   startLine: z.number().int().nonnegative().optional(),
   endLine: z.number().int().nonnegative().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const diffMetadataSchema = z

@@ -146,6 +146,7 @@ export class SectionApprovalService {
         this.reviews.updateReviewStatus(
           review.id,
           {
+            id: review.id,
             reviewStatus: 'approved',
             decidedAt: approvedAt,
             reviewerNote: lastSummary ?? review.reviewerNote,

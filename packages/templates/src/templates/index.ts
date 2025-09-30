@@ -17,7 +17,7 @@ export const TemplateMetadataSchema = z.object({
   author: z.string().nullable().optional(),
   extends: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
-  variables: z.record(z.unknown()).optional(),
+  variables: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type TemplateMetadata = z.infer<typeof TemplateMetadataSchema>;

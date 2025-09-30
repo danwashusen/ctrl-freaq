@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, type ZodErrorMap } from 'zod';
 
 import { FormattingAnnotationSchema } from './formatting-annotation.js';
 
@@ -9,6 +9,16 @@ export const SECTION_DRAFT_CONFLICT_STATES = [
   'blocked',
 ] as const;
 export type SectionDraftConflictState = (typeof SECTION_DRAFT_CONFLICT_STATES)[number];
+
+const conflictStateErrorMap: ZodErrorMap = issue => {
+  if (issue.code === 'invalid_type') {
+    return { message: 'conflictState is required' };
+  }
+  if (issue.code === 'invalid_value') {
+    return { message: 'Invalid conflictState value' };
+  }
+  return issue.message ?? undefined;
+};
 
 export const SectionDraftSchema = z.object({
   id: z.string().min(1, 'Section draft id must be provided'),
@@ -21,8 +31,7 @@ export const SectionDraftSchema = z.object({
   formattingAnnotations: z.array(FormattingAnnotationSchema),
   summaryNote: z.string().max(500, 'summaryNote must be 500 characters or fewer'),
   conflictState: z.enum(SECTION_DRAFT_CONFLICT_STATES, {
-    required_error: 'conflictState is required',
-    invalid_type_error: 'Invalid conflictState value',
+    error: conflictStateErrorMap,
   }),
   conflictReason: z.string().max(500, 'conflictReason too long').nullable(),
   rebasedAt: z.date().nullable(),

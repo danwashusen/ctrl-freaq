@@ -70,6 +70,7 @@ describe('SectionApprovalService', () => {
     const pendingReview: SectionReviewSummary = {
       id: 'review-1',
       sectionId: baseSection.id,
+      documentId: baseSection.docId,
       draftId: baseDraft.id,
       reviewerId: 'approver-2',
       reviewStatus: 'pending',
