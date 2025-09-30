@@ -105,7 +105,6 @@ packages/shared-data/data/
 .audit/*
 .audit-*
 audit/*
-audit-*
 deps/*
 deps-*
 .workspaces.json
