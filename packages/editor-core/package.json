@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@milkdown/core": "7.15.5",
-    "@milkdown/plugin-history": "7.15.5",
+    "@milkdown/plugin-history": "7.16.0",
     "@milkdown/plugin-listener": "7.15.5",
     "@milkdown/preset-commonmark": "7.16.0",
     "@milkdown/react": "7.16.0",
