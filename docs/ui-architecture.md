@@ -29,7 +29,7 @@ of concerns while leveraging React's strengths for complex UI interactions.
 generated code
 
 - **Location**: `docs/examples/ctrl-freaq-ui`
-- **Key Technologies**: React 18, TypeScript, Vite, React Router v6, JWT Auth,
+- **Key Technologies**: React 19, TypeScript, Vite, React Router v7, JWT Auth,
   shadcn/ui, TanStack Query
 - **Constraints**: Must maintain compatibility with existing component patterns
   and routing structure
@@ -55,19 +55,19 @@ generated code
 
 ### Technology Stack Table {#technology-stack-table}
 
-| Category         | Technology                     | Version     | Purpose                                   | Rationale                                            |
-| ---------------- | ------------------------------ | ----------- | ----------------------------------------- | ---------------------------------------------------- |
-| Framework        | React                          | 18.3.x      | UI framework                              | Existing investment, ecosystem, AI agent familiarity |
-| UI Library       | shadcn/ui                      | latest      | Component library                         | Accessible, customizable, TypeScript native          |
-| State Management | TanStack Query + Zustand       | 5.x / 4.5.x | Server + client state                     | Excellent DX, built-in caching, minimal boilerplate  |
-| Routing          | React Router                   | 6.x         | Client-side routing                       | Industry standard, existing implementation           |
-| Build Tool       | Vite                           | 5.x         | Build and dev server                      | Fast HMR, ESM native, excellent DX                   |
-| Styling          | Tailwind CSS                   | 3.4.x       | Utility-first CSS                         | Rapid development, consistent design system          |
-| Testing          | Vitest + React Testing Library | 1.x / 14.x  | Unit and integration testing              | Vite native, excellent React support                 |
-| Form Handling    | React Hook Form + Zod          | 7.x / 4.x   | Form state and validation                 | Performance, TypeScript integration                  |
-| Animation        | Framer Motion                  | 11.x        | Animations and transitions                | Declarative API, gesture support                     |
-| Logging          | Pino                           | 9.5.0       | Browser logging with backend transmission | High-performance JSON logging, browser-optimized     |
-| Dev Tools        | React DevTools + Vite Plugin   | latest      | Development experience                    | Debugging, performance profiling                     |
+| Category         | Technology                     | Version        | Purpose                                   | Rationale                                            |
+| ---------------- | ------------------------------ | -------------- | ----------------------------------------- | ---------------------------------------------------- |
+| Framework        | React                          | 19.1.x         | UI framework                              | Existing investment, ecosystem, AI agent familiarity |
+| UI Library       | shadcn/ui                      | latest         | Component library                         | Accessible, customizable, TypeScript native          |
+| State Management | TanStack Query + Zustand       | 5.89.x / 5.0.x | Server + client state                     | Excellent DX, built-in caching, minimal boilerplate  |
+| Routing          | React Router                   | 7.9.x          | Client-side routing                       | Industry standard, existing implementation           |
+| Build Tool       | Vite                           | 5.x            | Build and dev server                      | Fast HMR, ESM native, excellent DX                   |
+| Styling          | Tailwind CSS                   | 3.4.x          | Utility-first CSS                         | Rapid development, consistent design system          |
+| Testing          | Vitest + React Testing Library | 3.x / 16.x     | Unit and integration testing              | Vite native, excellent React support                 |
+| Form Handling    | React Hook Form + Zod          | 7.x / 4.x      | Form state and validation                 | Performance, TypeScript integration                  |
+| Animation        | Framer Motion                  | 11.x           | Animations and transitions                | Declarative API, gesture support                     |
+| Logging          | Pino                           | 9.12.0         | Browser logging with backend transmission | High-performance JSON logging, browser-optimized     |
+| Dev Tools        | React DevTools + Vite Plugin   | latest         | Development experience                    | Debugging, performance profiling                     |
 
 ## Project Structure {#project-structure}
 
@@ -777,8 +777,9 @@ export const ProtectedRoute = () => {
 
 - **Purpose**: Provide rich text editing experience while maintaining Markdown
   compatibility
-- **Implementation**: Milkdown v7.16.0 (https://github.com/Milkdown/milkdown) -
-  Plugin-based WYSIWYG markdown editor built on ProseMirror
+- **Implementation**: Milkdown v7.16.x (core pinned at 7.15.5). See
+  https://github.com/Milkdown/milkdown - plugin-based WYSIWYG markdown editor
+  built on ProseMirror
 - **Features**:
   - Real-time WYSIWYG editing with Markdown source compatibility
   - Extensible plugin system for custom functionality

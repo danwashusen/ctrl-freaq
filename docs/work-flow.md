@@ -34,7 +34,7 @@ guidance instead of guessing.
     ```json
     {
       "dependencies": {
-        "better-sqlite3": "^9.4.0"
+        "better-sqlite3": "^12.4.1"
       }
     }
     ```

@@ -26,7 +26,7 @@ test-driven development requirements.
 | Date       | Version | Description                                        | Author     |
 | ---------- | ------- | -------------------------------------------------- | ---------- |
 | 2025-09-13 | 1.0     | Initial backend architecture from Old Architecture | Winston AI |
-| 2025-09-12 | 0.8     | Milkdown v7.16.0 WYSIWYG editor implementation     | Architect  |
+| 2025-09-12 | 0.8     | Milkdown v7.16.x WYSIWYG editor implementation     | Architect  |
 | 2025-09-12 | 0.7     | Rename persistence package for clarity             | Architect  |
 | 2025-09-12 | 0.6     | Section content generation API                     | Architect  |
 | 2025-09-12 | 0.5     | Enhanced assumption resolution API                 | Architect  |
@@ -244,21 +244,21 @@ process.on('exit', () => clearInterval(interval));
 
 ### Technology Stack Table {#technology-stack-table}
 
-| Category              | Technology       | Version | Purpose                      | Rationale                                       |
-| --------------------- | ---------------- | ------- | ---------------------------- | ----------------------------------------------- |
-| **Language**          | TypeScript       | 5.4.x   | Primary development language | Strong typing, excellent tooling, team standard |
-| **Runtime**           | Node.js          | 22.x    | JavaScript runtime           | LTS version, stable performance                 |
-| **Backend Framework** | Express.js       | 5.1.0   | API server framework         | Mature, flexible middleware ecosystem           |
-| **Database**          | SQLite           | 3.x     | Local data storage (MVP)     | Zero-config, embedded, easy migration path      |
-| **DB Access**         | better-sqlite3   | 9.x     | SQLite driver                | Fast synchronous API, type-safe                 |
-| **Authentication**    | Clerk            | latest  | User authentication          | Hosted solution, quick setup for MVP            |
-| **LLM SDK**           | Vercel AI SDK    | 3.x     | AI model integration         | Provider abstraction, streaming support         |
-| **Testing**           | Vitest           | 1.x     | Unit and integration testing | Fast, TypeScript-native                         |
-| **Monorepo**          | pnpm + Turborepo | 9.x/1.x | Workspace management         | Efficient dependency management, caching        |
-| **Logging**           | Pino             | 9.5.0   | Structured logging           | High-performance JSON logging                   |
-| **UI Framework**      | React            | 18.x    | Frontend framework           | Component model, ecosystem, team expertise      |
-| **CSS**               | Tailwind CSS     | 3.x     | Utility-first styling        | Rapid development, consistent design            |
-| **Editor**            | Milkdown         | 7.16.0  | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
+| Category              | Technology       | Version         | Purpose                      | Rationale                                       |
+| --------------------- | ---------------- | --------------- | ---------------------------- | ----------------------------------------------- |
+| **Language**          | TypeScript       | 5.9.x           | Primary development language | Strong typing, excellent tooling, team standard |
+| **Runtime**           | Node.js          | 22.x            | JavaScript runtime           | LTS version, stable performance                 |
+| **Backend Framework** | Express.js       | 5.1.0           | API server framework         | Mature, flexible middleware ecosystem           |
+| **Database**          | SQLite           | 3.x             | Local data storage (MVP)     | Zero-config, embedded, easy migration path      |
+| **DB Access**         | better-sqlite3   | 12.x            | SQLite driver                | Fast synchronous API, type-safe                 |
+| **Authentication**    | Clerk            | latest          | User authentication          | Hosted solution, quick setup for MVP            |
+| **LLM SDK**           | Vercel AI SDK    | 3.x             | AI model integration         | Provider abstraction, streaming support         |
+| **Testing**           | Vitest           | 3.x             | Unit and integration testing | Fast, TypeScript-native                         |
+| **Monorepo**          | pnpm + Turborepo | 9.x/2.x         | Workspace management         | Efficient dependency management, caching        |
+| **Logging**           | Pino             | 9.12.0          | Structured logging           | High-performance JSON logging                   |
+| **UI Framework**      | React            | 19.x            | Frontend framework           | Component model, ecosystem, team expertise      |
+| **CSS**               | Tailwind CSS     | 3.x             | Utility-first styling        | Rapid development, consistent design            |
+| **Editor**            | Milkdown         | 7.15.5 / 7.16.x | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
 
 ## Data Models {#data-models}
 
@@ -442,7 +442,7 @@ content generation, quality gates, export functionality, streaming responses
 
 **Dependencies:** All library packages, Clerk SDK, Express middleware
 
-**Technology Stack:** Express.js 5.1.0, TypeScript, Node.js 22.x
+**Technology Stack:** Express.js 5.1.0, TypeScript 5.9.x, Node.js 22.x
 
 **Key Modules:**
 
@@ -474,7 +474,7 @@ database migrations, transaction management
 
 **Dependencies:** better-sqlite3, zod schemas
 
-**Technology Stack:** TypeScript, better-sqlite3 9.x
+**Technology Stack:** TypeScript 5.9.x, better-sqlite3 12.x
 
 **CLI Commands:**
 
@@ -589,9 +589,9 @@ generation
 - Markdown/WYSIWYG conversion
 - Diff visualization
 
-**Dependencies:** Milkdown 7.16.0, diff-match-patch
+**Dependencies:** Milkdown 7.15.5 core with 7.16.x plugins, diff-match-patch
 
-**Technology Stack:** TypeScript, Milkdown
+**Technology Stack:** TypeScript 5.9.x, Milkdown 7.16.x (core pinned to 7.15.5)
 
 **CLI Commands:**
 
@@ -959,7 +959,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 ### Logging Standards {#logging-standards}
 
-- **Library:** Pino 9.5.0
+- **Library:** Pino 9.12.0
 - **Format:** Structured JSON with ISO-8601 timestamps
 - **Levels:** trace, debug, info, warn, error, fatal
 - **Required Context:**
@@ -992,7 +992,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 ### Core Standards {#core-standards}
 
-- **Languages & Runtimes:** TypeScript 5.4.x, Node.js 22.x
+- **Languages & Runtimes:** TypeScript 5.9.x, Node.js 22.x
 - **Style & Linting:** ESLint v9 flat config with strict TypeScript rules (see
   Linting & Formatting)
 - **Test Organization:** `*.test.ts` files colocated with source
@@ -1085,7 +1085,7 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 #### Unit Tests {#unit-tests}
 
-- **Framework:** Vitest 1.x
+- **Framework:** Vitest 3.x
 - **File Convention:** `*.test.ts` or `*.spec.ts`
 - **Location:** Colocated with source files
 - **Mocking Library:** Vitest built-in mocks

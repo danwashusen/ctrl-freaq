@@ -11,7 +11,7 @@ Based on analysis of the existing Lovable.ai implementation, this specification
 documents CTRL FreaQ's current state as a document/content management system for
 teams and provides an improvement roadmap for developers implementing UI
 enhancements. The current implementation demonstrates a solid foundation with
-React 18, TypeScript, Tailwind CSS, and shadcn/ui components, integrated with
+React 19, TypeScript, Tailwind CSS, and shadcn/ui components, integrated with
 JWT authentication and featuring a responsive dashboard layout with project
 management capabilities.
 
@@ -538,7 +538,8 @@ WYSIWYG editing, and AI collaboration
   drafting → diff_preview → ready)
 - Quality gates status panel (integrated, not overlay)
 - Breadcrumb navigation maintaining project context
-- WYSIWYG editor integration (Milkdown v7.16.0) within section contexts
+- WYSIWYG editor integration (Milkdown v7.16.x with @milkdown/core pinned at
+  7.15.5) within section contexts
 
 **Interaction Notes:** Seamless section navigation, inline editing with diff
 preview, quality gate real-time feedback **Design File Reference:** [Figma

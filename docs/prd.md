@@ -218,7 +218,7 @@ Projects UI — all runnable locally for MVP.
 - AC5: Evaluate and enhance existing setup per ui-architecture.md:
   - ✅ TypeScript configuration (already strict mode)
   - ✅ Vite build tool (already configured)
-  - ✅ React Router v6 (already has routes)
+  - ✅ React Router v7 (already has routes)
   - ✅ Tailwind CSS + shadcn/ui (already configured)
   - ✅ TanStack Query (already integrated)
   - ✅ Clerk authentication (already integrated)
@@ -459,7 +459,8 @@ creation and editing:
 
 4. **Section-Based Editing**: Users navigate to any section and toggle between
    read mode (preview) and edit mode (WYSIWYG Markdown editor using Milkdown
-   v7.16.0). Local pending changes stored as Git-style patch diffs.
+   v7.16.x with @milkdown/core pinned at 7.15.5). Local pending changes stored
+   as Git-style patch diffs.
 
 5. **New Section Content Flow**: For blank sections, trigger assumption
    resolution loop before drafting. For existing content, allow direct WYSIWYG
@@ -509,7 +510,8 @@ Each section follows this state progression:
 
 #### Technical Implementation Notes
 
-- **Editor**: Milkdown v7.16.0 for WYSIWYG Markdown editing
+- **Editor**: Milkdown v7.16.x (core pinned at 7.15.5) for WYSIWYG Markdown
+  editing
 - **Persistence**: Client-side patch storage via `packages/editor-persistence`
 - **Templates**: Backend template resolution via `packages/template-resolver`
 - **AI Integration**: Vercel AI SDK for LLM interactions
