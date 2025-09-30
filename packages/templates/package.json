@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@ctrl-freaq/shared-data": "workspace:*",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.4.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.1",
     "mustache": "^4.2.0",
