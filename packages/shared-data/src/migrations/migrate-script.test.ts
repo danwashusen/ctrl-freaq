@@ -40,7 +40,7 @@ describe.sequential('shared-data migrate script', () => {
     try {
       commandResult = await execFileAsync(
         'pnpm',
-        ['--filter', '@ctrl-freaq/shared-data', 'migrate'],
+        ['--filter', '@ctrl-freaq/shared-data', 'exec', 'node', 'dist/scripts/migrate.js'],
         {
           cwd: workspaceRoot,
           env,

@@ -23,6 +23,7 @@ import {
 import { SectionEditorClientError, SectionEditorConflictError } from '../api/section-editor.client';
 import { useSectionDraftStore } from '../stores/section-draft-store';
 import type { SectionDraftStoreState } from '../stores/section-draft-store';
+import { DraftPersistenceClient } from '@/features/document-editor/services/draft-client';
 
 export interface FormattingAnnotation {
   id: string;
@@ -101,6 +102,7 @@ export interface UseSectionDraftOptions {
   diffPollingIntervalMs?: number;
   autoStartDiffPolling?: boolean;
   loadPersistedDraft?: boolean;
+  draftClient?: DraftPersistenceClient;
 }
 
 export interface UseSectionDraftReturn {
@@ -157,6 +159,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     diffPollingIntervalMs = 45_000,
     autoStartDiffPolling = true,
     loadPersistedDraft = true,
+    draftClient,
   } = options;
 
   const [content, setContent] = useState(initialContent);
@@ -258,6 +261,8 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     },
     [sectionId]
   );
+
+  const bundleClient = useMemo(() => draftClient ?? new DraftPersistenceClient(), [draftClient]);
 
   useEffect(() => {
     if (lastInitializedSectionRef.current === sectionId) {
@@ -576,7 +581,77 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
         formattingAnnotations: storeState.formattingAnnotations,
       });
 
+      const submittedBy = userId ?? 'local-user';
+      const targetDocumentId = documentId ?? resolvedDocumentSlug;
+
+      if (bundleClient && submittedBy && targetDocumentId) {
+        const baselineVersionLabel = `rev-${draftBaseVersion}`;
+        const draftKey = `${resolvedProjectSlug}/${resolvedDocumentSlug}/${resolvedSectionTitle}/${submittedBy}`;
+        const qualityIssues =
+          storeState.conflictState === 'clean'
+            ? []
+            : [
+                {
+                  gateId: 'draft.conflict',
+                  severity: 'blocker' as const,
+                  message:
+                    storeState.conflictReason ??
+                    'Resolve draft conflicts before applying bundled saves.',
+                },
+              ];
+
+        try {
+          await bundleClient.applyDraftBundle(resolvedProjectSlug, targetDocumentId, {
+            submittedBy,
+            sections: [
+              {
+                draftKey,
+                sectionPath: resolvedSectionPath,
+                patch: computePatchPayload(contentRef.current),
+                baselineVersion: baselineVersionLabel,
+                qualityGateReport: {
+                  status: qualityIssues.length === 0 ? 'pass' : 'fail',
+                  issues: qualityIssues,
+                },
+              },
+            ],
+          });
+        } catch (bundleError) {
+          logger.error(
+            'Failed to apply bundled draft save',
+            {
+              sectionId,
+              projectSlug: resolvedProjectSlug,
+              documentId: targetDocumentId,
+            },
+            bundleError instanceof Error ? bundleError : undefined
+          );
+          throw bundleError;
+        }
+      }
+
       completeSave(response, { requestId, draftBaseVersion });
+      useSectionDraftStore.setState(current => ({
+        ...current,
+        conflictState: response.conflictState,
+        conflictReason: response.conflictState === 'clean' ? null : current.conflictReason,
+      }));
+      setDerivedState(current => ({
+        ...current,
+        conflictState: response.conflictState,
+        summaryNote: response.summaryNote ?? current.summaryNote,
+        formattingWarnings: response.formattingAnnotations.map(toFormattingAnnotation),
+      }));
+
+      if (response.conflictState === 'rebase_required' || response.conflictState === 'blocked') {
+        applyConflict({
+          status: response.conflictState,
+          conflictReason: response.summaryNote ?? null,
+          latestApprovedVersion: draftBaseVersion,
+          rebasedDraft: undefined,
+          events: [],
+        });
+      }
 
       if (documentId && userId) {
         void persistDraft({
@@ -670,6 +745,13 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     enableDiffAutomation,
     refreshDiff,
     syncDerivedStateFromStore,
+    setDerivedState,
+    bundleClient,
+    resolvedProjectSlug,
+    resolvedDocumentSlug,
+    resolvedSectionTitle,
+    resolvedSectionPath,
+    computePatchPayload,
   ]);
 
   const resolveConflicts = useCallback(async () => {

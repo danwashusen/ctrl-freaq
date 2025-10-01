@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 
-import { BaseRepository } from './base-repository';
+import { BaseRepository } from './base-repository.js';
 import {
   SectionReviewSummarySchema,
   type CreateSectionReviewSummaryInput,
   type SectionReviewSummary,
   type UpdateSectionReviewSummaryInput,
-} from '../models/section-review-summary';
+} from '../models/section-review-summary.js';
 
 const SOFT_DELETE_CONDITION = "(deleted_at IS NULL OR deleted_at = '')";
 

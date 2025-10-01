@@ -11,6 +11,7 @@ import { performanceMonitor } from '../utils/performance';
 import { useEditorStore } from '../stores/editor-store';
 import { useDocumentStore } from '../stores/document-store';
 import { useSessionStore } from '../stores/session-store';
+import { useDraftStateStore } from '../stores/draft-state';
 import type { SectionView } from '../types/section-view';
 
 import TableOfContentsComponent from './table-of-contents';
@@ -79,6 +80,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const [isResolvingConflict, setIsResolvingConflict] = useState(false);
     const [showQuotaBanner, setShowQuotaBanner] = useState(false);
     const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
+    const [isRecoveryProcessing, setIsRecoveryProcessing] = useState(false);
     const editEntryTimerRef = useRef<(() => void) | null>(null);
     const editRenderTimerRef = useRef<(() => void) | null>(null);
 
@@ -175,6 +177,64 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }))
     );
     const session = useSessionStore(state => state.session);
+    const rehydratedDrafts = useDraftStateStore(state => state.rehydratedDrafts);
+    const pendingRehydratedDrafts = useMemo(
+      () => Object.values(rehydratedDrafts).filter(draft => draft.status === 'pending'),
+      [rehydratedDrafts]
+    );
+    const hasPendingRehydrations = pendingRehydratedDrafts.length > 0;
+
+    const applyRecoveredDrafts = useCallback(async () => {
+      if (!pendingRehydratedDrafts.length) {
+        return;
+      }
+      setIsRecoveryProcessing(true);
+      try {
+        await Promise.all(
+          pendingRehydratedDrafts.map(async draft => {
+            if (typeof draft.confirm === 'function') {
+              await draft.confirm();
+            }
+          })
+        );
+      } catch (error) {
+        logger.error(
+          {
+            operation: 'draft_recovery_apply',
+            reason: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to apply recovered drafts'
+        );
+      } finally {
+        setIsRecoveryProcessing(false);
+      }
+    }, [pendingRehydratedDrafts]);
+
+    const discardRecoveredDrafts = useCallback(async () => {
+      if (!pendingRehydratedDrafts.length) {
+        return;
+      }
+      setIsRecoveryProcessing(true);
+      try {
+        await Promise.all(
+          pendingRehydratedDrafts.map(async draft => {
+            if (typeof draft.discard === 'function') {
+              await draft.discard();
+            }
+          })
+        );
+      } catch (error) {
+        logger.error(
+          {
+            operation: 'draft_recovery_discard',
+            reason: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to discard recovered drafts'
+        );
+      } finally {
+        setIsRecoveryProcessing(false);
+      }
+    }, [pendingRehydratedDrafts]);
 
     const client = useMemo(() => {
       const baseUrl =
@@ -224,6 +284,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
         lastSavedAt: state.lastSavedAt,
         lastSavedBy: state.lastSavedBy,
         lastManualSaveAt: state.lastManualSaveAt,
+        serverSnapshots: state.serverSnapshots,
         setFormattingAnnotations: state.setFormattingAnnotations,
       }))
     );
@@ -792,9 +853,82 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       activeSection ?? ({} as SectionView),
       draftState.summaryNote
     );
+    const conflictServerSnapshot = (() => {
+      if (typeof sectionDraftState.latestApprovedVersion !== 'number') {
+        return null;
+      }
+      const snapshot =
+        sectionDraftState.serverSnapshots?.[sectionDraftState.latestApprovedVersion] ?? null;
+      if (!snapshot) {
+        return null;
+      }
+      return {
+        version: sectionDraftState.latestApprovedVersion,
+        content: snapshot.content,
+        capturedAt: snapshot.capturedAt ?? null,
+      } satisfies {
+        version: number;
+        content: string;
+        capturedAt?: string | null;
+      };
+    })();
 
     return (
       <>
+        {hasPendingRehydrations && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="draft-recovery-title"
+            data-testid="draft-recovery-gate"
+          >
+            <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+              <h2
+                id="draft-recovery-title"
+                className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+              >
+                Review recovered drafts
+              </h2>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Recovered drafts were loaded from your device. Choose how to proceed before we fetch
+                new server updates.
+              </p>
+              <ul className="mt-4 max-h-60 space-y-2 overflow-y-auto">
+                {pendingRehydratedDrafts.map(draft => (
+                  <li
+                    key={draft.draftKey}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  >
+                    <p className="font-medium">{draft.sectionTitle}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {draft.baselineVersion ? `Baseline ${draft.baselineVersion}` : 'Local draft'}
+                      {draft.lastEditedAt
+                        ? ` · Last edited ${new Date(draft.lastEditedAt).toLocaleString()}`
+                        : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Button
+                  variant="default"
+                  onClick={() => void applyRecoveredDrafts()}
+                  disabled={isRecoveryProcessing}
+                >
+                  {isRecoveryProcessing ? 'Applying…' : 'Apply recovered drafts'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void discardRecoveredDrafts()}
+                  disabled={isRecoveryProcessing}
+                >
+                  {isRecoveryProcessing ? 'Discarding…' : 'Discard recovered drafts'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {showQuotaBanner && (
           <div
             data-testid="draft-pruned-banner"
@@ -1081,6 +1215,7 @@ console.log('code snippet');
             latestApprovedVersion={sectionDraftState.latestApprovedVersion ?? undefined}
             rebasedDraft={sectionDraftState.rebasedDraft ?? undefined}
             events={sectionDraftState.conflictEvents}
+            serverSnapshot={conflictServerSnapshot ?? undefined}
             isProcessing={isResolvingConflict}
             onConfirm={handleResolveConflicts}
             onCancel={() => setIsConflictDialogOpen(false)}

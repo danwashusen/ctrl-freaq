@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 import { z, type ZodErrorMap } from 'zod';
 
-import { BaseRepository } from './base-repository';
-import type { QueryOptions } from '../types/index';
+import { BaseRepository } from './base-repository.js';
+import type { QueryOptions } from '../types/index.js';
 import {
   SECTION_RECORD_QUALITY_GATES,
   type SectionRecordQualityGate,
-} from '../models/section-record';
+} from '../models/section-record.js';
 
 const qualityGateErrorMap: ZodErrorMap = issue => {
   if (issue.code === 'invalid_type') {

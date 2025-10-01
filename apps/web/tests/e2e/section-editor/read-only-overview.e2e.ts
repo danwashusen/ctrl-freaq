@@ -1,8 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Editor Read-Only Overview', () => {
   test('surfaces approval metadata and edit affordance', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const preview = page.getByTestId('section-preview');
     await expect(preview).toBeVisible();

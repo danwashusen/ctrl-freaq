@@ -140,4 +140,33 @@ describe('DraftBundleRepositoryImpl', () => {
       })
     ).rejects.toBeInstanceOf(DraftBundleValidationError);
   });
+
+  test('includes server snapshot when baseline validation fails', async () => {
+    const section = createSection({
+      approvedVersion: 5,
+      approvedContent: '## Server approved content v5',
+    });
+    const { repository } = createRepository(section);
+
+    await expect(
+      repository.validateBaseline({
+        draftKey: 'project/demo/document/Architecture Overview/user-1',
+        sectionPath: section.id,
+        patch: 'noop',
+        baselineVersion: 'rev-4',
+        qualityGateReport: { status: 'pass', issues: [] },
+        documentId: section.docId,
+        projectSlug: 'project-demo',
+        authorId: 'user-1',
+      })
+    ).rejects.toMatchObject({
+      conflicts: [
+        {
+          sectionPath: section.id,
+          serverVersion: 5,
+          serverContent: '## Server approved content v5',
+        },
+      ],
+    });
+  });
 });

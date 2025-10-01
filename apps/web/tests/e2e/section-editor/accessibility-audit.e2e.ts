@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 type AxeAnalysis = Awaited<ReturnType<AxeBuilder['analyze']>>;
 
 const formatViolations = (violations: AxeAnalysis['violations']) =>
@@ -19,6 +21,8 @@ const formatViolations = (violations: AxeAnalysis['violations']) =>
 test.describe('Section Editor Accessibility', () => {
   test('meets WCAG AA guidelines in edit mode', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     await page.getByTestId('enter-edit').click();
     await expect(page.getByTestId('milkdown-editor')).toBeVisible();

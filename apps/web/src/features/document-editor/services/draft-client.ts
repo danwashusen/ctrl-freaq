@@ -1,4 +1,4 @@
-import ApiClient from '@/lib/api';
+import ApiClient, { type ApiClientOptions } from '@/lib/api';
 
 export interface DraftSectionSubmission {
   draftKey: string;
@@ -38,12 +38,8 @@ export interface DraftComplianceResponse {
 }
 
 export class DraftPersistenceClient extends ApiClient {
-  constructor(apiClient?: ApiClient) {
-    if (apiClient) {
-      super();
-    } else {
-      super();
-    }
+  constructor(options?: ApiClientOptions) {
+    super(options);
   }
 
   async applyDraftBundle(
@@ -51,7 +47,7 @@ export class DraftPersistenceClient extends ApiClient {
     documentId: string,
     payload: DraftBundleRequest
   ): Promise<DraftBundleResponse> {
-    return this['makeRequest']<DraftBundleResponse>(
+    return this.makeRequest<DraftBundleResponse>(
       `/projects/${projectSlug}/documents/${documentId}/draft-bundle`,
       {
         method: 'PATCH',
@@ -60,12 +56,16 @@ export class DraftPersistenceClient extends ApiClient {
     );
   }
 
-  async logComplianceWarning(
-    projectSlug: string,
-    documentId: string,
-    payload: DraftComplianceRequest
-  ): Promise<DraftComplianceResponse> {
-    return this['makeRequest']<DraftComplianceResponse>(
+  async logComplianceWarning({
+    projectSlug,
+    documentId,
+    payload,
+  }: {
+    projectSlug: string;
+    documentId: string;
+    payload: DraftComplianceRequest;
+  }): Promise<DraftComplianceResponse> {
+    return this.makeRequest<DraftComplianceResponse>(
       `/projects/${projectSlug}/documents/${documentId}/draft-compliance`,
       {
         method: 'POST',

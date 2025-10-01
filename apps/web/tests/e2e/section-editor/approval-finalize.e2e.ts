@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Approval Finalization', () => {
   test('allows authorized reviewer to approve and records audit metadata', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-api');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const preview = page.getByTestId('section-preview');
     await expect(preview).toBeVisible();

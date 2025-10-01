@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import { z } from 'zod';
 
-import { BaseRepository } from './base-repository';
-import type { QueryOptions } from '../types/index';
+import { BaseRepository } from './base-repository.js';
+import type { QueryOptions } from '../types/index.js';
 
 /**
  * PatchDiff entity schema

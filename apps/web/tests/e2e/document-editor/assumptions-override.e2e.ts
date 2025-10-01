@@ -1,8 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Assumptions Override Flow', () => {
   test('blocks submission when overrides are unresolved', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-assumptions');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const conflictDialog = page.getByTestId('conflict-dialog');
     if (await conflictDialog.isVisible()) {

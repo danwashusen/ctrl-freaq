@@ -11,6 +11,8 @@ import {
   emitDraftSaved,
 } from '@/lib/telemetry/client-events';
 import logger from '@/lib/logger';
+import { useDraftStateStore } from '../stores/draft-state';
+import { DraftPersistenceClient, type DraftComplianceRequest } from '../services/draft-client';
 
 export interface UseDraftPersistenceParams {
   projectSlug: string;
@@ -26,6 +28,9 @@ export interface UseDraftPersistenceResult {
   revertToPublished(): Promise<void>;
   handleLogout(): Promise<void>;
   draftKey: string;
+  requiresConfirmation: boolean;
+  confirmRecoveredDraft(): Promise<void>;
+  discardRecoveredDraft(): Promise<void>;
 }
 
 const buildDraftKey = ({
@@ -40,9 +45,115 @@ const buildDraftKey = ({
 export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraftPersistenceResult {
   const [statusLabel, setStatusLabel] = useState('Synced');
   const [ariaAnnouncement, setAriaAnnouncement] = useState<string | null>(null);
+  const [requiresConfirmation, setRequiresConfirmation] = useState(false);
 
   const draftStore = useMemo<DraftStore>(() => createDraftStore(), []);
   const draftKey = useMemo(() => buildDraftKey(params), [params]);
+  const markDraftRehydrated = useDraftStateStore(state => state.markDraftRehydrated);
+  const resolveRehydratedDraft = useDraftStateStore(state => state.resolveRehydratedDraft);
+  const clearRehydratedDraft = useDraftStateStore(state => state.clearRehydratedDraft);
+  const draftClient = useMemo(() => new DraftPersistenceClient(), []);
+
+  const revertToPublished = useCallback(async () => {
+    try {
+      await draftStore.removeDraft(draftKey);
+      setStatusLabel('Synced');
+      setAriaAnnouncement('Draft reverted to published content');
+      setRequiresConfirmation(false);
+      emitDraftPruned({
+        draftKey,
+        projectSlug: params.projectSlug,
+        documentSlug: params.documentSlug,
+        sectionPath: params.sectionPath,
+        authorId: params.authorId,
+        prunedKeys: [draftKey],
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('draft-storage:quota-cleared'));
+      }
+      resolveRehydratedDraft(draftKey, 'discarded');
+      clearRehydratedDraft(draftKey);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+        'Failed to revert draft to published content',
+        {
+          draftKey,
+          projectSlug: params.projectSlug,
+          documentSlug: params.documentSlug,
+          sectionPath: params.sectionPath,
+          authorId: params.authorId,
+        },
+        err
+      );
+      setAriaAnnouncement('Unable to revert draft. Try again.');
+    }
+  }, [
+    draftStore,
+    draftKey,
+    params.projectSlug,
+    params.documentSlug,
+    params.sectionPath,
+    params.authorId,
+    resolveRehydratedDraft,
+    clearRehydratedDraft,
+  ]);
+
+  const confirmRecoveredDraft = useCallback(async () => {
+    setStatusLabel('Draft pending');
+    setRequiresConfirmation(false);
+    setAriaAnnouncement('Recovered draft ready for review.');
+    resolveRehydratedDraft(draftKey, 'applied');
+  }, [draftKey, resolveRehydratedDraft]);
+
+  const discardRecoveredDraft = useCallback(async () => {
+    await revertToPublished();
+  }, [revertToPublished]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await draftStore.clearAuthorDrafts(params.authorId);
+      setStatusLabel('Synced');
+      setAriaAnnouncement('Drafts cleared after logout for security');
+      setRequiresConfirmation(false);
+      emitDraftPruned({
+        draftKey,
+        projectSlug: params.projectSlug,
+        documentSlug: params.documentSlug,
+        sectionPath: params.sectionPath,
+        authorId: params.authorId,
+        prunedKeys: [draftKey],
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('draft-storage:quota-cleared'));
+      }
+      resolveRehydratedDraft(draftKey, 'discarded');
+      clearRehydratedDraft(draftKey);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+        'Failed to clear drafts during logout',
+        {
+          draftKey,
+          projectSlug: params.projectSlug,
+          documentSlug: params.documentSlug,
+          sectionPath: params.sectionPath,
+          authorId: params.authorId,
+        },
+        err
+      );
+      setAriaAnnouncement('Unable to clear drafts. Check console for details.');
+    }
+  }, [
+    draftStore,
+    draftKey,
+    params.projectSlug,
+    params.documentSlug,
+    params.sectionPath,
+    params.authorId,
+    resolveRehydratedDraft,
+    clearRehydratedDraft,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +170,9 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
 
           if (!state || state.sections.length === 0) {
             setStatusLabel('Synced');
+            setAriaAnnouncement(null);
+            setRequiresConfirmation(false);
+            clearRehydratedDraft(draftKey);
             return;
           }
 
@@ -73,10 +187,25 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
 
           if (!matchingSection) {
             setStatusLabel('Synced');
+            setAriaAnnouncement(null);
+            setRequiresConfirmation(false);
+            clearRehydratedDraft(draftKey);
             return;
           }
 
-          setStatusLabel('Draft pending');
+          setStatusLabel('Review recovered draft');
+          setAriaAnnouncement('Draft restored from local recovery. Review before continuing.');
+          setRequiresConfirmation(true);
+          markDraftRehydrated({
+            draftKey,
+            sectionTitle: matchingSection.sectionTitle ?? params.sectionTitle,
+            sectionPath: matchingSection.sectionPath ?? params.sectionPath,
+            baselineVersion: matchingSection.baselineVersion,
+            lastEditedAt: matchingSection.lastEditedAt?.getTime?.() ?? Date.now(),
+            confirm: confirmRecoveredDraft,
+            discard: discardRecoveredDraft,
+          });
+
           emitDraftSaved({
             draftKey,
             projectSlug: params.projectSlug,
@@ -86,6 +215,29 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
           });
 
           if (state.pendingComplianceWarning) {
+            const compliancePayload = {
+              authorId: params.authorId,
+              policyId: 'retention-client-only',
+              detectedAt: new Date().toISOString(),
+              context: {
+                draftKey,
+                sectionPath: matchingSection.sectionPath ?? params.sectionPath,
+              },
+            } satisfies DraftComplianceRequest;
+            void Promise.resolve(
+              draftClient.logComplianceWarning({
+                projectSlug: params.projectSlug,
+                documentId: params.documentSlug,
+                payload: compliancePayload,
+              })
+            ).catch(error => {
+              logger.warn('Failed to log compliance warning', {
+                draftKey,
+                projectSlug: params.projectSlug,
+                documentSlug: params.documentSlug,
+                errorMessage: error instanceof Error ? error.message : String(error),
+              });
+            });
             emitComplianceWarning({
               draftKey,
               projectSlug: params.projectSlug,
@@ -100,6 +252,8 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
         .catch(() => {
           if (!cancelled) {
             setStatusLabel('Synced');
+            setAriaAnnouncement(null);
+            setRequiresConfirmation(false);
           }
         });
     };
@@ -139,86 +293,12 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
     params.authorId,
     params.sectionPath,
     draftKey,
-  ]);
-
-  const revertToPublished = useCallback(async () => {
-    try {
-      await draftStore.removeDraft(draftKey);
-      setStatusLabel('Synced');
-      setAriaAnnouncement('Draft reverted to published content');
-      emitDraftPruned({
-        draftKey,
-        projectSlug: params.projectSlug,
-        documentSlug: params.documentSlug,
-        sectionPath: params.sectionPath,
-        authorId: params.authorId,
-        prunedKeys: [draftKey],
-      });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('draft-storage:quota-cleared'));
-      }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(
-        'Failed to revert draft to published content',
-        {
-          draftKey,
-          projectSlug: params.projectSlug,
-          documentSlug: params.documentSlug,
-          sectionPath: params.sectionPath,
-          authorId: params.authorId,
-        },
-        err
-      );
-      setAriaAnnouncement('Unable to revert draft. Try again.');
-    }
-  }, [
-    draftStore,
-    draftKey,
-    params.projectSlug,
-    params.documentSlug,
-    params.sectionPath,
-    params.authorId,
-  ]);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await draftStore.clearAuthorDrafts(params.authorId);
-      setStatusLabel('Synced');
-      setAriaAnnouncement('Drafts cleared after logout for security');
-      emitDraftPruned({
-        draftKey,
-        projectSlug: params.projectSlug,
-        documentSlug: params.documentSlug,
-        sectionPath: params.sectionPath,
-        authorId: params.authorId,
-        prunedKeys: [draftKey],
-      });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('draft-storage:quota-cleared'));
-      }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(
-        'Failed to clear drafts during logout',
-        {
-          draftKey,
-          projectSlug: params.projectSlug,
-          documentSlug: params.documentSlug,
-          sectionPath: params.sectionPath,
-          authorId: params.authorId,
-        },
-        err
-      );
-      setAriaAnnouncement('Unable to clear drafts. Check console for details.');
-    }
-  }, [
-    draftStore,
-    draftKey,
-    params.projectSlug,
-    params.documentSlug,
-    params.sectionPath,
-    params.authorId,
+    markDraftRehydrated,
+    confirmRecoveredDraft,
+    discardRecoveredDraft,
+    clearRehydratedDraft,
+    draftClient,
+    params.sectionTitle,
   ]);
 
   return {
@@ -227,5 +307,8 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
     revertToPublished,
     handleLogout,
     draftKey,
+    requiresConfirmation,
+    confirmRecoveredDraft,
+    discardRecoveredDraft,
   };
 }

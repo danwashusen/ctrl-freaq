@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Editor Diff Preview & Submit', () => {
   test('renders diff preview before submitting for review', async ({ page }) => {
     let diffRequested = false;
@@ -70,6 +72,8 @@ test.describe('Section Editor Diff Preview & Submit', () => {
     });
 
     await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     await page.getByTestId('enter-edit').click();
     const diffViewer = page.getByTestId('diff-viewer');

@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Editor Formatting Toolbar & Hotkeys', () => {
   test('exposes formatting controls and honors keyboard shortcuts', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-overview');
+
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     await page.getByTestId('enter-edit').click();
 

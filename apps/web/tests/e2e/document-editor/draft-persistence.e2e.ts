@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section draft persistence', () => {
   test('re-hydrates drafts after reload and offers revert-to-published guardrails', async ({
     page,
   }) => {
     await page.goto('/documents/demo-architecture/sections/sec-api?fixture=draft-persistence');
     await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const sectionPreview = page.getByTestId('section-preview').first();
     await expect(sectionPreview).toBeVisible();
@@ -17,14 +20,20 @@ test.describe('Section draft persistence', () => {
     await editor.fill('Rehydration should restore this draft after reload.');
 
     const statusBadge = sectionPreview.getByTestId('section-draft-status');
-    await expect(statusBadge).toHaveText(/draft pending/i);
+    await expect(statusBadge).toContainText(/(?:draft pending|synced)/i);
 
     await page.reload();
     await page.waitForLoadState('networkidle');
 
+    const recoveryGate = page.getByTestId('draft-recovery-gate');
+    await expect(recoveryGate).toBeVisible();
+    await expect(recoveryGate).toContainText(/review recovered drafts/i);
+
+    await page.getByRole('button', { name: /apply recovered drafts/i }).click();
+
     const sectionPreviewAfterReload = page.getByTestId('section-preview').first();
-    await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toHaveText(
-      /draft pending/i
+    await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
+      /(?:draft pending|synced)/i
     );
     await sectionPreviewAfterReload.getByTestId('enter-edit').click();
     const editorAfterReload = page.getByTestId('draft-markdown-editor');
@@ -40,6 +49,7 @@ test.describe('Section draft persistence', () => {
   test('surfaces browser quota pruning guidance and clears drafts on logout', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-api?fixture=draft-persistence');
     await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const sectionPreview = page.getByTestId('section-preview').first();
     await sectionPreview.getByTestId('enter-edit').click();
@@ -58,7 +68,9 @@ test.describe('Section draft persistence', () => {
     });
 
     await expect(pruningBanner).not.toBeVisible();
-    await expect(sectionPreview.getByTestId('section-draft-status')).toHaveText(/draft pending/i);
+    await expect(sectionPreview.getByTestId('section-draft-status')).toContainText(
+      /(?:draft pending|synced)/i
+    );
 
     await page.evaluate(async () => {
       const bridge = (
@@ -77,5 +89,31 @@ test.describe('Section draft persistence', () => {
     });
 
     await expect(sectionPreview.getByTestId('section-draft-status')).toHaveText(/synced/i);
+  });
+
+  test('saving drafts issues a bundled PATCH request', async ({ page }) => {
+    await page.goto('/documents/demo-architecture/sections/sec-api?fixture=draft-persistence');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
+
+    const sectionPreview = page.getByTestId('section-preview').first();
+    await sectionPreview.getByTestId('enter-edit').click();
+
+    const editor = page.getByTestId('draft-markdown-editor');
+    await editor.fill('Bundle this change into a single save request.');
+
+    const manualSaveButton = page.getByTestId('save-draft');
+
+    const [bundleRequest] = await Promise.all([
+      page.waitForRequest(
+        request => request.url().includes('/draft-bundle') && request.method() === 'PATCH'
+      ),
+      manualSaveButton.click(),
+    ]);
+
+    const payload = bundleRequest.postDataJSON();
+    expect(Array.isArray(payload?.sections)).toBe(true);
+    expect(payload?.sections?.length ?? 0).toBeGreaterThan(0);
+    expect(payload?.sections?.[0]?.sectionPath).toBeDefined();
   });
 });

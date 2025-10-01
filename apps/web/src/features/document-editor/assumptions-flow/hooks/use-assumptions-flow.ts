@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { createAssumptionSessionStore } from '@ctrl-freaq/editor-persistence';
-import type { AssumptionSessionSnapshot } from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
+import {
+  createAssumptionSessionStore,
+  type AssumptionSessionSnapshot,
+} from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
 
 import {
   createAssumptionsFlowBootstrap,

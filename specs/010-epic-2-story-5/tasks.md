@@ -156,18 +156,16 @@ run-task T023
 
 ## Phase 4.R: Review Follow-Up
 
-- [✓] F1 Finding F1: Bundled save writes diff text as final section content —
-  implement remediation detailed in `specs/010-epic-2-story-5/audit.md`.
-- [✓] F2 Finding F2: Draft keys hard-code project slug, breaking cross-project
-  isolation — see `specs/010-epic-2-story-5/audit.md`.
-- [✓] F3 Finding F3: Draft store never receives live edits, so
-  rehydration/logout promises fail — follow `specs/010-epic-2-story-5/audit.md`
-  remediation guidance.
-- [✓] F4 Finding F4: Logout does not clear DraftStore entries — see
-  `specs/010-epic-2-story-5/audit.md`.
-- [✓] F5 Finding F5: Section draft badges misreport drafts when other sections
-  have saves — see `specs/010-epic-2-story-5/audit.md`.
-- [✓] F6 Finding F6: Draft bundle/compliance APIs trust client-supplied author
-  identity — see `specs/010-epic-2-story-5/audit.md`.
-- [✓] F7 Finding F7: Lint gate still emits warnings — see
-  `specs/010-epic-2-story-5/audit.md`.
+- [✓] F001 Finding F001: Bundled save flow never calls draft bundle API as
+  described in audit.md.
+- [✓] F002 Finding F002: Compliance warnings never reach backend logging as
+  described in audit.md.
+- [✓] F003 Finding F003: Playwright result artifact committed as described in
+  audit.md.
+
+_No open findings from the latest review cycle._
+
+## Assumption Log
+
+- No new feature-level assumptions introduced while addressing F8–F10; changes
+  align with existing specification guidance.

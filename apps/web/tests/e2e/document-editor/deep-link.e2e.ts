@@ -1,8 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Document Editor Deep Link Experience', () => {
   test('renders document fixtures when navigating directly to a section', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-api');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     // Table of contents should render with active section selection.
     const tocPanel = page.getByTestId('toc-panel');

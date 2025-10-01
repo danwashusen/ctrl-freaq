@@ -95,6 +95,9 @@ export default [
   },
   {
     files: ['**/*.test.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@typescript-eslint': typescript,
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
@@ -118,6 +121,9 @@ export default [
         __dirname: 'readonly',
         __filename: 'readonly',
       },
+    },
+    plugins: {
+      '@typescript-eslint': typescript,
     },
     rules: {
       'no-console': 'off',

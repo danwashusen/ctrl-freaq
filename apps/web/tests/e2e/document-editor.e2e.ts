@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from './support/draft-recovery';
+
 test.describe('Document Editor Core Infrastructure', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-api');
 
     await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     await expect(page.getByTestId('toc-panel')).toBeVisible();
   });

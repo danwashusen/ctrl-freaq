@@ -34,6 +34,10 @@ describe('DraftBundleService', () => {
       validateBaseline: vi.fn().mockResolvedValue({ status: 'ok' }),
       applySectionPatch: vi.fn().mockResolvedValue({ applied: true }),
       retireDraft: vi.fn().mockResolvedValue(undefined),
+      getSectionSnapshot: vi.fn().mockResolvedValue({
+        serverVersion: 6,
+        serverContent: '## Approved architecture overview',
+      }),
     } satisfies DraftBundleRepository;
 
     audit = {
@@ -113,11 +117,49 @@ describe('DraftBundleService', () => {
           expect.objectContaining({
             sectionPath: 'architecture-overview',
             message: 'Unresolved TODO blocks promotion',
+            serverVersion: 6,
+            serverContent: '## Approved architecture overview',
           }),
         ],
       })
     );
+    expect(draftRepo.getSectionSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionPath: 'architecture-overview',
+        documentId: baseRequest.documentId,
+        projectSlug: baseRequest.projectSlug,
+      })
+    );
     expect(draftRepo.applySectionPatch).not.toHaveBeenCalled();
     expect(telemetry.emitBundleFailure).toHaveBeenCalled();
+  });
+
+  test('surfaces server snapshot metadata when repository raises version conflicts', async () => {
+    const conflictError = new DraftBundleValidationError([
+      {
+        sectionPath: 'architecture-overview',
+        message: 'Baseline mismatch',
+        serverVersion: 8,
+        serverContent: '## Server content v8',
+      },
+    ]);
+
+    draftRepo.validateBaseline = vi.fn().mockRejectedValue(conflictError);
+
+    await expect(service.applyBundle(baseRequest)).rejects.toBeInstanceOf(
+      DraftBundleValidationError
+    );
+
+    expect(audit.recordBundleRejected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conflicts: [
+          expect.objectContaining({
+            sectionPath: 'architecture-overview',
+            serverVersion: 8,
+            serverContent: '## Server content v8',
+          }),
+        ],
+      })
+    );
   });
 });

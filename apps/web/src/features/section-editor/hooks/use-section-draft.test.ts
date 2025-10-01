@@ -9,6 +9,15 @@ import type {
 import { useSectionDraft } from './use-section-draft';
 import { useSectionDraftStore } from '../stores/section-draft-store';
 
+const applyDraftBundleMock = vi.fn();
+
+vi.mock('@/features/document-editor/services/draft-client', () => ({
+  DraftPersistenceClient: vi.fn().mockImplementation(() => ({
+    applyDraftBundle: applyDraftBundleMock,
+    logComplianceWarning: vi.fn(),
+  })),
+}));
+
 const createDraftStoreMock = () => ({
   saveDraft: vi.fn().mockResolvedValue({
     record: {
@@ -87,6 +96,7 @@ describe('useSectionDraft', () => {
     draftStoreMock = createDraftStoreMock();
     useSectionDraftStore.getState().reset();
     withMockedCrypto();
+    applyDraftBundleMock.mockReset();
   });
 
   afterEach(() => {
@@ -184,6 +194,26 @@ describe('useSectionDraft', () => {
     expect(result.current.state.formattingWarnings).toHaveLength(1);
     expect(result.current.state.summaryNote).toBe('Updated summary');
     expect(result.current.state.conflictState).toBe('clean');
+
+    expect(applyDraftBundleMock).toHaveBeenCalledWith(
+      'demo-project',
+      'doc-1',
+      expect.objectContaining({
+        submittedBy: 'user-1',
+        sections: [
+          expect.objectContaining({
+            draftKey: 'demo-project/doc-1/Section Title/user-1',
+            sectionPath: 'section-1',
+            baselineVersion: 'rev-5',
+            patch: expect.stringContaining('# Intro\\nNew content'),
+            qualityGateReport: {
+              status: 'pass',
+              issues: [],
+            },
+          }),
+        ],
+      })
+    );
   });
 
   it('applies conflict responses when manual save detects a version mismatch', async () => {

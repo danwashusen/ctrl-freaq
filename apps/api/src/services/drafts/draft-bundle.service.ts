@@ -37,6 +37,11 @@ export interface DraftBundleRepository {
     }
   ): Promise<{ applied: boolean }>;
   retireDraft(draftKey: string): Promise<void>;
+  getSectionSnapshot(input: {
+    sectionPath: string;
+    documentId: string;
+    projectSlug: string;
+  }): Promise<{ serverVersion: number; serverContent: string } | null>;
 }
 
 export interface DraftBundleAuditLogger {
@@ -67,6 +72,8 @@ export interface DraftBundleDependencies {
 export interface DraftBundleConflict {
   sectionPath: string;
   message: string;
+  serverVersion?: number;
+  serverContent?: string;
 }
 
 export class DraftBundleValidationError extends Error {
@@ -87,34 +94,28 @@ export class DraftBundleService {
     });
 
     const conflicts: DraftBundleConflict[] = [];
+    const appliedSections: string[] = [];
+    let failureReason: 'quality-gate-failed' | 'repository-conflict' | null = null;
 
     for (const section of request.sections) {
       if (section.qualityGateReport.status === 'fail') {
         const [issue] = section.qualityGateReport.issues;
+        const snapshot = await this.deps.draftRepo.getSectionSnapshot({
+          sectionPath: section.sectionPath,
+          documentId: request.documentId,
+          projectSlug: request.projectSlug,
+        });
+
         conflicts.push({
           sectionPath: section.sectionPath,
           message: issue?.message ?? 'Quality gate failed',
+          serverVersion: snapshot?.serverVersion,
+          serverContent: snapshot?.serverContent,
         });
+        failureReason = failureReason ?? 'quality-gate-failed';
+        continue;
       }
-    }
 
-    if (conflicts.length > 0) {
-      const error = new DraftBundleValidationError(conflicts);
-      await this.deps.audit.recordBundleRejected({
-        documentId: request.documentId,
-        authorId: request.submittedBy,
-        conflicts,
-      });
-      this.deps.telemetry.emitBundleFailure({
-        documentId: request.documentId,
-        reason: 'quality-gate-failed',
-      });
-      throw error;
-    }
-
-    const appliedSections: string[] = [];
-
-    for (const section of request.sections) {
       try {
         await this.deps.draftRepo.validateBaseline({
           ...section,
@@ -125,6 +126,7 @@ export class DraftBundleService {
       } catch (error) {
         if (error instanceof DraftBundleValidationError) {
           conflicts.push(...error.conflicts);
+          failureReason = failureReason ?? 'repository-conflict';
           continue;
         }
         throw error;
@@ -140,6 +142,7 @@ export class DraftBundleService {
       } catch (error) {
         if (error instanceof DraftBundleValidationError) {
           conflicts.push(...error.conflicts);
+          failureReason = failureReason ?? 'repository-conflict';
           continue;
         }
         throw error;
@@ -158,7 +161,7 @@ export class DraftBundleService {
       });
       this.deps.telemetry.emitBundleFailure({
         documentId: request.documentId,
-        reason: 'repository-conflict',
+        reason: failureReason ?? 'repository-conflict',
       });
       throw error;
     }

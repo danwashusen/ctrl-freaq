@@ -58,11 +58,16 @@ function extractBaselineVersion(baseline: string): number | null {
   return null;
 }
 
-function buildConflict(sectionPath: string, message: string): DraftBundleConflict {
+function buildConflict(
+  sectionPath: string,
+  message: string,
+  extras: Partial<DraftBundleConflict> = {}
+): DraftBundleConflict {
   return {
     sectionPath,
     message,
-  };
+    ...extras,
+  } satisfies DraftBundleConflict;
 }
 
 export class DraftBundleRepositoryImpl implements DraftBundleRepository {
@@ -83,10 +88,15 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
 
     const expectedVersion = extractBaselineVersion(input.baselineVersion);
     if (expectedVersion !== null && expectedVersion !== section.approvedVersion) {
+      const serverContent = section.approvedContent ?? section.contentMarkdown ?? '';
       throw new DraftBundleValidationError([
         buildConflict(
           input.sectionPath,
-          `Baseline version ${input.baselineVersion} does not match server version ${section.approvedVersion}`
+          `Baseline version ${input.baselineVersion} does not match server version ${section.approvedVersion}`,
+          {
+            serverVersion: section.approvedVersion ?? undefined,
+            serverContent,
+          }
         ),
       ]);
     }
@@ -120,7 +130,10 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
       if (!patchResult.success || typeof patchResult.content !== 'string') {
         const reason = patchResult.error ?? 'Unable to apply draft patch';
         throw new DraftBundleValidationError([
-          buildConflict(input.sectionPath, `Draft patch could not be applied: ${reason}`),
+          buildConflict(input.sectionPath, `Draft patch could not be applied: ${reason}`, {
+            serverVersion: section.approvedVersion ?? undefined,
+            serverContent: section.approvedContent ?? section.contentMarkdown ?? '',
+          }),
         ]);
       }
 
@@ -153,5 +166,31 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
 
   async retireDraft(draftKey: string): Promise<void> {
     this.logger.info({ draftKey }, 'Retiring client draft after bundle completion');
+  }
+
+  async getSectionSnapshot(input: {
+    sectionPath: string;
+    documentId: string;
+    projectSlug: string;
+  }): Promise<{ serverVersion: number; serverContent: string } | null> {
+    const section = await this.sections.findById(input.sectionPath);
+    if (!section) {
+      this.logger.warn(
+        {
+          sectionPath: input.sectionPath,
+          documentId: input.documentId,
+          projectSlug: input.projectSlug,
+        },
+        'Unable to load section snapshot for bundle conflict'
+      );
+      return null;
+    }
+
+    const serverVersion = section.approvedVersion ?? 0;
+    const serverContent = section.approvedContent ?? section.contentMarkdown ?? '';
+    return {
+      serverVersion,
+      serverContent,
+    };
   }
 }

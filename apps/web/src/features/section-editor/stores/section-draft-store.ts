@@ -29,6 +29,13 @@ interface SectionDraftStoreSnapshot {
   lastManualSaveAt: number | null;
   lastRequestId: string | null;
   saveError: SectionEditorClientError | null;
+  serverSnapshots: Record<
+    number,
+    {
+      content: string;
+      capturedAt: string;
+    }
+  >;
 }
 
 export interface SectionDraftStoreState extends SectionDraftStoreSnapshot {
@@ -40,6 +47,11 @@ export interface SectionDraftStoreState extends SectionDraftStoreSnapshot {
   applyConflict: (conflict: ConflictCheckResponseDTO) => void;
   recordConflictEvents: (events: ConflictLogEntryDTO[]) => void;
   setFormattingAnnotations: (annotations: FormattingAnnotationDTO[]) => void;
+  recordServerSnapshot: (snapshot: {
+    version: number;
+    content: string;
+    capturedAt?: string;
+  }) => void;
   reset: () => void;
 }
 
@@ -87,6 +99,7 @@ const createInitialState = (): SectionDraftStoreSnapshot => ({
   lastManualSaveAt: null,
   lastRequestId: null,
   saveError: null,
+  serverSnapshots: {},
 });
 
 const shouldIgnoreByRequestId = (currentRequestId: string | null, metaRequestId?: string) =>
@@ -189,6 +202,19 @@ export const useSectionDraftStore = create<SectionDraftStoreState>(set => ({
         ? [...conflict.rebasedDraft.formattingAnnotations]
         : state.formattingAnnotations,
     }));
+    if (conflict.serverSnapshot) {
+      const { version, content, capturedAt } = conflict.serverSnapshot;
+      set(state => ({
+        ...state,
+        serverSnapshots: {
+          ...state.serverSnapshots,
+          [version]: {
+            content,
+            capturedAt: capturedAt ?? new Date().toISOString(),
+          },
+        },
+      }));
+    }
   },
 
   recordConflictEvents: events => {
@@ -202,6 +228,19 @@ export const useSectionDraftStore = create<SectionDraftStoreState>(set => ({
     set(state => ({
       ...state,
       formattingAnnotations: [...annotations],
+    }));
+  },
+
+  recordServerSnapshot: snapshot => {
+    set(state => ({
+      ...state,
+      serverSnapshots: {
+        ...state.serverSnapshots,
+        [snapshot.version]: {
+          content: snapshot.content,
+          capturedAt: snapshot.capturedAt ?? new Date().toISOString(),
+        },
+      },
     }));
   },
 

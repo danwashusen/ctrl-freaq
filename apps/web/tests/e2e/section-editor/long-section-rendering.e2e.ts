@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Long Section Rendering Performance', () => {
   test('maintains 60 fps and shows fallback indicator on slow loads', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-assumptions');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const conflictDialog = page.getByTestId('conflict-dialog');
     if (await conflictDialog.isVisible()) {

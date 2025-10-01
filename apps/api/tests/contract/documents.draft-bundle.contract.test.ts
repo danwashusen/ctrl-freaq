@@ -26,6 +26,8 @@ const DraftConflictResponseSchema = z.object({
       z.object({
         sectionPath: z.string(),
         message: z.string(),
+        serverVersion: z.number().int().nonnegative(),
+        serverContent: z.string(),
       })
     )
     .nonempty(),
@@ -121,6 +123,8 @@ describe('Draft bundle API contract', () => {
     if (payload.success) {
       expect(payload.data.documentId).toBe(DOCUMENT_ID);
       expect(payload.data.conflicts[0]?.sectionPath).toBe(SECTION_ALPHA);
+      expect(payload.data.conflicts[0]?.serverVersion).toBe(7);
+      expect(payload.data.conflicts[0]?.serverContent).toContain('Approved architecture overview');
     }
   });
 

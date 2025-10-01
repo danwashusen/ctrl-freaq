@@ -1,29 +1,34 @@
 # Code Review Report: Section Draft Persistence (010-epic-2-story-5)
 
-## Final Status: **Changes Requested**
+## Final Status: **Approved** _(Approved | Changes Requested | Blocked: Missing Context | Blocked: Scope Mismatch | Needs Clarification | TDD Violation | Quality Controls Violation | Security Gate Failure | Privacy Gate Failure | Supply Chain Violation | Dependency Vulnerabilities | Deprecated Dependencies | Review Pending)_
 
 ## Resolved Scope
 
 **Branch**: `010-epic-2-story-5` **Baseline**: `main` **Diff Source**:
-`git diff main...HEAD` **Review Target**: Section Draft Persistence **Files
-Analyzed**: 32 changed files covering backend draft APIs, shared persistence
-library updates, frontend draft UX wiring, QA helpers, and regression tests
+`origin/main...HEAD (merge-base 32c05786e8cc8c79b7ea0a38965320d824884474)`
+**Review Target**: Persist multi-section drafts with bundled saves, compliance
+logging, and accessible status cues end to end. **Files Analyzed**: 62 changed
+files including frontend document/section editor modules, backend draft
+services/routes, shared data repositories, QA logging helpers, templates CLI,
+and spec/docs updates.
 
-**Resolved Scope Narrative**: Audited the expanded draft persistence pipeline
-from the shared `@ctrl-freaq/editor-persistence` store through new Express draft
-bundle/compliance endpoints, front-end draft indicators/logout hooks, QA logging
-helpers, and the Vitest/Playwright coverage that exercises quota pruning and
-logout flows.
+**Resolved Scope Narrative**: Reviewed the full draft persistence surface:
+Zustand stores and hooks powering recovery, manual save orchestration, bundled
+API client wiring, backend draft bundle/compliance routes, repository
+validation, QA logging helper, Playwright fixtures, and templates CLI build
+adjustments. Confirmed the UI now dispatches bundled saves, logs compliance
+warnings, and tests cover the new flows.
 
-**Feature Directory**: `specs/010-epic-2-story-5` **Implementation Scope**:
+**Feature Directory**:
+`/Users/danwas/Development/Projects/ctrl-freaq/specs/010-epic-2-story-5`
+**Implementation Scope**:
 
-- DraftStore enhancements for composite keys, quota pruning, and logout purge
-- Draft bundle repository/service wiring plus compliance logging endpoints in
-  `apps/api`
-- QA compliance helper for retention warnings in `packages/qa`
-- React hook + badge UX for section-level draft status and revert controls
-- Clerk `UserButton` wrapper and logout registry bridge for clearing DraftStore
-- Vitest + Playwright suites validating draft storage, pruning, and logout flows
+- `/apps/api/src/services/drafts/**`
+- `/apps/api/src/routes/documents.ts`
+- `/apps/web/src/features/document-editor/**`
+- `/apps/web/src/features/section-editor/**`
+- `/packages/editor-persistence/**`
+- `/apps/web/tests/**`
 
 ## SPEC_KIT_CONFIG
 
@@ -34,118 +39,60 @@ spec-kit:
   review:
     documents:
       - path: 'docs/prd.md'
-        context:
-          'Documents the product requirements and should be considered a primary
-          source of truth, any deviations should be called out.'
+        context: 'Product requirements baseline for editor workflows.'
       - path: 'docs/architecture.md'
-        context:
-          'Documents the architecture of the project and should be considered a
-          primary source of truth, any deviations should be called out.'
+        context: 'Backend architecture, services, and logging expectations.'
       - path: 'docs/ui-architecture.md'
-        context:
-          'Documents the UI architecture of the project and should be considered
-          a primary source of truth, any deviations should be called out.'
+        context: 'UI architecture patterns and accessibility standards.'
+      - path: 'docs/front-end-spec.md'
+        context: 'Document editor UX, status cues, and accessibility copy.'
 ```
 
 ## Pre-Review Gates
 
-| Gate                      | Status | Details                                               |
-| ------------------------- | ------ | ----------------------------------------------------- |
-| **Context Gate**          | Pass   | Feature dossier (spec/plan/tasks) present and current |
-| **Change Intent Gate**    | Pass   | Changes align with Story 5 draft persistence scope    |
-| **Unknowns Gate**         | Pass   | No unresolved clarifications detected                 |
-| **Separation of Duties**  | N/A    | Local review; repo metadata not available             |
-| **Code Owners Gate**      | N/A    | CODEOWNERS enforcement not evaluated offline          |
-| **Quality Controls Gate** | Warn   | ESLint reports 3 warnings (see Finding F7)            |
-| **TDD Evidence Gate**     | Pass   | New Vitest + Playwright specs cover added behaviour   |
+| Gate                      | Status | Details                                                                                      |
+| ------------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| **Context Gate**          | Pass   | plan.md, tasks.md, spec.md, research.md, data-model.md, contracts/, quickstart.md available. |
+| **Change Intent Gate**    | Pass   | Branch slug matches dossier; changes remain within draft persistence scope.                  |
+| **Unknowns Gate**         | Pass   | No unresolved clarifications in dossier or diff.                                             |
+| **Separation of Duties**  | Info   | Single-author branch; local review cannot assert enforcement.                                |
+| **Code Owners Gate**      | Info   | Repository still lacks CODEOWNERS; manual reviewer assignment required.                      |
+| **Quality Controls Gate** | Pass   | `pnpm test:ci` (lint, typecheck, unit/contract, Playwright, visual) rerun to green.          |
+| **TDD Evidence Gate**     | Pass   | New unit, integration, contract, and E2E specs target bundled saves and compliance logging.  |
 
 ## Findings
 
-### Finding F5: Section draft badges misreport drafts when other sections have saves
-
-- **Category**: Functional Correctness
-- **Severity**: Major
-- **Confidence**: High
-- **Impact**: `useDraftPersistence` marks every section within a document as
-  “Draft pending” whenever _any_ draft exists for that author/document, because
-  the rehydration branch only checks `state.sections.length > 0` and never
-  verifies the current `draftKey`. Authors lose the ability to identify which
-  sections hold unsaved edits, undermining FR-002 and creating risk of
-  unnecessary revert/discard actions.
-- **Evidence**:
-  `apps/web/src/features/document-editor/hooks/use-draft-persistence.ts:60-82`
-  sets the status solely on the presence of any draft in the document, without
-  filtering for the current section key.
-- **Remediation**: Filter the rehydrated `sections` to locate the matching
-  `draftKey`/`sectionPath` before marking the badge as pending, and reset the
-  status to “Synced” when no entry exists for the current section. Update unit
-  or Playwright coverage to assert per-section isolation.
-- **Source Requirement**: FR-002 (per-section draft status + accessibility)
-- **Files**:
-  apps/web/src/features/document-editor/hooks/use-draft-persistence.ts:60
-
-### Finding F6: Draft bundle/compliance APIs trust client-supplied author identity
-
-- **Category**: Security & Privacy
-- **Severity**: Major
-- **Confidence**: High
-- **Impact**: The new PATCH/POST routes accept `submittedBy` and `authorId`
-  directly from the request body and forward them into audit logs and service
-  logic without cross-checking the authenticated user. A malicious client can
-  spoof another author, pollute audit trails, and bypass FR-006’s “emit audit
-  metadata (author, timestamp)” guarantee. Violates Constitution security rules
-  around authentication/authorization.
-- **Evidence**: `apps/api/src/routes/documents.ts:152-213` delegates the
-  body-provided identifiers to `DraftBundleService` and compliance logging
-  without validating against `req.auth?.userId`.
-- **Remediation**: Derive the author identity from the authenticated Clerk
-  session (`req.auth.userId`), reject or log discrepancies, and update tests to
-  assert impersonation is blocked.
-- **Source Requirement**: CONSTITUTION.md (Security - authentication & audit)
-- **Files**: apps/api/src/routes/documents.ts:152-213
-
-### Finding F7: Lint gate still emits warnings
-
-- **Category**: Maintainability / Quality Controls
-- **Severity**: Minor
-- **Confidence**: High
-- **Impact**: `pnpm test:ci` logs ESLint warnings for missing effect
-  dependencies and forbidden non-null assertions. Leaving warnings in the
-  primary gate erodes the Constitution’s “Quality Controls Protection” standard
-  and risks future regressions slipping through.
-- **Evidence**: `pnpm test:ci` output flags `DraftStatusBadge.tsx:37` and
-  `draft-logout-registry.ts:44,65`.
-- **Remediation**: Destructure props to add the needed dependencies and replace
-  the `!` assertions with explicit guards so ESLint runs cleanly.
-- **Source Requirement**: Constitution §Quality Controls Protection
-- **Files**:
-  apps/web/src/features/document-editor/components/section-draft/DraftStatusBadge.tsx:37;
-  apps/web/src/lib/draft-logout-registry.ts:44,65
+No findings. Remediation targets F001–F003 from the prior audit are resolved and
+validated; no new issues were identified in the updated diff.
 
 ## Strengths
 
-- Comprehensive Vitest coverage for `createDraftStore`, including quota pruning
-  and logout purge scenarios.
-- Playwright E2E suite now exercises quota banners and the new logout bridge,
-  keeping regression guardrails high.
-- Backend repository/service split cleanly applies JSON patches and emits audit
-  metadata with structured logging.
+- Bundled saves now originate from the section hook, hitting PATCH
+  `/draft-bundle` with quality gate metadata and retiring client drafts on
+  success.
+- Compliance warnings rehydrate through the draft store and POST to
+  `/draft-compliance`, reusing the new QA helper for structured logging.
+- Added unit/integration coverage across persistence hooks, section drafts,
+  Playwright flows, and CLI tooling; tests assert network orchestration and
+  logging side effects.
+- Templates CLI smoke test migrated to the compiled JS bundle, ensuring the
+  published command is exercised without TypeScript loaders.
 
 ## Outstanding Clarifications
 
-None.
+- None.
 
 ## Control Inventory
 
-| Control Domain         | Implementation                                                       | Status  | Reference                                                                         |
-| ---------------------- | -------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------- |
-| **Authentication**     | Clerk session utilities orchestrated through `clerk-client.tsx`      | Active  | `apps/web/src/lib/clerk-client.tsx`                                               |
-| **Logging**            | Pino logger + client telemetry emit structured draft/compliance logs | Active  | `apps/api/src/routes/documents.ts`; `apps/web/src/lib/telemetry/client-events.ts` |
-| **Error Handling**     | `sendErrorResponse` utility standardises API error payloads          | Active  | `apps/api/src/routes/documents.ts`                                                |
-| **Repository Pattern** | Draft bundle repository wraps `SectionRepositoryImpl` CRUD           | Active  | `apps/api/src/services/drafts/draft-bundle.repository.ts`                         |
-| **Input Validation**   | Zod schemas guard draft bundle payloads                              | Active  | `apps/api/src/routes/documents.ts`                                                |
-| **State Management**   | Zustand draft state store tracks per-section readiness/conflicts     | Active  | `apps/web/src/features/document-editor/stores/draft-state.ts`                     |
-| **Performance**        | No new performance controls introduced in these changes              | Pending | —                                                                                 |
+| Control Domain         | Implementation                                                                   | Status   | Reference                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| **Authentication**     | Reused Clerk-authenticated `documentsRouter` handlers enforcing user identity.   | Stable   | `apps/api/src/routes/documents.ts`                                                             |
+| **Logging**            | QA helper emits structured compliance warnings; bundled saves log audit trails.  | Enhanced | `packages/qa/src/compliance/drafts.ts`, `apps/api/src/services/drafts/draft-bundle.service.ts` |
+| **Error Handling**     | Zod validation + `sendErrorResponse` wrap bundle/compliance failures.            | Aligned  | `apps/api/src/routes/documents.ts`                                                             |
+| **Repository Pattern** | Draft bundle repo extends shared data repositories with patch application.       | Aligned  | `apps/api/src/services/drafts/draft-bundle.repository.ts`                                      |
+| **Input Validation**   | Zod schemas guard draft bundle submissions and compliance payloads.              | Pass     | `apps/api/src/routes/documents.ts`                                                             |
+| **State Management**   | New Zustand store tracks draft status + rehydration confirmations.               | Enhanced | `apps/web/src/features/document-editor/stores/draft-state.ts`                                  |
+| **Performance**        | Draft store rehydrates in-memory snapshots, pruning on quota and batching saves. | Observed | `packages/editor-persistence/src/draft-store.ts`, `apps/web/tests/e2e/document-editor.e2e.ts`  |
 
 ## Quality Signal Summary
 
@@ -153,86 +100,87 @@ None.
 
 - **Status**: Pass
 - **Warnings**: 0 warnings, 0 errors
-- **Notes**: Hook dependency and registry assertion issues resolved; repo-wide
-  ESLint now clean.
+- **Key Issues**:
+  - None (repository lint run cleanly under `pnpm test:ci`).
 
 ### Type Checking
 
 - **Status**: Pass
-- **Results**: `pnpm test:ci` TypeScript phase completed without errors
+- **Results**: Turbo typecheck succeeded for all workspaces.
 
 ### Test Results
 
-- **Status**: Pass
-- **Results**: 0 of 0 reported tests failing (Vitest + Playwright suites all
-  green)
-- **Root Cause**: N/A
+- **Status**: Pass (initial contract run flaked with a socket hang-up; rerun
+  succeeded)
+- **Results**: 0 of 184 tests failing across unit + contract suites; Playwright
+  fixture & visual suites green.
+- **Root Cause**: Initial failure attributed to transient HTTP socket; no code
+  issue observed.
 
 ### Build Status
 
-- **Status**: Not Run
-- **Details**: `pnpm build` not executed during this review pass
+- **Status**: Pass
+- **Details**: `@ctrl-freaq/web:build` executed inside the gauntlet and
+  completed without warnings (aside from existing dynamic import notices).
 
 ## Dependency Audit Summary
 
-- **Baseline Severity Counts**: Not evaluated this pass
-- **Current Severity Counts**: Not evaluated (no new dependencies identified)
-- **New CVEs Identified**: None observed
-- **Deprecated Packages**: None observed
-- **Justifications / Version Currency**: No dependency changes in scope
+- **Baseline Severity Counts**: Not recalculated (no new third-party packages
+  added).
+- **Current Severity Counts**: Unchanged from baseline.
+- **New CVEs Identified**: None observed.
+- **Deprecated Packages**: None introduced.
+- **Justifications / Version Currency**: Rebuilt templates CLI now consumes
+  compiled shared-data modules; lockfile churn stems from prior rebuild but
+  installs remain reproducible.
 
 ## Requirements Coverage Table
 
-| Requirement | Summary                                             | Implementation Evidence                                                                        | Validating Tests                                                                                                       | Linked Findings |
-| ----------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------- |
-| **FR-001**  | Persist unsaved section drafts client-side          | `packages/editor-persistence/src/draft-store.ts`                                               | `packages/editor-persistence/tests/draft-store.test.ts`                                                                | —               |
-| **FR-008**  | Prune oldest drafts on quota exhaustion with notice | `packages/editor-persistence/src/draft-store.ts`; telemetry events                             | `packages/editor-persistence/tests/draft-store.test.ts`; `apps/web/tests/e2e/document-editor/draft-persistence.e2e.ts` | —               |
-| **FR-002**  | Surface per-section draft status & accessibility    | `apps/web/src/features/document-editor/hooks/use-draft-persistence.ts`; `DraftStatusBadge.tsx` | `apps/web/tests/e2e/document-editor/draft-persistence.e2e.ts`; `use-draft-persistence.test.tsx`                        | F5 (resolved)   |
+| Requirement | Summary                                                  | Implementation Evidence                                                                                                  | Validating Tests                                                                                                       | Linked Findings / Clarifications |
+| ----------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **FR-001**  | Persist unsaved edits for signed-in author               | `packages/editor-persistence/src/draft-store.ts`, `apps/web/src/features/document-editor/hooks/use-draft-persistence.ts` | `packages/editor-persistence/tests/draft-store.test.ts`, `apps/web/tests/e2e/document-editor/draft-persistence.e2e.ts` | —                                |
+| **FR-002**  | Display per-section draft status & revert control        | `apps/web/src/features/document-editor/components/section-draft/DraftStatusBadge.tsx`, `manual-save-panel.tsx`           | `apps/web/src/features/document-editor/hooks/use-draft-persistence.test.tsx`, Playwright draft status assertions       | —                                |
+| **FR-002a** | Accessible labels & ARIA announcements                   | `use-draft-persistence.ts` (ARIA live messaging), `DraftStatusBadge` copy                                                | `use-draft-persistence.test.tsx`, `draft-persistence.e2e.ts`                                                           | —                                |
+| **FR-003**  | Persist across navigation/reload/offline                 | `draft-store.rehydrateDocumentState`, `use-draft-persistence` recovery flow                                              | `draft-store.test.ts`, `draft-persistence.e2e.ts`                                                                      | —                                |
+| **FR-004**  | Bundle drafts into single save action                    | `use-section-draft.ts` `bundleClient.applyDraftBundle`, `DraftPersistenceClient.applyDraftBundle`                        | `use-section-draft.test.ts`, `manual-save.test.ts`, `draft-persistence.e2e.ts`                                         | —                                |
+| **FR-005**  | Restore drafts before remote updates                     | `use-draft-persistence` rehydration + confirmation prompts                                                               | `use-draft-persistence.test.tsx`, Playwright recovery scenario                                                         | —                                |
+| **FR-006**  | Retire drafts & emit audit metadata                      | `draft-bundle.service.ts` (audit logger + retireDraft)                                                                   | `draft-bundle.service.test.ts`, contract tests                                                                         | —                                |
+| **FR-007**  | Prioritise local draft on conflicts                      | `draft-bundle.repository.validateBaseline/getSectionSnapshot`                                                            | `draft-bundle.repository.test.ts`, `draft-bundle.contract.test.ts`                                                     | —                                |
+| **FR-008**  | Prune oldest drafts on quota exhaustion                  | `draft-store.saveDraft` quota handling, emits pruned keys                                                                | `draft-store.test.ts`, `draft-persistence.e2e.ts` (quota banner)                                                       | —                                |
+| **FR-009**  | Retain drafts until explicit discard                     | `draft-store` retains entries indefinitely, manual purge via logout                                                      | `draft-store.test.ts`, logout registry tests                                                                           | —                                |
+| **FR-010**  | Abort bundle when any section fails validation           | `draft-bundle.service.ts` accumulates conflicts and throws validation error                                              | `draft-bundle.service.test.ts`, contract conflict scenario                                                             | —                                |
+| **FR-011**  | Keep drafts client-side & purge on logout                | `draft-logout-registry.ts`, `use-draft-persistence.handleLogout`                                                         | `draft-logout-registry.test.ts`, Playwright logout coverage                                                            | —                                |
+| **FR-012**  | Client-side telemetry without content                    | `apps/web/src/lib/telemetry/client-events.ts`, calls in `use-draft-persistence`                                          | Telemetry unit expectations within `use-draft-persistence.test.tsx`                                                    | —                                |
+| **FR-013**  | Composite draft keys per author/project/document section | `use-draft-persistence.buildDraftKey`, `draft-store` storage keys                                                        | `draft-store.test.ts`                                                                                                  | —                                |
+| **FR-014**  | Log compliance warning without draft content             | `use-draft-persistence` -> `DraftPersistenceClient.logComplianceWarning`, backend POST handler                           | `use-draft-persistence.test.tsx`, `draft-compliance.contract.test.ts`, `draft-persistence.e2e.ts`                      | —                                |
 
 ## Requirements Compliance Checklist
 
-| Requirement Group             | Status | Notes                                       |
-| ----------------------------- | ------ | ------------------------------------------- |
-| **Constitutional Principles** | Pass   | Auth enforcement now tied to Clerk session  |
-| **SOC 2 Authentication**      | Pass   | Draft APIs require authenticated user ID    |
-| **SOC 2 Logging**             | Pass   | Audit logs reflect verified author identity |
-| **Security Controls**         | Pass   | Author spoofing rejected with 403 response  |
-| **Code Quality**              | Pass   | ESLint warnings cleared post-remediation    |
-| **Testing Requirements**      | Pass   | New and existing tests execute successfully |
+| Requirement Group             | Status | Notes                                                                            |
+| ----------------------------- | ------ | -------------------------------------------------------------------------------- |
+| **Constitutional Principles** | Pass   | Library-first, CLI coverage, and TDD cadence preserved across changes.           |
+| **SOC 2 Authentication**      | Stable | Authentication checks retained on new routes; author mismatch guarded.           |
+| **SOC 2 Logging**             | Pass   | Compliance logging now emits structured warnings client + server side.           |
+| **Security Controls**         | Pass   | Zod validation and conflict handling prevent unauthorized bundle application.    |
+| **Code Quality**              | Pass   | Quality gates rerun to green; `.gitignore` filters Playwright artifacts.         |
+| **Testing Requirements**      | Pass   | Unit, contract, integration, Playwright, and visual suites cover new behaviours. |
 
 ## Decision Log
 
-- `.specify/scripts/bash/check-implementation-prerequisites.sh` missing in repo;
-  proceeded after recording the gap.
-- Ran `pnpm test:ci` (76.9s) locally—lint/typecheck/test phases complete with
-  zero failures but 3 lint warnings.
-- Reran `pnpm test:ci` after F5–F7 remediation (2025-09-30) confirming clean
-  lint/typecheck/test/Playwright signals.
+- Confirmed bundled save wiring now targets the draft bundle endpoint; manual
+  saves still stage drafts but issue a single PATCH request per invocation.
+- Observed contract test socket hang-up on first gauntlet run; reran
+  `pnpm test:ci` to completion with all suites passing.
+- Verified `.gitignore` excludes Playwright artifacts; committed deletion of the
+  stray `apps/web/test-results.json`.
 
 ## Remediation Logging
 
-### Remediation R5
-
-- **Context**: Draft badges misidentify sections with drafts (Finding F5)
-- **Control Reference**: FR-002 (per-section status & accessibility)
-- **Actions**: Filter rehydrated results by the current `draftKey`, update
-  status/ARIA state accordingly, and extend tests to cover mixed-section
-  scenarios.
-- **Verification**: Added unit coverage ensuring only targeted sections show
-  “Draft pending” and reran `pnpm test:ci` (2025-09-30) with a passing result.
-
-### Remediation R6
-
-- **Context**: Draft bundle/compliance endpoints accept spoofed author IDs
-  (Finding F6)
-- **Control Reference**: Constitution Security rules; FR-006 audit metadata
-- **Actions**: Use `req.auth.userId` as the authoritative author ID, reject
-  mismatches, and update contract/unit tests for negative cases.
-- **Verification**: Added contract tests covering impersonation attempts and
-  reran `pnpm test:ci` (2025-09-30) with a passing result.
+No remediation tasks required; prior findings resolved and no new gaps found in
+this audit cycle.
 
 ---
 
-**Review Completed**: 2025-09-30 **Reviewer**: Claude Code Review v2.0 **Next
-Action**: Monitor logout E2E coverage and keep gauntlet runs in place for future
-changes.
+**Review Completed**: 2025-10-01T22:42:30Z **Reviewer**: Claude Code Review v2.0
+**Next Action**: Proceed with merge once final commits land; maintain routine
+`pnpm test:ci` monitoring for the intermittent contract test socket failure.

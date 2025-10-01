@@ -11,7 +11,7 @@ import type {
   AssumptionSessionSnapshot,
   DraftProposalSnapshot,
 } from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
-import type { createAssumptionSessionStore } from '@ctrl-freaq/editor-persistence';
+import { createAssumptionSessionStore } from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
 
 interface MockPrompt extends AssumptionPromptState {
   priority: number;
