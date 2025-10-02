@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { createDraftStore } from '@ctrl-freaq/editor-persistence';
+import type { SectionDraftSnapshot } from '@ctrl-freaq/editor-persistence';
 
 import type { DocumentFixture } from '@/lib/fixtures/e2e';
 import { buildFixtureDocumentView } from '@/lib/fixtures/e2e/transformers';
@@ -43,6 +44,16 @@ export function useDocumentFixtureBootstrap({
       if (typeof window !== 'undefined') {
         try {
           const draftStore = createDraftStore();
+          const existingDrafts: SectionDraftSnapshot[] = await draftStore.listDrafts({
+            authorId: 'user-local-author',
+            projectSlug,
+            documentSlug: view.documentId,
+          });
+          const existingDraftKeys = new Set(
+            existingDrafts
+              .map(entry => entry.sectionPath)
+              .filter((path): path is string => Boolean(path))
+          );
           await Promise.all(
             Object.values(fixtureDocument.sections).map(async section => {
               if (!section?.draft) {
@@ -52,6 +63,23 @@ export function useDocumentFixtureBootstrap({
               const lastEditedAt = new Date(
                 section.draft.lastSavedAt ?? view.updatedAt ?? new Date().toISOString()
               );
+
+              const draftKey = `${projectSlug}/${view.documentId}/${section.title}/user-local-author`;
+
+              if (existingDraftKeys.has(section.id)) {
+                return;
+              }
+
+              if (typeof window !== 'undefined' && window.localStorage) {
+                const clearedAt = window.localStorage.getItem(`draft-store:cleared:${draftKey}`);
+                if (clearedAt) {
+                  const runtimeSection = fixtureDocument.sections[section.id];
+                  if (runtimeSection) {
+                    runtimeSection.draft = undefined;
+                  }
+                  return;
+                }
+              }
 
               await draftStore.saveDraft({
                 projectSlug,

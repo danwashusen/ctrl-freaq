@@ -304,6 +304,10 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       [client]
     );
 
+    const effectiveUserId = fixtureDocument
+      ? 'user-local-author'
+      : (session?.userId ?? 'user-local-author');
+
     const {
       state: draftState,
       updateDraft,
@@ -318,7 +322,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       approvedVersion: activeSection?.approvedVersion ?? 0,
       documentId,
       documentSlug: documentId,
-      userId: session?.userId ?? 'local-user',
+      userId: effectiveUserId,
       projectSlug,
       sectionTitle: activeSection?.title ?? 'Untitled section',
       sectionPath: activeSection?.id ?? `inactive-${documentId}`,
@@ -578,6 +582,31 @@ export const DocumentEditor = memo<DocumentEditorProps>(
           return;
         }
 
+        const shouldSetFixtureMarkers = Boolean(fixtureDocument && activeSection);
+
+        if (shouldSetFixtureMarkers && typeof window !== 'undefined') {
+          const markerSectionTitle = activeSection.title ?? activeSection.id;
+          const markerKey = `${projectSlug}/${documentId}/${markerSectionTitle}/${effectiveUserId}`;
+
+          try {
+            window.localStorage?.setItem(
+              `draft-store:cleared:${markerKey}`,
+              new Date().toISOString()
+            );
+          } catch (error) {
+            void error;
+          }
+
+          try {
+            window.sessionStorage?.setItem(
+              `draft-store:recent-clean:${markerKey}`,
+              Date.now().toString()
+            );
+          } catch (error) {
+            void error;
+          }
+        }
+
         if ('draftId' in result) {
           setDraftMetadata(activeSection.id, {
             draftId: result.draftId,
@@ -624,6 +653,10 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       sectionDraftState.draftBaseVersion,
       sectionDraftState.latestApprovedVersion,
       updateSection,
+      fixtureDocument,
+      projectSlug,
+      documentId,
+      effectiveUserId,
     ]);
 
     useEffect(() => {

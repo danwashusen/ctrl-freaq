@@ -23,7 +23,10 @@ import {
 import { SectionEditorClientError, SectionEditorConflictError } from '../api/section-editor.client';
 import { useSectionDraftStore } from '../stores/section-draft-store';
 import type { SectionDraftStoreState } from '../stores/section-draft-store';
-import { DraftPersistenceClient } from '@/features/document-editor/services/draft-client';
+import {
+  DraftPersistenceClient,
+  type DraftSectionSubmission,
+} from '@/features/document-editor/services/draft-client';
 
 export interface FormattingAnnotation {
   id: string;
@@ -232,6 +235,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   const patchEngineRef = useRef(createPatchEngine());
   const baselineContentRef = useRef(initialContent);
   const lastDraftContentRef = useRef(initialContent);
+  const autoSaveTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     baselineContentRef.current = initialContent;
@@ -543,14 +547,23 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       return;
     }
 
-    const timer = window.setTimeout(() => {
+    if (autoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+
+    autoSaveTimeoutRef.current = window.setTimeout(() => {
       const conflictState = useSectionDraftStore.getState().conflictState;
       const status: DraftPersistenceStatus = conflictState === 'clean' ? 'draft' : 'conflict';
       void persistDraftToStore(contentRef.current, status);
+      autoSaveTimeoutRef.current = null;
     }, 750);
 
     return () => {
-      window.clearTimeout(timer);
+      if (autoSaveTimeoutRef.current !== null) {
+        window.clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
     };
   }, [
     content,
@@ -563,6 +576,11 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   ]);
 
   const manualSave = useCallback(async () => {
+    if (autoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+
     const requestId = createRequestId('section-draft');
     beginSave(requestId);
 
@@ -581,41 +599,54 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
         formattingAnnotations: storeState.formattingAnnotations,
       });
 
-      const submittedBy = userId ?? 'local-user';
+      const bundleAuthorId = userId ?? 'user-local-author';
       const targetDocumentId = documentId ?? resolvedDocumentSlug;
+      const bundleDraftKey = `${resolvedProjectSlug}/${resolvedDocumentSlug}/${resolvedSectionTitle}/${bundleAuthorId}`;
+      const submittedSections: DraftSectionSubmission[] = [
+        {
+          draftKey: bundleDraftKey,
+          sectionPath: resolvedSectionPath,
+          patch: computePatchPayload(contentRef.current),
+          baselineVersion: `rev-${draftBaseVersion}`,
+          qualityGateReport: {
+            status: storeState.conflictState === 'clean' ? 'pass' : 'fail',
+            issues:
+              storeState.conflictState === 'clean'
+                ? []
+                : [
+                    {
+                      gateId: 'draft.conflict',
+                      severity: 'blocker',
+                      message:
+                        storeState.conflictReason ??
+                        'Resolve draft conflicts before applying bundled saves.',
+                    },
+                  ],
+          },
+        },
+      ];
+      const targetedDraftKeys = new Set(submittedSections.map(section => section.draftKey));
 
-      if (bundleClient && submittedBy && targetDocumentId) {
-        const baselineVersionLabel = `rev-${draftBaseVersion}`;
-        const draftKey = `${resolvedProjectSlug}/${resolvedDocumentSlug}/${resolvedSectionTitle}/${submittedBy}`;
-        const qualityIssues =
-          storeState.conflictState === 'clean'
-            ? []
-            : [
-                {
-                  gateId: 'draft.conflict',
-                  severity: 'blocker' as const,
-                  message:
-                    storeState.conflictReason ??
-                    'Resolve draft conflicts before applying bundled saves.',
-                },
-              ];
+      let bundleFailure: unknown = null;
+      const appliedDraftKeys = new Set<string>();
 
+      if (bundleClient && targetDocumentId) {
         try {
-          await bundleClient.applyDraftBundle(resolvedProjectSlug, targetDocumentId, {
-            submittedBy,
-            sections: [
-              {
-                draftKey,
-                sectionPath: resolvedSectionPath,
-                patch: computePatchPayload(contentRef.current),
-                baselineVersion: baselineVersionLabel,
-                qualityGateReport: {
-                  status: qualityIssues.length === 0 ? 'pass' : 'fail',
-                  issues: qualityIssues,
-                },
-              },
-            ],
-          });
+          const bundleResponse = await bundleClient.applyDraftBundle(
+            resolvedProjectSlug,
+            targetDocumentId,
+            {
+              submittedBy: bundleAuthorId,
+              sections: submittedSections,
+            }
+          );
+
+          for (const sectionPath of bundleResponse?.appliedSections ?? []) {
+            const match = submittedSections.find(section => section.sectionPath === sectionPath);
+            if (match) {
+              appliedDraftKeys.add(match.draftKey);
+            }
+          }
         } catch (bundleError) {
           logger.error(
             'Failed to apply bundled draft save',
@@ -626,19 +657,19 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
             },
             bundleError instanceof Error ? bundleError : undefined
           );
-          throw bundleError;
+          bundleFailure = bundleError;
         }
       }
 
       completeSave(response, { requestId, draftBaseVersion });
       useSectionDraftStore.setState(current => ({
         ...current,
-        conflictState: response.conflictState,
+        conflictState: response.conflictState === 'clean' ? 'clean' : current.conflictState,
         conflictReason: response.conflictState === 'clean' ? null : current.conflictReason,
       }));
       setDerivedState(current => ({
         ...current,
-        conflictState: response.conflictState,
+        conflictState: response.conflictState === 'clean' ? 'clean' : current.conflictState,
         summaryNote: response.summaryNote ?? current.summaryNote,
         formattingWarnings: response.formattingAnnotations.map(toFormattingAnnotation),
       }));
@@ -651,9 +682,94 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
           rebasedDraft: undefined,
           events: [],
         });
+        useSectionDraftStore.setState(current => ({
+          ...current,
+          conflictState: 'clean',
+        }));
+        setDerivedState(current => ({
+          ...current,
+          conflictState: 'clean',
+        }));
       }
 
-      if (documentId && userId) {
+      const isCleanResponse = (response.conflictState ?? '').toLowerCase() === 'clean';
+
+      if (bundleFailure) {
+        logger.warn('Continuing after bundled save failure; manual draft persisted locally', {
+          sectionId,
+          projectSlug: resolvedProjectSlug,
+          documentId: targetDocumentId,
+          reason: bundleFailure instanceof Error ? bundleFailure.message : String(bundleFailure),
+        });
+      }
+
+      if (isCleanResponse) {
+        const draftKeysToRetire =
+          appliedDraftKeys.size > 0 ? Array.from(appliedDraftKeys) : Array.from(targetedDraftKeys);
+
+        if (draftStore && userId) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              await draftStore.removeDraft(draftKey);
+            } catch (error) {
+              logger.warn('Failed to retire DraftStore entry after bundled save', {
+                sectionId,
+                projectSlug: resolvedProjectSlug,
+                documentId: targetDocumentId,
+                draftKey,
+                reason: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              window.localStorage.setItem(
+                `draft-store:cleared:${draftKey}`,
+                new Date().toISOString()
+              );
+            } catch (storageError) {
+              logger.debug('Unable to record cleared draft marker', {
+                sectionId,
+                draftKey,
+                reason: storageError instanceof Error ? storageError.message : String(storageError),
+              });
+            }
+          }
+        }
+
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              window.sessionStorage.setItem(
+                `draft-store:recent-clean:${draftKey}`,
+                Date.now().toString()
+              );
+            } catch (storageError) {
+              logger.debug('Unable to record recent clean draft marker', {
+                sectionId,
+                draftKey,
+                reason: storageError instanceof Error ? storageError.message : String(storageError),
+              });
+            }
+          }
+        }
+
+        if (storage && documentId && userId) {
+          try {
+            await storage.deleteDraft(documentId, sectionId, userId);
+          } catch (error) {
+            logger.warn('Unable to delete manual draft snapshot after successful save', {
+              sectionId,
+              documentId,
+              userId,
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      } else if (documentId && userId) {
         void persistDraft({
           draftId: response.draftId,
           sectionId,
@@ -752,6 +868,8 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     resolvedSectionTitle,
     resolvedSectionPath,
     computePatchPayload,
+    draftStore,
+    storage,
   ]);
 
   const resolveConflicts = useCallback(async () => {

@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { SectionEditorConflictError } from '../api/section-editor.client';
+import { logger } from '@/lib/logger';
 import type {
   ConflictCheckResponseDTO,
   SectionDraftResponseDTO,
@@ -39,7 +40,7 @@ const createDraftStoreMock = () => ({
   rehydrateDocumentState: vi.fn(),
   listDrafts: vi.fn(),
   clearAuthorDrafts: vi.fn(),
-  removeDraft: vi.fn(),
+  removeDraft: vi.fn().mockResolvedValue(undefined),
 });
 
 let draftStoreMock = createDraftStoreMock();
@@ -172,23 +173,8 @@ describe('useSectionDraft', () => {
       })
     );
 
-    expect(storage.saveDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        draftId: 'draft-123',
-        contentMarkdown: '# Intro\nNew content',
-        conflictState: 'clean',
-      })
-    );
-
-    expect(draftStoreMock.saveDraft).toHaveBeenCalled();
-    const draftStoreArgs = draftStoreMock.saveDraft.mock.calls[0]?.[0];
-    expect(draftStoreArgs).toMatchObject({
-      projectSlug: 'demo-project',
-      documentSlug: 'doc-1',
-      sectionTitle: 'Section Title',
-      sectionPath: 'section-1',
-      authorId: 'user-1',
-    });
+    expect(storage.saveDraft).not.toHaveBeenCalled();
+    expect(storage.deleteDraft).toHaveBeenCalledWith('doc-1', 'section-1', 'user-1');
 
     expect(manualSaveResult).toEqual(saveDraftResponse);
     expect(result.current.state.formattingWarnings).toHaveLength(1);
@@ -212,6 +198,131 @@ describe('useSectionDraft', () => {
             },
           }),
         ],
+      })
+    );
+  });
+
+  it('removes DraftStore entries after a bundled save succeeds', async () => {
+    const successfulResponse: SectionDraftResponseDTO = {
+      draftId: 'draft-success',
+      sectionId: 'section-1',
+      draftVersion: 2,
+      conflictState: 'clean',
+      formattingAnnotations: [],
+      savedAt: '2025-09-25T12:00:00.000Z',
+      savedBy: 'user-1',
+      summaryNote: null,
+    };
+    const api = {
+      saveDraft: vi.fn().mockResolvedValue(successfulResponse),
+    };
+    const storage = createManualDraftStorageMock();
+    draftStoreMock.listDrafts.mockResolvedValue([
+      {
+        draftKey: 'demo-project/doc-1/Section Title/user-1',
+        projectSlug: 'demo-project',
+        documentSlug: 'doc-1',
+        sectionTitle: 'Section Title',
+        sectionPath: 'section-1',
+        authorId: 'user-1',
+        baselineVersion: 'rev-1',
+        patch: '[]',
+        status: 'draft',
+        lastEditedAt: new Date('2025-09-25T12:00:00.000Z'),
+        updatedAt: new Date('2025-09-25T12:00:00.000Z'),
+        complianceWarning: false,
+      },
+    ]);
+
+    const { result } = renderHook(() =>
+      useSectionDraft({
+        api,
+        sectionId: 'section-1',
+        initialContent: '# Intro',
+        approvedVersion: 5,
+        documentId: 'doc-1',
+        userId: 'user-1',
+        projectSlug: 'demo-project',
+        documentSlug: 'doc-1',
+        sectionTitle: 'Section Title',
+        sectionPath: 'section-1',
+        storage,
+        loadPersistedDraft: false,
+        autoStartDiffPolling: false,
+      })
+    );
+
+    act(() => {
+      result.current.updateDraft('# Intro\nSaved content');
+    });
+
+    await act(async () => {
+      await result.current.manualSave();
+    });
+
+    expect(api.saveDraft).toHaveBeenCalled();
+    expect(draftStoreMock.removeDraft).toHaveBeenCalledWith(
+      'demo-project/doc-1/Section Title/user-1'
+    );
+    expect(draftStoreMock.clearAuthorDrafts).not.toHaveBeenCalled();
+  });
+
+  it('continues manual save when bundled draft request fails', async () => {
+    const successfulResponse: SectionDraftResponseDTO = {
+      draftId: 'draft-success',
+      sectionId: 'section-1',
+      draftVersion: 2,
+      conflictState: 'clean',
+      formattingAnnotations: [],
+      savedAt: '2025-09-25T12:00:00.000Z',
+      savedBy: 'user-1',
+      summaryNote: null,
+    };
+    const api = {
+      saveDraft: vi.fn().mockResolvedValue(successfulResponse),
+    };
+    const storage = createManualDraftStorageMock();
+    applyDraftBundleMock.mockRejectedValueOnce(new Error('bundle failed'));
+
+    const { result } = renderHook(() =>
+      useSectionDraft({
+        api,
+        sectionId: 'section-1',
+        initialContent: '# Intro',
+        approvedVersion: 5,
+        documentId: 'doc-1',
+        userId: 'user-1',
+        projectSlug: 'demo-project',
+        documentSlug: 'doc-1',
+        sectionTitle: 'Section Title',
+        sectionPath: 'section-1',
+        storage,
+        loadPersistedDraft: false,
+        autoStartDiffPolling: false,
+      })
+    );
+
+    act(() => {
+      result.current.updateDraft('# Intro\nSaved content');
+    });
+
+    let manualSaveResult: SectionDraftResponseDTO | null = null;
+    await act(async () => {
+      manualSaveResult = (await result.current.manualSave()) as SectionDraftResponseDTO | null;
+    });
+
+    expect(manualSaveResult).toEqual(successfulResponse);
+    expect(draftStoreMock.removeDraft).toHaveBeenCalledWith(
+      'demo-project/doc-1/Section Title/user-1'
+    );
+    expect(draftStoreMock.clearAuthorDrafts).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Continuing after bundled save failure; manual draft persisted locally',
+      expect.objectContaining({
+        sectionId: 'section-1',
+        projectSlug: 'demo-project',
+        documentId: 'doc-1',
+        reason: 'bundle failed',
       })
     );
   });

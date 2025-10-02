@@ -193,6 +193,47 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             return;
           }
 
+          const resolvedDraftKey =
+            matchingSection.draftKey ??
+            `${params.projectSlug}/${params.documentSlug}/${matchingSection.sectionTitle ?? params.sectionTitle}/${params.authorId}`;
+
+          let shouldAutoDiscard = false;
+
+          if (typeof window !== 'undefined') {
+            try {
+              if (window.localStorage?.getItem(`draft-store:cleared:${resolvedDraftKey}`)) {
+                shouldAutoDiscard = true;
+              }
+
+              if (
+                window.sessionStorage?.getItem(`draft-store:recent-clean:${resolvedDraftKey}`) !==
+                null
+              ) {
+                shouldAutoDiscard = true;
+                window.sessionStorage.removeItem(`draft-store:recent-clean:${resolvedDraftKey}`);
+              }
+            } catch (storageError) {
+              logger.debug('Unable to inspect draft persistence markers', {
+                draftKey: resolvedDraftKey,
+                reason: storageError instanceof Error ? storageError.message : String(storageError),
+              });
+            }
+          }
+
+          if (shouldAutoDiscard) {
+            setStatusLabel('Synced');
+            setAriaAnnouncement(null);
+            setRequiresConfirmation(false);
+            clearRehydratedDraft(draftKey);
+            void discardRecoveredDraft().catch(error => {
+              logger.debug('Auto-discard of recovered draft failed', {
+                draftKey,
+                reason: error instanceof Error ? error.message : String(error),
+              });
+            });
+            return;
+          }
+
           setStatusLabel('Review recovered draft');
           setAriaAnnouncement('Draft restored from local recovery. Review before continuing.');
           setRequiresConfirmation(true);
