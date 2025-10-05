@@ -23,7 +23,7 @@ async function runPnpm(args: string[], env: NodeJS.ProcessEnv): Promise<CommandR
 async function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<CommandResult> {
   return execFileAsync(
     'pnpm',
-    ['--filter', '@ctrl-freaq/templates', 'exec', 'node', 'dist/cli.js', ...args],
+    ['--filter', '@ctrl-freaq/templates', 'exec', 'tsx', 'src/cli.ts', ...args],
     {
       cwd: resolve(process.cwd(), '..', '..'),
       env,
@@ -59,7 +59,7 @@ describe.sequential('template CLI smoke test', () => {
     } satisfies NodeJS.ProcessEnv;
 
     await runPnpm(
-      ['--filter', '@ctrl-freaq/shared-data', 'exec', 'node', 'dist/scripts/migrate.js'],
+      ['--filter', '@ctrl-freaq/shared-data', 'exec', 'tsx', 'src/scripts/migrate.ts'],
       env
     );
 

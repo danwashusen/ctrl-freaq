@@ -18,13 +18,13 @@
     "paths": {
       "@/*": ["apps/web/src/*"],
       "@ctrl-freaq/editor-persistence": [
-        "../../packages/editor-persistence/dist/index.js"
+        "../../packages/editor-persistence/src/index.ts"
       ],
       "@ctrl-freaq/editor-persistence/*": [
-        "../../packages/editor-persistence/dist/*.js"
+        "../../packages/editor-persistence/src/*.ts"
       ],
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
-        "../../packages/editor-persistence/dist/assumption-sessions/*.js"
+        "../../packages/editor-persistence/src/assumption-sessions/*.ts"
       ],
       "@ctrl-freaq/qa": ["../../packages/qa/src/index.ts"],
       "@ctrl-freaq/qa/*": ["../../packages/qa/src/*.ts"],

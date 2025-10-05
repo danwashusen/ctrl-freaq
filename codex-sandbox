@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE="codex-sandbox:latest"
+DOCKER_DIR="${SCRIPT_DIR}/.codex-sandbox"
+OUT_NET_MODE="bridge"
+EXTRA=()
+FORCE_BUILD=false
+PROJECT_PATH="$(cd "$PWD" && pwd)"
+NODE_MODULES_ROOT="${PROJECT_PATH}/.codex-sandbox/node_modules-linux"
+ROOT_NODE_MODULES_DIR="${NODE_MODULES_ROOT}/node_modules"
+PNPM_STORE_DIR="${PROJECT_PATH}/.codex-sandbox/pnpm-store"
+
+mkdir -p "${NODE_MODULES_ROOT}" "${ROOT_NODE_MODULES_DIR}" "${PNPM_STORE_DIR}"
+
+NODE_MODULES_MOUNTS=(-v "${ROOT_NODE_MODULES_DIR}:/work/node_modules")
+
+SEARCH_DIRS=()
+if [[ -d "${PROJECT_PATH}/apps" ]]; then
+  SEARCH_DIRS+=("${PROJECT_PATH}/apps")
+fi
+if [[ -d "${PROJECT_PATH}/packages" ]]; then
+  SEARCH_DIRS+=("${PROJECT_PATH}/packages")
+fi
+
+if (( ${#SEARCH_DIRS[@]} )); then
+  while IFS= read -r module_dir; do
+    [[ -z "$module_dir" ]] && continue
+    rel_path="${module_dir#$PROJECT_PATH/}"
+    linux_dir="${NODE_MODULES_ROOT}/${rel_path}"
+    mkdir -p "$linux_dir"
+    NODE_MODULES_MOUNTS+=(-v "${linux_dir}:/work/${rel_path}")
+  done < <(find "${SEARCH_DIRS[@]}" -type d -name node_modules -prune 2>/dev/null)
+fi
+
+ensure_image() {
+  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    echo "[codex-sandbox] Image '$IMAGE' not found. Building now..." >&2
+    docker build -t "$IMAGE" "$DOCKER_DIR"
+  fi
+}
+
+usage() {
+  cat <<EOF
+Usage:
+  $0 [--build] build
+  $0 [--build] codex [-- ARGS...]       # interactive Codex session in sandbox
+  $0 [--build] shell                    # interactive shell with same mounts/tools
+  $0 [--build] run -- CMD ...           # run arbitrary command in the sandbox
+
+Notes:
+- Project dir is mounted RW at /work
+- Network is enabled by default (Codex handles /approvals)
+- Container runs as your UID:GID, no root on host files
+- No \$HOME or Docker socket exposed to the container
+EOF
+}
+
+if [[ "${1:-}" == "--build" ]]; then
+  FORCE_BUILD=true
+  shift || true
+fi
+
+if [[ "$FORCE_BUILD" == true ]]; then
+  docker build -t "$IMAGE" "$DOCKER_DIR"
+  if [[ $# -eq 0 ]]; then
+    exit 0
+  fi
+fi
+
+case "${1:-}" in
+  build)
+    docker build -t "$IMAGE" "$DOCKER_DIR"
+    ;;
+
+  codex|shell|run)
+    cmd="${1}"; shift || true
+
+    ensure_image
+
+    # Common hardened args
+    COMMON_ARGS=(
+      --rm -it
+      --network "$OUT_NET_MODE"
+      --security-opt no-new-privileges
+      --cap-drop ALL
+      --pids-limit 512
+      --read-only            # root filesystem read-only
+      --tmpfs /tmp:rw,nosuid,nodev,exec,mode=1777
+      --tmpfs /run:rw,nosuid,nodev,mode=755
+      --user "$(id -u):$(id -g)"
+      -v "$PWD":/work:rw      # <- your project, RW
+      -v "${PNPM_STORE_DIR}":/work/.pnpm-store
+      -w /work
+      -e OPENAI_API_KEY      # pass through if set
+      -e PNPM_STORE_PATH=/work/.pnpm-store
+    )
+
+    COMMON_ARGS+=("${NODE_MODULES_MOUNTS[@]}")
+
+    # Optional resource knobs (uncomment to enforce)
+    # COMMON_ARGS+=(--memory 4g --cpus 2.0)
+
+    case "$cmd" in
+      codex)
+        # Everything after a literal -- goes to codex
+        if [[ "${1:-}" == "--" ]]; then shift; fi
+        docker run "${COMMON_ARGS[@]}" "$IMAGE"    # entrypoint defaults to `codex`
+        ;;
+
+      shell)
+        # Drop into bash in same env + mounts
+        docker run "${COMMON_ARGS[@]}" "$IMAGE" -- bash -l
+        ;;
+
+      run)
+        # Run arbitrary command inside sandbox
+        if [[ "${1:-}" == "--" ]]; then shift; fi
+        docker run "${COMMON_ARGS[@]}" "$IMAGE" -- "$@"
+        ;;
+
+      *)
+        usage; exit 2 ;;
+    esac
+    ;;
+
+  *)
+    usage; exit 2 ;;
+esac
