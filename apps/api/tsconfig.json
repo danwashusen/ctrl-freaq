@@ -5,23 +5,39 @@
     "rootDir": "../../",
     "noEmit": false,
     "allowImportingTsExtensions": false,
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@ctrl-freaq/qa": ["../../packages/qa/src/index.ts"],
+      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*.ts"],
+      "@ctrl-freaq/shared-data": ["../../packages/shared-data/src/index.ts"],
+      "@ctrl-freaq/shared-data/*": ["../../packages/shared-data/src/*.ts"],
+      "@ctrl-freaq/template-resolver": [
+        "../../packages/template-resolver/src/index.ts"
+      ],
+      "@ctrl-freaq/template-resolver/*": [
+        "../../packages/template-resolver/src/*.ts"
+      ],
+      "@ctrl-freaq/templates": ["../../packages/templates/src/index.ts"],
+      "@ctrl-freaq/templates/*": ["../../packages/templates/src/*.ts"],
+      "@ctrl-freaq/editor-core": ["../../packages/editor-core/src/index.ts"],
+      "@ctrl-freaq/editor-core/*": ["../../packages/editor-core/src/*.ts"]
+    }
   },
-  "include": [
-    "src/**/*",
-    "tests/**/*",
-    "../../packages/editor-core/src/**/*.ts",
-    "../../packages/shared-data/src/**/*.ts",
-    "../../packages/templates/src/**/*.ts",
-    "../../packages/qa/src/**/*.ts",
-    "../../packages/template-resolver/src/**/*.ts"
-  ],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": [
     "dist",
     "node_modules",
     "../../packages/editor-core/src/**/*.test.ts",
     "../../packages/shared-data/src/**/*.test.ts",
     "../../packages/templates/src/**/*.test.ts",
-    "../../packages/template-resolver/src/**/*.test.ts"
+    "../../packages/template-resolver/src/**/*.test.ts",
+    "../../packages/qa/src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "../../packages/editor-core" },
+    { "path": "../../packages/shared-data" },
+    { "path": "../../packages/templates" },
+    { "path": "../../packages/template-resolver" },
+    { "path": "../../packages/qa" }
   ]
 }
