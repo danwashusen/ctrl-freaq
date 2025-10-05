@@ -13,6 +13,14 @@ interface CommandResult {
   stderr: string;
 }
 
+function withDevelopmentCondition(nodeOptions: string | undefined): string {
+  const flag = '--conditions=development';
+  if (!nodeOptions || nodeOptions.length === 0) {
+    return flag;
+  }
+  return nodeOptions.includes(flag) ? nodeOptions : `${nodeOptions} ${flag}`.trim();
+}
+
 async function runPnpm(args: string[], env: NodeJS.ProcessEnv): Promise<CommandResult> {
   return execFileAsync('pnpm', args, {
     cwd: resolve(process.cwd(), '..', '..'),
@@ -56,6 +64,7 @@ describe.sequential('template CLI smoke test', () => {
       DATABASE_PATH: databasePath,
       TEMPLATE_CLI_LOG_LEVEL: 'error',
       NODE_ENV: 'test',
+      NODE_OPTIONS: withDevelopmentCondition(process.env.NODE_OPTIONS),
     } satisfies NodeJS.ProcessEnv;
 
     await runPnpm(

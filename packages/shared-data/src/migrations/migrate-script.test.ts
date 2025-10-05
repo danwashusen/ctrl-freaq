@@ -14,6 +14,14 @@ interface ExecResult {
   stderr: string;
 }
 
+function withDevelopmentCondition(nodeOptions: string | undefined): string {
+  const flag = '--conditions=development';
+  if (!nodeOptions || nodeOptions.length === 0) {
+    return flag;
+  }
+  return nodeOptions.includes(flag) ? nodeOptions : `${nodeOptions} ${flag}`.trim();
+}
+
 describe.sequential('shared-data migrate script', () => {
   const workspaceRoot = resolve(process.cwd(), '..', '..');
   let databaseDir: string | null = null;
@@ -34,6 +42,7 @@ describe.sequential('shared-data migrate script', () => {
       ...process.env,
       DATABASE_PATH: databasePath,
       NODE_ENV: 'test',
+      NODE_OPTIONS: withDevelopmentCondition(process.env.NODE_OPTIONS),
     } satisfies NodeJS.ProcessEnv;
 
     let commandResult: ExecResult;
