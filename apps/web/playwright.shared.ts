@@ -65,8 +65,9 @@ export function createBaseConfig(): PlaywrightTestConfig {
     },
     projects: createProjects(),
     expect: {
-      timeout: 5000,
+      timeout: 2 * 1000,
     },
+    timeout: 5 * 1000,
   } satisfies PlaywrightTestConfig;
 }
 

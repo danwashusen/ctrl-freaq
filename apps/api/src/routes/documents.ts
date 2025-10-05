@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { logDraftComplianceWarning } from '@ctrl-freaq/qa';
 import type { Response } from 'express';
 import type { Logger } from 'pino';
 import { randomUUID } from 'crypto';
@@ -320,17 +321,33 @@ documentsRouter.post(
       return;
     }
 
-    const payload = {
-      event: 'draft.compliance.warning',
-      projectSlug,
-      documentSlug: documentId,
-      authorId: authenticatedUserId,
-      policyId,
-      detectedAt: detectedAt.toISOString(),
-      context,
-    };
+    const normalizedContext: Record<string, string> =
+      context && typeof context === 'object'
+        ? Object.fromEntries(
+            Object.entries(context as Record<string, unknown>).map(([key, value]) => [
+              key,
+              String(value),
+            ])
+          )
+        : {};
 
-    logger?.warn(payload, 'Draft retention policy warning recorded');
+    if (logger) {
+      logDraftComplianceWarning(
+        {
+          warn(payload, message) {
+            logger.warn(payload, message);
+          },
+        },
+        {
+          projectSlug,
+          documentSlug: documentId,
+          authorId: authenticatedUserId,
+          policyId,
+          detectedAt,
+          context: normalizedContext,
+        }
+      );
+    }
 
     const warningId = `draft-compliance-${randomUUID()}`;
 

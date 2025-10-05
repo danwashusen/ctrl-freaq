@@ -11,8 +11,7 @@ export * from './validators/index.js';
 export * from './gates/index.js';
 export * from './compliance/drafts.js';
 
-// CLI export
-export { cli } from './cli.js';
+// CLI exposed via dedicated entry point (see @ctrl-freaq/qa/cli) to avoid bundling Node-only dependencies in browser builds.
 
 // Core types and interfaces
 export interface ValidationRule {

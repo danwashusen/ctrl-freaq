@@ -7,7 +7,7 @@ export interface ProjectRetentionFixture {
 
 export const demoProjectRetention: ProjectRetentionFixture = {
   projectSlug: 'project-test',
-  policyId: 'policy-retention-demo',
+  policyId: 'retention-client-only',
   retentionWindow: '30d',
   description: 'Fixtures queue a compliance warning when drafts exceed client-only retention.',
 };

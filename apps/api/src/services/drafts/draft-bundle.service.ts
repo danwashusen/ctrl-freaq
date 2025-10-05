@@ -36,6 +36,14 @@ export interface DraftBundleRepository {
       authorId: string;
     }
   ): Promise<{ applied: boolean }>;
+  applyBundleSectionsAtomically(
+    sections: DraftSectionSubmission[],
+    context: {
+      documentId: string;
+      projectSlug: string;
+      authorId: string;
+    }
+  ): Promise<string[]>;
   retireDraft(draftKey: string): Promise<void>;
   getSectionSnapshot(input: {
     sectionPath: string;
@@ -94,10 +102,15 @@ export class DraftBundleService {
     });
 
     const conflicts: DraftBundleConflict[] = [];
+    const validatedSections: DraftSectionSubmission[] = [];
     const appliedSections: string[] = [];
     let failureReason: 'quality-gate-failed' | 'repository-conflict' | null = null;
 
     for (const section of request.sections) {
+      if (failureReason !== null) {
+        break;
+      }
+
       if (section.qualityGateReport.status === 'fail') {
         const [issue] = section.qualityGateReport.issues;
         const snapshot = await this.deps.draftRepo.getSectionSnapshot({
@@ -113,7 +126,7 @@ export class DraftBundleService {
           serverContent: snapshot?.serverContent,
         });
         failureReason = failureReason ?? 'quality-gate-failed';
-        continue;
+        break;
       }
 
       try {
@@ -123,33 +136,15 @@ export class DraftBundleService {
           projectSlug: request.projectSlug,
           authorId: request.submittedBy,
         });
+        validatedSections.push(section);
       } catch (error) {
         if (error instanceof DraftBundleValidationError) {
           conflicts.push(...error.conflicts);
           failureReason = failureReason ?? 'repository-conflict';
-          continue;
+          break;
         }
         throw error;
       }
-
-      try {
-        await this.deps.draftRepo.applySectionPatch({
-          ...section,
-          documentId: request.documentId,
-          projectSlug: request.projectSlug,
-          authorId: request.submittedBy,
-        });
-      } catch (error) {
-        if (error instanceof DraftBundleValidationError) {
-          conflicts.push(...error.conflicts);
-          failureReason = failureReason ?? 'repository-conflict';
-          continue;
-        }
-        throw error;
-      }
-
-      await this.deps.draftRepo.retireDraft(section.draftKey);
-      appliedSections.push(section.sectionPath);
     }
 
     if (conflicts.length > 0) {
@@ -164,6 +159,48 @@ export class DraftBundleService {
         reason: failureReason ?? 'repository-conflict',
       });
       throw error;
+    }
+
+    if (conflicts.length === 0) {
+      try {
+        const appliedPaths = await this.deps.draftRepo.applyBundleSectionsAtomically(
+          validatedSections,
+          {
+            documentId: request.documentId,
+            projectSlug: request.projectSlug,
+            authorId: request.submittedBy,
+          }
+        );
+        appliedSections.push(...appliedPaths);
+      } catch (error) {
+        if (error instanceof DraftBundleValidationError) {
+          conflicts.push(...error.conflicts);
+          failureReason = failureReason ?? 'repository-conflict';
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      const error = new DraftBundleValidationError(conflicts);
+      await this.deps.audit.recordBundleRejected({
+        documentId: request.documentId,
+        authorId: request.submittedBy,
+        conflicts,
+      });
+      this.deps.telemetry.emitBundleFailure({
+        documentId: request.documentId,
+        reason: failureReason ?? 'repository-conflict',
+      });
+      throw error;
+    }
+
+    for (const section of validatedSections) {
+      if (!appliedSections.includes(section.sectionPath)) {
+        continue;
+      }
+      await this.deps.draftRepo.retireDraft(section.draftKey);
     }
 
     await this.deps.audit.recordBundleApplied({

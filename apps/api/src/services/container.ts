@@ -20,7 +20,11 @@ import {
   AssumptionSessionRepository,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
-import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
+import type {
+  TemplateResolver,
+  TemplateResolvedEvent,
+  TemplateResolverErrorEvent,
+} from '@ctrl-freaq/template-resolver';
 import { createTemplateValidator } from '@ctrl-freaq/templates';
 import { generateSectionDiff } from '@ctrl-freaq/editor-core';
 import { TemplateCatalogService } from './template-catalog.service.js';
@@ -99,8 +103,17 @@ export function createRepositoryRegistrationMiddleware() {
 
     container.register('draftBundleRepository', currentContainer => {
       const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const projectRepository = currentContainer.get('projectRepository') as ProjectRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
-      return new DraftBundleRepositoryImpl(sectionRepository, logger);
+      return new DraftBundleRepositoryImpl(
+        sectionRepository,
+        documentRepository,
+        projectRepository,
+        logger
+      );
     });
 
     container.register('assumptionPromptProvider', currentContainer => {
@@ -189,7 +202,7 @@ export function createRepositoryRegistrationMiddleware() {
 
       return createTemplateResolver({
         dependencies: {
-          async loadVersion(templateId, version) {
+          async loadVersion(templateId: string, version: string) {
             const templateVersion = await versionRepo.findByTemplateAndVersion(templateId, version);
             if (!templateVersion) {
               return null;
@@ -212,7 +225,7 @@ export function createRepositoryRegistrationMiddleware() {
               },
             };
           },
-          async loadActiveVersion(templateId) {
+          async loadActiveVersion(templateId: string) {
             const template = await templateRepo.findById(templateId);
             if (!template?.activeVersionId) {
               return null;
@@ -242,7 +255,7 @@ export function createRepositoryRegistrationMiddleware() {
           },
         },
         hooks: {
-          onResolved(event) {
+          onResolved(event: TemplateResolvedEvent) {
             logger.debug(
               {
                 templateId: event.templateId,
@@ -252,7 +265,7 @@ export function createRepositoryRegistrationMiddleware() {
               'Template resolver resolved version'
             );
           },
-          onError(event) {
+          onError(event: TemplateResolverErrorEvent) {
             logger.error(
               {
                 templateId: event.templateId,

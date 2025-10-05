@@ -182,6 +182,13 @@ export default [
       'no-console': 'off',
     },
   },
+  // Allow console in telemetry client side events (browser-side telemetry)
+  {
+    files: ['apps/web/src/lib/telemetry/client-events.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   {
     files: [
       'packages/editor-core/**/*.{ts,tsx,js,jsx}',

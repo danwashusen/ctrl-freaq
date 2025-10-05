@@ -104,10 +104,12 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       };
 
       window.addEventListener('draft-storage:quota-exceeded', quotaHandler);
+      window.addEventListener('draft-storage:quota-exhausted', quotaHandler);
       window.addEventListener('draft-storage:quota-cleared', quotaClearedHandler);
 
       return () => {
         window.removeEventListener('draft-storage:quota-exceeded', quotaHandler);
+        window.removeEventListener('draft-storage:quota-exhausted', quotaHandler);
         window.removeEventListener('draft-storage:quota-cleared', quotaClearedHandler);
       };
     }, []);

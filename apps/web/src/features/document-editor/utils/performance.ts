@@ -499,11 +499,6 @@ export class AnimationManager {
 // Bundle optimization utilities
 const ROUTE_MODULE_LOADERS: Record<string, () => Promise<unknown>> = {
   'components/document-editor': () => import('../components/document-editor'),
-  'components/document-section-preview': () => import('../components/document-section-preview'),
-  'components/section-card': () => import('../components/section-card'),
-  'components/diff-preview': () => import('../components/diff-preview'),
-  'components/table-of-contents': () => import('../components/table-of-contents'),
-  'components/milkdown-editor': () => import('../components/milkdown-editor'),
 };
 
 export function preloadRoute(routePath: string): Promise<void> {

@@ -224,6 +224,15 @@ _No constitutional deviations identified; table intentionally left empty._
   measurements keep recovery well below the 3s target and broadcast guidance
   when quota pruning triggers follow-up messaging.
 
+**Quality Gate Evidence (2025-10-03)**:
+
+- `pnpm lint` → completed with existing React hooks dependency warning in
+  `apps/web/src/features/section-editor/hooks/use-section-draft.ts`
+- `pnpm typecheck` → passed across all packages
+- `pnpm test` → gauntlet green (unit, contract, e2e, visual suites)
+- `pnpm --filter @ctrl-freaq/web test:e2e:quick` → 47 passed, 1 skipped visual
+  placeholder; draft rehydration scenario stayed under ~1.3s
+
 ---
 
 _Based on Constitution v2.1.1 - See `SPEC_KIT_CONFIG.constitution.path`_

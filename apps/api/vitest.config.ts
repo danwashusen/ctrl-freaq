@@ -9,6 +9,7 @@ const sharedDataSrc = resolve(rootDir, '..', 'packages', 'shared-data', 'src');
 const templatesSrc = resolve(rootDir, '..', 'packages', 'templates', 'src');
 const templateResolverSrc = resolve(rootDir, '..', 'packages', 'template-resolver', 'src');
 const editorCoreSrc = resolve(rootDir, '..', 'packages', 'editor-core', 'src');
+const qaSrc = resolve(rootDir, '..', 'packages', 'qa', 'src');
 
 export default defineConfig({
   test: {
@@ -37,6 +38,7 @@ export default defineConfig({
       '@ctrl-freaq/templates': templatesSrc,
       '@ctrl-freaq/template-resolver': templateResolverSrc,
       '@ctrl-freaq/editor-core': editorCoreSrc,
+      '@ctrl-freaq/qa': qaSrc,
     },
   },
 });

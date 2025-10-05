@@ -148,4 +148,48 @@ describe('Draft bundle API contract', () => {
     expect(response.status).toBe(403);
     expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
   });
+
+  test('rejects bundle when sections are scoped to a different document', async () => {
+    const rogueSectionId = 'deployment-strategy-rogue';
+    const rogueDocumentId = 'doc-rogue-architecture';
+
+    seedSectionFixture(db, {
+      sectionId: SECTION_ALPHA,
+      documentId: DOCUMENT_ID,
+      userId: AUTHOR_ID,
+      approvedVersion: 7,
+    });
+
+    seedSectionFixture(db, {
+      sectionId: rogueSectionId,
+      documentId: rogueDocumentId,
+      userId: AUTHOR_ID,
+      approvedVersion: 3,
+    });
+
+    const response = await request(app)
+      .patch(`/api/v1/projects/${PROJECT_SLUG}/documents/${DOCUMENT_ID}/draft-bundle`)
+      .set(AuthorizationHeader)
+      .send({
+        submittedBy: AUTHOR_ID,
+        sections: [
+          {
+            draftKey: `project-test/${rogueDocumentId}/Deployment Strategy/user_2abc123def456`,
+            sectionPath: rogueSectionId,
+            patch: '## Rogue deployment strategy update',
+            baselineVersion: 'rev-3',
+            qualityGateReport: { status: 'pass', issues: [] },
+          },
+        ],
+      });
+
+    expect(response.status).toBe(409);
+    const payload = DraftConflictResponseSchema.safeParse(response.body);
+    expect(payload.success).toBe(true);
+    if (payload.success) {
+      expect(payload.data.documentId).toBe(DOCUMENT_ID);
+      expect(payload.data.conflicts[0]?.sectionPath).toBe(rogueSectionId);
+      expect(payload.data.conflicts[0]?.message).toContain('document');
+    }
+  });
 });

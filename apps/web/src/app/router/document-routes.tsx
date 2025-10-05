@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import {
   Navigate,
   type LoaderFunctionArgs,
@@ -9,7 +9,7 @@ import {
 } from 'react-router-dom';
 
 import DocumentMissing from '@/components/document-missing';
-import DocumentEditor from '@/features/document-editor/components/document-editor';
+const DocumentEditor = lazy(() => import('@/features/document-editor/components/document-editor'));
 import { getDocumentFixture, getSectionFixture, type DocumentFixture } from '@/lib/fixtures/e2e';
 import { isE2EModeEnabled } from '@/lib/fixtures/e2e/fixture-provider';
 
@@ -85,11 +85,13 @@ function DocumentEditorRoute() {
 
   const { documentId, initialSectionId, fixtureDocument } = editorProps;
   return (
-    <DocumentEditor
-      documentId={documentId}
-      initialSectionId={initialSectionId}
-      fixtureDocument={fixtureDocument}
-    />
+    <Suspense fallback={null}>
+      <DocumentEditor
+        documentId={documentId}
+        initialSectionId={initialSectionId}
+        fixtureDocument={fixtureDocument}
+      />
+    </Suspense>
   );
 }
 

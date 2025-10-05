@@ -1,6 +1,7 @@
 import type { NextFunction, Response } from 'express';
-import type { AuthenticatedRequest } from './auth.js';
 import type { Database } from 'better-sqlite3';
+import type { AuthenticatedRequest } from './auth.js';
+import { isTestRuntime } from '../utils/runtime-env.js';
 
 /**
  * Test-only middleware to ensure a user row exists for the authenticated user.
@@ -12,7 +13,7 @@ export function ensureTestUserMiddleware(
   next: NextFunction
 ): void {
   try {
-    if (process.env.NODE_ENV === 'test' && req.auth?.userId && req.services) {
+    if (isTestRuntime() && req.auth?.userId && req.services) {
       const db = req.services.get<Database>('database');
       const id = req.auth.userId;
       const email = `${id}@test.local`;

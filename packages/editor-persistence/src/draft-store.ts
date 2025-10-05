@@ -66,6 +66,29 @@ export interface DraftStore {
 const DEFAULT_DB_NAME = 'ctrl-freaq-editor';
 const DEFAULT_STORE_NAME = 'section_drafts_v2';
 
+export interface DraftStorageQuotaErrorOptions {
+  authorId: string;
+  draftKey: string;
+  prunedDraftKeys: string[];
+  originalError: unknown;
+}
+
+export class DraftStorageQuotaError extends Error {
+  readonly authorId: string;
+  readonly draftKey: string;
+  readonly prunedDraftKeys: string[];
+  readonly originalError: unknown;
+
+  constructor(options: DraftStorageQuotaErrorOptions) {
+    super('Failed to persist draft: browser storage quota exhausted');
+    this.name = 'DraftStorageQuotaError';
+    this.authorId = options.authorId;
+    this.draftKey = options.draftKey;
+    this.prunedDraftKeys = [...options.prunedDraftKeys];
+    this.originalError = options.originalError;
+  }
+}
+
 function createDefaultStorageAdapter(): DraftStoreStorageAdapter {
   const store = localforage.createInstance({
     name: DEFAULT_DB_NAME,
@@ -193,22 +216,34 @@ export function createDraftStore(config: DraftStoreConfig = {}): DraftStore {
       const storageRecord = toStorageRecord(snapshot);
       const prunedDraftKeys: string[] = [];
 
-      try {
-        await storage.setItem(draftKey, storageRecord);
-      } catch (error) {
-        if (!isQuotaError(error)) {
-          throw error;
-        }
+      // Attempt to persist the draft, pruning older entries for the same author until it succeeds.
+      // This protects against partial saves when multiple drafts exist for one author and the
+      // browser quota has already been exhausted.
+      while (true) {
+        try {
+          await storage.setItem(draftKey, storageRecord);
+          break;
+        } catch (error) {
+          if (!isQuotaError(error)) {
+            throw error;
+          }
 
-        const pruned = await pruneOldestDraft(
-          storage,
-          candidate => candidate.authorId === snapshot.authorId
-        );
-        if (pruned.length === 0) {
-          throw error;
+          const pruned = await pruneOldestDraft(
+            storage,
+            candidate => candidate.authorId === snapshot.authorId
+          );
+
+          if (pruned.length === 0) {
+            throw new DraftStorageQuotaError({
+              authorId: snapshot.authorId,
+              draftKey,
+              prunedDraftKeys,
+              originalError: error,
+            });
+          }
+
+          prunedDraftKeys.push(...pruned);
         }
-        prunedDraftKeys.push(...pruned);
-        await storage.setItem(draftKey, storageRecord);
       }
 
       return {

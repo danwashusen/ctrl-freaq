@@ -21,6 +21,7 @@ test.describe('Section draft persistence', () => {
 
     const statusBadge = sectionPreview.getByTestId('section-draft-status');
     await expect(statusBadge).toContainText(/(?:draft pending|synced)/i);
+    await expect(statusBadge).toContainText(/last updated/i);
 
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -35,6 +36,9 @@ test.describe('Section draft persistence', () => {
     await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
       /(?:draft pending|synced)/i
     );
+    await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
+      /last updated/i
+    );
     await sectionPreviewAfterReload.getByTestId('enter-edit').click();
     const editorAfterReload = page.getByTestId('draft-markdown-editor');
     await expect(editorAfterReload).toHaveValue(/Gateway Responsibilities/);
@@ -42,6 +46,9 @@ test.describe('Section draft persistence', () => {
     await sectionPreviewAfterReload.getByTestId('revert-to-published').click();
     await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toHaveText(
       /synced/i
+    );
+    await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).not.toContainText(
+      /last updated/i
     );
     await expect(page.getByRole('status')).toHaveText(/Draft reverted to published content/);
   });
@@ -53,6 +60,9 @@ test.describe('Section draft persistence', () => {
 
     const sectionPreview = page.getByTestId('section-preview').first();
     await sectionPreview.getByTestId('enter-edit').click();
+    const editor = page.getByTestId('draft-markdown-editor');
+    await expect(editor).toBeVisible();
+    await editor.fill('Trigger draft persistence before quota warning.');
 
     // Simulate quota exhaustion hook that the UI listens for during implementation.
     await page.evaluate(() => {
@@ -71,6 +81,7 @@ test.describe('Section draft persistence', () => {
     await expect(sectionPreview.getByTestId('section-draft-status')).toContainText(
       /(?:draft pending|synced)/i
     );
+    await expect(sectionPreview.getByTestId('section-draft-status')).toContainText(/last updated/i);
 
     await page.evaluate(async () => {
       const bridge = (
@@ -89,6 +100,26 @@ test.describe('Section draft persistence', () => {
     });
 
     await expect(sectionPreview.getByTestId('section-draft-status')).toHaveText(/synced/i);
+    await expect(sectionPreview.getByTestId('section-draft-status')).not.toContainText(
+      /last updated/i
+    );
+  });
+
+  test('logs retention compliance warnings when policy requires escalation', async ({ page }) => {
+    const complianceRequestPromise = page.waitForRequest(request => {
+      return request.url().includes('/draft-compliance') && request.method() === 'POST';
+    });
+
+    await page.goto('/documents/demo-architecture/sections/sec-api?fixture=draft-persistence');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
+
+    const complianceRequest = await complianceRequestPromise;
+    const payload = complianceRequest.postDataJSON();
+    expect(payload).toMatchObject({
+      policyId: expect.stringContaining('retention'),
+      authorId: expect.any(String),
+    });
   });
 
   test('saving drafts issues a bundled PATCH request', async ({ page }) => {

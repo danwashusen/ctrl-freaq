@@ -99,6 +99,12 @@ importers:
       '@ctrl-freaq/editor-core':
         specifier: workspace:*
         version: link:../../packages/editor-core
+      '@ctrl-freaq/qa':
+        specifier: workspace:*
+        version: link:../../packages/qa
+      '@ctrl-freaq/shared-data':
+        specifier: workspace:*
+        version: link:../../packages/shared-data
       '@ctrl-freaq/template-resolver':
         specifier: workspace:*
         version: link:../../packages/template-resolver
@@ -172,6 +178,9 @@ importers:
       '@ctrl-freaq/editor-persistence':
         specifier: workspace:*
         version: link:../../packages/editor-persistence
+      '@ctrl-freaq/qa':
+        specifier: workspace:*
+        version: link:../../packages/qa
       '@ctrl-freaq/templates':
         specifier: workspace:*
         version: link:../../packages/templates

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
+  DraftStorageQuotaError,
   createDraftStore,
   type DraftStore,
   type DraftStoreConfig,
@@ -11,14 +12,14 @@ type MemoryStore = ReturnType<typeof createMemoryStore>;
 
 function createMemoryStore() {
   const data = new Map<string, unknown>();
-  let shouldFail = false;
+  let failCount = 0;
   const api = {
-    failNextSet() {
-      shouldFail = true;
+    failNextSet(times = 1) {
+      failCount += Math.max(1, times);
     },
     async setItem(key: string, value: unknown) {
-      if (shouldFail) {
-        shouldFail = false;
+      if (failCount > 0) {
+        failCount -= 1;
         const quotaError = new Error('Quota exceeded');
         quotaError.name = 'QuotaExceededError';
         throw quotaError;
@@ -144,6 +145,70 @@ describe('createDraftStore', () => {
       'proj-alpha/doc-plan/Operational Concerns/user-author',
       'proj-alpha/doc-plan/Security Posture/user-author',
     ]);
+  });
+
+  test('retries pruning oldest drafts for the same author until the save succeeds', async () => {
+    await store.saveDraft(baseDraft);
+    vi.setSystemTime(new Date('2025-09-30T12:05:00.000Z'));
+    await store.saveDraft({
+      ...baseDraft,
+      sectionTitle: 'Operational Concerns',
+      sectionPath: 'ops-concerns',
+      patch: 'diff --git ops',
+      lastEditedAt: new Date('2025-09-30T12:10:00.000Z'),
+    });
+    vi.setSystemTime(new Date('2025-09-30T12:08:00.000Z'));
+    await store.saveDraft({
+      ...baseDraft,
+      sectionTitle: 'Platform Guardrails',
+      sectionPath: 'platform-guardrails',
+      patch: 'diff --git platform',
+      lastEditedAt: new Date('2025-09-30T12:12:00.000Z'),
+    });
+
+    memoryStore.failNextSet(2);
+
+    vi.setSystemTime(new Date('2025-09-30T12:15:00.000Z'));
+    const result = await store.saveDraft({
+      ...baseDraft,
+      sectionTitle: 'Security Posture',
+      sectionPath: 'security-posture',
+      patch: 'diff --git sec',
+      lastEditedAt: new Date('2025-09-30T12:15:00.000Z'),
+    });
+
+    expect(result.prunedDraftKeys).toEqual([
+      'proj-alpha/doc-plan/Architecture Overview/user-author',
+      'proj-alpha/doc-plan/Operational Concerns/user-author',
+    ]);
+
+    const keys = await memoryStore.keys();
+    expect(keys).toEqual([
+      'proj-alpha/doc-plan/Platform Guardrails/user-author',
+      'proj-alpha/doc-plan/Security Posture/user-author',
+    ]);
+  });
+
+  test('throws a DraftStorageQuotaError when quota remains exhausted after pruning', async () => {
+    await store.saveDraft(baseDraft);
+    memoryStore.failNextSet(2);
+
+    await expect(
+      store.saveDraft({
+        ...baseDraft,
+        sectionTitle: 'Security Posture',
+        sectionPath: 'security-posture',
+        patch: 'diff --git sec',
+        lastEditedAt: new Date('2025-09-30T12:15:00.000Z'),
+      })
+    ).rejects.toMatchObject({
+      name: DraftStorageQuotaError.name,
+      prunedDraftKeys: ['proj-alpha/doc-plan/Architecture Overview/user-author'],
+    });
+
+    expect(
+      memoryStore.snapshot().has('proj-alpha/doc-plan/Architecture Overview/user-author')
+    ).toBe(false);
   });
 
   test('clears all drafts for an author on logout', async () => {

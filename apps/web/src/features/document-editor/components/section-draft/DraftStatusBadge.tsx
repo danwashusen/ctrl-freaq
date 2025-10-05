@@ -14,14 +14,26 @@ interface DraftStatusBadgeProps {
 
 export function DraftStatusBadge(props: DraftStatusBadgeProps) {
   const { projectSlug, documentSlug, sectionTitle, sectionPath, authorId, onDraftCleared } = props;
-  const { statusLabel, ariaAnnouncement, revertToPublished, handleLogout, draftKey } =
-    useDraftPersistence({
-      projectSlug,
-      documentSlug,
-      sectionTitle,
-      sectionPath,
-      authorId,
-    });
+  const {
+    statusLabel,
+    ariaAnnouncement,
+    revertToPublished,
+    handleLogout,
+    draftKey,
+    lastUpdatedLabel,
+    lastUpdatedIso,
+  } = useDraftPersistence({
+    projectSlug,
+    documentSlug,
+    sectionTitle,
+    sectionPath,
+    authorId,
+  });
+
+  const lastUpdatedText = lastUpdatedLabel ? `Last updated ${lastUpdatedLabel}` : null;
+  const liveAnnouncement = ariaAnnouncement
+    ? [ariaAnnouncement, lastUpdatedText].filter(Boolean).join(' ')
+    : [statusLabel, lastUpdatedText].filter(Boolean).join(' - ');
 
   const handleRevert = useCallback(async () => {
     await revertToPublished();
@@ -41,6 +53,19 @@ export function DraftStatusBadge(props: DraftStatusBadgeProps) {
     <div className="flex items-center gap-2" data-testid="section-draft-status">
       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
         {statusLabel}
+        {lastUpdatedLabel ? (
+          <span className="whitespace-nowrap">
+            {' '}
+            - Last updated{' '}
+            <time
+              data-testid="draft-last-updated"
+              dateTime={lastUpdatedIso ?? undefined}
+              suppressHydrationWarning
+            >
+              {lastUpdatedLabel}
+            </time>
+          </span>
+        ) : null}
       </span>
       <button
         type="button"
@@ -51,7 +76,7 @@ export function DraftStatusBadge(props: DraftStatusBadgeProps) {
         Revert to published
       </button>
       <span role="status" aria-live="polite" className="sr-only">
-        {ariaAnnouncement ?? statusLabel}
+        {liveAnnouncement}
       </span>
     </div>
   );

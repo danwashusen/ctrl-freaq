@@ -8,6 +8,8 @@ import type { Logger } from 'pino';
 
 import { loadSharedDataMigrations } from '@ctrl-freaq/shared-data';
 
+import { isTestRuntime } from '../utils/runtime-env.js';
+
 /**
  * Database Connection and Migration Utilities
  *
@@ -560,28 +562,29 @@ export class DatabaseManager {
  */
 export function createDefaultDatabaseConfig(): DatabaseConfig {
   const __dirname = dirname(fileURLToPath(import.meta.url));
+  const testRuntime = isTestRuntime();
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
 
   return {
-    path:
-      process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
+    path: testRuntime
+      ? ':memory:'
+      : process.env.DATABASE_PATH || join(process.cwd(), 'data', 'ctrl-freaq.db'),
     migrations: {
       directory: join(__dirname, '..', '..', 'migrations'),
       table: '_migrations',
     },
     backup: {
-      enabled: process.env.NODE_ENV === 'production',
+      enabled: nodeEnv === 'production',
       directory: process.env.BACKUP_DIRECTORY || join(process.cwd(), 'backups'),
     },
     performance: {
-      enableQueryLogging: process.env.NODE_ENV === 'development',
+      enableQueryLogging: nodeEnv === 'development',
       slowQueryThreshold: parseInt(process.env.SLOW_QUERY_THRESHOLD || '100', 10),
       enableWALMode: true,
     },
     development: {
-      enableForeignKeys: process.env.NODE_ENV !== 'test',
-      enableQueryPlan: process.env.NODE_ENV === 'development',
+      enableForeignKeys: !testRuntime,
+      enableQueryPlan: nodeEnv === 'development',
     },
   };
 }

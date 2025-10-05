@@ -1,6 +1,8 @@
 declare module '@ctrl-freaq/editor-persistence' {
   export {
     createDraftStore,
+    DraftStorageQuotaError,
+    type DraftStorageQuotaErrorOptions,
     DraftStore,
     type DraftSaveResult,
     type SectionDraftInput,

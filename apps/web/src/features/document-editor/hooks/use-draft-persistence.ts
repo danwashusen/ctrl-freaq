@@ -5,6 +5,7 @@ import {
   type DraftStore,
   type DocumentDraftState,
 } from '@ctrl-freaq/editor-persistence';
+import { logDraftComplianceWarning } from '@ctrl-freaq/qa';
 import {
   emitComplianceWarning,
   emitDraftPruned,
@@ -31,6 +32,8 @@ export interface UseDraftPersistenceResult {
   requiresConfirmation: boolean;
   confirmRecoveredDraft(): Promise<void>;
   discardRecoveredDraft(): Promise<void>;
+  lastUpdatedLabel: string | null;
+  lastUpdatedIso: string | null;
 }
 
 const buildDraftKey = ({
@@ -46,6 +49,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
   const [statusLabel, setStatusLabel] = useState('Synced');
   const [ariaAnnouncement, setAriaAnnouncement] = useState<string | null>(null);
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const draftStore = useMemo<DraftStore>(() => createDraftStore(), []);
   const draftKey = useMemo(() => buildDraftKey(params), [params]);
@@ -53,6 +57,18 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
   const resolveRehydratedDraft = useDraftStateStore(state => state.resolveRehydratedDraft);
   const clearRehydratedDraft = useDraftStateStore(state => state.clearRehydratedDraft);
   const draftClient = useMemo(() => new DraftPersistenceClient(), []);
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+    []
+  );
+  const lastUpdatedLabel = useMemo(
+    () => (lastUpdatedAt ? dateFormatter.format(lastUpdatedAt) : null),
+    [dateFormatter, lastUpdatedAt]
+  );
+  const lastUpdatedIso = useMemo(
+    () => (lastUpdatedAt ? lastUpdatedAt.toISOString() : null),
+    [lastUpdatedAt]
+  );
 
   const revertToPublished = useCallback(async () => {
     try {
@@ -60,6 +76,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
       setStatusLabel('Synced');
       setAriaAnnouncement('Draft reverted to published content');
       setRequiresConfirmation(false);
+      setLastUpdatedAt(null);
       emitDraftPruned({
         draftKey,
         projectSlug: params.projectSlug,
@@ -116,6 +133,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
       setStatusLabel('Synced');
       setAriaAnnouncement('Drafts cleared after logout for security');
       setRequiresConfirmation(false);
+      setLastUpdatedAt(null);
       emitDraftPruned({
         draftKey,
         projectSlug: params.projectSlug,
@@ -173,6 +191,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             setAriaAnnouncement(null);
             setRequiresConfirmation(false);
             clearRehydratedDraft(draftKey);
+            setLastUpdatedAt(null);
             return;
           }
 
@@ -190,6 +209,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             setAriaAnnouncement(null);
             setRequiresConfirmation(false);
             clearRehydratedDraft(draftKey);
+            setLastUpdatedAt(null);
             return;
           }
 
@@ -197,20 +217,37 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             matchingSection.draftKey ??
             `${params.projectSlug}/${params.documentSlug}/${matchingSection.sectionTitle ?? params.sectionTitle}/${params.authorId}`;
 
+          const lastEditedAtDate =
+            matchingSection.lastEditedAt instanceof Date
+              ? matchingSection.lastEditedAt
+              : new Date(matchingSection.lastEditedAt ?? Date.now());
+          const lastEditedTimestamp = lastEditedAtDate.getTime();
+
           let shouldAutoDiscard = false;
 
           if (typeof window !== 'undefined') {
             try {
-              if (window.localStorage?.getItem(`draft-store:cleared:${resolvedDraftKey}`)) {
-                shouldAutoDiscard = true;
+              const clearedMarkerKey = `draft-store:cleared:${resolvedDraftKey}`;
+              const clearedMarker = window.localStorage?.getItem(clearedMarkerKey);
+              if (clearedMarker) {
+                const clearedTimestamp = Date.parse(clearedMarker);
+                if (!Number.isNaN(clearedTimestamp) && lastEditedTimestamp <= clearedTimestamp) {
+                  shouldAutoDiscard = true;
+                }
+                window.localStorage.removeItem(clearedMarkerKey);
               }
 
-              if (
-                window.sessionStorage?.getItem(`draft-store:recent-clean:${resolvedDraftKey}`) !==
-                null
-              ) {
-                shouldAutoDiscard = true;
-                window.sessionStorage.removeItem(`draft-store:recent-clean:${resolvedDraftKey}`);
+              const recentCleanMarkerKey = `draft-store:recent-clean:${resolvedDraftKey}`;
+              const recentCleanMarker = window.sessionStorage?.getItem(recentCleanMarkerKey);
+              if (recentCleanMarker !== null) {
+                const recentCleanTimestamp = Number.parseInt(recentCleanMarker, 10);
+                if (
+                  !Number.isNaN(recentCleanTimestamp) &&
+                  lastEditedTimestamp <= recentCleanTimestamp
+                ) {
+                  shouldAutoDiscard = true;
+                }
+                window.sessionStorage.removeItem(recentCleanMarkerKey);
               }
             } catch (storageError) {
               logger.debug('Unable to inspect draft persistence markers', {
@@ -231,18 +268,20 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
                 reason: error instanceof Error ? error.message : String(error),
               });
             });
+            setLastUpdatedAt(null);
             return;
           }
 
           setStatusLabel('Review recovered draft');
           setAriaAnnouncement('Draft restored from local recovery. Review before continuing.');
           setRequiresConfirmation(true);
+          setLastUpdatedAt(lastEditedAtDate);
           markDraftRehydrated({
             draftKey,
             sectionTitle: matchingSection.sectionTitle ?? params.sectionTitle,
             sectionPath: matchingSection.sectionPath ?? params.sectionPath,
             baselineVersion: matchingSection.baselineVersion,
-            lastEditedAt: matchingSection.lastEditedAt?.getTime?.() ?? Date.now(),
+            lastEditedAt: lastEditedAtDate.getTime(),
             confirm: confirmRecoveredDraft,
             discard: discardRecoveredDraft,
           });
@@ -256,15 +295,32 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
           });
 
           if (state.pendingComplianceWarning) {
+            const detectedAt = new Date();
             const compliancePayload = {
               authorId: params.authorId,
               policyId: 'retention-client-only',
-              detectedAt: new Date().toISOString(),
+              detectedAt: detectedAt.toISOString(),
               context: {
                 draftKey,
                 sectionPath: matchingSection.sectionPath ?? params.sectionPath,
               },
             } satisfies DraftComplianceRequest;
+            const qaLogger = {
+              warn(payload: Record<string, unknown>, message?: string) {
+                logger.warn(message ?? 'Draft retention policy warning recorded', payload);
+              },
+            };
+            logDraftComplianceWarning(qaLogger, {
+              projectSlug: params.projectSlug,
+              documentSlug: params.documentSlug,
+              authorId: params.authorId,
+              policyId: compliancePayload.policyId,
+              detectedAt,
+              context: {
+                draftKey,
+                sectionPath: matchingSection.sectionPath ?? params.sectionPath,
+              },
+            });
             void Promise.resolve(
               draftClient.logComplianceWarning({
                 projectSlug: params.projectSlug,
@@ -286,7 +342,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
               sectionPath: matchingSection.sectionPath ?? params.sectionPath,
               authorId: params.authorId,
               policyId: 'retention-client-only',
-              detectedAt: new Date().toISOString(),
+              detectedAt: detectedAt.toISOString(),
             });
           }
         })
@@ -295,6 +351,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             setStatusLabel('Synced');
             setAriaAnnouncement(null);
             setRequiresConfirmation(false);
+            setLastUpdatedAt(null);
           }
         });
     };
@@ -351,5 +408,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
     requiresConfirmation,
     confirmRecoveredDraft,
     discardRecoveredDraft,
+    lastUpdatedLabel,
+    lastUpdatedIso,
   };
 }

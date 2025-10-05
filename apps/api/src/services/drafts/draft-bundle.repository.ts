@@ -1,7 +1,12 @@
 import type { Logger } from 'pino';
 
 import { createPatchEngine, type PatchDiff } from '@ctrl-freaq/editor-core';
-import { SectionRepositoryImpl } from '@ctrl-freaq/shared-data';
+import {
+  DocumentRepositoryImpl,
+  ProjectRepositoryImpl,
+  SectionRepositoryImpl,
+} from '@ctrl-freaq/shared-data';
+import type { Document, Project, SectionView } from '@ctrl-freaq/shared-data';
 
 import {
   DraftBundleValidationError,
@@ -70,21 +75,60 @@ function buildConflict(
   } satisfies DraftBundleConflict;
 }
 
+type ScopeKey = `${string}:${string}`;
+
+interface DocumentScope {
+  document: Document;
+  project: Project | null;
+}
+
 export class DraftBundleRepositoryImpl implements DraftBundleRepository {
+  private readonly scopeCache = new Map<ScopeKey, DocumentScope>();
+
   constructor(
     private readonly sections: SectionRepositoryImpl,
+    private readonly documents: DocumentRepositoryImpl,
+    private readonly projects: ProjectRepositoryImpl,
     private readonly logger: Logger
   ) {}
+
+  async applyBundleSectionsAtomically(
+    sections: DraftSectionSubmission[],
+    context: { documentId: string; projectSlug: string; authorId: string }
+  ): Promise<string[]> {
+    if (sections.length === 0) {
+      return [];
+    }
+
+    const preparedSections = await Promise.all(
+      sections.map(section => this.prepareSectionForApplication(section, context))
+    );
+
+    const db = this.sections.getConnection();
+    db.exec('BEGIN IMMEDIATE TRANSACTION');
+
+    try {
+      for (const prepared of preparedSections) {
+        await this.applyPreparedSection(prepared, context, { transactionDb: db });
+      }
+
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+
+    return preparedSections.map(prepared => prepared.submission.sectionPath);
+  }
 
   async validateBaseline(
     input: DraftSectionSubmission & { documentId: string; projectSlug: string; authorId: string }
   ): Promise<{ status: string }> {
-    const section = await this.sections.findById(input.sectionPath);
-    if (!section) {
-      throw new DraftBundleValidationError([
-        buildConflict(input.sectionPath, 'Section not found for bundled save'),
-      ]);
-    }
+    const { section } = await this.loadScopedSection(input.sectionPath, {
+      documentId: input.documentId,
+      projectSlug: input.projectSlug,
+      authorId: input.authorId,
+    });
 
     const expectedVersion = extractBaselineVersion(input.baselineVersion);
     if (expectedVersion !== null && expectedVersion !== section.approvedVersion) {
@@ -111,55 +155,15 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
       authorId: string;
     }
   ): Promise<{ applied: boolean }> {
-    const section = await this.sections.findById(input.sectionPath);
-    if (!section) {
-      throw new DraftBundleValidationError([
-        buildConflict(input.sectionPath, 'Section not found for bundle application'),
-      ]);
-    }
+    const context = {
+      documentId: input.documentId,
+      projectSlug: input.projectSlug,
+      authorId: input.authorId,
+    } satisfies ApplicationContext;
 
-    const nextVersion = (section.approvedVersion ?? 0) + 1;
+    const prepared = await this.prepareSectionForApplication(input, context);
 
-    const draftPatches = tryParsePatchOperations(input.patch);
-    let approvedContent = input.patch;
-
-    if (draftPatches) {
-      const baselineContent = section.approvedContent ?? section.contentMarkdown;
-      const patchResult = patchEngine.applyPatch(baselineContent, draftPatches);
-
-      if (!patchResult.success || typeof patchResult.content !== 'string') {
-        const reason = patchResult.error ?? 'Unable to apply draft patch';
-        throw new DraftBundleValidationError([
-          buildConflict(input.sectionPath, `Draft patch could not be applied: ${reason}`, {
-            serverVersion: section.approvedVersion ?? undefined,
-            serverContent: section.approvedContent ?? section.contentMarkdown ?? '',
-          }),
-        ]);
-      }
-
-      approvedContent = patchResult.content;
-    }
-
-    await this.sections.finalizeApproval(section, {
-      approvedContent,
-      approvedVersion: nextVersion,
-      approvedAt: new Date(),
-      approvedBy: input.authorId,
-      status: 'ready',
-      qualityGate: 'passed',
-    });
-
-    this.logger.info(
-      {
-        projectSlug: input.projectSlug,
-        documentId: input.documentId,
-        sectionId: section.id,
-        draftKey: input.draftKey,
-        baselineVersion: input.baselineVersion,
-        appliedVersion: nextVersion,
-      },
-      'Bundled draft applied to section'
-    );
+    await this.applyPreparedSection(prepared, context);
 
     return { applied: true };
   }
@@ -173,24 +177,229 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
     documentId: string;
     projectSlug: string;
   }): Promise<{ serverVersion: number; serverContent: string } | null> {
-    const section = await this.sections.findById(input.sectionPath);
-    if (!section) {
-      this.logger.warn(
-        {
-          sectionPath: input.sectionPath,
-          documentId: input.documentId,
-          projectSlug: input.projectSlug,
-        },
-        'Unable to load section snapshot for bundle conflict'
-      );
-      return null;
+    try {
+      const { section } = await this.loadScopedSection(input.sectionPath, {
+        documentId: input.documentId,
+        projectSlug: input.projectSlug,
+        authorId: 'system',
+      });
+
+      const serverVersion = section.approvedVersion ?? 0;
+      const serverContent = section.approvedContent ?? section.contentMarkdown ?? '';
+      return {
+        serverVersion,
+        serverContent,
+      };
+    } catch (error) {
+      if (error instanceof DraftBundleValidationError) {
+        this.logger.warn(
+          {
+            sectionPath: input.sectionPath,
+            documentId: input.documentId,
+            projectSlug: input.projectSlug,
+            reason: error.conflicts?.[0]?.message ?? error.message,
+          },
+          'Unable to load section snapshot for bundle conflict'
+        );
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async prepareSectionForApplication(
+    submission: DraftSectionSubmission,
+    context: ApplicationContext
+  ): Promise<PreparedSectionApplication> {
+    const { section } = await this.loadScopedSection(submission.sectionPath, context);
+    const nextVersion = (section.approvedVersion ?? 0) + 1;
+
+    const draftPatches = tryParsePatchOperations(submission.patch);
+    let approvedContent = submission.patch;
+
+    if (draftPatches) {
+      const baselineContent = section.approvedContent ?? section.contentMarkdown;
+      const patchResult = patchEngine.applyPatch(baselineContent, draftPatches);
+
+      if (!patchResult.success || typeof patchResult.content !== 'string') {
+        const reason = patchResult.error ?? 'Unable to apply draft patch';
+        throw new DraftBundleValidationError([
+          buildConflict(submission.sectionPath, `Draft patch could not be applied: ${reason}`, {
+            serverVersion: section.approvedVersion ?? undefined,
+            serverContent: section.approvedContent ?? section.contentMarkdown ?? '',
+          }),
+        ]);
+      }
+
+      approvedContent = patchResult.content;
     }
 
-    const serverVersion = section.approvedVersion ?? 0;
-    const serverContent = section.approvedContent ?? section.contentMarkdown ?? '';
     return {
-      serverVersion,
-      serverContent,
-    };
+      submission,
+      section,
+      approvedContent,
+      nextVersion,
+    } satisfies PreparedSectionApplication;
+  }
+
+  private async applyPreparedSection(
+    prepared: PreparedSectionApplication,
+    context: ApplicationContext,
+    options: Parameters<SectionRepositoryImpl['finalizeApproval']>[2] = {}
+  ): Promise<void> {
+    await this.sections.finalizeApproval(
+      prepared.section,
+      {
+        approvedContent: prepared.approvedContent,
+        approvedVersion: prepared.nextVersion,
+        approvedAt: new Date(),
+        approvedBy: context.authorId,
+        status: 'ready',
+        qualityGate: 'passed',
+      },
+      options
+    );
+
+    this.logger.info(
+      {
+        projectSlug: context.projectSlug,
+        documentId: context.documentId,
+        sectionId: prepared.section.id,
+        draftKey: prepared.submission.draftKey,
+        baselineVersion: prepared.submission.baselineVersion,
+        appliedVersion: prepared.nextVersion,
+      },
+      'Bundled draft applied to section'
+    );
+  }
+
+  private buildScopeKey(context: ApplicationContext): ScopeKey {
+    return `${context.projectSlug}:${context.documentId}`;
+  }
+
+  private async ensureDocumentScope(
+    context: ApplicationContext,
+    sectionPath: string
+  ): Promise<DocumentScope> {
+    const scopeKey = this.buildScopeKey(context);
+    const cached = this.scopeCache.get(scopeKey);
+    if (cached) {
+      return cached;
+    }
+
+    const document = await this.documents.findById(context.documentId);
+    if (!document) {
+      this.logger.warn(
+        {
+          projectSlug: context.projectSlug,
+          documentId: context.documentId,
+          sectionPath,
+        },
+        'Document not found while validating draft bundle scope'
+      );
+      throw new DraftBundleValidationError([
+        buildConflict(
+          sectionPath,
+          `Document ${context.documentId} is not available in project ${context.projectSlug}`,
+          { serverVersion: 0, serverContent: '' }
+        ),
+      ]);
+    }
+
+    let project: Project | null = null;
+
+    if (document.projectId === context.projectSlug) {
+      project = null;
+    } else {
+      project = await this.projects.findBySlug(context.projectSlug);
+      if (!project) {
+        this.logger.warn(
+          {
+            projectSlug: context.projectSlug,
+            documentId: context.documentId,
+            sectionPath,
+          },
+          'Project slug did not resolve during draft bundle scope validation'
+        );
+        throw new DraftBundleValidationError([
+          buildConflict(
+            sectionPath,
+            `Project ${context.projectSlug} could not be resolved for document ${context.documentId}`,
+            { serverVersion: 0, serverContent: '' }
+          ),
+        ]);
+      }
+
+      if (project.id !== document.projectId) {
+        this.logger.warn(
+          {
+            projectSlug: context.projectSlug,
+            documentId: context.documentId,
+            sectionPath,
+            documentProjectId: document.projectId,
+            projectId: project.id,
+          },
+          'Document/project scope mismatch encountered during draft bundle processing'
+        );
+        throw new DraftBundleValidationError([
+          buildConflict(
+            sectionPath,
+            `Document ${context.documentId} is not part of project ${context.projectSlug}`,
+            { serverVersion: 0, serverContent: '' }
+          ),
+        ]);
+      }
+    }
+
+    const scope: DocumentScope = { document, project };
+    this.scopeCache.set(scopeKey, scope);
+    return scope;
+  }
+
+  private async loadScopedSection(
+    sectionPath: string,
+    context: ApplicationContext
+  ): Promise<{ section: SectionView; scope: DocumentScope }> {
+    const scope = await this.ensureDocumentScope(context, sectionPath);
+    const section = await this.sections.findById(sectionPath);
+    if (!section) {
+      throw new DraftBundleValidationError([
+        buildConflict(sectionPath, 'Section not found for bundle application'),
+      ]);
+    }
+
+    if (section.docId !== scope.document.id) {
+      this.logger.warn(
+        {
+          projectSlug: context.projectSlug,
+          documentId: context.documentId,
+          sectionId: section.id,
+          sectionDocumentId: section.docId,
+        },
+        'Section does not belong to requested document during draft bundle'
+      );
+      throw new DraftBundleValidationError([
+        buildConflict(
+          sectionPath,
+          `Section ${sectionPath} is not part of document ${context.documentId}`,
+          { serverVersion: section.approvedVersion ?? 0, serverContent: '' }
+        ),
+      ]);
+    }
+
+    return { section, scope };
   }
 }
+
+interface PreparedSectionApplication {
+  submission: DraftSectionSubmission;
+  section: SectionView;
+  approvedContent: string;
+  nextVersion: number;
+}
+
+type ApplicationContext = {
+  documentId: string;
+  projectSlug: string;
+  authorId: string;
+};

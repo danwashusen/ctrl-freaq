@@ -3,6 +3,6 @@
 
 spec-kit:
   - changelog:
-      path: '/CHANGELOG.md'
+      path: "/CHANGELOG.md"
   - constitution:
-      path: '.specify/memory/constitution.md'
+      path: ".specify/memory/constitution.md"

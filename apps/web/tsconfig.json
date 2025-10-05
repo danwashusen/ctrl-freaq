@@ -26,6 +26,8 @@
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
         "../../packages/editor-persistence/dist/assumption-sessions/*.js"
       ],
+      "@ctrl-freaq/qa": ["../../packages/qa/src/index.ts"],
+      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*.ts"],
       "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
       "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],
       "@ctrl-freaq/template-resolver": [

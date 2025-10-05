@@ -28,6 +28,26 @@ test.describe('Section Editor Diff Preview & Submit', () => {
       });
     });
 
+    await page.route('**/__fixtures/api/projects/**/documents/**/draft-bundle', async route => {
+      if (route.request().method() !== 'PATCH') {
+        await route.fallback();
+        return;
+      }
+
+      const url = new URL(route.request().url());
+      const segments = url.pathname.split('/');
+      const documentId = segments.length >= 2 ? segments[segments.length - 2] : 'demo-architecture';
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documentId,
+          appliedSections: ['sec-overview'],
+        }),
+      });
+    });
+
     await page.route('**/__fixtures/api/sections/sec-overview/diff', async route => {
       if (route.request().method() !== 'GET') {
         await route.fallback();

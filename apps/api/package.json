@@ -16,6 +16,8 @@
   "dependencies": {
     "@clerk/express": "^1.0.0",
     "@ctrl-freaq/editor-core": "workspace:*",
+    "@ctrl-freaq/qa": "workspace:*",
+    "@ctrl-freaq/shared-data": "workspace:*",
     "@ctrl-freaq/template-resolver": "workspace:*",
     "@ctrl-freaq/templates": "workspace:*",
     "better-sqlite3": "^12.4.1",
