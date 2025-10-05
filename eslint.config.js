@@ -158,7 +158,7 @@ export default [
       react: { version: 'detect' },
       'import/resolver': {
         typescript: {
-          project: [resolvePath('apps/web/tsconfig.json')],
+          project: [resolvePath('tsconfig.json'), resolvePath('apps/web/tsconfig.json')],
         },
         node: true,
       },

@@ -5,23 +5,7 @@
     "rootDir": "../../",
     "noEmit": false,
     "allowImportingTsExtensions": false,
-    "types": ["node", "vitest/globals"],
-    "paths": {
-      "@ctrl-freaq/qa": ["../../packages/qa/src/index"],
-      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*"],
-      "@ctrl-freaq/shared-data": ["../../packages/shared-data/src/index"],
-      "@ctrl-freaq/shared-data/*": ["../../packages/shared-data/src/*"],
-      "@ctrl-freaq/template-resolver": [
-        "../../packages/template-resolver/src/index"
-      ],
-      "@ctrl-freaq/template-resolver/*": [
-        "../../packages/template-resolver/src/*"
-      ],
-      "@ctrl-freaq/templates": ["../../packages/templates/src/index"],
-      "@ctrl-freaq/templates/*": ["../../packages/templates/src/*"],
-      "@ctrl-freaq/editor-core": ["../../packages/editor-core/src/index"],
-      "@ctrl-freaq/editor-core/*": ["../../packages/editor-core/src/*"]
-    }
+    "types": ["node", "vitest/globals"]
   },
   "include": [
     "src/**/*",
@@ -29,6 +13,7 @@
     "../../packages/editor-core/src/**/*.ts",
     "../../packages/shared-data/src/**/*.ts",
     "../../packages/templates/src/**/*.ts",
+    "../../packages/qa/src/**/*.ts",
     "../../packages/template-resolver/src/**/*.ts"
   ],
   "exclude": [
