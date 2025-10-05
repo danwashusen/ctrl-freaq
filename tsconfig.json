@@ -30,7 +30,7 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@ctrl-freaq/shared-data": ["./packages/shared-data/src/index.ts"],
+      "@ctrl-freaq/shared-data": ["./packages/shared-data/src/index"],
       "@ctrl-freaq/shared-data/*": ["./packages/shared-data/src/*"],
       "@ctrl-freaq/templates": ["./packages/templates/src"],
       "@ctrl-freaq/templates/*": ["./packages/templates/src/*"],
@@ -43,13 +43,13 @@
       "@ctrl-freaq/editor-core": ["./packages/editor-core/src"],
       "@ctrl-freaq/editor-core/*": ["./packages/editor-core/src/*"],
       "@ctrl-freaq/editor-persistence": [
-        "./packages/editor-persistence/src/index.ts"
+        "./packages/editor-persistence/src/index"
       ],
       "@ctrl-freaq/editor-persistence/*": [
-        "./packages/editor-persistence/src/*.ts"
+        "./packages/editor-persistence/src/*"
       ],
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
-        "./packages/editor-persistence/src/assumption-sessions/*.ts"
+        "./packages/editor-persistence/src/assumption-sessions/*"
       ],
       "@ctrl-freaq/template-resolver": ["./packages/template-resolver/src"],
       "@ctrl-freaq/template-resolver/*": ["./packages/template-resolver/src/*"]

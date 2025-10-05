@@ -18,23 +18,23 @@
     "paths": {
       "@/*": ["apps/web/src/*"],
       "@ctrl-freaq/editor-persistence": [
-        "../../packages/editor-persistence/src/index.ts"
+        "../../packages/editor-persistence/src/index"
       ],
       "@ctrl-freaq/editor-persistence/*": [
-        "../../packages/editor-persistence/src/*.ts"
+        "../../packages/editor-persistence/src/*"
       ],
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
-        "../../packages/editor-persistence/src/assumption-sessions/*.ts"
+        "../../packages/editor-persistence/src/assumption-sessions/*"
       ],
       "@ctrl-freaq/qa": ["../../packages/qa/src/index.ts"],
-      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*.ts"],
-      "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
-      "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],
+      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*"],
+      "@ctrl-freaq/templates": ["../../packages/templates/src/index"],
+      "@ctrl-freaq/templates/*": ["../../packages/templates/src/*"],
       "@ctrl-freaq/template-resolver": [
-        "../../packages/template-resolver/dist/index.d.ts"
+        "../../packages/template-resolver/src/index"
       ],
       "@ctrl-freaq/template-resolver/*": [
-        "../../packages/template-resolver/dist/*"
+        "../../packages/template-resolver/src/*"
       ]
     }
   },
