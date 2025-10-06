@@ -5,10 +5,11 @@ import { dirname, resolve } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
-const sharedDataSrc = resolve(rootDir, '..', 'packages', 'shared-data', 'src');
-const templatesSrc = resolve(rootDir, '..', 'packages', 'templates', 'src');
-const templateResolverSrc = resolve(rootDir, '..', 'packages', 'template-resolver', 'src');
-const editorCoreSrc = resolve(rootDir, '..', 'packages', 'editor-core', 'src');
+const sharedDataDist = resolve(rootDir, '..', 'packages', 'shared-data', 'dist');
+const templatesDist = resolve(rootDir, '..', 'packages', 'templates', 'dist');
+const templateResolverDist = resolve(rootDir, '..', 'packages', 'template-resolver', 'dist');
+const editorCoreDist = resolve(rootDir, '..', 'packages', 'editor-core', 'dist');
+const qaDist = resolve(rootDir, '..', 'packages', 'qa', 'dist');
 
 export default defineConfig({
   test: {
@@ -33,10 +34,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
-      '@ctrl-freaq/shared-data': sharedDataSrc,
-      '@ctrl-freaq/templates': templatesSrc,
-      '@ctrl-freaq/template-resolver': templateResolverSrc,
-      '@ctrl-freaq/editor-core': editorCoreSrc,
+      '@ctrl-freaq/shared-data': sharedDataDist,
+      '@ctrl-freaq/templates': templatesDist,
+      '@ctrl-freaq/template-resolver': templateResolverDist,
+      '@ctrl-freaq/editor-core': editorCoreDist,
+      '@ctrl-freaq/qa': qaDist,
     },
   },
 });

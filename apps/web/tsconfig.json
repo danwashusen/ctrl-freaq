@@ -16,23 +16,16 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "paths": {
-      "@/*": ["apps/web/src/*"],
-      "@ctrl-freaq/editor-persistence": [
-        "../../packages/editor-persistence/src/index"
-      ],
-      "@ctrl-freaq/editor-persistence/*": [
-        "../../packages/editor-persistence/src/*"
-      ],
-      "@ctrl-freaq/templates": ["../../packages/templates/dist/index.d.ts"],
-      "@ctrl-freaq/templates/*": ["../../packages/templates/dist/*"],
-      "@ctrl-freaq/template-resolver": [
-        "../../packages/template-resolver/dist/index.d.ts"
-      ],
-      "@ctrl-freaq/template-resolver/*": [
-        "../../packages/template-resolver/dist/*"
-      ]
+      "@/*": ["apps/web/src/*"]
     }
   },
   "include": ["src", "tests"],
+  "references": [
+    { "path": "../../packages/editor-core" },
+    { "path": "../../packages/editor-persistence" },
+    { "path": "../../packages/qa" },
+    { "path": "../../packages/templates" },
+    { "path": "../../packages/template-resolver" }
+  ],
   "exclude": ["dist", "node_modules"]
 }

@@ -44,6 +44,24 @@ const _ErrorResponseSchema = z.object({
 
 type ErrorResponse = z.infer<typeof _ErrorResponseSchema>;
 
+interface RetentionPolicyRecord {
+  policyId: string;
+  retentionWindow: string;
+  guidance: string;
+}
+
+const retentionPoliciesByProject = new Map<string, RetentionPolicyRecord>([
+  [
+    'project-test',
+    {
+      policyId: 'retention-client-only',
+      retentionWindow: '30d',
+      guidance:
+        'Client-only drafts must be reviewed within 30 days or escalated to compliance storage.',
+    },
+  ],
+]);
+
 /**
  * Projects API router
  */
@@ -297,6 +315,48 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
     });
   }
 });
+
+projectsRouter.get(
+  '/projects/:projectSlug/retention',
+  async (req: AuthenticatedRequest, res: Response<RetentionPolicyRecord | ErrorResponse>) => {
+    const logger = req.services?.get('logger') as Logger | undefined;
+    const userId = req.user?.userId;
+    const { projectSlug } = req.params as { projectSlug: string };
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Authentication required',
+        requestId: req.requestId || 'unknown',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const policy = retentionPoliciesByProject.get(projectSlug);
+    if (!policy) {
+      res.status(404).json({
+        error: 'NOT_FOUND',
+        message: `No retention policy defined for project ${projectSlug}`,
+        requestId: req.requestId || 'unknown',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    logger?.info(
+      {
+        requestId: req.requestId,
+        userId,
+        projectSlug,
+        action: 'get_project_retention_policy',
+      },
+      'Project retention policy retrieved'
+    );
+
+    res.status(200).json(policy);
+  }
+);
 
 /**
  * POST /api/v1/projects

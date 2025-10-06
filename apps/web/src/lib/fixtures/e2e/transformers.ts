@@ -4,6 +4,7 @@ import type { TableOfContents, TocNode } from '@/features/document-editor/types/
 import type {
   AssumptionSessionFixture,
   DocumentFixture,
+  RetentionPolicyFixture,
   SectionFixture,
   SectionReference,
 } from './types';
@@ -18,9 +19,11 @@ interface FixtureDocumentView {
   summary: string;
   lifecycleStatus: DocumentStoreStatus;
   updatedAt: string;
+  projectSlug: string;
   sections: SectionView[];
   toc: TableOfContents;
   assumptionSessions: Record<string, AssumptionFlowState | null>;
+  retentionPolicy: RetentionPolicyFixture | null;
 }
 
 const sectionStatusToStoreStatus: Record<'draft' | 'review' | 'ready', DocumentStoreStatus> = {
@@ -206,9 +209,11 @@ export function buildFixtureDocumentView(document: DocumentFixture): FixtureDocu
     summary: document.summary,
     lifecycleStatus: documentStatus,
     updatedAt: document.updatedAt,
+    projectSlug: document.projectSlug ?? 'project-test',
     sections,
     toc,
     assumptionSessions,
+    retentionPolicy: document.retentionPolicy ?? null,
   };
 }
 

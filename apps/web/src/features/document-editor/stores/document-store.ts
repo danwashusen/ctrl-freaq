@@ -18,6 +18,7 @@ interface DocumentInfo {
   title: string;
   lastModified: string;
   status: 'draft' | 'review' | 'published';
+  projectSlug: string;
 }
 
 interface DocumentStoreState {

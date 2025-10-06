@@ -35,6 +35,14 @@ export {
   type CollaboratorInfo,
 } from './session-service';
 
+export {
+  DraftPersistenceClient,
+  type DraftBundleRequest,
+  type DraftBundleResponse,
+  type DraftComplianceRequest,
+  type DraftComplianceResponse,
+} from './draft-client';
+
 // Re-export common types for convenience
 export type { SectionView, SectionViewState } from '../types/section-view';
 

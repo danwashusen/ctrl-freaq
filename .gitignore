@@ -39,6 +39,7 @@ coverage/
 .nyc_output/
 junit.xml
 test-results/
+apps/web/test-results.json
 playwright-report/
 test-results.xml
 
@@ -114,3 +115,10 @@ deps-*
 .codex/*.toml
 .codex/log
 .codex/sessions
+codex-sandbox
+.codex-sandbox/
+.codex-sandbox/cache/
+.codex-sandbox/node_modules-linux/
+.codex-sandbox/pnpm-store/
+.codex-sandbox/node_modules-linux/
+.codex-sandbox/pnpm-store/

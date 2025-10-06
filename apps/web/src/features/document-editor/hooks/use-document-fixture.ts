@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 
+import { createDraftStore } from '@ctrl-freaq/editor-persistence';
+import type { SectionDraftSnapshot } from '@ctrl-freaq/editor-persistence';
+
 import type { DocumentFixture } from '@/lib/fixtures/e2e';
 import { buildFixtureDocumentView } from '@/lib/fixtures/e2e/transformers';
 import { useEditorStore } from '../stores/editor-store';
@@ -34,30 +37,95 @@ export function useDocumentFixtureBootstrap({
       return;
     }
 
-    const view = buildFixtureDocumentView(fixtureDocument);
+    const hydrate = async () => {
+      const view = buildFixtureDocumentView(fixtureDocument);
+      const projectSlug = fixtureDocument.projectSlug ?? 'project-test';
 
-    loadSections(view.sections);
-    setDocument({
-      id: view.documentId,
-      title: view.title,
-      lastModified: view.updatedAt,
-      status: view.lifecycleStatus,
-    });
-    setTableOfContents(view.toc);
-    setAssumptionSessions(view.assumptionSessions);
-    setLoading(false);
-    setError(null);
+      if (typeof window !== 'undefined') {
+        try {
+          const draftStore = createDraftStore();
+          const existingDrafts: SectionDraftSnapshot[] = await draftStore.listDrafts({
+            authorId: 'user-local-author',
+            projectSlug,
+            documentSlug: view.documentId,
+          });
+          const existingDraftKeys = new Set(
+            existingDrafts
+              .map(entry => entry.sectionPath)
+              .filter((path): path is string => Boolean(path))
+          );
+          await Promise.all(
+            Object.values(fixtureDocument.sections).map(async section => {
+              if (!section?.draft) {
+                return;
+              }
 
-    if (initialSectionId) {
-      setActiveSection(initialSectionId);
-    } else {
-      const firstSectionId = view.sections[0]?.id;
-      if (firstSectionId) {
-        setActiveSection(firstSectionId);
+              const lastEditedAt = new Date(
+                section.draft.lastSavedAt ?? view.updatedAt ?? new Date().toISOString()
+              );
+
+              const draftKey = `${projectSlug}/${view.documentId}/${section.title}/user-local-author`;
+
+              if (existingDraftKeys.has(section.id)) {
+                return;
+              }
+
+              if (typeof window !== 'undefined' && window.localStorage) {
+                const clearedAt = window.localStorage.getItem(`draft-store:cleared:${draftKey}`);
+                if (clearedAt) {
+                  const runtimeSection = fixtureDocument.sections[section.id];
+                  if (runtimeSection) {
+                    runtimeSection.draft = undefined;
+                  }
+                  return;
+                }
+              }
+
+              await draftStore.saveDraft({
+                projectSlug,
+                documentSlug: view.documentId,
+                sectionTitle: section.title,
+                sectionPath: section.id,
+                authorId: 'user-local-author',
+                baselineVersion: `rev-${section.draft.draftBaseVersion ?? 0}`,
+                patch: section.content,
+                status: 'draft',
+                lastEditedAt,
+                complianceWarning: section.draft.complianceWarning ?? false,
+              });
+            })
+          );
+        } catch {
+          // Intentionally ignore seeding failures in fixture mode.
+        }
       }
-    }
 
-    hydratedDocumentRef.current = fixtureDocument.id;
+      loadSections(view.sections);
+      setDocument({
+        id: view.documentId,
+        title: view.title,
+        lastModified: view.updatedAt,
+        status: view.lifecycleStatus,
+        projectSlug,
+      });
+      setTableOfContents(view.toc);
+      setAssumptionSessions(view.assumptionSessions);
+      setLoading(false);
+      setError(null);
+
+      if (initialSectionId) {
+        setActiveSection(initialSectionId);
+      } else {
+        const firstSectionId = view.sections[0]?.id;
+        if (firstSectionId) {
+          setActiveSection(firstSectionId);
+        }
+      }
+
+      hydratedDocumentRef.current = fixtureDocument.id;
+    };
+
+    void hydrate();
   }, [
     documentId,
     fixtureDocument,

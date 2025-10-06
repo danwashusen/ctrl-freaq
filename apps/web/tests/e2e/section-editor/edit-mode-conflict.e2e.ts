@@ -1,8 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Editor Conflict Handshake', () => {
   test('prompts user to rebase when newer approved content exists', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-assumptions');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const conflictDialog = page.getByTestId('conflict-dialog');
     await expect(conflictDialog).toBeVisible();

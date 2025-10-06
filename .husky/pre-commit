@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
 pnpm lint && \
-pnpm typecheck && \
-pnpm build && \
+pnpm typecheck:noemit && \
 npx lint-staged --allow-empty
-

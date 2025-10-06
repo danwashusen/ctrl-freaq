@@ -906,6 +906,28 @@ graph TD
     V --> Y
 ```
 
+### Draft Persistence UX {#draft-persistence-ux}
+
+- **Status badge + ARIA** — `DraftStatusBadge` renders a visible text badge and
+  an `aria-live="polite"` announcement so screen readers hear state changes such
+  as "Draft pending" or "Draft reverted".
+- **Recovery gate** — When the app rehydrates local drafts, a modal overlay
+  (`data-testid="draft-recovery-gate"`) blocks the editor until the author
+  explicitly applies or discards recovered sections. Each draft entry wires the
+  confirm/discard callbacks provided by the persistence hook.
+- **Quota banner** — Browser storage pressure raises
+  `draft-storage:quota-exceeded` events. The document editor shows a dismissible
+  banner explaining that the browser pruned the oldest drafts and links to the
+  telemetry console for keys that were removed.
+- **Logout purge** — `registerDraftLogoutHandler` keys cleanup handlers per
+  author. The Clerk `UserButton` intercepts sign-out, triggers
+  `triggerDraftLogoutHandlers(authorId)`, and only then calls Clerk's `signOut`,
+  guaranteeing local drafts clear before the session ends.
+- **Compliance messaging** — When fixtures flag retention policies, the
+  persistence hook logs a `compliance.warning` telemetry event and posts to the
+  `/draft-compliance` endpoint. Toast copy references policy IDs so support can
+  escalate without exposing draft content.
+
 ### Performance Considerations {#editor-performance-considerations}
 
 - **Incremental Loading**: Load document sections on-demand as user navigates
@@ -945,6 +967,10 @@ graph TD
 - Edit-mode components expose `data-testid` attributes (`enter-edit`,
   `milkdown-editor`, `review-submit-dialog`, etc.) so audits and screen reader
   assertions remain stable even as UI polish evolves.
+- Draft persistence surfaces SR-only announcements (status badge live region),
+  focusable modal controls for recovered drafts, and logout confirmations so
+  users relying on assistive tech receive every state change mandated by
+  FR-002a.
 - Telemetry events produced by `DocumentEditor` provide the trace IDs required
   to correlate accessibility runs, manual saves, and approval decisions with
   backend contract logs, satisfying the constitution's observability mandate.

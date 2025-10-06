@@ -28,6 +28,10 @@ export default [
       'node_modules/**',
       'docs/examples/**',
       'specs/**',
+      '.audit/**',
+      '.claude/**',
+      '.codex/**',
+      '.codex-sandbox/**',
       '.specify/**',
       '.bmad-core/**',
       'packages/shared-data/src/**/*.js',
@@ -95,6 +99,9 @@ export default [
   },
   {
     files: ['**/*.test.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@typescript-eslint': typescript,
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
@@ -118,6 +125,9 @@ export default [
         __dirname: 'readonly',
         __filename: 'readonly',
       },
+    },
+    plugins: {
+      '@typescript-eslint': typescript,
     },
     rules: {
       'no-console': 'off',
@@ -148,7 +158,7 @@ export default [
       react: { version: 'detect' },
       'import/resolver': {
         typescript: {
-          project: [resolvePath('apps/web/tsconfig.json')],
+          project: [resolvePath('tsconfig.json'), resolvePath('apps/web/tsconfig.json')],
         },
         node: true,
       },
@@ -168,6 +178,13 @@ export default [
   // Allow console in web logger implementation (browser-side logging)
   {
     files: ['apps/web/src/lib/logger.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  // Allow console in telemetry client side events (browser-side telemetry)
+  {
+    files: ['apps/web/src/lib/telemetry/client-events.ts'],
     rules: {
       'no-console': 'off',
     },

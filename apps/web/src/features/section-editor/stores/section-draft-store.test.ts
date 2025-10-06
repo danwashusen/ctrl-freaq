@@ -126,6 +126,11 @@ describe('section-draft-store', () => {
         contentMarkdown: '# Rebases',
         formattingAnnotations: [],
       },
+      serverSnapshot: {
+        version: 8,
+        content: '## Server view v8',
+        capturedAt: '2025-09-30T12:00:00.000Z',
+      },
     });
 
     const state = useSectionDraftStore.getState();
@@ -133,6 +138,7 @@ describe('section-draft-store', () => {
     expect(state.latestApprovedVersion).toBe(8);
     expect(state.conflictReason).toBe('Server has newer content');
     expect(state.rebasedDraft?.draftVersion).toBe(6);
+    expect(state.serverSnapshots[8]?.content).toBe('## Server view v8');
   });
 
   it('retains conflict events from history calls', () => {
@@ -149,6 +155,19 @@ describe('section-draft-store', () => {
     ]);
 
     expect(useSectionDraftStore.getState().conflictEvents).toHaveLength(1);
+  });
+
+  it('archives server revisions for later replay', () => {
+    const store = useSectionDraftStore.getState();
+    store.recordServerSnapshot({
+      version: 9,
+      content: '## Approved server content v9',
+      capturedAt: '2025-09-30T12:34:56.000Z',
+    });
+
+    const state = useSectionDraftStore.getState();
+    expect(state.serverSnapshots[9]?.content).toBe('## Approved server content v9');
+    expect(state.serverSnapshots[9]?.capturedAt).toBe('2025-09-30T12:34:56.000Z');
   });
 
   it('captures errors on failed saves and clears saving flag', () => {

@@ -1,0 +1,182 @@
+openapi: 3.1.0
+info:
+  title: Section Draft Persistence
+  version: 0.1.0
+paths:
+  /api/projects/{projectSlug}/documents/{documentId}/draft-bundle:
+    patch:
+      summary: Apply validated section drafts in a single bundle
+      operationId: patchDraftBundle
+      tags: [Drafts]
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftBundleRequest'
+      responses:
+        '200':
+          description: Draft bundle accepted and applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftBundleResponse'
+        '409':
+          description: Conflict detected against server baseline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftConflictResponse'
+  /api/projects/{projectSlug}/documents/{documentId}/draft-compliance:
+    post:
+      summary: Log compliance warning when retention policy conflicts with client-only drafts
+      operationId: postDraftComplianceWarning
+      tags: [Drafts]
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplianceWarningRequest'
+      responses:
+        '202':
+          description: Warning logged for manual escalation
+components:
+  schemas:
+    DraftBundleRequest:
+      type: object
+      required:
+        - submittedBy
+        - sections
+      properties:
+        submittedBy:
+          type: string
+          description: Clerk user ID submitting the bundle
+        sections:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DraftSubmission'
+    DraftSubmission:
+      type: object
+      required:
+        - sectionPath
+        - patch
+        - baselineVersion
+        - qualityGateReport
+      properties:
+        sectionPath:
+          type: string
+        patch:
+          type: string
+          description: Git-style patch diff to apply
+        baselineVersion:
+          type: string
+        qualityGateReport:
+          $ref: '#/components/schemas/DraftValidationResult'
+    DraftValidationResult:
+      type: object
+      required:
+        - status
+        - issues
+      properties:
+        status:
+          type: string
+          enum: [pass, fail]
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+    ValidationIssue:
+      type: object
+      required:
+        - gateId
+        - severity
+        - message
+      properties:
+        gateId:
+          type: string
+        severity:
+          type: string
+          enum: [blocker, warning]
+        message:
+          type: string
+    DraftBundleResponse:
+      type: object
+      required:
+        - documentId
+        - appliedSections
+      properties:
+        documentId:
+          type: string
+        appliedSections:
+          type: array
+          items:
+            type: string
+            description: Section paths successfully applied
+    DraftConflictResponse:
+      type: object
+      required:
+        - documentId
+        - conflicts
+      properties:
+        documentId:
+          type: string
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftConflictDetail'
+    DraftConflictDetail:
+      type: object
+      required:
+        - sectionPath
+        - serverVersion
+        - message
+      properties:
+        sectionPath:
+          type: string
+        serverVersion:
+          type: string
+        message:
+          type: string
+    ComplianceWarningRequest:
+      type: object
+      required:
+        - authorId
+        - policyId
+        - detectedAt
+      properties:
+        authorId:
+          type: string
+        policyId:
+          type: string
+        detectedAt:
+          type: string
+          format: date-time
+        context:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional metadata (no draft content)

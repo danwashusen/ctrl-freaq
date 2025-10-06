@@ -2,15 +2,15 @@ import { randomUUID } from 'crypto';
 
 import Database from 'better-sqlite3';
 
-import { BaseRepository } from './base-repository';
+import { BaseRepository } from './base-repository.js';
 import {
   SectionDraftSchema,
   type CreateSectionDraftInput,
   type SectionDraft,
   type UpdateSectionDraftInput,
-} from '../models/section-draft';
-import type { QueryOptions } from '../types/index';
-import type { FormattingAnnotation } from '../models/formatting-annotation';
+} from '../models/section-draft.js';
+import type { QueryOptions } from '../types/index.js';
+import type { FormattingAnnotation } from '../models/formatting-annotation.js';
 
 interface DraftAnnotationInput {
   startOffset: number;

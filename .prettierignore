@@ -4,6 +4,9 @@ build/
 .turbo/
 .vite/
 .next/
+.specify
+.codex
+docs/examples/ctrl-freaq-ui
 coverage/
 playwright-report/
 *.tsbuildinfo

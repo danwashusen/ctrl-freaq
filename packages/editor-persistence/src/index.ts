@@ -12,6 +12,8 @@ export * from './sync/index';
 export * from './local-storage';
 export * from './assumption-sessions/session-store';
 export * from './assumption-sessions/bridge';
+export * from './draft-store';
+export * from './schema';
 
 // Core types and interfaces
 export interface StorageConfig {

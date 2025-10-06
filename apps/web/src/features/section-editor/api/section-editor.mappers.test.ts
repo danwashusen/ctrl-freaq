@@ -129,4 +129,20 @@ describe('section-editor.mappers', () => {
     const [event] = parsed.events;
     expect(event?.detectedDuring).toBe('save');
   });
+
+  it('parses conflict server snapshots when provided', () => {
+    const parsed = parseConflictCheckResponse({
+      status: 'blocked',
+      latestApprovedVersion: 9,
+      serverSnapshot: {
+        version: 9,
+        content: '## Approved server content v9',
+        capturedAt: '2025-09-30T12:00:00.000Z',
+      },
+    });
+
+    expect(parsed.serverSnapshot?.version).toBe(9);
+    expect(parsed.serverSnapshot?.content).toContain('Approved server content');
+    expect(parsed.serverSnapshot?.capturedAt).toBe('2025-09-30T12:00:00.000Z');
+  });
 });

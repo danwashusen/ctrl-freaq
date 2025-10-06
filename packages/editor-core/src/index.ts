@@ -13,9 +13,6 @@ export * from './patch-engine.js';
 export * from './diff/section-diff.js';
 export * from './assumptions/index.js';
 
-// CLI export
-export { cli } from './cli.js';
-
 // Core types and interfaces
 export interface EditorConfig {
   content?: string;

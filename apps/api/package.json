@@ -6,16 +6,21 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
+    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build && pnpm --filter @ctrl-freaq/templates build && pnpm --filter @ctrl-freaq/template-resolver build && pnpm --filter @ctrl-freaq/qa build && pnpm --filter @ctrl-freaq/editor-core build && pnpm --filter @ctrl-freaq/editor-persistence build",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "dev": "tsx watch src/index.ts",
+    "prelint": "pnpm run build:deps",
     "lint": "eslint src/ tests/",
     "test": "vitest run",
     "test:watch": "vitest --watch",
+    "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clerk/express": "^1.0.0",
     "@ctrl-freaq/editor-core": "workspace:*",
+    "@ctrl-freaq/qa": "workspace:*",
+    "@ctrl-freaq/shared-data": "workspace:*",
     "@ctrl-freaq/template-resolver": "workspace:*",
     "@ctrl-freaq/templates": "workspace:*",
     "better-sqlite3": "^12.4.1",

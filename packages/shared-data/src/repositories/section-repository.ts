@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 import { z, type ZodErrorMap } from 'zod';
 
-import { BaseRepository } from './base-repository';
-import type { QueryOptions } from '../types/index';
+import { BaseRepository } from './base-repository.js';
+import type { QueryOptions } from '../types/index.js';
 import {
   SECTION_RECORD_QUALITY_GATES,
   type SectionRecordQualityGate,
-} from '../models/section-record';
+} from '../models/section-record.js';
 
 const qualityGateErrorMap: ZodErrorMap = issue => {
   if (issue.code === 'invalid_type') {
@@ -234,6 +234,10 @@ export class SectionRepositoryImpl
     super(db, 'sections', SectionViewSchema as unknown as z.ZodSchema<SectionView>);
   }
 
+  getConnection(): Database.Database {
+    return this.db;
+  }
+
   override async findById(id: string): Promise<SectionView | null> {
     const stmt = this.db.prepare(`${this.buildBaseSelect()} WHERE s.id = ? LIMIT 1`);
     const row = stmt.get(id) as Record<string, unknown> | undefined;
@@ -355,7 +359,8 @@ export class SectionRepositoryImpl
 
   async finalizeApproval(
     section: SectionView,
-    context: FinalizeApprovalContext
+    context: FinalizeApprovalContext,
+    options: { transactionDb?: Database.Database } = {}
   ): Promise<SectionView> {
     const approvedVersion = Math.max(context.approvedVersion, 1);
     const approvalTimestamp = context.approvedAt.toISOString();
@@ -365,7 +370,7 @@ export class SectionRepositoryImpl
       context.qualityGate ?? section.qualityGate ?? 'pending';
     const lastSummary = context.lastSummary ?? null;
 
-    this.transaction(db => {
+    const execute = (db: Database.Database) => {
       const ensureRecordStmt = db.prepare(
         `INSERT INTO section_records (
             id,
@@ -464,7 +469,13 @@ export class SectionRepositoryImpl
         qualityGate,
         section.id
       );
-    });
+    };
+
+    if (options.transactionDb) {
+      execute(options.transactionDb);
+    } else {
+      this.transaction(execute);
+    }
 
     const refreshed = await this.findById(section.id);
     if (!refreshed) {

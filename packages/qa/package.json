@@ -8,6 +8,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./cli": {
+      "import": "./dist/cli.js",
+      "types": "./dist/cli.d.ts"
+    },
     "./validators/*": {
       "import": "./dist/validators/*.js",
       "types": "./dist/validators/*.d.ts"
@@ -24,7 +28,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
     "dev": "tsc --watch",
     "lint": "eslint src/",

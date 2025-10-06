@@ -2,8 +2,32 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import DocumentSectionPreview from './document-section-preview';
-import type { SectionView } from '@/features/document-editor/types/section-view';
+interface MockDraftStatusBadgeProps {
+  projectSlug: string;
+  documentSlug: string;
+  sectionTitle: string;
+  sectionPath: string;
+  authorId: string;
+}
+
+const draftBadgeInvocations: MockDraftStatusBadgeProps[] = [];
+
+vi.mock('./section-draft/DraftStatusBadge', () => ({
+  DraftStatusBadge: (props: MockDraftStatusBadgeProps) => {
+    draftBadgeInvocations.push(props);
+    return <div data-testid="draft-status-badge">{props.projectSlug}</div>;
+  },
+}));
+
+vi.mock('@clerk/clerk-react', async () => {
+  const actual = (await vi.importActual<typeof import('@clerk/clerk-react')>(
+    '@clerk/clerk-react'
+  )) as Record<string, unknown>;
+  return {
+    ...actual,
+    useAuth: () => ({ userId: 'test-user' }),
+  };
+});
 
 vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
@@ -30,6 +54,9 @@ vi.mock('@/components/ui/card', () => ({
     <div className={`card-content ${className ?? ''}`}>{children}</div>
   ),
 }));
+
+import DocumentSectionPreview from './document-section-preview';
+import type { SectionView } from '@/features/document-editor/types/section-view';
 
 describe('DocumentSectionPreview', () => {
   const baseSection: SectionView = {
@@ -65,10 +92,20 @@ describe('DocumentSectionPreview', () => {
     lastManualSaveAt: Date.now(),
   };
 
+  beforeEach(() => {
+    draftBadgeInvocations.length = 0;
+  });
+
   it('renders approval metadata and edit CTA', async () => {
     const onEnterEdit = vi.fn();
 
-    render(<DocumentSectionPreview section={baseSection} onEnterEdit={onEnterEdit} />);
+    render(
+      <DocumentSectionPreview
+        section={baseSection}
+        onEnterEdit={onEnterEdit}
+        projectSlug="demo-project"
+      />
+    );
 
     expect(screen.getByTestId('section-preview')).toBeInTheDocument();
     expect(screen.getByTestId('section-approval-status')).toHaveTextContent(/Approved/i);
@@ -92,7 +129,7 @@ describe('DocumentSectionPreview', () => {
       placeholderText: 'No content provided.',
     };
 
-    render(<DocumentSectionPreview section={emptySection} />);
+    render(<DocumentSectionPreview section={emptySection} projectSlug="demo-project" />);
 
     expect(screen.getByText('No content provided.')).toBeInTheDocument();
   });
@@ -104,11 +141,28 @@ describe('DocumentSectionPreview', () => {
     };
 
     render(
-      <DocumentSectionPreview section={sectionWithoutSummary} approval={{ reviewerSummary: '' }} />
+      <DocumentSectionPreview
+        section={sectionWithoutSummary}
+        approval={{ reviewerSummary: '' }}
+        projectSlug="demo-project"
+      />
     );
 
     expect(screen.getByTestId('section-reviewer-summary')).toHaveTextContent(
       'Reviewer summary unavailable'
     );
+  });
+
+  it('forwards project slug to draft status badge', () => {
+    render(
+      <DocumentSectionPreview
+        section={baseSection}
+        projectSlug="alpha-project"
+        documentId="doc-1"
+      />
+    );
+
+    expect(draftBadgeInvocations[0]?.projectSlug).toBe('alpha-project');
+    expect(screen.getByTestId('draft-status-badge')).toHaveTextContent('alpha-project');
   });
 });

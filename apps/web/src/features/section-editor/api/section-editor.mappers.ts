@@ -27,6 +27,18 @@ const rebasedDraftSchema = z.object({
   formattingAnnotations: formattingAnnotationSchema.array().default([]),
 });
 
+const serverSnapshotSchema = z
+  .object({
+    version: z.number().int().nonnegative(),
+    content: z.string(),
+    capturedAt: z.string().datetime().optional(),
+  })
+  .transform(value => ({
+    version: value.version,
+    content: value.content,
+    capturedAt: value.capturedAt ?? null,
+  }));
+
 const conflictCheckResponseSchema = z.object({
   status: z.enum(['clean', 'rebase_required', 'blocked']),
   latestApprovedVersion: z.number().int().nonnegative(),
@@ -36,6 +48,7 @@ const conflictCheckResponseSchema = z.object({
     .nullish()
     .transform(value => value ?? null),
   events: conflictLogEntrySchema.array().default([]),
+  serverSnapshot: serverSnapshotSchema.optional(),
 });
 
 const sectionDraftResponseSchema = z.object({
@@ -104,6 +117,7 @@ const approvalResponseSchema = z.object({
 export type FormattingAnnotationDTO = z.infer<typeof formattingAnnotationSchema>;
 export type ConflictLogEntryDTO = z.infer<typeof conflictLogEntrySchema>;
 export type RebasedDraftDTO = z.infer<typeof rebasedDraftSchema>;
+export type ConflictServerSnapshotDTO = z.infer<typeof serverSnapshotSchema>;
 export type ConflictCheckResponseDTO = z.infer<typeof conflictCheckResponseSchema>;
 export type SectionDraftResponseDTO = z.infer<typeof sectionDraftResponseSchema>;
 export type DiffSegmentDTO = z.infer<typeof diffSegmentSchema>;

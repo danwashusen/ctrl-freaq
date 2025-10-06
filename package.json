@@ -40,7 +40,8 @@
     "test:visual": "pnpm --filter @ctrl-freaq/web run test:visual:quick",
     "test:visual:ci": "pnpm --filter @ctrl-freaq/web run test:visual:ci",
     "test:visual:quick": "pnpm --filter @ctrl-freaq/web run test:visual:quick",
-    "typecheck": "turbo typecheck --force",
+    "typecheck": "pnpm run build && pnpm run typecheck:noemit",
+    "typecheck:noemit": "turbo typecheck --force",
     "typecheck:quick": "turbo typecheck"
   },
   "devDependencies": {

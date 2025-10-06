@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
 
-import type { QueryOptions } from '../types/index';
+import type { QueryOptions } from '../types/index.js';
 
 /**
  * Base repository class providing common CRUD operations.

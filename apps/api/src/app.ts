@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 
 // Core modules
 import { createDefaultDatabaseConfig, DatabaseManager } from './core/database.js';
+import { isTestRuntime } from './utils/runtime-env.js';
 import { createErrorHandler, createNotFoundHandler } from './middleware/error-handler.js';
 import {
   createLogger,
@@ -230,7 +231,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   // API v1 routes with authentication
   // In test, or when Clerk keys are not configured, avoid initializing Clerk middleware
   // and use a lightweight shim that only sets req.auth.userId when Authorization is present.
-  const isTestEnv = process.env.NODE_ENV === 'test';
+  const isTestEnv = isTestRuntime();
   const hasClerkConfig = Boolean(process.env.CLERK_SECRET_KEY || process.env.CLERK_PUBLISHABLE_KEY);
   if (!isTestEnv && hasClerkConfig) {
     app.use('/api/v1', clerkAuthMiddleware);
@@ -264,7 +265,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   logger.info('Express application created successfully');
 
   // In test mode, optionally register app for auto-reset between tests
-  if (process.env.NODE_ENV === 'test' && process.env.API_TEST_AUTO_RESET === 'true') {
+  if (isTestEnv && process.env.API_TEST_AUTO_RESET === 'true') {
     const { registerTestApp } = await import('./testing/registry.js');
     registerTestApp(app);
   }

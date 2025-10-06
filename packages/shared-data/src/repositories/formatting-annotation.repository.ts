@@ -1,13 +1,13 @@
 import Database from 'better-sqlite3';
 
-import { BaseRepository } from './base-repository';
+import { BaseRepository } from './base-repository.js';
 import {
   FormattingAnnotationSchema,
   type CreateFormattingAnnotationInput,
   type FormattingAnnotation,
   type UpdateFormattingAnnotationInput,
-} from '../models/formatting-annotation';
-import type { QueryOptions } from '../types/index';
+} from '../models/formatting-annotation.js';
+import type { QueryOptions } from '../types/index.js';
 
 const SOFT_DELETE_CONDITION = "(deleted_at IS NULL OR deleted_at = '')";
 

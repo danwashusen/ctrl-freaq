@@ -2,11 +2,16 @@ import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  DraftStorageQuotaError,
+  createDraftStore,
   createManualDraftStorage,
+  type DraftStore,
   type ManualDraftPayload,
   type ManualDraftRecord,
   type ManualDraftStorage,
+  type SectionDraftSnapshot,
 } from '@ctrl-freaq/editor-persistence';
+import { createPatchEngine } from '@ctrl-freaq/editor-core';
 
 import { logger } from '@/lib/logger';
 
@@ -20,6 +25,14 @@ import {
 import { SectionEditorClientError, SectionEditorConflictError } from '../api/section-editor.client';
 import { useSectionDraftStore } from '../stores/section-draft-store';
 import type { SectionDraftStoreState } from '../stores/section-draft-store';
+import {
+  DraftPersistenceClient,
+  type DraftSectionSubmission,
+} from '@/features/document-editor/services/draft-client';
+import {
+  fetchProjectRetentionPolicy,
+  type ProjectRetentionPolicy,
+} from '@/features/document-editor/services/project-retention';
 
 export interface FormattingAnnotation {
   id: string;
@@ -85,6 +98,10 @@ export interface UseSectionDraftOptions {
   approvedVersion: number;
   documentId?: string;
   userId?: string;
+  projectSlug?: string;
+  documentSlug?: string;
+  sectionTitle?: string;
+  sectionPath?: string;
   initialSummaryNote?: string | null;
   initialFormattingWarnings?: FormattingAnnotationDTO[];
   initialConflictState?: SectionDraftHookState['conflictState'];
@@ -94,6 +111,7 @@ export interface UseSectionDraftOptions {
   diffPollingIntervalMs?: number;
   autoStartDiffPolling?: boolean;
   loadPersistedDraft?: boolean;
+  draftClient?: DraftPersistenceClient;
 }
 
 export interface UseSectionDraftReturn {
@@ -104,6 +122,8 @@ export interface UseSectionDraftReturn {
   refreshDiff: () => Promise<DiffResponseDTO | null>;
   resolveConflicts: () => Promise<ConflictCheckResponseDTO | null>;
 }
+
+type DraftPersistenceStatus = 'draft' | 'ready' | 'conflict';
 
 const randomSegment = (length = 6) =>
   Math.random()
@@ -135,6 +155,10 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     approvedVersion,
     documentId,
     userId,
+    projectSlug,
+    documentSlug,
+    sectionTitle,
+    sectionPath,
     initialSummaryNote = null,
     initialFormattingWarnings,
     initialConflictState = 'clean',
@@ -144,6 +168,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     diffPollingIntervalMs = 45_000,
     autoStartDiffPolling = true,
     loadPersistedDraft = true,
+    draftClient,
   } = options;
 
   const [content, setContent] = useState(initialContent);
@@ -157,6 +182,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   const [diff, setDiff] = useState<DiffResponseDTO | null>(null);
   const [isDiffRefreshing, setIsDiffRefreshing] = useState(false);
   const [lastDiffFetchedAt, setLastDiffFetchedAt] = useState<number | null>(null);
+  const [retentionPolicy, setRetentionPolicy] = useState<ProjectRetentionPolicy | null>(null);
 
   const enableDiffAutomation = autoStartDiffPolling && typeof api.fetchDiff === 'function';
 
@@ -183,6 +209,22 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     }
   }, [storageOverride, sectionId]);
 
+  const draftStore = useMemo<DraftStore | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      return createDraftStore();
+    } catch (error) {
+      logger.warn('Failed to initialise draft store; draft persistence features disabled', {
+        sectionId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }, [sectionId]);
+
   const conflictState = useSectionDraftStore(state => state.conflictState);
   const formattingAnnotations = useSectionDraftStore(state => state.formattingAnnotations);
   const isSaving = useSectionDraftStore(state => state.isSaving);
@@ -196,6 +238,44 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   const recordConflictEvents = useSectionDraftStore(state => state.recordConflictEvents);
 
   const lastInitializedSectionRef = useRef<string | null>(null);
+
+  const patchEngineRef = useRef(createPatchEngine());
+  const baselineContentRef = useRef(initialContent);
+  const lastDraftContentRef = useRef(initialContent);
+  const autoSaveTimeoutRef = useRef<number | null>(null);
+  const hasPersistedDraftRef = useRef(false);
+  const lastPersistedComplianceRef = useRef(false);
+
+  useEffect(() => {
+    baselineContentRef.current = initialContent;
+    lastDraftContentRef.current = initialContent;
+  }, [initialContent, sectionId]);
+
+  const resolvedProjectSlug = projectSlug ?? documentId ?? 'local-project';
+  const resolvedDocumentSlug = documentSlug ?? documentId ?? 'document-local';
+  const resolvedSectionTitle = sectionTitle ?? sectionId;
+  const resolvedSectionPath = sectionPath ?? sectionId;
+
+  const computePatchPayload = useCallback(
+    (contentValue: string) => {
+      try {
+        const patches = patchEngineRef.current.createPatch(
+          baselineContentRef.current ?? '',
+          contentValue
+        );
+        return JSON.stringify(patches);
+      } catch (error) {
+        logger.warn('Failed to generate patch diff for draft snapshot', {
+          sectionId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+        return contentValue;
+      }
+    },
+    [sectionId]
+  );
+
+  const bundleClient = useMemo(() => draftClient ?? new DraftPersistenceClient(), [draftClient]);
 
   useEffect(() => {
     if (lastInitializedSectionRef.current === sectionId) {
@@ -364,6 +444,98 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     };
   }, [enableDiffAutomation, diffPollingIntervalMs, refreshDiff]);
 
+  const persistDraftToStore = useCallback(
+    async (contentValue: string, status: DraftPersistenceStatus) => {
+      if (
+        !draftStore ||
+        !resolvedProjectSlug ||
+        !resolvedDocumentSlug ||
+        !resolvedSectionPath ||
+        typeof window === 'undefined' ||
+        sectionId.startsWith('inactive-') ||
+        !userId
+      ) {
+        return;
+      }
+
+      const draftStateSnapshot = useSectionDraftStore.getState();
+      const baselineFromState = draftStateSnapshot.draftBaseVersion ?? approvedVersion ?? 0;
+      const baselineVersionLabel = `rev-${baselineFromState}`;
+      const shouldMarkComplianceWarning =
+        Boolean(retentionPolicy) || Boolean(draftStateSnapshot.conflictReason);
+
+      try {
+        const result = await draftStore.saveDraft({
+          projectSlug: resolvedProjectSlug,
+          documentSlug: resolvedDocumentSlug,
+          sectionTitle: resolvedSectionTitle,
+          sectionPath: resolvedSectionPath,
+          authorId: userId,
+          baselineVersion: baselineVersionLabel,
+          patch: computePatchPayload(contentValue),
+          status,
+          lastEditedAt: new Date(),
+          complianceWarning: shouldMarkComplianceWarning,
+        });
+
+        lastDraftContentRef.current = contentValue;
+        hasPersistedDraftRef.current = true;
+        lastPersistedComplianceRef.current = shouldMarkComplianceWarning;
+
+        window.dispatchEvent(
+          new CustomEvent('draft-storage:updated', {
+            detail: { draftKey: result.record.draftKey },
+          })
+        );
+
+        if (result.prunedDraftKeys.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent('draft-storage:quota-exceeded', {
+              detail: {
+                message:
+                  'Browser storage limit reached. Oldest drafts were removed to continue saving drafts.',
+                prunedKeys: result.prunedDraftKeys,
+              },
+            })
+          );
+        }
+      } catch (caught: unknown) {
+        if (caught instanceof DraftStorageQuotaError) {
+          const quotaError = caught as DraftStorageQuotaError;
+          window.dispatchEvent(
+            new CustomEvent('draft-storage:quota-exhausted', {
+              detail: {
+                message:
+                  'Browser storage is full. Remove older drafts or submit changes before continuing.',
+                prunedKeys: quotaError.prunedDraftKeys,
+                draftKey: quotaError.draftKey,
+              },
+            })
+          );
+        }
+        const reason = caught instanceof Error ? caught.message : String(caught);
+        logger.warn('Failed to persist draft snapshot to DraftStore', {
+          sectionId,
+          projectSlug: resolvedProjectSlug,
+          documentSlug: resolvedDocumentSlug,
+          reason,
+        });
+      }
+    },
+    [
+      draftStore,
+      resolvedProjectSlug,
+      resolvedDocumentSlug,
+      resolvedSectionTitle,
+      resolvedSectionPath,
+      userId,
+      computePatchPayload,
+      approvedVersion,
+      sectionId,
+      retentionPolicy,
+    ]
+  );
+
   const persistDraft = useCallback(
     async (payload: ManualDraftPayload) => {
       if (!storage || !documentId || !userId) {
@@ -372,19 +544,130 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
 
       try {
         await storage.saveDraft(payload);
-      } catch (error) {
+      } catch (caught: unknown) {
+        const reason = caught instanceof Error ? caught.message : String(caught);
         logger.warn('Unable to persist manual draft snapshot', {
           sectionId,
           documentId,
           userId,
+          reason,
+        });
+      }
+
+      const status: DraftPersistenceStatus =
+        payload.conflictState === 'clean' ? 'draft' : 'conflict';
+      void persistDraftToStore(payload.contentMarkdown, status);
+    },
+    [storage, documentId, userId, sectionId, persistDraftToStore]
+  );
+
+  useEffect(() => {
+    if (
+      !draftStore ||
+      !resolvedProjectSlug ||
+      !documentId ||
+      !userId ||
+      sectionId.startsWith('inactive-') ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+
+    if (contentRef.current === lastDraftContentRef.current) {
+      return;
+    }
+
+    if (autoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+
+    autoSaveTimeoutRef.current = window.setTimeout(() => {
+      const conflictState = useSectionDraftStore.getState().conflictState;
+      const status: DraftPersistenceStatus = conflictState === 'clean' ? 'draft' : 'conflict';
+      void persistDraftToStore(contentRef.current, status);
+      autoSaveTimeoutRef.current = null;
+    }, 750);
+
+    return () => {
+      if (autoSaveTimeoutRef.current !== null) {
+        window.clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+    };
+  }, [
+    content,
+    draftStore,
+    resolvedProjectSlug,
+    documentId,
+    userId,
+    sectionId,
+    persistDraftToStore,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!resolvedProjectSlug) {
+      setRetentionPolicy(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadPolicy = async () => {
+      try {
+        const policy = await fetchProjectRetentionPolicy(resolvedProjectSlug);
+        if (!cancelled) {
+          setRetentionPolicy(policy);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRetentionPolicy(null);
+        }
+        logger.debug('Failed to load retention policy for section drafts', {
+          projectSlug: resolvedProjectSlug,
+          sectionId,
           reason: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-    [storage, documentId, userId, sectionId]
-  );
+    };
+
+    void loadPolicy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedProjectSlug, sectionId]);
+
+  useEffect(() => {
+    if (
+      !retentionPolicy ||
+      !hasPersistedDraftRef.current ||
+      lastPersistedComplianceRef.current ||
+      !lastDraftContentRef.current
+    ) {
+      return;
+    }
+
+    logger.debug('Reflagging persisted draft for compliance after retention policy load', {
+      projectSlug: resolvedProjectSlug,
+      documentSlug: resolvedDocumentSlug,
+      sectionId,
+    });
+
+    const conflictSnapshot = useSectionDraftStore.getState().conflictState;
+    const status: DraftPersistenceStatus = conflictSnapshot === 'clean' ? 'draft' : 'conflict';
+
+    void persistDraftToStore(lastDraftContentRef.current, status);
+  }, [retentionPolicy, persistDraftToStore, resolvedProjectSlug, resolvedDocumentSlug, sectionId]);
 
   const manualSave = useCallback(async () => {
+    if (autoSaveTimeoutRef.current !== null) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+
     const requestId = createRequestId('section-draft');
     beginSave(requestId);
 
@@ -403,9 +686,248 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
         formattingAnnotations: storeState.formattingAnnotations,
       });
 
-      completeSave(response, { requestId, draftBaseVersion });
+      const bundleAuthorId = userId ?? 'user-local-author';
+      const targetDocumentId = documentId ?? resolvedDocumentSlug;
+      const bundleDraftKey = `${resolvedProjectSlug}/${resolvedDocumentSlug}/${resolvedSectionTitle}/${bundleAuthorId}`;
+      const shouldMarkComplianceWarning =
+        Boolean(retentionPolicy) || Boolean(storeState.conflictReason);
 
-      if (documentId && userId) {
+      const buildQualityGateReport = (
+        snapshot: Pick<SectionDraftSnapshot, 'status' | 'complianceWarning'>
+      ): DraftSectionSubmission['qualityGateReport'] => {
+        const issues: DraftSectionSubmission['qualityGateReport']['issues'] = [];
+
+        if (snapshot.status === 'conflict') {
+          issues.push({
+            gateId: 'draft.conflict',
+            severity: 'blocker',
+            message: 'Resolve draft conflicts before applying bundled saves.',
+          });
+        }
+
+        if (snapshot.complianceWarning) {
+          issues.push({
+            gateId: 'draft.compliance',
+            severity: 'warning',
+            message: 'Retention policy flagged this draft; capture compliance warning.',
+          });
+        }
+
+        const hasBlockingIssue = issues.some(issue => issue.severity === 'blocker');
+
+        return {
+          status: hasBlockingIssue ? 'fail' : 'pass',
+          issues,
+        };
+      };
+
+      const currentSectionSubmission: DraftSectionSubmission = {
+        draftKey: bundleDraftKey,
+        sectionPath: resolvedSectionPath,
+        patch: computePatchPayload(contentRef.current),
+        baselineVersion: `rev-${draftBaseVersion}`,
+        qualityGateReport: buildQualityGateReport({
+          status: storeState.conflictState === 'clean' ? 'draft' : 'conflict',
+          complianceWarning: shouldMarkComplianceWarning,
+        }),
+      };
+
+      const submittedSections: DraftSectionSubmission[] = [currentSectionSubmission];
+
+      if (draftStore && resolvedProjectSlug && resolvedDocumentSlug && bundleAuthorId) {
+        try {
+          const storedDrafts = await draftStore.listDrafts({
+            authorId: bundleAuthorId,
+            projectSlug: resolvedProjectSlug,
+            documentSlug: resolvedDocumentSlug,
+          });
+
+          for (const storedDraft of storedDrafts) {
+            if (
+              storedDraft.draftKey === bundleDraftKey ||
+              storedDraft.sectionPath === resolvedSectionPath
+            ) {
+              continue;
+            }
+
+            submittedSections.push({
+              draftKey: storedDraft.draftKey,
+              sectionPath: storedDraft.sectionPath,
+              patch: storedDraft.patch,
+              baselineVersion: storedDraft.baselineVersion,
+              qualityGateReport: buildQualityGateReport(storedDraft),
+            });
+          }
+        } catch (error) {
+          logger.warn('Failed to enumerate stored drafts for bundled save', {
+            sectionId,
+            projectSlug: resolvedProjectSlug,
+            documentId: targetDocumentId,
+            authorId: bundleAuthorId,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      const targetedDraftKeys = new Set(submittedSections.map(section => section.draftKey));
+
+      let bundleFailure: unknown = null;
+      const appliedDraftKeys = new Set<string>();
+
+      if (bundleClient && targetDocumentId) {
+        try {
+          const bundleResponse = await bundleClient.applyDraftBundle(
+            resolvedProjectSlug,
+            targetDocumentId,
+            {
+              submittedBy: bundleAuthorId,
+              sections: submittedSections,
+            }
+          );
+
+          for (const sectionPath of bundleResponse?.appliedSections ?? []) {
+            const match = submittedSections.find(section => section.sectionPath === sectionPath);
+            if (match) {
+              appliedDraftKeys.add(match.draftKey);
+            }
+          }
+        } catch (bundleError) {
+          logger.error(
+            'Failed to apply bundled draft save',
+            {
+              sectionId,
+              projectSlug: resolvedProjectSlug,
+              documentId: targetDocumentId,
+            },
+            bundleError instanceof Error ? bundleError : undefined
+          );
+          bundleFailure = bundleError;
+        }
+      }
+
+      completeSave(response, { requestId, draftBaseVersion });
+      useSectionDraftStore.setState(current => ({
+        ...current,
+        conflictState: response.conflictState === 'clean' ? 'clean' : current.conflictState,
+        conflictReason: response.conflictState === 'clean' ? null : current.conflictReason,
+      }));
+      setDerivedState(current => ({
+        ...current,
+        conflictState: response.conflictState === 'clean' ? 'clean' : current.conflictState,
+        summaryNote: response.summaryNote ?? current.summaryNote,
+        formattingWarnings: response.formattingAnnotations.map(toFormattingAnnotation),
+      }));
+
+      if (response.conflictState === 'rebase_required' || response.conflictState === 'blocked') {
+        applyConflict({
+          status: response.conflictState,
+          conflictReason: response.summaryNote ?? null,
+          latestApprovedVersion: draftBaseVersion,
+          rebasedDraft: undefined,
+          events: [],
+        });
+        useSectionDraftStore.setState(current => ({
+          ...current,
+          conflictState: 'clean',
+        }));
+        setDerivedState(current => ({
+          ...current,
+          conflictState: 'clean',
+        }));
+      }
+
+      const isCleanResponse = (response.conflictState ?? '').toLowerCase() === 'clean';
+
+      const expectedSectionCount = submittedSections.length;
+      const bundleClientAvailable = Boolean(bundleClient && targetDocumentId);
+
+      if (
+        isCleanResponse &&
+        bundleClientAvailable &&
+        !bundleFailure &&
+        appliedDraftKeys.size !== expectedSectionCount
+      ) {
+        bundleFailure = new Error('Incomplete draft bundle response');
+      }
+
+      const bundleAppliedSuccessfully =
+        !bundleFailure &&
+        (!bundleClientAvailable || appliedDraftKeys.size === expectedSectionCount);
+
+      if (bundleAppliedSuccessfully && isCleanResponse) {
+        baselineContentRef.current = contentRef.current;
+        lastDraftContentRef.current = contentRef.current;
+        useSectionDraftStore.setState(current => ({
+          ...current,
+          draftBaseVersion: response.draftVersion,
+        }));
+
+        const draftKeysToRetire =
+          appliedDraftKeys.size > 0 ? Array.from(appliedDraftKeys) : Array.from(targetedDraftKeys);
+
+        if (draftStore && userId) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              await draftStore.removeDraft(draftKey);
+            } catch (error) {
+              logger.warn('Failed to retire DraftStore entry after bundled save', {
+                sectionId,
+                projectSlug: resolvedProjectSlug,
+                documentId: targetDocumentId,
+                draftKey,
+                reason: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              window.localStorage.setItem(
+                `draft-store:cleared:${draftKey}`,
+                new Date().toISOString()
+              );
+            } catch (storageError) {
+              logger.debug('Unable to record cleared draft marker', {
+                sectionId,
+                draftKey,
+                reason: storageError instanceof Error ? storageError.message : String(storageError),
+              });
+            }
+          }
+        }
+
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          for (const draftKey of draftKeysToRetire) {
+            try {
+              window.sessionStorage.setItem(
+                `draft-store:recent-clean:${draftKey}`,
+                Date.now().toString()
+              );
+            } catch (storageError) {
+              logger.debug('Unable to record recent clean draft marker', {
+                sectionId,
+                draftKey,
+                reason: storageError instanceof Error ? storageError.message : String(storageError),
+              });
+            }
+          }
+        }
+
+        if (storage && documentId && userId) {
+          try {
+            await storage.deleteDraft(documentId, sectionId, userId);
+          } catch (error) {
+            logger.warn('Unable to delete manual draft snapshot after successful save', {
+              sectionId,
+              documentId,
+              userId,
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      } else if (documentId && userId) {
         void persistDraft({
           draftId: response.draftId,
           sectionId,
@@ -421,6 +943,40 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
           savedAt: response.savedAt,
           lastSyncedAt: response.savedAt,
         });
+      }
+
+      if (!bundleAppliedSuccessfully) {
+        const failureMessage =
+          'Bundled save failed. Draft kept locally—review conflicts and retry.';
+
+        logger.warn('Bundled save rejected; drafts retained locally', {
+          sectionId,
+          projectSlug: resolvedProjectSlug,
+          documentId: targetDocumentId,
+          reason: bundleFailure instanceof Error ? bundleFailure.message : String(bundleFailure),
+        });
+
+        if (!isCleanResponse) {
+          if (enableDiffAutomation) {
+            void refreshDiff();
+          }
+
+          syncDerivedStateFromStore();
+          return response;
+        }
+
+        const guidanceError = new SectionEditorClientError(failureMessage, {
+          status: bundleFailure instanceof SectionEditorClientError ? bundleFailure.status : 409,
+          requestId,
+          body:
+            bundleFailure instanceof SectionEditorClientError
+              ? bundleFailure.body
+              : { reason: bundleFailure instanceof Error ? bundleFailure.message : undefined },
+        });
+
+        failSave(guidanceError, { requestId });
+        syncDerivedStateFromStore();
+        throw guidanceError;
       }
 
       if (enableDiffAutomation) {
@@ -492,11 +1048,21 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     recordConflictEvents,
     failSave,
     persistDraft,
+    retentionPolicy,
     documentId,
     userId,
     enableDiffAutomation,
     refreshDiff,
     syncDerivedStateFromStore,
+    setDerivedState,
+    bundleClient,
+    resolvedProjectSlug,
+    resolvedDocumentSlug,
+    resolvedSectionTitle,
+    resolvedSectionPath,
+    computePatchPayload,
+    draftStore,
+    storage,
   ]);
 
   const resolveConflicts = useCallback(async () => {

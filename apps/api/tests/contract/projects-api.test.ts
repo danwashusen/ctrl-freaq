@@ -3,6 +3,8 @@ import request from 'supertest';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
+import { resetDatabaseForApp } from '../../src/testing/reset';
+
 /**
  * Contract tests for Projects API endpoints
  *
@@ -37,6 +39,7 @@ describe('Projects API Contract Tests', () => {
   beforeEach(() => {
     // Clean up test data between tests
     // Will be implemented once database layer is available
+    resetDatabaseForApp(app);
   });
 
   describe('Authentication Required', () => {

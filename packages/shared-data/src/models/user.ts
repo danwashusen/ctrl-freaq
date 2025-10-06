@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-import { BaseRepository } from '../repositories/base-repository';
+import { BaseRepository } from '../repositories/base-repository.js';
 
 /**
  * User entity schema for Clerk authentication integration.

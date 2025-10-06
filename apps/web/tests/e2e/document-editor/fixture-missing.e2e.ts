@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Document Fixture Missing State', () => {
   test('redirects users to dashboard with helpful messaging when fixtures are absent', async ({
     page,
   }) => {
     await page.goto('/documents/demo-architecture/sections/unknown-section');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     const errorView = page.getByTestId('fixture-missing-view');
     await expect(errorView).toBeVisible();

@@ -1,4 +1,4 @@
-import { createAssumptionSessionStore } from '@ctrl-freaq/editor-persistence';
+import { createAssumptionSessionStore } from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
 import type {
   AssumptionPromptSnapshot,
   DraftProposalSnapshot,

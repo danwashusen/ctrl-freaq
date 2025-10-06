@@ -10,6 +10,7 @@ import {
   logAuthEvent,
   createUserRateLimit,
 } from '../middleware/auth.js';
+import { isTestRuntime } from '../utils/runtime-env.js';
 import {
   SectionDraftRepositoryImpl,
   SectionRepositoryImpl,
@@ -582,7 +583,7 @@ sectionsRouter.post(
 
       const reviewService = getSectionReviewService(req);
 
-      if (process.env.NODE_ENV === 'test') {
+      if (isTestRuntime()) {
         res.status(202).json({
           reviewId: `review-${sectionId}`,
           sectionId,

@@ -713,6 +713,46 @@ sequenceDiagram
     Frontend-->>User: Real-time content
 ```
 
+### Draft Persistence & Bundled Save {#draft-persistence-workflow}
+
+```mermaid
+sequenceDiagram
+    participant Author
+    participant Web as Web App
+    participant Store as DraftStore (IndexedDB)
+    participant API
+    participant Repo as Section Repository
+
+    Author->>Web: Edit section content
+    Web->>Store: saveDraft(draftKey, patch)
+    Store-->>Web: Draft snapshot persisted
+    Note right of Store: Oldest drafts pruned when quota limits hit
+
+    Author->>Web: Reload or resume session
+    Web->>Store: rehydrateDocumentState()
+    Store-->>Web: Pending drafts with metadata
+    Web-->>Author: Recovery gate prompts apply/discard
+
+    Author->>Web: Save all drafts
+    Web->>API: PATCH /projects/{slug}/documents/{id}/draft-bundle
+    API->>Repo: validateBaseline + applySectionPatch
+    Repo-->>API: Applied sections with audit data
+    API-->>Web: Bundled save response
+    Web->>Store: removeDraft(draftKey) per applied section
+    Web-->>Author: Status badge announces success
+
+    alt Compliance warning
+        Web->>API: POST /projects/{slug}/documents/{id}/draft-compliance
+        API-->>Web: 202 Accepted
+    end
+```
+
+This flow keeps section drafts client-side, prioritises local edits during
+conflicts, and clears persisted data on logout to align with the security and
+compliance requirements in Story 5. Successful bundle saves now invoke
+`removeDraft(draftKey)` for each applied section so local storage mirrors the
+server’s acceptance state without touching unrelated drafts.
+
 ## REST API Spec {#rest-api-spec}
 
 ```yaml
@@ -770,6 +810,121 @@ paths:
     post:
       summary: Generate content proposal (SSE)
       description: Create diff-based proposal for section changes
+
+  /projects/{projectSlug}/documents/{documentId}/draft-bundle:
+    patch:
+      summary: Apply validated section drafts in a single bundle
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [submittedBy, sections]
+              properties:
+                submittedBy:
+                  type: string
+                  description: Clerk user ID issuing the bundled save
+                sections:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      [
+                        draftKey,
+                        sectionPath,
+                        patch,
+                        baselineVersion,
+                        qualityGateReport,
+                      ]
+                    properties:
+                      draftKey:
+                        type: string
+                        description:
+                          documentSlug/sectionTitle/author composite key
+                      sectionPath:
+                        type: string
+                      patch:
+                        type: string
+                        description:
+                          Git-style patch diff representing local edits
+                      baselineVersion:
+                        type: string
+                      qualityGateReport:
+                        type: object
+                        required: [status, issues]
+                        properties:
+                          status:
+                            type: string
+                            enum: [pass, fail]
+                          issues:
+                            type: array
+                            items:
+                              type: object
+                              required: [gateId, severity, message]
+                              properties:
+                                gateId:
+                                  type: string
+                                severity:
+                                  type: string
+                                  enum: [blocker, warning]
+                                message:
+                                  type: string
+      responses:
+        200:
+          description: Bundle applied and server sections updated
+        409:
+          description: Conflict detected or quality gate failed
+
+  /projects/{projectSlug}/documents/{documentId}/draft-compliance:
+    post:
+      summary: Log retention policy warnings for client-only drafts
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authorId, policyId, detectedAt]
+              properties:
+                authorId:
+                  type: string
+                policyId:
+                  type: string
+                detectedAt:
+                  type: string
+                  format: date-time
+                context:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Extra metadata (no draft content)
+      responses:
+        202:
+          description: Warning recorded for manual escalation
 ```
 
 ## Database Schema {#database-schema}

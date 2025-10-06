@@ -154,7 +154,7 @@ class ApiClient {
     return `web-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  protected async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers: Record<string, string> = {

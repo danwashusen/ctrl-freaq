@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+
 test.describe('Section Editor Diff Preview & Submit', () => {
   test('renders diff preview before submitting for review', async ({ page }) => {
     let diffRequested = false;
@@ -22,6 +24,26 @@ test.describe('Section Editor Diff Preview & Submit', () => {
           savedAt: '2025-01-15T15:29:15.000Z',
           savedBy: 'Morgan Lee',
           summaryNote: 'Reviewed for architecture alignment.',
+        }),
+      });
+    });
+
+    await page.route('**/__fixtures/api/projects/**/documents/**/draft-bundle', async route => {
+      if (route.request().method() !== 'PATCH') {
+        await route.fallback();
+        return;
+      }
+
+      const url = new URL(route.request().url());
+      const segments = url.pathname.split('/');
+      const documentId = segments.length >= 2 ? segments[segments.length - 2] : 'demo-architecture';
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          documentId,
+          appliedSections: ['sec-overview'],
         }),
       });
     });
@@ -70,6 +92,8 @@ test.describe('Section Editor Diff Preview & Submit', () => {
     });
 
     await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.waitForLoadState('networkidle');
+    await dismissDraftRecoveryGate(page);
 
     await page.getByTestId('enter-edit').click();
     const diffViewer = page.getByTestId('diff-viewer');

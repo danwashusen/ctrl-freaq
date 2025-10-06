@@ -194,3 +194,20 @@ pnpm --filter @ctrl-freaq/editor-core cli draft import \
 - Autosave queue processing emits structured logs prefixed with
   `section-editor.autosave` so you can correlate CLI imports with API-side
   processing.
+- Use the persistence CLI to inspect and clean local drafts before reproducing
+  save issues:
+
+  ```bash
+  pnpm --filter @ctrl-freaq/editor-persistence drafts --author user_123 --json
+  pnpm --filter @ctrl-freaq/editor-persistence drafts --remove project/doc/Section/user_123
+  pnpm --filter @ctrl-freaq/editor-persistence drafts --author user_123 --clear
+  ```
+
+  - `drafts --author` lists composite keys plus timestamps so you can confirm
+    recovery state prior to bundling changes.
+  - `--remove` deletes an exact draft key; the command exits non-zero if the key
+    is missing, protecting accidental bulk removals.
+  - `--clear` requires an author filter and purges every draft for that user —
+    run it in QA before sign-out tests to mimic the production logout purge.
+  - Add `--project` or `--document` filters when multiple initiatives share the
+    same Clerk account during testing.

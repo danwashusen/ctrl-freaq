@@ -18,7 +18,7 @@ function createProjects(): PlaywrightTestConfig['projects'] {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 900 },
       },
-    }/** Disabled to speed up testing during heavy development!,
+    } /** Disabled to speed up testing during heavy development!,
     {
       name: 'Desktop Firefox',
       use: {
@@ -44,7 +44,7 @@ function createProjects(): PlaywrightTestConfig['projects'] {
     {
       name: 'iPad',
       use: { ...devices['iPad Pro'] },
-    },**/
+    },**/,
   ];
 }
 
@@ -65,8 +65,9 @@ export function createBaseConfig(): PlaywrightTestConfig {
     },
     projects: createProjects(),
     expect: {
-      timeout: 5000,
+      timeout: 2 * 1000,
     },
+    timeout: 5 * 1000,
   } satisfies PlaywrightTestConfig;
 }
 

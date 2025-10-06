@@ -32,6 +32,11 @@ export interface ConflictDialogProps {
   latestApprovedVersion?: number | null;
   rebasedDraft?: RebasedDraftDTO | null;
   events?: ConflictLogEntryDTO[];
+  serverSnapshot?: {
+    version: number;
+    content: string;
+    capturedAt?: string | null;
+  } | null;
   isProcessing?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -47,6 +52,7 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
   latestApprovedVersion,
   rebasedDraft,
   events,
+  serverSnapshot,
   isProcessing = false,
   confirmLabel = 'Rebase and continue',
   cancelLabel = 'Cancel',
@@ -142,6 +148,26 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
                 data-testid="conflict-rebased-preview"
               >
                 {rebasedDraft.contentMarkdown}
+              </pre>
+            </section>
+          )}
+
+          {serverSnapshot && (
+            <section className="mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-900">Server version snapshot</h3>
+                <div className="flex flex-col items-end text-xs text-slate-500">
+                  <span>v{serverSnapshot.version}</span>
+                  {serverSnapshot.capturedAt && (
+                    <span>{new Date(serverSnapshot.capturedAt).toLocaleString()}</span>
+                  )}
+                </div>
+              </div>
+              <pre
+                className="mt-2 max-h-52 overflow-y-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700"
+                data-testid="conflict-server-preview"
+              >
+                {serverSnapshot.content}
               </pre>
             </section>
           )}
