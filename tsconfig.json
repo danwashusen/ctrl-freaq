@@ -30,31 +30,66 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@ctrl-freaq/shared-data": ["./packages/shared-data/dist/index.d.ts"],
-      "@ctrl-freaq/shared-data/*": ["./packages/shared-data/dist/*.d.ts"],
-      "@ctrl-freaq/templates": ["./packages/templates/dist/index.d.ts"],
-      "@ctrl-freaq/templates/*": ["./packages/templates/dist/*.d.ts"],
-      "@ctrl-freaq/ai": ["./packages/ai/dist/index.d.ts"],
-      "@ctrl-freaq/ai/*": ["./packages/ai/dist/*.d.ts"],
-      "@ctrl-freaq/qa": ["./packages/qa/dist/index.d.ts"],
-      "@ctrl-freaq/qa/*": ["./packages/qa/dist/*.d.ts"],
-      "@ctrl-freaq/exporter": ["./packages/exporter/dist/index.d.ts"],
-      "@ctrl-freaq/exporter/*": ["./packages/exporter/dist/*.d.ts"],
-      "@ctrl-freaq/editor-core": ["./packages/editor-core/dist/index.d.ts"],
-      "@ctrl-freaq/editor-core/*": ["./packages/editor-core/dist/*.d.ts"],
+      "@ctrl-freaq/shared-data": [
+        "./packages/shared-data/src/index.ts",
+        "./packages/shared-data/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/shared-data/*": [
+        "./packages/shared-data/src/*",
+        "./packages/shared-data/dist/*.d.ts"
+      ],
+      "@ctrl-freaq/templates": [
+        "./packages/templates/src/index.ts",
+        "./packages/templates/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/templates/*": [
+        "./packages/templates/src/*",
+        "./packages/templates/dist/*.d.ts"
+      ],
+      "@ctrl-freaq/ai": [
+        "./packages/ai/src/index.ts",
+        "./packages/ai/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/ai/*": ["./packages/ai/src/*", "./packages/ai/dist/*.d.ts"],
+      "@ctrl-freaq/qa": [
+        "./packages/qa/src/index.ts",
+        "./packages/qa/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/qa/*": ["./packages/qa/src/*", "./packages/qa/dist/*.d.ts"],
+      "@ctrl-freaq/exporter": [
+        "./packages/exporter/src/index.ts",
+        "./packages/exporter/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/exporter/*": [
+        "./packages/exporter/src/*",
+        "./packages/exporter/dist/*.d.ts"
+      ],
+      "@ctrl-freaq/editor-core": [
+        "./packages/editor-core/src/index.ts",
+        "./packages/editor-core/dist/index.d.ts"
+      ],
+      "@ctrl-freaq/editor-core/*": [
+        "./packages/editor-core/src/*",
+        "./packages/editor-core/dist/*.d.ts"
+      ],
       "@ctrl-freaq/editor-persistence": [
+        "./packages/editor-persistence/src/index.ts",
         "./packages/editor-persistence/dist/index.d.ts"
       ],
       "@ctrl-freaq/editor-persistence/*": [
+        "./packages/editor-persistence/src/*",
         "./packages/editor-persistence/dist/*.d.ts"
       ],
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
+        "./packages/editor-persistence/src/assumption-sessions/*",
         "./packages/editor-persistence/dist/assumption-sessions/*.d.ts"
       ],
       "@ctrl-freaq/template-resolver": [
+        "./packages/template-resolver/src/index.ts",
         "./packages/template-resolver/dist/index.d.ts"
       ],
       "@ctrl-freaq/template-resolver/*": [
+        "./packages/template-resolver/src/*",
         "./packages/template-resolver/dist/*.d.ts"
       ]
     }

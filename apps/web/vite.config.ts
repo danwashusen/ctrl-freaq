@@ -81,12 +81,12 @@ export default defineConfig(({ mode }) => {
         '@ctrl-freaq/editor-persistence': path.resolve(
           __dirname,
           '../..',
-          'packages/editor-persistence/dist'
+          'packages/editor-persistence/src'
         ),
         '@ctrl-freaq/editor-persistence/*':
-          path.resolve(__dirname, '../..', 'packages/editor-persistence/dist') + '/*',
-        '@ctrl-freaq/qa': path.resolve(__dirname, '../..', 'packages/qa/dist'),
-        '@ctrl-freaq/qa/*': path.resolve(__dirname, '../..', 'packages/qa/dist') + '/*',
+          path.resolve(__dirname, '../..', 'packages/editor-persistence/src') + '/*',
+        '@ctrl-freaq/qa': path.resolve(__dirname, '../..', 'packages/qa/src'),
+        '@ctrl-freaq/qa/*': path.resolve(__dirname, '../..', 'packages/qa/src') + '/*',
         '@ctrl-freaq/e2e-fixtures': path.resolve(__dirname, './src/lib/fixtures/e2e'),
       },
     },
