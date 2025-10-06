@@ -147,7 +147,6 @@ semantics:
         - **Risks & Mitigations**: condensed view of identified risks and mitigation notes
         - **Clarifications**: surface relevant Q&A from `spec.md`, expanding any shorthand so the context is self-contained
         - **Assumption Log**: mirror `tasks.md` assumptions, enriching each with any clarifying context gathered during review
-        - **Next Actions**: follow-up work, sign-offs, or verification still required
     - Match the tone to project conventions (past tense, imperative, or release-note style) while staying concise
 
 14. Persist the changelog entry
@@ -168,6 +167,5 @@ semantics:
     - Present key artifacts (`BRANCH_HISTORY`, `CHANGE_INVENTORY`, `SPEC_REQUIREMENTS`, `REQUIREMENT_GAPS`, `TEST_GAPS`, `DOC_ACTIONS`, `CONTROL_INVENTORY`, `SPEC_CLARIFICATIONS`, and `ASSUMPTION_LOG`) as concise, human-readable tables or lists so the operator can act without parsing raw JSON
     - Emit the finalized Markdown changelog entry separately so it can be copied into release notes or documentation
     - Provide a documentation drift spotlight that summarizes key gaps and suggested edits so the operator can act immediately
-    - Provide a quick checklist of next actions (tests to run, reviewers to involve, docs to update) so the operator can follow through
     - Restate any assumptions or clarifications that require operator validation or documentation updates so they do not get lost between the source documents and the changelog entry
     - If any blocking issues were found (missing files, unresolved scope), end with a clear escalation message summarizing the gap

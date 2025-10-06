@@ -54,3 +54,13 @@ spec-kit:
           context: 'Documents the UI architecture of the project and should be considered a primary source of truth, any deviations should be called out.'
         - path: 'docs/front-end-spec.md'
           context: 'Documents the front-end specifications and should be considered a primary source of truth, any deviations should be called out.'
+  - changelog:
+      documents:
+        - path: 'docs/prd.md'
+          context: 'Documents the product requirements.'
+        - path: 'docs/architecture.md'
+          context: 'Documents the architecture of the project.'
+        - path: 'docs/ui-architecture.md'
+          context: 'Documents the UI architecture of the project.'
+        - path: 'docs/front-end-spec.md'
+          context: 'Documents the front-end specifications.'

@@ -26,6 +26,3 @@
 
 ### Assumption Log
 {{assumption_log}}
-
-### Next Actions
-- {{next_actions}}

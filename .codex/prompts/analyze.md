@@ -1,176 +1,119 @@
 ---
-description:
-  Perform a non-destructive cross-artifact consistency and quality analysis
-  across spec.md, plan.md, and tasks.md after task generation.
+description: Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and tasks.md after task generation.
 ---
 
-The user input to you can be provided directly by the agent or as a command
-argument - you **MUST** consider it before proceeding with the prompt (if not
-empty).
+The user input to you can be provided directly by the agent or as a command argument - you **MUST** consider it before proceeding with the prompt (if not empty).
 
 User input:
 
 $ARGUMENTS
 
-Goal: Identify inconsistencies, duplications, ambiguities, and underspecified
-items across the three core artifacts (`spec.md`, `plan.md`, `tasks.md`) before
-implementation. This command MUST run only after `/tasks` has successfully
-produced a complete `tasks.md`.
+Goal: Identify inconsistencies, duplications, ambiguities, and underspecified items across the three core artifacts (`spec.md`, `plan.md`, `tasks.md`) before implementation. This command MUST run only after `/tasks` has successfully produced a complete `tasks.md`.
 
-STRICTLY READ-ONLY: Do **not** modify any files. Output a structured analysis
-report. Offer an optional remediation plan (user must explicitly approve before
-any follow-up editing commands would be invoked manually).
+STRICTLY READ-ONLY: Do **not** modify any files. Output a structured analysis report. Offer an optional remediation plan (user must explicitly approve before any follow-up editing commands would be invoked manually).
 
-Constitution Authority: The project constitution referenced by
-`SPEC_KIT_CONFIG.constitution.path` (default `.specify/memory/constitution.md`)
-is **non-negotiable** within this analysis scope. Constitution conflicts are
-automatically CRITICAL and require adjustment of the spec, plan, or tasks—not
-dilution, reinterpretation, or silent ignoring of the principle. If a principle
-itself needs to change, that must occur in a separate, explicit constitution
-update outside `/analyze`.
+Constitution Authority: The project constitution referenced by `SPEC_KIT_CONFIG.constitution.path` (default `.specify/memory/constitution.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks—not dilution, reinterpretation, or silent ignoring of the principle. If a principle itself needs to change, that must occur in a separate, explicit constitution update outside `/analyze`.
 
 Execution steps:
 
 1. Load Spec Kit configuration:
-   - Check for `/.specify.yaml` at the host project root; if it exists, load
-     that file
+   - Check for `/.specify.yaml` at the host project root; if it exists, load that file
    - Otherwise load `.specify/config-default.yaml`
    - Extract the root `spec-kit` entry and store it as `SPEC_KIT_CONFIG`
 
-2. Run
-   `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks`
-   once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive
-   absolute paths:
+2. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
    - SPEC = FEATURE_DIR/spec.md
    - PLAN = FEATURE_DIR/plan.md
-   - TASKS = FEATURE_DIR/tasks.md Abort with an error message if any required
-     file is missing (instruct the user to run missing prerequisite command).
+   - TASKS = FEATURE_DIR/tasks.md
+   Abort with an error message if any required file is missing (instruct the user to run missing prerequisite command).
 
-3. If defined, read documents from `SPEC_KIT_CONFIG.analyze.documents`, refer to
-   them as the document context:
+3. If defined, read documents from `SPEC_KIT_CONFIG.analyze.documents`, refer to them as the document context:
    - For each item, resolve `path` to an absolute path from the repo root
    - Read the file and consider its `context` to guide analysis
    - If a file is missing, note it and continue
-   - Consider the file to be considered read-only, **do NOT modify the file
-     unless instructed to do so**
+   - Consider the file to be read-only, **do NOT modify the file unless instructed to do so**
 
-4. Read the changelog at the path specified by `SPEC_KIT_CONFIG.changelog.path`
-   and incorporate any relevant historical context or conventions into the
-   analysis; if it is missing, note the gap and continue.
+4. Read the changelog at the path specified by `SPEC_KIT_CONFIG.changelog.path` and incorporate any relevant historical context or conventions into the analysis; if it is missing, note the gap and continue.
 
-5. Read the constitution at the path specified by
-   `SPEC_KIT_CONFIG.constitution.path` to understand constitutional requirements
-   that **MUST** be respected.
+3. Read the constitution at the path specified by `SPEC_KIT_CONFIG.constitution.path` to understand constitutional requirements that **MUST** be respected.
 
-6. Load artifacts:
-   - Parse spec.md sections: Overview/Context, Functional Requirements,
-     Non-Functional Requirements, User Stories, Edge Cases (if present).
-   - Parse plan.md: Architecture/stack choices, Data Model references, Phases,
-     Technical constraints.
-   - Parse tasks.md: Task IDs, descriptions, phase grouping, parallel markers
-     [P], referenced file paths.
+4. Load artifacts:
+   - Parse spec.md sections: Overview/Context, Functional Requirements, Non-Functional Requirements, User Stories, Edge Cases (if present).
+   - Parse plan.md: Architecture/stack choices, Data Model references, Phases, Technical constraints.
+   - Parse tasks.md: Task IDs, descriptions, phase grouping, parallel markers [P], referenced file paths.
    - Use the constitution for principle validation.
-   - If `SPEC_KIT_CONFIG.analyze.documents` exists, read each referenced
-     document as supplementary context **only** for this analysis. Use them to
-     clarify ambiguous terminology, confirm domain facts, or surface gaps that
-     should be reflected back into spec/plan/tasks. Do **not** assume downstream
-     commands (e.g., `/implement`) will have access to these files; flag missing
-     details that ought to migrate into the core artifacts instead.
+   - If `SPEC_KIT_CONFIG.analyze.documents` exists, read each referenced document as supplementary context **only** for this analysis. Use them to clarify ambiguous terminology, confirm domain facts, or surface gaps that should be reflected back into spec/plan/tasks. Do **not** assume downstream commands (e.g., `/implement`) will have access to these files; flag missing details that ought to migrate into the core artifacts instead.
 
-7. Build internal semantic models:
-   - Requirements inventory: Each functional + non-functional requirement with a
-     stable key (derive slug based on imperative phrase; e.g., "User can upload
-     file" -> `user-can-upload-file`).
+5. Build internal semantic models:
+   - Requirements inventory: Each functional + non-functional requirement with a stable key (derive slug based on imperative phrase; e.g., "User can upload file" -> `user-can-upload-file`).
    - User story/action inventory.
-   - Task coverage mapping: Map each task to one or more requirements or stories
-     (inference by keyword / explicit reference patterns like IDs or key
-     phrases).
-   - Constitution rule set: Extract principle names and any MUST/SHOULD
-     normative statements.
+   - Task coverage mapping: Map each task to one or more requirements or stories (inference by keyword / explicit reference patterns like IDs or key phrases).
+   - Constitution rule set: Extract principle names and any MUST/SHOULD normative statements.
 
-8. Detection passes: A. Duplication detection:
-   - Identify near-duplicate requirements. Mark lower-quality phrasing for
-     consolidation. B. Ambiguity detection:
-   - Flag vague adjectives (fast, scalable, secure, intuitive, robust) lacking
-     measurable criteria.
-   - Flag unresolved placeholders (TODO, TKTK, ???, <placeholder>, etc.).
-   - Use any insights from the supplementary context (pulled from
-     `SPEC_KIT_CONFIG.analyze.documents` when present) to determine when domain
-     terms are defined elsewhere but missing from core artifacts; recommend
-     pulling essential context into spec/plan/tasks. C. Underspecification:
-   - Requirements with verbs but missing object or measurable outcome.
-   - User stories missing acceptance criteria alignment.
-   - Tasks referencing files or components not defined in spec/plan. D.
-     Constitution alignment:
-   - Any requirement or plan element conflicting with a MUST principle.
-   - Missing mandated sections or quality gates from constitution. E. Coverage
-     gaps:
-   - Requirements with zero associated tasks.
-   - Tasks with no mapped requirement/story.
-   - Non-functional requirements not reflected in tasks (e.g., performance,
-     security). F. Inconsistency:
-   - Terminology drift (same concept named differently across files).
-   - Data entities referenced in plan but absent in spec (or vice versa).
-   - Task ordering contradictions (e.g., integration tasks before foundational
-     setup tasks without dependency note).
-   - Conflicting requirements (e.g., one requires to use Next.js while other
-     says to use Vue as the framework).
-   - When supplementary documents reveal crucial constraints or definitions that
-     the core artifacts omit, treat it as underspecification/inconsistency and
-     instruct that the core files be updated; do **not** rely on external docs
-     being present during `/implement`.
+6. Detection passes:
+   A. Duplication detection:
+      - Identify near-duplicate requirements. Mark lower-quality phrasing for consolidation.
+   B. Ambiguity detection:
+      - Flag vague adjectives (fast, scalable, secure, intuitive, robust) lacking measurable criteria.
+      - Flag unresolved placeholders (TODO, TKTK, ???, <placeholder>, etc.).
+      - Use any insights from the supplementary context (pulled from `SPEC_KIT_CONFIG.analyze.documents` when present) to determine when domain terms are defined elsewhere but missing from core artifacts; recommend pulling essential context into spec/plan/tasks.
+   C. Underspecification:
+      - Requirements with verbs but missing object or measurable outcome.
+      - User stories missing acceptance criteria alignment.
+      - Tasks referencing files or components not defined in spec/plan.
+   D. Constitution alignment:
+      - Any requirement or plan element conflicting with a MUST principle.
+      - Missing mandated sections or quality gates from constitution.
+   E. Coverage gaps:
+      - Requirements with zero associated tasks.
+      - Tasks with no mapped requirement/story.
+      - Non-functional requirements not reflected in tasks (e.g., performance, security).
+   F. Inconsistency:
+      - Terminology drift (same concept named differently across files).
+      - Data entities referenced in plan but absent in spec (or vice versa).
+      - Task ordering contradictions (e.g., integration tasks before foundational setup tasks without dependency note).
+      - Conflicting requirements (e.g., one requires to use Next.js while other says to use Vue as the framework).
+      - When supplementary documents reveal crucial constraints or definitions that the core artifacts omit, treat it as underspecification/inconsistency and instruct that the core files be updated; do **not** rely on external docs being present during `/implement`.
 
-9. Severity assignment heuristic:
-   - CRITICAL: Violates constitution MUST, missing core spec artifact, or
-     requirement with zero coverage that blocks baseline functionality.
-   - HIGH: Duplicate or conflicting requirement, ambiguous security/performance
-     attribute, untestable acceptance criterion.
-   - MEDIUM: Terminology drift, missing non-functional task coverage,
-     underspecified edge case.
-   - LOW: Style/wording improvements, minor redundancy not affecting execution
-     order.
+7. Severity assignment heuristic:
+   - CRITICAL: Violates constitution MUST, missing core spec artifact, or requirement with zero coverage that blocks baseline functionality.
+   - HIGH: Duplicate or conflicting requirement, ambiguous security/performance attribute, untestable acceptance criterion.
+   - MEDIUM: Terminology drift, missing non-functional task coverage, underspecified edge case.
+   - LOW: Style/wording improvements, minor redundancy not affecting execution order.
 
-10. Produce a Markdown report (no file writes) with sections:
+8. Produce a Markdown report (no file writes) with sections:
 
-    ### Specification Analysis Report
+   ### Specification Analysis Report
+   | ID | Category | Severity | Location(s) | Summary | Recommendation |
+   |----|----------|----------|-------------|---------|----------------|
+   | A1 | Duplication | HIGH | spec.md:L120-134 | Two similar requirements ... | Merge phrasing; keep clearer version |
+   (Add one row per finding; generate stable IDs prefixed by category initial.)
 
-    | ID  | Category    | Severity | Location(s)      | Summary                      | Recommendation                       |
-    | --- | ----------- | -------- | ---------------- | ---------------------------- | ------------------------------------ |
-    | A1  | Duplication | HIGH     | spec.md:L120-134 | Two similar requirements ... | Merge phrasing; keep clearer version |
+   Additional subsections:
+   - Coverage Summary Table:
+     | Requirement Key | Has Task? | Task IDs | Notes |
+   - Constitution Alignment Issues (if any)
+   - Unmapped Tasks (if any)
+   - Metrics:
+     * Total Requirements
+     * Total Tasks
+     * Coverage % (requirements with >=1 task)
+     * Ambiguity Count
+     * Duplication Count
+     * Critical Issues Count
 
-    (Add one row per finding; generate stable IDs prefixed by category initial.)
+9. At end of report, output a concise Next Actions block:
+   - If CRITICAL issues exist: Recommend resolving before `/implement`.
+   - If only LOW/MEDIUM: User may proceed, but provide improvement suggestions.
+   - Provide explicit command suggestions: e.g., "Run /specify with refinement", "Run /plan to adjust architecture", "Manually edit tasks.md to add coverage for 'performance-metrics'".
 
-    Additional subsections:
-    - Coverage Summary Table: | Requirement Key | Has Task? | Task IDs | Notes |
-    - Constitution Alignment Issues (if any)
-    - Unmapped Tasks (if any)
-    - Metrics:
-      - Total Requirements
-      - Total Tasks
-      - Coverage % (requirements with >=1 task)
-      - Ambiguity Count
-      - Duplication Count
-      - Critical Issues Count
-
-11. At end of report, output a concise Next Actions block:
-    - If CRITICAL issues exist: Recommend resolving before `/implement`.
-    - If only LOW/MEDIUM: User may proceed, but provide improvement suggestions.
-    - Provide explicit command suggestions: e.g., "Run /specify with
-      refinement", "Run /plan to adjust architecture", "Manually edit tasks.md
-      to add coverage for 'performance-metrics'".
-
-12. Ask the user: "Would you like me to suggest concrete remediation edits for
-    the top N issues?" (Do NOT apply them automatically.)
+10. Ask the user: "Would you like me to suggest concrete remediation edits for the top N issues?" (Do NOT apply them automatically.)
 
 Behavior rules:
-
 - NEVER modify files.
 - NEVER hallucinate missing sections—if absent, report them.
-- KEEP findings deterministic: if rerun without changes, produce consistent IDs
-  and counts.
-- LIMIT total findings in the main table to 50; aggregate remainder in a
-  summarized overflow note.
-- If zero issues found, emit a success report with coverage statistics and
-  proceed recommendation.
+- KEEP findings deterministic: if rerun without changes, produce consistent IDs and counts.
+- LIMIT total findings in the main table to 50; aggregate remainder in a summarized overflow note.
+- If zero issues found, emit a success report with coverage statistics and proceed recommendation.
 
 Context: $ARGUMENTS
