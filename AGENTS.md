@@ -58,7 +58,10 @@ package-specific flows, e.g.
   loop.
 - `pnpm --filter @ctrl-freaq/web test:visual:ci`: Visual regression with CI
   reporters.
-- `pnpm typecheck`: Repo-wide Turbo typecheck with --force (no cache).
+- `pnpm typecheck`: Builds the repo first, then runs Turbo typecheck with
+  `--force` (no cache).
+- `pnpm typecheck:noemit`: TypeScript `--noEmit` pass assuming build outputs are
+  already in place.
 - `pnpm typecheck:quick`: Quick cached Turbo typecheck.
 
 To scope any command to one workspace, add `--filter <package>` (e.g.

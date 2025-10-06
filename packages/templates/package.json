@@ -38,7 +38,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
     "cli:activate": "tsx src/cli.ts activate",
     "cli:list": "tsx src/cli.ts list",

@@ -5,23 +5,7 @@
     "rootDir": "../../",
     "noEmit": false,
     "allowImportingTsExtensions": false,
-    "types": ["node", "vitest/globals"],
-    "paths": {
-      "@ctrl-freaq/qa": ["../../packages/qa/src/index.ts"],
-      "@ctrl-freaq/qa/*": ["../../packages/qa/src/*.ts"],
-      "@ctrl-freaq/shared-data": ["../../packages/shared-data/src/index.ts"],
-      "@ctrl-freaq/shared-data/*": ["../../packages/shared-data/src/*.ts"],
-      "@ctrl-freaq/template-resolver": [
-        "../../packages/template-resolver/src/index.ts"
-      ],
-      "@ctrl-freaq/template-resolver/*": [
-        "../../packages/template-resolver/src/*.ts"
-      ],
-      "@ctrl-freaq/templates": ["../../packages/templates/src/index.ts"],
-      "@ctrl-freaq/templates/*": ["../../packages/templates/src/*.ts"],
-      "@ctrl-freaq/editor-core": ["../../packages/editor-core/src/index.ts"],
-      "@ctrl-freaq/editor-core/*": ["../../packages/editor-core/src/*.ts"]
-    }
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": [

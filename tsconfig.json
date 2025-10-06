@@ -30,32 +30,32 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@ctrl-freaq/shared-data": ["./packages/shared-data/src/index.ts"],
-      "@ctrl-freaq/shared-data/*": ["./packages/shared-data/src/*.ts"],
-      "@ctrl-freaq/templates": ["./packages/templates/src/index.ts"],
-      "@ctrl-freaq/templates/*": ["./packages/templates/src/*.ts"],
-      "@ctrl-freaq/ai": ["./packages/ai/src/index.ts"],
-      "@ctrl-freaq/ai/*": ["./packages/ai/src/*.ts"],
-      "@ctrl-freaq/qa": ["./packages/qa/src/index.ts"],
-      "@ctrl-freaq/qa/*": ["./packages/qa/src/*.ts"],
-      "@ctrl-freaq/exporter": ["./packages/exporter/src/index.ts"],
-      "@ctrl-freaq/exporter/*": ["./packages/exporter/src/*.ts"],
-      "@ctrl-freaq/editor-core": ["./packages/editor-core/src/index.ts"],
-      "@ctrl-freaq/editor-core/*": ["./packages/editor-core/src/*.ts"],
+      "@ctrl-freaq/shared-data": ["./packages/shared-data/dist/index.d.ts"],
+      "@ctrl-freaq/shared-data/*": ["./packages/shared-data/dist/*.d.ts"],
+      "@ctrl-freaq/templates": ["./packages/templates/dist/index.d.ts"],
+      "@ctrl-freaq/templates/*": ["./packages/templates/dist/*.d.ts"],
+      "@ctrl-freaq/ai": ["./packages/ai/dist/index.d.ts"],
+      "@ctrl-freaq/ai/*": ["./packages/ai/dist/*.d.ts"],
+      "@ctrl-freaq/qa": ["./packages/qa/dist/index.d.ts"],
+      "@ctrl-freaq/qa/*": ["./packages/qa/dist/*.d.ts"],
+      "@ctrl-freaq/exporter": ["./packages/exporter/dist/index.d.ts"],
+      "@ctrl-freaq/exporter/*": ["./packages/exporter/dist/*.d.ts"],
+      "@ctrl-freaq/editor-core": ["./packages/editor-core/dist/index.d.ts"],
+      "@ctrl-freaq/editor-core/*": ["./packages/editor-core/dist/*.d.ts"],
       "@ctrl-freaq/editor-persistence": [
-        "./packages/editor-persistence/src/index.ts"
+        "./packages/editor-persistence/dist/index.d.ts"
       ],
       "@ctrl-freaq/editor-persistence/*": [
-        "./packages/editor-persistence/src/*.ts"
+        "./packages/editor-persistence/dist/*.d.ts"
       ],
       "@ctrl-freaq/editor-persistence/assumption-sessions/*": [
-        "./packages/editor-persistence/src/assumption-sessions/*.ts"
+        "./packages/editor-persistence/dist/assumption-sessions/*.d.ts"
       ],
       "@ctrl-freaq/template-resolver": [
-        "./packages/template-resolver/src/index.ts"
+        "./packages/template-resolver/dist/index.d.ts"
       ],
       "@ctrl-freaq/template-resolver/*": [
-        "./packages/template-resolver/src/*.ts"
+        "./packages/template-resolver/dist/*.d.ts"
       ]
     }
   },

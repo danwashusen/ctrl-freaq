@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
     "dev": "tsc --watch",
     "lint": "eslint src/",
