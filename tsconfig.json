@@ -91,7 +91,8 @@
       "@ctrl-freaq/template-resolver/*": [
         "./packages/template-resolver/src/*",
         "./packages/template-resolver/dist/*.d.ts"
-      ]
+      ],
+      "@/*": ["./apps/web/src/*"]
     }
   },
   "references": [

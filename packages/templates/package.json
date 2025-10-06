@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
     "cli:activate": "tsx src/cli.ts activate",
@@ -45,9 +46,11 @@
     "cli:migrate": "tsx src/cli.ts migrate",
     "cli:publish": "tsx src/cli.ts publish",
     "dev": "tsc --watch",
+    "prelint": "pnpm run build:deps",
     "lint": "eslint src/",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --watch",
+    "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
