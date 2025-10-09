@@ -40,9 +40,9 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@types/glob": "^8.0.0",
+    "@types/glob": "^9.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.4.0",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }
 }
