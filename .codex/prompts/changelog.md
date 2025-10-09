@@ -11,6 +11,13 @@ semantics:
 
 # Change Log Playbook
 
+## Overview
+
+Use this playbook to produce a feature-branch changelog from start to finish. Work through the numbered steps in order,
+completing every subtask listed under a step before moving on. Produce the evidence or decisions each bullet calls for,
+and keep progressing autonomously unless a gate forces you to pause or raise an open question. Treat every step as a
+mandatory checkpoint; log and surface any blocking issues before continuing downstream.
+
 ## Flow
 
 1. Initialize Spec Kit configuration

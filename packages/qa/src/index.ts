@@ -10,6 +10,7 @@
 export * from './validators/index.js';
 export * from './gates/index.js';
 export * from './compliance/drafts.js';
+export * from './audit/co-authoring.js';
 
 // CLI exposed via dedicated entry point (see @ctrl-freaq/qa/cli) to avoid bundling Node-only dependencies in browser builds.
 

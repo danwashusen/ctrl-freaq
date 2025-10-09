@@ -16,6 +16,12 @@
       "types": "./src/models/*.ts",
       "default": "./dist/models/*.js"
     },
+    "./co-authoring/*": {
+      "development": "./src/co-authoring/*.ts",
+      "import": "./dist/co-authoring/*.js",
+      "types": "./src/co-authoring/*.ts",
+      "default": "./dist/co-authoring/*.js"
+    },
     "./repositories/*": {
       "development": "./src/repositories/*.ts",
       "import": "./dist/repositories/*.js",

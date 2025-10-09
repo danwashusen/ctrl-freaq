@@ -16,5 +16,6 @@ export * from './formatting-annotation.repository.js';
 export * from './draft-conflict-log.repository.js';
 export * from './section-review.repository.js';
 export * from './assumption-session.repository.js';
+export * from './changelog/changelog.repository.js';
 
 export type { Repository, QueryOptions } from '../types/index.js';

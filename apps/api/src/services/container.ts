@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type * as BetterSqlite3 from 'better-sqlite3';
 import type { Request, Response, NextFunction } from 'express';
 import type { Logger } from 'pino';
@@ -19,6 +20,7 @@ import {
   SectionReviewRepositoryImpl,
   AssumptionSessionRepository,
 } from '@ctrl-freaq/shared-data';
+import { CoAuthoringChangelogRepository } from '@ctrl-freaq/shared-data/repositories/changelog/changelog.repository.js';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type {
   TemplateResolver,
@@ -51,6 +53,19 @@ import {
   type DraftBundleConflict,
 } from './drafts/draft-bundle.service.js';
 import { DraftBundleRepositoryImpl } from './drafts/draft-bundle.repository.js';
+import {
+  AIProposalService,
+  type AIProposalServiceDependencies,
+} from './co-authoring/ai-proposal.service.js';
+import type { BuildCoAuthorContextDependencies } from './co-authoring/context-builder.js';
+import { createVercelAIProposalProvider } from '@ctrl-freaq/ai/session/proposal-runner.js';
+import { CoAuthoringDraftPersistenceAdapter } from './co-authoring/draft-persistence.js';
+import { createCoAuthoringAuditLogger } from '@ctrl-freaq/qa';
+import type { ServiceContainer } from '../core/service-locator.js';
+import type {
+  ProposalProvider,
+  ProposalProviderEvent,
+} from '@ctrl-freaq/ai/session/proposal-runner.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -90,6 +105,10 @@ export function createRepositoryRegistrationMiddleware() {
     container.register(
       'formattingAnnotationRepository',
       () => new FormattingAnnotationRepositoryImpl(getDb())
+    );
+    container.register(
+      'coAuthoringChangelogRepository',
+      () => new CoAuthoringChangelogRepository(getDb())
     );
     container.register(
       'draftConflictLogRepository',
@@ -189,6 +208,45 @@ export function createRepositoryRegistrationMiddleware() {
       ) as TemplateVersionRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
       return new TemplateCatalogService(templateRepo, versionRepo, logger);
+    });
+
+    container.register('coAuthoringService', currentContainer => {
+      const logger = currentContainer.get('logger') as Logger;
+      const contextDeps = createCoAuthorContextDependencies(currentContainer, logger);
+      const drafts = currentContainer.get('sectionDraftRepository') as SectionDraftRepositoryImpl;
+      const changelogRepo = currentContainer.get(
+        'coAuthoringChangelogRepository'
+      ) as CoAuthoringChangelogRepository;
+      const draftPersistence = new CoAuthoringDraftPersistenceAdapter(drafts, logger);
+      const auditLogger = createCoAuthoringAuditLogger(logger);
+
+      const providerMode = (process.env.COAUTHORING_PROVIDER_MODE ?? '').trim().toLowerCase();
+      const useMockProvider =
+        providerMode === 'mock' || (!providerMode && process.env.NODE_ENV === 'test');
+
+      if (providerMode && providerMode !== 'mock' && providerMode !== 'vercel') {
+        logger.warn(
+          { providerMode },
+          'Unknown co-authoring provider mode specified; defaulting to vercel provider'
+        );
+      }
+
+      const serviceDeps: AIProposalServiceDependencies = {
+        logger,
+        context: contextDeps,
+        draftPersistence,
+        changelogRepo,
+        auditLogger,
+        providerFactory: useMockProvider
+          ? createMockProposalProvider
+          : () => createVercelAIProposalProvider(),
+      };
+
+      if (useMockProvider) {
+        logger.debug('Co-authoring service using mock proposal provider');
+      }
+
+      return new AIProposalService(serviceDeps);
     });
 
     container.register('templateResolver', currentContainer => {
@@ -384,3 +442,123 @@ export function createRepositoryRegistrationMiddleware() {
     next();
   };
 }
+
+function createCoAuthorContextDependencies(
+  container: ServiceContainer,
+  logger: Logger
+): BuildCoAuthorContextDependencies {
+  const documentRepository = container.get('documentRepository') as DocumentRepositoryImpl;
+  const sectionRepository = container.get('sectionRepository') as SectionRepositoryImpl;
+  const draftRepository = container.get('sectionDraftRepository') as SectionDraftRepositoryImpl;
+
+  const defaultClarifications = [
+    'Always include the entire document in provider payloads.',
+    'Conversation transcripts must remain ephemeral.',
+  ];
+
+  return {
+    async fetchDocumentSnapshot(documentId: string) {
+      const document = await documentRepository.findById(documentId);
+      const sections = await sectionRepository.findByDocumentId(documentId, {
+        orderBy: 'order_index',
+        orderDirection: 'ASC',
+      });
+
+      const normalized = sections.map(section => ({
+        sectionId: section.id,
+        path: `/documents/${documentId}/sections/${section.id}.md`,
+        status: section.status === 'ready' ? ('completed' as const) : ('draft' as const),
+        content:
+          section.status === 'ready' && section.approvedContent
+            ? section.approvedContent
+            : section.contentMarkdown,
+      }));
+
+      return {
+        documentId,
+        title: document?.title ?? 'Untitled Document',
+        sections: normalized,
+      };
+    },
+    async fetchActiveSectionDraft({
+      documentId,
+      sectionId,
+    }: {
+      documentId: string;
+      sectionId: string;
+    }) {
+      try {
+        const [draft] = await draftRepository.listBySection(sectionId, { limit: 1 });
+        if (!draft) {
+          return null;
+        }
+
+        return {
+          content: draft.contentMarkdown,
+          baselineVersion: `rev-${draft.draftBaseVersion}`,
+          draftVersion: draft.draftVersion,
+        };
+      } catch (error) {
+        logger.warn(
+          {
+            documentId,
+            sectionId,
+            error: error instanceof Error ? error.message : error,
+          },
+          'Failed to resolve active section draft for co-authoring context'
+        );
+        return null;
+      }
+    },
+    async fetchDecisionSummaries({ decisionIds }: { decisionIds: string[] }) {
+      return decisionIds.map(id => ({
+        id,
+        summary: `Decision reference: ${id}`,
+      }));
+    },
+    async fetchKnowledgeItems({ knowledgeItemIds }: { knowledgeItemIds: string[] }) {
+      return knowledgeItemIds.map(id => ({
+        id,
+        excerpt: `Knowledge source ${id}`,
+      }));
+    },
+    clarifications: defaultClarifications,
+  } satisfies BuildCoAuthorContextDependencies;
+}
+
+const createMockProposalProvider = (): ProposalProvider => {
+  return {
+    async *streamProposal(payload: Parameters<ProposalProvider['streamProposal']>[0]) {
+      const startedAt = Date.now();
+      yield {
+        type: 'progress',
+        data: { status: 'streaming', elapsedMs: 10 },
+      } satisfies ProposalProviderEvent;
+
+      const citations = payload.context.decisionSummaries.map(summary => summary.id);
+      const updatedDraft = `${payload.context.currentDraft}\n\n### Assistant Revision\n${payload.prompt.text}`;
+      const serialized = JSON.stringify({
+        proposalId: randomUUID(),
+        updatedDraft,
+        confidence: 0.82,
+        citations,
+        rationale: 'Expanded clarity and accessibility guidance.',
+        promptSummary: payload.prompt.text.slice(0, 120),
+      });
+
+      yield { type: 'token', data: { value: serialized } } satisfies ProposalProviderEvent;
+      yield {
+        type: 'progress',
+        data: { status: 'awaiting-approval', elapsedMs: Date.now() - startedAt },
+      } satisfies ProposalProviderEvent;
+
+      return {
+        type: 'completed',
+        data: {
+          proposalId: randomUUID(),
+          confidence: 0.82,
+        },
+      } satisfies ProposalProviderEvent;
+    },
+  } satisfies ProposalProvider;
+};

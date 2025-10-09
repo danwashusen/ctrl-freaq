@@ -10,6 +10,7 @@ const templatesDist = resolve(rootDir, '..', 'packages', 'templates', 'dist');
 const templateResolverDist = resolve(rootDir, '..', 'packages', 'template-resolver', 'dist');
 const editorCoreDist = resolve(rootDir, '..', 'packages', 'editor-core', 'dist');
 const qaDist = resolve(rootDir, '..', 'packages', 'qa', 'dist');
+const aiDist = resolve(rootDir, '..', 'packages', 'ai', 'dist');
 
 export default defineConfig({
   test: {
@@ -39,6 +40,7 @@ export default defineConfig({
       '@ctrl-freaq/template-resolver': templateResolverDist,
       '@ctrl-freaq/editor-core': editorCoreDist,
       '@ctrl-freaq/qa': qaDist,
+      '@ctrl-freaq/ai': aiDist,
     },
   },
 });

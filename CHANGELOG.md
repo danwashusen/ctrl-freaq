@@ -1,5 +1,147 @@
 # Change Log
 
+## 011-epic-2-story-6
+
+> Feature scope: Section-scoped conversational co-authoring assistant
+
+### Overview
+
+Delivered the conversational co-authoring workflow so authors can analyze
+sections, stream AI proposals, and approve hashed diffs without leaving the
+document editor. The API assembles whole-document context, enforces diff
+integrity, and records changelog metadata while the React sidebar surfaces
+accessible progress cues, fallback guidance, and explicit approval controls.
+
+### Highlights
+
+- Provisioned a rate-limited co-authoring service with SSE streams, audit
+  telemetry, and diff-hash enforcement
+  (`apps/api/src/services/co-authoring/ai-proposal.service.ts:319`,
+  `apps/api/src/middleware/ai-request-audit.ts:34`,
+  `apps/api/src/routes/co-authoring.ts:86`).
+- Added shared co-authoring models and annotated diff utilities that persist
+  proposal metadata without transcripts
+  (`packages/shared-data/src/co-authoring/ai-proposal-snapshot.ts:1`,
+  `packages/editor-core/src/diff/section-proposal.ts:53`,
+  `packages/shared-data/src/repositories/changelog/changelog.repository.ts:79`).
+- Built the co-authoring sidebar, Zustand store, session hook, and streaming
+  utilities with hashed patches, cancel controls, and accessible announcements
+  (`apps/web/src/features/document-editor/components/co-authoring/CoAuthorSidebar.tsx:166`,
+  `apps/web/src/features/document-editor/hooks/useCoAuthorSession.ts:772`,
+  `apps/web/src/lib/streaming/progress-tracker.ts:54`).
+- Extended CLI replay tooling, fixtures, and automated tests to exercise the
+  workflow across API, UI, and CLI surfaces (`packages/ai/src/cli.ts:63`,
+  `packages/ai/src/session/proposal-runner.test.ts:1`,
+  `apps/api/tests/contract/co-authoring/proposal.contract.test.ts:1`,
+  `apps/web/tests/e2e/document-editor/co-authoring.e2e.ts:4`).
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                            |
+| ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-001      | ✅     | apps/web/src/features/document-editor/components/document-editor.tsx:1564; apps/web/tests/e2e/document-editor/co-authoring.e2e.ts:15                |
+| FR-002      | ✅     | apps/web/src/features/document-editor/components/co-authoring/CoAuthorSidebar.tsx:166; apps/web/tests/e2e/document-editor/co-authoring.e2e.ts:23    |
+| FR-003      | ✅     | apps/api/src/services/co-authoring/context-builder.ts:61; apps/api/src/services/co-authoring/context-builder.test.ts:22                             |
+| FR-004      | ✅     | packages/editor-core/src/diff/section-proposal.ts:53; apps/web/src/features/document-editor/components/co-authoring/ProposalPreview.test.tsx:52     |
+| FR-005      | ✅     | apps/web/src/features/document-editor/components/co-authoring/ProposalPreview.tsx:137; apps/web/tests/e2e/document-editor/co-authoring.e2e.ts:60    |
+| FR-006      | ✅     | apps/api/src/services/co-authoring/ai-proposal.service.ts:631; apps/api/src/services/co-authoring/ai-proposal.service.test.ts:131                   |
+| FR-007      | ✅     | apps/web/src/features/document-editor/stores/co-authoring-store.ts:226; apps/web/src/features/document-editor/stores/co-authoring-store.test.ts:104 |
+| FR-008      | ✅     | apps/api/src/services/co-authoring/context-builder.ts:63; apps/api/src/services/co-authoring/context-builder.test.ts:65                             |
+| FR-009      | ✅     | apps/web/src/lib/streaming/fallback-messages.ts:1; apps/web/src/lib/streaming/fallback-messages.test.ts:8                                           |
+| NFR-001     | ✅     | apps/web/src/features/document-editor/components/co-authoring/SessionProgress.tsx:17; apps/web/src/lib/streaming/progress-tracker.test.ts:6         |
+
+### Testing
+
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` (2025-10-09) plus the new CLI,
+  contract, unit, and Playwright suites covering context builders, diff mappers,
+  audit middleware, progress tracker, and the document-editor flow
+  (`apps/api/src/services/co-authoring/ai-proposal.service.test.ts`,
+  `packages/ai/src/session/proposal-runner.test.ts`,
+  `apps/web/src/features/document-editor/hooks/useCoAuthorSession.test.tsx`,
+  `apps/web/tests/e2e/document-editor/co-authoring.e2e.ts`).
+
+### Risks & Mitigations
+
+- Session eviction relies on follow-up requests to trigger
+  `evictExpiredSessions`; prolonged idle SSE connections could linger in memory.
+  Monitor session telemetry and add a periodic eviction job if idle queues
+  accumulate (`apps/api/src/services/co-authoring/ai-proposal.service.ts:811`).
+- Diff hash fallbacks require `crypto.subtle` support; environments lacking Web
+  Crypto support will skip client-side hashing and depend on server hashes only.
+  Confirm Node runtimes ship Web Crypto or backfill via polyfill before
+  deployment
+  (`apps/web/src/features/document-editor/hooks/useCoAuthorSession.ts:132`).
+- Live proposal streaming depends on `AI_SDK_API_KEY`; missing keys trigger
+  fallback errors sent to the UI. Use `COAUTHORING_PROVIDER_MODE=mock` for
+  environments without provider credentials and alert ops when the middleware
+  logs `MISSING_AI_API_KEY` (`packages/ai/src/session/proposal-runner.ts:247`).
+
+### Clarifications
+
+- 2025-10-06 — Conversation history stays ephemeral; rely on changelog entries
+  for auditability.
+- 2025-10-06 — Provider prompts must include the entire document of completed
+  sections.
+- 2025-10-06 — No strict SLA for proposal diffs as long as progress is surfaced
+  to the author.
+
+### Assumption Log
+
+- T003 — Diff annotations expose `promptId`, `originTurnId`, `rationale`,
+  `confidence`, `citations`, and deterministic `segmentId` values for UI/audit
+  correlation.
+- T004 — `runProposalSession` accepts
+  `{ session, prompt, context, provider, onEvent, replay }` and the CLI surfaces
+  `coauthor --payload <file> --json [--replay]` for deterministic inspection.
+- T005 — `section_changelog_entries` persists proposal metadata (ID, summary,
+  confidence, citations, diff hash) while dropping transcript text.
+- T006 — `buildCoAuthorContext` always includes every completed section and
+  throws `{ code: 'SCOPE_VIOLATION' }` when the requested section is missing.
+- T007 — `createAIRequestAuditMiddleware` handles rate limiting, redacts
+  prompts, emits `coauthor.intent`, stores audit details on
+  `res.locals.aiAudit`, and returns `{ code: 'RATE_LIMITED' }` with Retry-After
+  when throttled.
+- T008–T010 — New routes live under `/api/v1/documents/.../co-author/*`, respond
+  `202 Accepted`, stream via `HX-Stream-Location`, and echo audit summaries
+  without transcripts.
+- T011 — The Zustand store exposes session lifecycle actions (`startSession`,
+  `appendTranscriptToken`, `approveProposal`, `teardownSession`, `reset`) and
+  clears transcripts on section/navigation changes.
+- T012 — `ProposalPreview` renders ARIA-labelled segments with
+  `data-segment-id`/`data-origin-turn` attributes plus prompt/confidence badges;
+  `SessionProgress` announces status with cancel/retry controls.
+- T013 — Playwright fixture runs via `?fixture=co-authoring` with test IDs
+  (`co-author-sidebar`, `co-author-session-progress`, `proposal-diff-preview`,
+  `co-author-fallback`) and labelled buttons.
+- T017 — Proposal snapshots expire after 10 minutes
+  (`AI_PROPOSAL_DEFAULT_TTL_MS = 600000`) to balance ephemerality with approval
+  windows.
+- T020 — Provider returns structured JSON (`proposalId`, `updatedDraft`,
+  `confidence`, `citations`) while retaining streamed text for diff mapping
+  fallback.
+- T027 — Draft persistence derives `draftVersion` from the latest section draft
+  when present, otherwise uses seeded contract defaults for determinism.
+- T030 — Frontend computes `diffHash` and `draftPatch` using normalized segments
+  so apply handlers receive consistent hashes before persistence lands.
+- T031+ — Default context seeds include `knowledge:wcag` and
+  `decision:telemetry` when authors lack selections to satisfy contract
+  expectations.
+- F002 — Production uses live provider unless `COAUTHORING_PROVIDER_MODE=mock`
+  or `NODE_ENV=test` forces deterministic mocks.
+- F008 — Draft patches must include Git-style prefixes on every line, including
+  blanks, for audit replay fidelity.
+- F009 — Session cleanup expires idle co-authoring sessions after five minutes
+  while explicit reject/teardown endpoints drop SSE buffers and pending
+  proposals immediately to preserve ephemerality.
+- F011 — Fallback hashing relies on Web Crypto `crypto.subtle.digest`; extend
+  research if an environment lacks support to avoid blocking approvals.
+- F012 — Client progress timer advances `elapsedMs` locally so cancel controls
+  unlock even when backend events stall.
+- F012 (2025-10-09 follow-up) — Server synthesizes progress events every second
+  so SSE payloads include increasing `elapsedMs` values.
+- F013 — SSE diff payload streams stable `segmentId` values, reusing annotation
+  identifiers for added/removed content and generating context IDs per turn.
+
 ## 010-epic-2-story-5
 
 > Feature scope: Section draft persistence & compliance telemetry

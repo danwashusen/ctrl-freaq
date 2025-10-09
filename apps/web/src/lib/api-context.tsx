@@ -1,5 +1,6 @@
 import { useAuth } from '@/lib/clerk-client';
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { createApiClient } from './api';
@@ -65,7 +66,13 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     [apiClient]
   );
 
-  const providerTree = <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
+  const [queryClient] = useState(() => new QueryClient());
+
+  const providerTree = (
+    <QueryClientProvider client={queryClient}>
+      <ApiContext.Provider value={value}>{children}</ApiContext.Provider>
+    </QueryClientProvider>
+  );
 
   if (isE2E) {
     return <E2EFixtureProvider>{providerTree}</E2EFixtureProvider>;
