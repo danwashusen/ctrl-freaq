@@ -87,6 +87,108 @@ export const diffFixtureSchema = z.object({
 });
 export type DiffFixture = z.infer<typeof diffFixtureSchema>;
 
+const coAuthoringDiffSegmentSchema = z.object({
+  segmentId: z.string().min(1),
+  type: z.enum(['added', 'removed', 'context']),
+  value: z.string(),
+});
+
+const coAuthoringDiffFixtureSchema = z.object({
+  mode: z.enum(['unified', 'split']).default('unified'),
+  segments: coAuthoringDiffSegmentSchema.array().min(1),
+});
+
+const coAuthoringAnnotationFixtureSchema = z.object({
+  segmentId: z.string().min(1),
+  originTurnId: z.string().min(1).optional(),
+  promptId: z.string().min(1).optional(),
+  rationale: z.string().min(1).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  citations: z.array(z.string().min(1)).optional(),
+});
+
+export const coAuthoringStreamEventFixtureSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('progress'),
+    status: z.string().min(1),
+    elapsedMs: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal('token'),
+    value: z.string(),
+  }),
+  z.object({
+    type: z.literal('proposal.ready'),
+    proposalId: z.string().min(1),
+    diff: coAuthoringDiffFixtureSchema,
+    annotations: coAuthoringAnnotationFixtureSchema.array().default([]),
+    confidence: z.number().min(0).max(1),
+    citations: z.array(z.string().min(1)).default([]),
+    expiresAt: z.string().optional(),
+    diffHash: z.string().min(1).optional(),
+  }),
+  z.object({
+    type: z.literal('analysis.completed'),
+    timestamp: z.string().min(1),
+    sessionId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('error'),
+    message: z.string().min(1),
+  }),
+]);
+export type CoAuthoringStreamEventFixture = z.infer<typeof coAuthoringStreamEventFixtureSchema>;
+
+const coAuthoringProposalFixtureSchema = z.object({
+  pendingProposalId: z.string().min(1),
+  proposalId: z.string().min(1),
+  diff: coAuthoringDiffFixtureSchema,
+  annotations: coAuthoringAnnotationFixtureSchema.array().default([]),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(z.string().min(1)).default([]),
+  expiresAt: z.string().optional(),
+  diffHash: z.string().min(1),
+});
+export type CoAuthoringProposalFixture = z.infer<typeof coAuthoringProposalFixtureSchema>;
+
+const coAuthoringApplyFixtureSchema = z.object({
+  changelogSummary: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(z.string().min(1)).default([]),
+  entryId: z.string().min(1).optional(),
+  diffHash: z.string().min(1),
+  draftVersion: z.number().int().positive(),
+});
+export type CoAuthoringApplyFixture = z.infer<typeof coAuthoringApplyFixtureSchema>;
+
+export const coAuthoringFixtureSchema = z.object({
+  defaultSession: z.object({
+    sessionId: z.string().min(1),
+    intent: z.enum(['explain', 'outline', 'improve']),
+    knowledgeItemIds: z.array(z.string().min(1)).default([]),
+    decisionIds: z.array(z.string().min(1)).default([]),
+  }),
+  auditExpectation: z
+    .object({
+      proposalSummary: z.string().min(1),
+      confidence: z.number().min(0).max(1),
+      citations: z.array(z.string().min(1)).default([]),
+    })
+    .optional(),
+  fallbackMessage: z.string().min(1),
+  analyzeSummary: z
+    .object({
+      completedSectionCount: z.number().int().nonnegative(),
+      knowledgeItemCount: z.number().int().nonnegative(),
+      decisionCount: z.number().int().nonnegative(),
+    })
+    .optional(),
+  streamEvents: coAuthoringStreamEventFixtureSchema.array().default([]),
+  proposal: coAuthoringProposalFixtureSchema,
+  apply: coAuthoringApplyFixtureSchema,
+});
+export type CoAuthoringFixture = z.infer<typeof coAuthoringFixtureSchema>;
+
 export const conflictLogEntryFixtureSchema = z.object({
   detectedAt: z.string().datetime(),
   detectedDuring: z.enum(['entry', 'save']),
@@ -197,6 +299,7 @@ export const sectionFixtureSchema = z.object({
   diff: diffFixtureSchema.optional(),
   review: reviewSubmissionFixtureSchema.optional(),
   approval: approvalFixtureSchema.optional(),
+  coAuthoring: coAuthoringFixtureSchema.optional(),
 });
 export type SectionFixture = z.infer<typeof sectionFixtureSchema>;
 

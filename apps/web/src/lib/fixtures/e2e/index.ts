@@ -15,10 +15,20 @@ import {
   type ReviewSubmissionFixture,
   type SectionFixture,
   type DiffFixture,
+  type CoAuthoringFixture,
+  type CoAuthoringStreamEventFixture,
 } from './types';
 import { getProjectRetentionPolicy } from '../../../mocks/projectRetention';
 import { demoArchitectureDocument } from './demo-architecture';
 import { convertFixtureSessionToFlowState } from './transformers';
+
+const sectionAliasMap: Record<string, string> = {
+  'architecture-overview': 'sec-overview',
+};
+
+const normalizeSectionId = (sectionId: string): string => {
+  return sectionAliasMap[sectionId] ?? sectionId;
+};
 
 const fixturesByDocumentId: Record<string, DocumentFixture> = {
   [demoArchitectureDocument.id]: demoArchitectureDocument,
@@ -29,6 +39,10 @@ interface RuntimeSectionState {
   diff: DiffFixture | null;
   review: ReviewSubmissionFixture | null;
   approval: ApprovalFixture | null;
+  coAuthoring?: {
+    activeSessionId: string | null;
+    pendingProposalId: string | null;
+  };
 }
 
 interface RuntimeDocumentState {
@@ -52,6 +66,12 @@ type ParsedRequest =
   | { kind: 'apiConflictLogs'; sectionId: string }
   | { kind: 'apiAssumptionsStart'; sectionId: string }
   | { kind: 'apiProjectRetention'; projectSlug: string }
+  | { kind: 'apiCoAuthorAnalyze'; documentId: string; sectionId: string }
+  | { kind: 'apiCoAuthorProposal'; documentId: string; sectionId: string }
+  | { kind: 'apiCoAuthorApply'; documentId: string; sectionId: string }
+  | { kind: 'apiCoAuthorReject'; documentId: string; sectionId: string }
+  | { kind: 'apiCoAuthorTeardown'; documentId: string; sectionId: string }
+  | { kind: 'apiCoAuthorStream'; sessionId: string }
   | { kind: 'unknown' };
 
 const notFoundError: FixtureErrorResponse = fixtureErrorSchema.parse({
@@ -83,6 +103,12 @@ function initializeRuntimeDocuments(): Record<string, RuntimeDocumentState> {
         diff: section.diff ? cloneValue(section.diff) : null,
         review: section.review ? cloneValue(section.review) : null,
         approval: section.approval ? cloneValue(section.approval) : null,
+        coAuthoring: section.coAuthoring
+          ? {
+              activeSessionId: null,
+              pendingProposalId: null,
+            }
+          : undefined,
       };
     });
   });
@@ -98,7 +124,8 @@ function cloneValue<T>(value: T): T {
 }
 
 function resolveDocumentIdForSection(sectionId: string): string | null {
-  return sectionToDocumentMap.get(sectionId) ?? null;
+  const normalized = normalizeSectionId(sectionId);
+  return sectionToDocumentMap.get(normalized) ?? null;
 }
 
 function getRuntimeSection(documentId: string, sectionId: string): RuntimeSectionState {
@@ -106,9 +133,10 @@ function getRuntimeSection(documentId: string, sectionId: string): RuntimeSectio
   if (!documentState) {
     throw new Error(`Unknown fixture document state for: ${documentId}`);
   }
-  const sectionState = documentState.sections[sectionId];
+  const normalized = normalizeSectionId(sectionId);
+  const sectionState = documentState.sections[normalized];
   if (!sectionState) {
-    throw new Error(`Unknown fixture section state for: ${documentId}/${sectionId}`);
+    throw new Error(`Unknown fixture section state for: ${documentId}/${normalized}`);
   }
   return sectionState;
 }
@@ -178,7 +206,49 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
     segments.shift();
   }
 
+  if (segments[0] === 'api' && segments[1] === 'v1') {
+    segments.splice(1, 1);
+  }
+
   if (segments.length === 0) {
+    return { kind: 'unknown' };
+  }
+
+  if (segments[0] === 'api' && segments[1] === 'documents') {
+    const documentId = segments[2];
+    if (!documentId) {
+      return { kind: 'unknown' };
+    }
+
+    if (segments.length >= 5 && segments[3] === 'sections') {
+      const sectionId = segments[4];
+      if (!sectionId) {
+        return { kind: 'unknown' };
+      }
+
+      if (segments[5] === 'co-author') {
+        if (segments.length === 7) {
+          const action = segments[6];
+          switch (action) {
+            case 'analyze':
+              return { kind: 'apiCoAuthorAnalyze', documentId, sectionId };
+            case 'proposal':
+              return { kind: 'apiCoAuthorProposal', documentId, sectionId };
+            case 'apply':
+              return { kind: 'apiCoAuthorApply', documentId, sectionId };
+            case 'teardown':
+              return { kind: 'apiCoAuthorTeardown', documentId, sectionId };
+            default:
+              break;
+          }
+        }
+
+        if (segments.length === 8 && segments[6] === 'proposal' && segments[7] === 'reject') {
+          return { kind: 'apiCoAuthorReject', documentId, sectionId };
+        }
+      }
+    }
+
     return { kind: 'unknown' };
   }
 
@@ -243,6 +313,16 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
 
     if (segments.length === 4 && segments[3] === 'retention') {
       return { kind: 'apiProjectRetention', projectSlug };
+    }
+  }
+
+  if (segments[0] === 'api' && segments[1] === 'co-authoring' && segments[2] === 'sessions') {
+    const sessionId = segments[3];
+    if (!sessionId) {
+      return { kind: 'unknown' };
+    }
+    if (segments.length === 5 && segments[4] === 'events') {
+      return { kind: 'apiCoAuthorStream', sessionId };
     }
   }
 
@@ -329,6 +409,360 @@ function handleProjectRetentionResponse(res: ServerResponse, projectSlug: string
     retentionWindow: policy.retentionWindow,
     guidance: policy.guidance,
   });
+}
+
+const STREAM_LOCATION_PREFIX = '/api/v1/co-authoring/sessions';
+
+async function handleCoAuthorAnalyze(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string,
+  sectionId: string
+) {
+  const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+  if (!fixtureSection || !fixtureSection.coAuthoring) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const payload = await readJsonBody(req);
+  const requestSessionId =
+    typeof payload.sessionId === 'string' && payload.sessionId.length > 0
+      ? payload.sessionId
+      : `${fixtureSection.coAuthoring.defaultSession.sessionId}-${Date.now()}`;
+
+  const runtimeSection = getRuntimeSection(documentId, sectionId);
+  const runtime = ensureCoAuthoringRuntimeState(runtimeSection);
+  runtime.activeSessionId = requestSessionId;
+  runtime.pendingProposalId = null;
+
+  const analyzeSummary = fixtureSection.coAuthoring.analyzeSummary;
+  const documentFixture = fixturesByDocumentId[documentId];
+  if (!documentFixture) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+  const completedSectionCount =
+    analyzeSummary?.completedSectionCount ??
+    Object.values(documentFixture.sections).filter(section => section.lifecycleState === 'ready')
+      .length;
+  const knowledgeItemCount = Array.isArray(payload.knowledgeItemIds)
+    ? payload.knowledgeItemIds.length
+    : (analyzeSummary?.knowledgeItemCount ??
+      fixtureSection.coAuthoring.defaultSession.knowledgeItemIds.length);
+  const decisionCount = Array.isArray(payload.decisionIds)
+    ? payload.decisionIds.length
+    : (analyzeSummary?.decisionCount ??
+      fixtureSection.coAuthoring.defaultSession.decisionIds.length);
+
+  const response = {
+    status: 'accepted' as const,
+    sessionId: requestSessionId,
+    contextSummary: {
+      completedSectionCount,
+      knowledgeItemCount,
+      decisionCount,
+    },
+    audit: {
+      documentId,
+      sectionId,
+      intent:
+        typeof payload.intent === 'string' && payload.intent.length > 0
+          ? payload.intent
+          : fixtureSection.coAuthoring.defaultSession.intent,
+    },
+  };
+
+  res.setHeader(
+    'HX-Stream-Location',
+    `${STREAM_LOCATION_PREFIX}/${encodeURIComponent(requestSessionId)}/events`
+  );
+  sendJson(res, 202, response);
+}
+
+async function handleCoAuthorProposal(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string,
+  sectionId: string
+) {
+  const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+  if (!fixtureSection || !fixtureSection.coAuthoring) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const payload = await readJsonBody(req);
+  const runtimeSection = getRuntimeSection(documentId, sectionId);
+  const runtime = ensureCoAuthoringRuntimeState(runtimeSection);
+  const sessionId =
+    typeof payload.sessionId === 'string' && payload.sessionId.length > 0
+      ? payload.sessionId
+      : (runtime.activeSessionId ??
+        `${fixtureSection.coAuthoring.defaultSession.sessionId}-${Date.now()}`);
+
+  runtime.activeSessionId = sessionId;
+  runtime.pendingProposalId = fixtureSection.coAuthoring.proposal.proposalId;
+
+  const promptId =
+    typeof payload.promptId === 'string' && payload.promptId.length > 0
+      ? payload.promptId
+      : (fixtureSection.coAuthoring.proposal.annotations[0]?.promptId ?? 'prompt-improve-1');
+
+  const response = {
+    status: 'accepted' as const,
+    sessionId,
+    diffPreview: {
+      mode: fixtureSection.coAuthoring.proposal.diff.mode,
+      pendingProposalId: fixtureSection.coAuthoring.proposal.pendingProposalId,
+    },
+    audit: {
+      documentId,
+      sectionId,
+      intent:
+        typeof payload.intent === 'string' && payload.intent.length > 0
+          ? payload.intent
+          : fixtureSection.coAuthoring.defaultSession.intent,
+      promptId,
+    },
+  };
+
+  res.setHeader(
+    'HX-Stream-Location',
+    `${STREAM_LOCATION_PREFIX}/${encodeURIComponent(sessionId)}/events`
+  );
+  sendJson(res, 202, response);
+}
+
+async function handleCoAuthorApply(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string,
+  sectionId: string
+) {
+  const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+  if (!fixtureSection || !fixtureSection.coAuthoring) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const payload = await readJsonBody(req);
+  const runtimeSection = getRuntimeSection(documentId, sectionId);
+  const runtime = ensureCoAuthoringRuntimeState(runtimeSection);
+  runtime.pendingProposalId = null;
+
+  const response = {
+    status: 'queued' as const,
+    changelog: {
+      entryId: fixtureSection.coAuthoring.apply.entryId,
+      summary: fixtureSection.coAuthoring.apply.changelogSummary,
+      confidence: fixtureSection.coAuthoring.apply.confidence,
+      citations: fixtureSection.coAuthoring.apply.citations,
+      proposalId:
+        typeof payload.proposalId === 'string' && payload.proposalId.length > 0
+          ? payload.proposalId
+          : fixtureSection.coAuthoring.proposal.proposalId,
+    },
+    queue: {
+      draftVersion: fixtureSection.coAuthoring.apply.draftVersion,
+      diffHash: fixtureSection.coAuthoring.apply.diffHash,
+    },
+  };
+
+  sendJson(res, 200, response);
+}
+
+async function handleCoAuthorReject(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string,
+  sectionId: string
+) {
+  const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+  if (!fixtureSection || !fixtureSection.coAuthoring) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const payload = await readJsonBody(req);
+  const runtimeSection = getRuntimeSection(documentId, sectionId);
+  const runtime = ensureCoAuthoringRuntimeState(runtimeSection);
+
+  const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId : null;
+  const proposalId = typeof payload.proposalId === 'string' ? payload.proposalId : null;
+
+  if (sessionId && runtime.activeSessionId === sessionId) {
+    runtime.pendingProposalId = null;
+    if (proposalId && fixtureSection.coAuthoring.proposal.pendingProposalId === proposalId) {
+      runtimeSection.diff = null;
+    }
+  }
+
+  sendJson(res, 200, { status: 'dismissed' });
+}
+
+async function handleCoAuthorTeardown(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string,
+  sectionId: string
+) {
+  const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+  if (!fixtureSection || !fixtureSection.coAuthoring) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  await readJsonBody(req);
+  const runtimeSection = getRuntimeSection(documentId, sectionId);
+  const runtime = ensureCoAuthoringRuntimeState(runtimeSection);
+
+  runtime.pendingProposalId = null;
+  runtime.activeSessionId = null;
+
+  sendJson(res, 200, { status: 'teardown' });
+}
+
+function materializeStreamEvents(
+  events: CoAuthoringStreamEventFixture[],
+  sessionId: string,
+  fixture: CoAuthoringFixture
+): CoAuthoringStreamEventFixture[] {
+  return events.map(event => {
+    switch (event.type) {
+      case 'progress':
+        return { ...event };
+      case 'token':
+        return { ...event };
+      case 'analysis.completed':
+        return { ...event, sessionId };
+      case 'error':
+        return { ...event };
+      case 'proposal.ready': {
+        const diffSource = event.diff ?? fixture.proposal.diff;
+        const annotationsSource =
+          event.annotations && event.annotations.length > 0
+            ? event.annotations
+            : (fixture.proposal.annotations ?? []);
+        return {
+          type: 'proposal.ready',
+          proposalId: event.proposalId ?? fixture.proposal.proposalId,
+          diff: {
+            mode: diffSource.mode,
+            segments: diffSource.segments.map(segment => ({
+              ...segment,
+              segmentId: replaceSessionToken(segment.segmentId, sessionId),
+            })),
+          },
+          annotations: annotationsSource.map(annotation => ({
+            ...annotation,
+            segmentId: replaceSessionToken(annotation.segmentId, sessionId),
+            originTurnId: annotation.originTurnId
+              ? replaceSessionToken(annotation.originTurnId, sessionId)
+              : annotation.originTurnId,
+          })),
+          confidence: event.confidence ?? fixture.proposal.confidence,
+          citations:
+            event.citations && event.citations.length > 0
+              ? event.citations
+              : fixture.proposal.citations,
+          expiresAt: event.expiresAt ?? fixture.proposal.expiresAt,
+          diffHash: event.diffHash ?? fixture.proposal.diffHash,
+        } satisfies CoAuthoringStreamEventFixture;
+      }
+      default:
+        return event;
+    }
+  });
+}
+
+function buildFallbackStreamEvents(
+  sessionId: string,
+  fixture: CoAuthoringFixture
+): CoAuthoringStreamEventFixture[] {
+  return materializeStreamEvents(
+    [
+      { type: 'progress', status: 'streaming', elapsedMs: 1500 },
+      {
+        type: 'proposal.ready',
+        proposalId: fixture.proposal.proposalId,
+        diff: fixture.proposal.diff,
+        annotations: fixture.proposal.annotations ?? [],
+        confidence: fixture.proposal.confidence,
+        citations: fixture.proposal.citations,
+        expiresAt: fixture.proposal.expiresAt,
+        diffHash: fixture.proposal.diffHash,
+      },
+      {
+        type: 'analysis.completed',
+        timestamp: new Date().toISOString(),
+        sessionId,
+      },
+    ],
+    sessionId,
+    fixture
+  );
+}
+
+function handleCoAuthorStream(req: IncomingMessage, res: ServerResponse, sessionId: string) {
+  const context = findCoAuthoringFixtureForSession(sessionId);
+  if (!context) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const eventsSource =
+    context.fixture.streamEvents.length > 0
+      ? materializeStreamEvents(context.fixture.streamEvents, sessionId, context.fixture)
+      : buildFallbackStreamEvents(sessionId, context.fixture);
+
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  res.write(': co-authoring fixture stream\n\n');
+
+  if (eventsSource.length === 0) {
+    res.end();
+    return;
+  }
+
+  const timers: NodeJS.Timeout[] = [];
+
+  const cleanup = () => {
+    while (timers.length > 0) {
+      const timer = timers.pop();
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
+    if (!res.writableEnded) {
+      res.end();
+    }
+  };
+
+  eventsSource.forEach((event, index) => {
+    const timer = setTimeout(() => {
+      if (res.writableEnded) {
+        return;
+      }
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (index === eventsSource.length - 1) {
+        cleanup();
+      }
+    }, index * 150);
+    timers.push(timer);
+  });
+
+  req.on('close', cleanup);
+  res.on('close', cleanup);
+  res.on('finish', cleanup);
 }
 
 async function handleSaveDraft(req: IncomingMessage, res: ServerResponse, sectionId: string) {
@@ -711,6 +1145,54 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
           handleProjectRetentionResponse(res, parsed.projectSlug);
           return;
         }
+        case 'apiCoAuthorAnalyze': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleCoAuthorAnalyze(req, res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiCoAuthorProposal': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleCoAuthorProposal(req, res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiCoAuthorApply': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleCoAuthorApply(req, res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiCoAuthorReject': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleCoAuthorReject(req, res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiCoAuthorTeardown': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleCoAuthorTeardown(req, res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiCoAuthorStream': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleCoAuthorStream(req, res, parsed.sessionId);
+          return;
+        }
         default:
           next();
           return;
@@ -736,13 +1218,79 @@ export const getSectionFixture = (documentId: string, sectionId: string): Sectio
     throw new Error(`Unknown document fixture: ${documentId}`);
   }
 
-  const section = candidate.sections[sectionId];
+  const normalized = normalizeSectionId(sectionId);
+  const section = candidate.sections[normalized];
   if (!section) {
-    throw new Error(`Unknown section fixture: ${documentId}/${sectionId}`);
+    throw new Error(`Unknown section fixture: ${documentId}/${normalized}`);
   }
 
   return cloneSectionFixture(assertSectionFixture(section));
 };
+
+function getSectionFixtureRecord(documentId: string, sectionId: string): SectionFixture | null {
+  const candidate = fixturesByDocumentId[documentId];
+  if (!candidate) {
+    return null;
+  }
+  const normalized = normalizeSectionId(sectionId);
+  return candidate.sections[normalized] ?? null;
+}
+
+function ensureCoAuthoringRuntimeState(
+  state: RuntimeSectionState
+): NonNullable<RuntimeSectionState['coAuthoring']> {
+  if (!state.coAuthoring) {
+    state.coAuthoring = {
+      activeSessionId: null,
+      pendingProposalId: null,
+    };
+  }
+  return state.coAuthoring;
+}
+
+const SESSION_PLACEHOLDER = 'session-coauthor-demo-001';
+
+const replaceSessionToken = (value: string, sessionId: string): string => {
+  return value.includes(SESSION_PLACEHOLDER)
+    ? value.split(SESSION_PLACEHOLDER).join(sessionId)
+    : value;
+};
+
+function findCoAuthoringFixtureForSession(sessionId: string): {
+  documentId: string;
+  sectionId: string;
+  fixture: CoAuthoringFixture;
+  runtime: RuntimeSectionState;
+} | null {
+  for (const [documentId, documentState] of Object.entries(runtimeDocuments)) {
+    for (const [sectionId, sectionState] of Object.entries(documentState.sections)) {
+      const coAuthorState = sectionState.coAuthoring;
+      if (coAuthorState?.activeSessionId === sessionId) {
+        const fixtureSection = getSectionFixtureRecord(documentId, sectionId);
+        if (fixtureSection?.coAuthoring) {
+          return {
+            documentId,
+            sectionId,
+            fixture: fixtureSection.coAuthoring,
+            runtime: sectionState,
+          };
+        }
+      }
+    }
+  }
+
+  for (const [documentId, document] of Object.entries(fixturesByDocumentId)) {
+    for (const [sectionId, section] of Object.entries(document.sections)) {
+      if (section.coAuthoring?.defaultSession.sessionId === sessionId) {
+        const runtime = getRuntimeSection(documentId, sectionId);
+        ensureCoAuthoringRuntimeState(runtime);
+        return { documentId, sectionId, fixture: section.coAuthoring, runtime };
+      }
+    }
+  }
+
+  return null;
+}
 
 export const listDocumentIds = (): string[] => Object.keys(fixturesByDocumentId);
 

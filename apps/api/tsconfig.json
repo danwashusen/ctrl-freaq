@@ -7,7 +7,7 @@
     "allowImportingTsExtensions": false,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "../../packages/ai/src/**/*"],
   "exclude": [
     "dist",
     "node_modules",
@@ -20,6 +20,7 @@
   "references": [
     { "path": "../../packages/editor-core" },
     { "path": "../../packages/shared-data" },
+    { "path": "../../packages/ai" },
     { "path": "../../packages/templates" },
     { "path": "../../packages/template-resolver" },
     { "path": "../../packages/qa" }

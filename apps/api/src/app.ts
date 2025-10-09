@@ -213,6 +213,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { documentsRouter } = await import('./routes/documents.js');
   const { sectionsRouter } = await import('./routes/sections.js');
   const { sessionsRouter } = await import('./routes/sessions.js');
+  const { coAuthoringRouter } = await import('./routes/co-authoring.js');
   const { clerkAuthMiddleware, requireAuth, createUserRateLimit } = await import(
     './middleware/auth.js'
   );
@@ -252,7 +253,10 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use('/api/v1', documentsRouter);
   app.use('/api/v1', sectionsRouter);
   app.use('/api/v1', sessionsRouter);
-  if (isTestEnv) {
+  app.use('/api/v1', coAuthoringRouter);
+  const shouldRegisterTestRoutes =
+    isTestEnv || (process.env.NODE_ENV ?? 'development') !== 'production';
+  if (shouldRegisterTestRoutes) {
     app.use('/', testOnlyRouter);
   }
 

@@ -26,6 +26,20 @@ const assumptionSessionSchema = z.object({
   transcript: z.array(transcriptMessageSchema).min(1),
 });
 
+const coAuthoringFixtureSchema = z.object({
+  defaultSession: z.object({
+    sessionId: z.string().min(1),
+    intent: z.enum(['explain', 'outline', 'improve']),
+    knowledgeItemIds: z.array(z.string().min(1)).min(1),
+    decisionIds: z.array(z.string().min(1)).min(1),
+  }),
+  auditExpectation: z.object({
+    proposalSummary: z.string().min(1),
+    confidence: z.number().min(0).max(1),
+  }),
+  fallbackMessage: z.string().min(1),
+});
+
 const sectionFixtureSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -35,6 +49,7 @@ const sectionFixtureSchema = z.object({
   assumptionSession: assumptionSessionSchema.nullable(),
   lastAuthoredBy: z.string().min(1),
   lastUpdatedAt: z.string().min(1),
+  coAuthoring: coAuthoringFixtureSchema.optional(),
 });
 
 const sectionReferenceSchema = z.object({
@@ -75,6 +90,17 @@ describe('document fixture helpers contract', () => {
 
     expect(parsed.success).toBe(true);
     expect(result.assumptionSession?.transcript.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('provides co-authoring scenario fixture data for the architecture overview section', () => {
+    const result = getSectionFixture('demo-architecture', 'sec-overview');
+    const parsed = sectionFixtureSchema.safeParse(result);
+
+    expect(parsed.success).toBe(true);
+    const coAuthoring = result.coAuthoring;
+    expect(coAuthoring).toBeDefined();
+    const coAuthoringValidation = coAuthoringFixtureSchema.safeParse(coAuthoring);
+    expect(coAuthoringValidation.success).toBe(true);
   });
 
   it('throws when requesting unknown fixture identifiers', () => {

@@ -4,11 +4,12 @@ import { dismissDraftRecoveryGate } from '../support/draft-recovery';
 
 test.describe('Section Editor Read-Only Overview', () => {
   test('surfaces approval metadata and edit affordance', async ({ page }) => {
-    await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.goto('/documents/demo-architecture/sections/sec-overview?fixture=read-only');
     await page.waitForLoadState('networkidle');
     await dismissDraftRecoveryGate(page);
 
     const preview = page.getByTestId('section-preview');
+    await preview.waitFor({ state: 'attached', timeout: 5000 });
     await expect(preview).toBeVisible();
 
     await expect(preview.getByTestId('section-approval-status')).toHaveText(

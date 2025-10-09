@@ -139,6 +139,127 @@ const sectionFixtures: Record<string, SectionFixture> = {
     assumptionSession: null,
     lastAuthoredBy: 'Morgan Lee',
     lastUpdatedAt: '2025-01-14T12:00:00.000Z',
+    coAuthoring: {
+      defaultSession: {
+        sessionId: 'session-coauthor-demo-001',
+        intent: 'improve',
+        knowledgeItemIds: ['knowledge:wcag', 'knowledge:telemetry-insights'],
+        decisionIds: ['decision:telemetry', 'decision:architecture/principles/streaming'],
+      },
+      auditExpectation: {
+        proposalSummary: 'AI-assisted rewrite approved by Morgan Lee',
+        confidence: 0.86,
+        citations: ['decision:telemetry'],
+      },
+      fallbackMessage:
+        'Assistant became unavailable. Continue with manual edits or retry once connectivity stabilizes.',
+      analyzeSummary: {
+        completedSectionCount: 3,
+        knowledgeItemCount: 2,
+        decisionCount: 2,
+      },
+      proposal: {
+        pendingProposalId: 'proposal-coauthor-demo-001',
+        proposalId: 'proposal-coauthor-demo-001',
+        diff: {
+          mode: 'unified',
+          segments: [
+            {
+              segmentId: 'session-coauthor-demo-001::context::0',
+              type: 'context',
+              value: '## CTRL FreaQ Architecture Overview',
+            },
+            {
+              segmentId: 'session-coauthor-demo-001::added::0',
+              type: 'added',
+              value: 'Added clarity around streaming progress feedback for architecture readers.',
+            },
+            {
+              segmentId: 'session-coauthor-demo-001::context::1',
+              type: 'context',
+              value: '- Deterministic fixtures ensure QA parity',
+            },
+          ],
+        },
+        annotations: [
+          {
+            segmentId: 'session-coauthor-demo-001::added::0',
+            originTurnId: 'session-coauthor-demo-001::turn-1::assistant',
+            promptId: 'prompt-improve-1',
+            rationale: 'Clarifies streaming telemetry guidance for architecture overview.',
+            confidence: 0.86,
+            citations: ['decision:telemetry'],
+          },
+        ],
+        confidence: 0.86,
+        citations: ['decision:telemetry'],
+        expiresAt: '2025-01-15T15:39:00.000Z',
+        diffHash: 'sha256:coauthor-fixture-demo',
+      },
+      streamEvents: [
+        { type: 'progress', status: 'queued', elapsedMs: 0 },
+        { type: 'progress', status: 'streaming', elapsedMs: 1800 },
+        {
+          type: 'token',
+          value: 'Assistant rewriting introduction to highlight streaming improvements. ',
+        },
+        { type: 'progress', status: 'streaming', elapsedMs: 6200 },
+        {
+          type: 'token',
+          value: 'Added streaming progress feedback guidance for consistent UX.',
+        },
+        {
+          type: 'proposal.ready',
+          proposalId: 'proposal-coauthor-demo-001',
+          diff: {
+            mode: 'unified',
+            segments: [
+              {
+                segmentId: 'session-coauthor-demo-001::context::0',
+                type: 'context',
+                value: '## CTRL FreaQ Architecture Overview',
+              },
+              {
+                segmentId: 'session-coauthor-demo-001::added::0',
+                type: 'added',
+                value: 'Added clarity around streaming progress feedback for architecture readers.',
+              },
+              {
+                segmentId: 'session-coauthor-demo-001::context::1',
+                type: 'context',
+                value: '- Deterministic fixtures ensure QA parity',
+              },
+            ],
+          },
+          annotations: [
+            {
+              segmentId: 'session-coauthor-demo-001::added::0',
+              originTurnId: 'session-coauthor-demo-001::turn-1::assistant',
+              promptId: 'prompt-improve-1',
+              rationale: 'Clarifies streaming telemetry guidance for architecture overview.',
+              confidence: 0.86,
+              citations: ['decision:telemetry'],
+            },
+          ],
+          confidence: 0.86,
+          citations: ['decision:telemetry'],
+          expiresAt: '2025-01-15T15:39:00.000Z',
+        },
+        {
+          type: 'analysis.completed',
+          timestamp: '2025-01-15T15:34:10.000Z',
+          sessionId: 'session-coauthor-demo-001',
+        },
+      ],
+      apply: {
+        changelogSummary: 'AI-assisted rewrite approved by Morgan Lee',
+        confidence: 0.86,
+        citations: ['decision:telemetry'],
+        entryId: 'coauthor-changelog-entry-demo-001',
+        diffHash: 'sha256:coauthor-fixture-demo',
+        draftVersion: 5,
+      },
+    },
     draft: {
       draftId: 'draft-sec-overview-004',
       draftVersion: 4,
