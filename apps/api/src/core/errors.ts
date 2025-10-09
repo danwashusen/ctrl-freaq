@@ -59,6 +59,10 @@ export abstract class AppError extends Error {
       stack: this.stack,
     };
   }
+
+  getSafeDetails(): Record<string, unknown> | undefined {
+    return undefined;
+  }
 }
 
 /**
@@ -274,6 +278,14 @@ export class ErrorFormatter {
       if (error instanceof RateLimitError && error.retryAfter) {
         response.details = {
           retryAfter: error.retryAfter,
+        };
+      }
+
+      const safeDetails = error.getSafeDetails();
+      if (safeDetails && Object.keys(safeDetails).length > 0) {
+        response.details = {
+          ...(response.details ?? {}),
+          ...safeDetails,
         };
       }
 

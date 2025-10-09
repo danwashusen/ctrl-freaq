@@ -41,6 +41,9 @@ import {
 import { useDocumentFixtureBootstrap } from '../hooks/use-document-fixture';
 import { AssumptionsChecklist } from '../assumptions-flow/components/assumptions-checklist';
 import { useAssumptionsFlow } from '../assumptions-flow/hooks/use-assumptions-flow';
+import { CoAuthorSidebar } from './co-authoring';
+import { useCoAuthorSession } from '../hooks/useCoAuthorSession';
+import type { CoAuthoringIntent } from '../stores/co-authoring-store';
 
 export interface DocumentEditorProps {
   documentId: string;
@@ -81,6 +84,11 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const [showQuotaBanner, setShowQuotaBanner] = useState(false);
     const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
     const [isRecoveryProcessing, setIsRecoveryProcessing] = useState(false);
+    const [isCoAuthorOpen, setIsCoAuthorOpen] = useState(false);
+    const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<string[]>(['knowledge:wcag']);
+    const [selectedDecisionIds, setSelectedDecisionIds] = useState<string[]>([
+      'decision:telemetry',
+    ]);
     const editEntryTimerRef = useRef<(() => void) | null>(null);
     const editRenderTimerRef = useRef<(() => void) | null>(null);
 
@@ -249,6 +257,39 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const sectionsList = useMemo(() => sortSections(sections), [sections]);
     const activeSection = activeSectionId ? (sections[activeSectionId] ?? null) : null;
 
+    const knowledgeOptions = useMemo(
+      () => [
+        { id: 'knowledge:wcag', label: 'WCAG accessibility guidelines' },
+        { id: 'knowledge:streaming', label: 'Streaming progress best practices' },
+      ],
+      []
+    );
+
+    const decisionOptions = useMemo(
+      () => [
+        { id: 'decision:telemetry', label: 'Telemetry stays console-only' },
+        { id: 'decision:audit', label: 'Changelog captures approval metadata' },
+      ],
+      []
+    );
+
+    const toggleKnowledge = useCallback((id: string) => {
+      setSelectedKnowledgeIds(prev =>
+        prev.includes(id) ? prev.filter(existing => existing !== id) : [...prev, id]
+      );
+    }, []);
+
+    const toggleDecision = useCallback((id: string) => {
+      setSelectedDecisionIds(prev =>
+        prev.includes(id) ? prev.filter(existing => existing !== id) : [...prev, id]
+      );
+    }, []);
+
+    const contextSources = useMemo(
+      () => [...new Set([...selectedKnowledgeIds, ...selectedDecisionIds])],
+      [selectedKnowledgeIds, selectedDecisionIds]
+    );
+
     const shouldEnableAssumptionsFlow =
       activeSection?.status === 'assumptions' ||
       (!!activeSection && !activeSection.hasContent && !activeSection.assumptionsResolved);
@@ -334,6 +375,270 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       initialDraftVersion: activeSection?.draftVersion,
       loadPersistedDraft: Boolean(activeSection),
     });
+
+    const coAuthor = useCoAuthorSession({
+      documentId,
+      sectionId: activeSectionId ?? null,
+      authorId: effectiveUserId,
+    });
+
+    const {
+      session: coAuthorSessionState,
+      progress: coAuthorProgress,
+      transcript: coAuthorTranscript,
+      pendingProposal: coAuthorPendingProposal,
+      fallback: coAuthorFallback,
+      analyze: analyzeWithCoAuthor,
+      requestProposal: requestCoAuthorProposal,
+      approveProposal: approveCoAuthorProposal,
+      cancelStreaming: cancelCoAuthorStreaming,
+      teardown: teardownCoAuthor,
+      setIntent: setCoAuthorIntent,
+      setContextSources: setCoAuthorContextSources,
+      ensureSession: ensureCoAuthorSession,
+      clearFallback: clearCoAuthorFallback,
+      pushFallback: pushCoAuthorFallback,
+      dismissProposal: dismissCoAuthorProposal,
+    } = coAuthor;
+
+    useEffect(() => {
+      if (!coAuthorSessionState) {
+        return;
+      }
+
+      const nextSources = Array.from(new Set(contextSources)).sort();
+      const currentSources = Array.from(new Set(coAuthorSessionState.contextSources)).sort();
+      const unchanged =
+        nextSources.length === currentSources.length &&
+        nextSources.every((value, index) => value === currentSources[index]);
+
+      if (unchanged) {
+        return;
+      }
+
+      setCoAuthorContextSources(nextSources);
+    }, [coAuthorSessionState, contextSources, setCoAuthorContextSources]);
+
+    const completedSections = useMemo(() => {
+      return sectionsList
+        .filter(section => section.hasContent)
+        .map(section => ({
+          path: `/documents/${documentId}/sections/${section.key ?? section.id}.md`,
+          content: section.contentMarkdown,
+        }));
+    }, [documentId, sectionsList]);
+
+    const currentDraftContent = useMemo(() => {
+      if (draftState.content && draftState.content.length > 0) {
+        return draftState.content;
+      }
+      return activeSection?.contentMarkdown ?? '';
+    }, [draftState.content, activeSection]);
+
+    const draftVersion = sectionDraftState.draftVersion ?? activeSection?.draftVersion ?? undefined;
+    const baselineVersionCandidate =
+      sectionDraftState.draftBaseVersion ?? activeSection?.draftBaseVersion ?? null;
+    const baselineVersion =
+      baselineVersionCandidate === null || baselineVersionCandidate === undefined
+        ? undefined
+        : typeof baselineVersionCandidate === 'string'
+          ? baselineVersionCandidate
+          : `rev-${baselineVersionCandidate}`;
+
+    const approvalSummary = resolveSummaryForApproval(
+      activeSection ?? ({} as SectionView),
+      draftState.summaryNote
+    );
+
+    const activeCoAuthorIntent: CoAuthoringIntent = coAuthorSessionState?.activeIntent ?? 'improve';
+    const documentTitle = documentInfo?.title ?? fixtureDocument?.title ?? 'Untitled document';
+
+    const handleToggleCoAuthor = useCallback(() => {
+      setIsCoAuthorOpen(prev => {
+        const next = !prev;
+        if (next) {
+          ensureCoAuthorSession({ intent: activeCoAuthorIntent, contextSources });
+        } else {
+          cancelCoAuthorStreaming();
+          dismissCoAuthorProposal();
+          clearCoAuthorFallback();
+        }
+        return next;
+      });
+    }, [
+      activeCoAuthorIntent,
+      cancelCoAuthorStreaming,
+      clearCoAuthorFallback,
+      contextSources,
+      dismissCoAuthorProposal,
+      ensureCoAuthorSession,
+    ]);
+
+    const handleIntentChange = useCallback(
+      (intent: CoAuthoringIntent) => {
+        setCoAuthorIntent(intent);
+        ensureCoAuthorSession({ intent, contextSources });
+      },
+      [contextSources, ensureCoAuthorSession, setCoAuthorIntent]
+    );
+
+    const handleAnalyzeRequest = useCallback(
+      async ({ intent, prompt }: { intent: CoAuthoringIntent; prompt: string }) => {
+        clearCoAuthorFallback();
+        try {
+          ensureCoAuthorSession({ intent, contextSources });
+          await analyzeWithCoAuthor({
+            intent,
+            prompt,
+            knowledgeItemIds: selectedKnowledgeIds,
+            decisionIds: selectedDecisionIds,
+            completedSections,
+            currentDraft: currentDraftContent,
+            contextSources,
+          });
+        } catch (error) {
+          logger.error(
+            { error: error instanceof Error ? error.message : String(error) },
+            'Co-author analyze request failed'
+          );
+          pushCoAuthorFallback('assistant_unavailable', true);
+        }
+      },
+      [
+        analyzeWithCoAuthor,
+        clearCoAuthorFallback,
+        completedSections,
+        currentDraftContent,
+        ensureCoAuthorSession,
+        pushCoAuthorFallback,
+        selectedDecisionIds,
+        selectedKnowledgeIds,
+        contextSources,
+      ]
+    );
+
+    const handleProposalRequest = useCallback(
+      async ({ intent, prompt }: { intent: CoAuthoringIntent; prompt: string }) => {
+        clearCoAuthorFallback();
+        try {
+          ensureCoAuthorSession({ intent, contextSources });
+          await requestCoAuthorProposal({
+            intent,
+            prompt,
+            knowledgeItemIds: selectedKnowledgeIds,
+            decisionIds: selectedDecisionIds,
+            completedSections,
+            currentDraft: currentDraftContent,
+            draftVersion,
+            baselineVersion,
+            contextSources,
+          });
+        } catch (error) {
+          logger.error(
+            { error: error instanceof Error ? error.message : String(error) },
+            'Co-author proposal request failed'
+          );
+          pushCoAuthorFallback('assistant_unavailable', true);
+        }
+      },
+      [
+        baselineVersion,
+        clearCoAuthorFallback,
+        completedSections,
+        currentDraftContent,
+        draftVersion,
+        ensureCoAuthorSession,
+        pushCoAuthorFallback,
+        requestCoAuthorProposal,
+        selectedDecisionIds,
+        selectedKnowledgeIds,
+        contextSources,
+      ]
+    );
+
+    const handleApproveProposal = useCallback(async () => {
+      if (!coAuthorPendingProposal) {
+        return;
+      }
+      try {
+        await approveCoAuthorProposal({
+          proposalId: coAuthorPendingProposal.proposalId,
+          draftPatch: coAuthorPendingProposal.draftPatch ?? 'diff --git a/section.md b/section.md',
+          diffHash: coAuthorPendingProposal.diffHash,
+          approvalNotes: approvalSummary ?? undefined,
+          draftVersion,
+        });
+      } catch (error) {
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Failed to approve co-author proposal'
+        );
+        pushCoAuthorFallback('approval_failed', true);
+      }
+    }, [
+      approveCoAuthorProposal,
+      approvalSummary,
+      coAuthorPendingProposal,
+      draftVersion,
+      pushCoAuthorFallback,
+    ]);
+
+    const handleRejectProposal = useCallback(() => {
+      dismissCoAuthorProposal();
+      cancelCoAuthorStreaming();
+    }, [cancelCoAuthorStreaming, dismissCoAuthorProposal]);
+
+    const handleCoAuthorRequestChanges = useCallback(() => {
+      dismissCoAuthorProposal();
+      pushCoAuthorFallback('proposal_needs_changes', false);
+    }, [dismissCoAuthorProposal, pushCoAuthorFallback]);
+
+    const handleRetryAssistant = useCallback(() => {
+      clearCoAuthorFallback();
+      cancelCoAuthorStreaming();
+    }, [cancelCoAuthorStreaming, clearCoAuthorFallback]);
+
+    useEffect(() => {
+      if (!isCoAuthorOpen) {
+        return;
+      }
+      ensureCoAuthorSession({ intent: activeCoAuthorIntent, contextSources });
+    }, [activeCoAuthorIntent, contextSources, ensureCoAuthorSession, isCoAuthorOpen]);
+
+    const previousSectionIdRef = useRef<string | null>(null);
+    useEffect(() => {
+      if (
+        previousSectionIdRef.current &&
+        previousSectionIdRef.current !== (activeSectionId ?? null)
+      ) {
+        teardownCoAuthor('section-change');
+        dismissCoAuthorProposal();
+        clearCoAuthorFallback();
+      }
+      previousSectionIdRef.current = activeSectionId ?? null;
+    }, [activeSectionId, clearCoAuthorFallback, dismissCoAuthorProposal, teardownCoAuthor]);
+
+    const teardownRef = useRef(teardownCoAuthor);
+    useEffect(() => {
+      teardownRef.current = teardownCoAuthor;
+    }, [teardownCoAuthor]);
+
+    useEffect(() => {
+      return () => {
+        teardownRef.current('navigation');
+      };
+    }, []);
+
+    useEffect(() => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      const handleStreamError = () => pushCoAuthorFallback('assistant_unavailable', true);
+      window.addEventListener('coauthor:stream-error', handleStreamError);
+      return () => {
+        window.removeEventListener('coauthor:stream-error', handleStreamError);
+      };
+    }, [pushCoAuthorFallback]);
 
     const telemetrySectionId = activeSection?.id ?? null;
     const telemetryContentLength = activeSection?.contentMarkdown?.length ?? 0;
@@ -857,7 +1162,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       ]
     );
 
-    const handleRequestChanges = useCallback(
+    const handleReviewRequestChanges = useCallback(
       ({ approvalNote }: { approvalNote: string }) => {
         if (!activeSection) return;
         updateSection({
@@ -884,10 +1189,6 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     })();
 
     const renderingWarnings = draftState.formattingWarnings;
-    const approvalSummary = resolveSummaryForApproval(
-      activeSection ?? ({} as SectionView),
-      draftState.summaryNote
-    );
     const conflictServerSnapshot = (() => {
       if (typeof sectionDraftState.latestApprovedVersion !== 'number') {
         return null;
@@ -1073,172 +1374,218 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                     </p>
                   )}
                 </div>
-                {showDiffView && (
-                  <Button variant="outline" size="sm" onClick={handleCloseDiff}>
-                    Close diff view
+                <div className="flex items-center gap-3">
+                  {showDiffView && (
+                    <Button variant="outline" size="sm" onClick={handleCloseDiff}>
+                      Close diff view
+                    </Button>
+                  )}
+                  <Button
+                    variant={isCoAuthorOpen ? 'default' : 'secondary'}
+                    size="sm"
+                    onClick={handleToggleCoAuthor}
+                    disabled={!activeSection}
+                  >
+                    {isCoAuthorOpen ? 'Close Co-Author' : 'Open Co-Author'}
                   </Button>
-                )}
+                </div>
               </div>
             </div>
 
             <div className="flex-1 overflow-hidden" onScroll={handleScroll}>
-              <div className="space-y-6 p-6">
-                {activeSection ? (
-                  <div data-section-id={activeSection.id}>
-                    <DocumentSectionPreview
-                      section={activeSection}
-                      assumptionSession={activeAssumptionSession}
-                      documentId={documentId}
-                      projectSlug={projectSlug}
-                      onEnterEdit={handleEnterEdit}
-                      isEditDisabled={
-                        (isEditing && activeSection.id !== activeSectionId) ||
-                        assumptionFlowBlocking
-                      }
-                      approval={{
-                        approvedAt: activeSection.approvedAt ?? undefined,
-                        approvedBy: activeSection.approvedBy ?? undefined,
-                        approvedVersion: activeSection.approvedVersion ?? undefined,
-                        reviewerSummary: activeSection.lastSummary ?? undefined,
-                      }}
-                    />
+              <div
+                className={cn(
+                  'p-6',
+                  isCoAuthorOpen ? 'lg:flex lg:items-start lg:gap-6' : 'space-y-6'
+                )}
+              >
+                <div className={cn('min-w-0 space-y-6', isCoAuthorOpen && 'lg:flex-1')}>
+                  {activeSection ? (
+                    <div data-section-id={activeSection.id}>
+                      <DocumentSectionPreview
+                        section={activeSection}
+                        assumptionSession={activeAssumptionSession}
+                        documentId={documentId}
+                        projectSlug={projectSlug}
+                        onEnterEdit={handleEnterEdit}
+                        isEditDisabled={
+                          (isEditing && activeSection.id !== activeSectionId) ||
+                          assumptionFlowBlocking
+                        }
+                        approval={{
+                          approvedAt: activeSection.approvedAt ?? undefined,
+                          approvedBy: activeSection.approvedBy ?? undefined,
+                          approvedVersion: activeSection.approvedVersion ?? undefined,
+                          reviewerSummary: activeSection.lastSummary ?? undefined,
+                        }}
+                      />
 
-                    {shouldEnableAssumptionsFlow && (
-                      <div className="mt-6 space-y-3" data-testid="assumptions-checklist-panel">
-                        {assumptionFlowError && (
-                          <div
-                            className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
-                            role="alert"
-                          >
-                            {assumptionFlowError}
-                          </div>
-                        )}
+                      {shouldEnableAssumptionsFlow && (
+                        <div className="mt-6 space-y-3" data-testid="assumptions-checklist-panel">
+                          {assumptionFlowError && (
+                            <div
+                              className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+                              role="alert"
+                            >
+                              {assumptionFlowError}
+                            </div>
+                          )}
 
-                        <AssumptionsChecklist
-                          prompts={assumptionFlowState?.prompts ?? []}
-                          overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
-                          isLoading={isAssumptionFlowLoading}
-                          onRespond={respondToAssumptionPrompt}
-                        />
-                      </div>
-                    )}
+                          <AssumptionsChecklist
+                            prompts={assumptionFlowState?.prompts ?? []}
+                            overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
+                            isLoading={isAssumptionFlowLoading}
+                            onRespond={respondToAssumptionPrompt}
+                          />
+                        </div>
+                      )}
 
-                    {isEditing && (
-                      <div className="mt-6 space-y-6" data-testid="section-editor-panel">
-                        <FormattingToolbar
-                          onToggleHeading={() => updateDraft(`${draftState.content}\n\n# Heading`)}
-                          onToggleBold={() => updateDraft(`${draftState.content} **bold**`)}
-                          onToggleItalic={() => updateDraft(`${draftState.content} _italic_`)}
-                          onToggleOrderedList={() =>
-                            updateDraft(`${draftState.content}\n1. Ordered item`)
-                          }
-                          onToggleBulletList={() =>
-                            updateDraft(`${draftState.content}\n- Bullet item`)
-                          }
-                          onInsertTable={() =>
-                            updateDraft(`${draftState.content}\n| Col A | Col B |\n| --- | --- |`)
-                          }
-                          onInsertLink={() =>
-                            updateDraft(`${draftState.content} [Link](https://example.com)`)
-                          }
-                          onToggleCode={() => {
-                            const snippet = `${draftState.content}
+                      {isEditing && (
+                        <div className="mt-6 space-y-6" data-testid="section-editor-panel">
+                          <FormattingToolbar
+                            onToggleHeading={() =>
+                              updateDraft(`${draftState.content}\n\n# Heading`)
+                            }
+                            onToggleBold={() => updateDraft(`${draftState.content} **bold**`)}
+                            onToggleItalic={() => updateDraft(`${draftState.content} _italic_`)}
+                            onToggleOrderedList={() =>
+                              updateDraft(`${draftState.content}\n1. Ordered item`)
+                            }
+                            onToggleBulletList={() =>
+                              updateDraft(`${draftState.content}\n- Bullet item`)
+                            }
+                            onInsertTable={() =>
+                              updateDraft(`${draftState.content}\n| Col A | Col B |\n| --- | --- |`)
+                            }
+                            onInsertLink={() =>
+                              updateDraft(`${draftState.content} [Link](https://example.com)`)
+                            }
+                            onToggleCode={() => {
+                              const snippet = `${draftState.content}
 
 \`\`\`ts
 console.log('code snippet');
 \`\`\``;
-                            updateDraft(snippet);
-                          }}
-                          onToggleQuote={() => updateDraft(`${draftState.content}\n> Quote`)}
-                        />
-
-                        <MilkdownEditor
-                          value={draftState.content}
-                          onChange={handleContentChange}
-                          onFormattingAnnotationsChange={handleFormattingAnnotationsChange}
-                          onRequestDiff={handleOpenDiff}
-                          dataTestId="draft-markdown-editor"
-                        />
-
-                        <ManualSavePanel
-                          summaryNote={draftState.summaryNote}
-                          onSummaryChange={handleSummaryChange}
-                          onManualSave={handleManualSave}
-                          isSaving={draftState.isSaving}
-                          formattingWarnings={renderingWarnings}
-                          conflictState={draftState.conflictState}
-                          conflictReason={sectionDraftState.conflictReason}
-                          lastSavedAt={sectionDraftState.lastSavedAt}
-                          lastSavedBy={sectionDraftState.lastSavedBy}
-                          lastManualSaveAt={sectionDraftState.lastManualSaveAt}
-                          saveErrorMessage={manualSaveError}
-                          onOpenDiff={handleOpenDiff}
-                          onSubmitReview={handleSubmitReview}
-                          isDiffLoading={draftState.isDiffRefreshing}
-                          disableManualSave={draftState.isSaving}
-                          isReviewDisabled={isReviewDisabled || isReviewSubmitting}
-                          reviewDisabledReason={reviewDisabledReason}
-                        />
-
-                        {reviewError && (
-                          <div
-                            className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
-                            role="alert"
-                          >
-                            {reviewError}
-                          </div>
-                        )}
-
-                        {showDiffView && (
-                          <DiffViewer
-                            diff={draftState.diff}
-                            isLoading={draftState.isDiffRefreshing}
-                            errorMessage={null}
-                            headerSlot={
-                              <Button variant="outline" size="sm" onClick={handleCloseDiff}>
-                                Close
-                              </Button>
-                            }
+                              updateDraft(snippet);
+                            }}
+                            onToggleQuote={() => updateDraft(`${draftState.content}\n> Quote`)}
                           />
-                        )}
 
-                        {(activeSection.status === 'review' ||
-                          activeSection.status === 'ready') && (
-                          <div className="space-y-3">
-                            {approvalError && (
-                              <div
-                                className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
-                                role="alert"
-                              >
-                                {approvalError}
-                              </div>
-                            )}
-                            <ApprovalControls
-                              sectionTitle={activeSection.title}
-                              currentStatus={activeSection.status}
-                              reviewerSummary={approvalSummary}
-                              draftVersion={sectionDraftState.draftVersion ?? undefined}
-                              approvedVersion={activeSection.approvedVersion ?? undefined}
-                              approvedAt={activeSection.approvedAt}
-                              approvedBy={activeSection.approvedBy}
-                              approvalNote={approvalSummary ?? undefined}
-                              onApprove={({ approvalNote }) => handleApprove({ approvalNote })}
-                              onRequestChanges={({ approvalNote }) =>
-                                handleRequestChanges({ approvalNote })
+                          <MilkdownEditor
+                            value={draftState.content}
+                            onChange={handleContentChange}
+                            onFormattingAnnotationsChange={handleFormattingAnnotationsChange}
+                            onRequestDiff={handleOpenDiff}
+                            dataTestId="draft-markdown-editor"
+                          />
+
+                          <ManualSavePanel
+                            summaryNote={draftState.summaryNote}
+                            onSummaryChange={handleSummaryChange}
+                            onManualSave={handleManualSave}
+                            isSaving={draftState.isSaving}
+                            formattingWarnings={renderingWarnings}
+                            conflictState={draftState.conflictState}
+                            conflictReason={sectionDraftState.conflictReason}
+                            lastSavedAt={sectionDraftState.lastSavedAt}
+                            lastSavedBy={sectionDraftState.lastSavedBy}
+                            lastManualSaveAt={sectionDraftState.lastManualSaveAt}
+                            saveErrorMessage={manualSaveError}
+                            onOpenDiff={handleOpenDiff}
+                            onSubmitReview={handleSubmitReview}
+                            isDiffLoading={draftState.isDiffRefreshing}
+                            disableManualSave={draftState.isSaving}
+                            isReviewDisabled={isReviewDisabled || isReviewSubmitting}
+                            reviewDisabledReason={reviewDisabledReason}
+                          />
+
+                          {reviewError && (
+                            <div
+                              className="rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+                              role="alert"
+                            >
+                              {reviewError}
+                            </div>
+                          )}
+
+                          {showDiffView && (
+                            <DiffViewer
+                              diff={draftState.diff}
+                              isLoading={draftState.isDiffRefreshing}
+                              errorMessage={null}
+                              headerSlot={
+                                <Button variant="outline" size="sm" onClick={handleCloseDiff}>
+                                  Close
+                                </Button>
                               }
-                              isSubmitting={isApprovalSubmitting}
-                              isDisabled={draftState.conflictState !== 'clean'}
                             />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
+
+                          {(activeSection.status === 'review' ||
+                            activeSection.status === 'ready') && (
+                            <div className="space-y-3">
+                              {approvalError && (
+                                <div
+                                  className="rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+                                  role="alert"
+                                >
+                                  {approvalError}
+                                </div>
+                              )}
+                              <ApprovalControls
+                                sectionTitle={activeSection.title}
+                                currentStatus={activeSection.status}
+                                reviewerSummary={approvalSummary}
+                                draftVersion={sectionDraftState.draftVersion ?? undefined}
+                                approvedVersion={activeSection.approvedVersion ?? undefined}
+                                approvedAt={activeSection.approvedAt}
+                                approvedBy={activeSection.approvedBy}
+                                approvalNote={approvalSummary ?? undefined}
+                                onApprove={({ approvalNote }) => handleApprove({ approvalNote })}
+                                onRequestChanges={({ approvalNote }) =>
+                                  handleReviewRequestChanges({ approvalNote })
+                                }
+                                isSubmitting={isApprovalSubmitting}
+                                isDisabled={draftState.conflictState !== 'clean'}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+                      <p>Select a section from the table of contents to view details.</p>
+                    </div>
+                  )}
+                </div>
+                {isCoAuthorOpen && activeSection ? (
+                  <div className="mt-6 w-full max-w-full lg:mt-0 lg:w-[360px] lg:flex-shrink-0">
+                    <CoAuthorSidebar
+                      documentTitle={documentTitle}
+                      sectionTitle={activeSection.title}
+                      activeIntent={activeCoAuthorIntent}
+                      onIntentChange={handleIntentChange}
+                      selectedKnowledge={selectedKnowledgeIds}
+                      knowledgeOptions={knowledgeOptions}
+                      onToggleKnowledge={toggleKnowledge}
+                      selectedDecisions={selectedDecisionIds}
+                      decisionOptions={decisionOptions}
+                      onToggleDecision={toggleDecision}
+                      onRunAnalyze={handleAnalyzeRequest}
+                      onRunProposal={handleProposalRequest}
+                      onApproveProposal={handleApproveProposal}
+                      onRejectProposal={handleRejectProposal}
+                      onRequestChanges={handleCoAuthorRequestChanges}
+                      progress={coAuthorProgress}
+                      onCancelStreaming={cancelCoAuthorStreaming}
+                      onRetry={handleRetryAssistant}
+                      pendingProposal={coAuthorPendingProposal}
+                      fallback={coAuthorFallback}
+                      transcript={coAuthorTranscript}
+                    />
                   </div>
-                ) : (
-                  <div className="py-12 text-center text-gray-500 dark:text-gray-400">
-                    <p>Select a section from the table of contents to view details.</p>
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

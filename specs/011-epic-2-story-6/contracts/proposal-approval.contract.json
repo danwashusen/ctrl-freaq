@@ -1,0 +1,36 @@
+{
+  "name": "Approve AI proposal",
+  "request": {
+    "method": "POST",
+    "url": "/api/documents/doc-123/sections/sec-architecture/co-author/apply",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer <token>"
+    },
+    "body": {
+      "sessionId": "b02c7e6c-44d1-4c7b-97ff-0a5416ff9788",
+      "proposalId": "6d62ef33-1e8f-4ac1-a2fd-4f2336bf7a10",
+      "draftPatch": "diff --git a/section.md b/section.md\n@@\n-Old paragraph\n+Revised paragraph with AI suggestions\n",
+      "diffHash": "sha256:c4bb7dbef8d4867349603da0466ddaa7",
+      "approvalNotes": "Accepted AI improvements for clarity"
+    }
+  },
+  "expectedResponse": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "status": "queued",
+      "changelog": {
+        "entryId": "3f9c9f0b-b505-4a2e-9fdd-932c3b16cb0c",
+        "summary": "AI-assisted rewrite approved by alice@example.com",
+        "confidence": 0.82,
+        "citations": [
+          "decision:architecture/principles/streaming",
+          "knowledge:ops-requirements"
+        ]
+      }
+    }
+  }
+}

@@ -58,6 +58,9 @@ export type {
 // Export models
 export * from './models/index.js';
 
+// Co-authoring value objects
+export * from './co-authoring/index.js';
+
 // Export repositories
 export * from './repositories/index.js';
 

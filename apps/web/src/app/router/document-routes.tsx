@@ -20,7 +20,7 @@ export interface DocumentRouteLoaderData {
   missingReason?: 'fixture';
 }
 
-export async function documentRouteLoader({ params }: LoaderFunctionArgs) {
+export async function documentRouteLoader({ params, request }: LoaderFunctionArgs) {
   const documentId = params.documentId;
   const sectionId = params.sectionId;
 
@@ -30,13 +30,17 @@ export async function documentRouteLoader({ params }: LoaderFunctionArgs) {
     });
   }
 
-  if (isE2EModeEnabled()) {
+  const url = request instanceof Request ? new URL(request.url) : null;
+  const fixtureOverride = url?.searchParams.get('fixture');
+  const shouldUseFixtures = isE2EModeEnabled() || typeof fixtureOverride === 'string';
+
+  if (shouldUseFixtures) {
     try {
       const document = getDocumentFixture(documentId);
-      getSectionFixture(documentId, sectionId);
+      const section = getSectionFixture(documentId, sectionId);
       return {
         documentId,
-        sectionId,
+        sectionId: section.id,
         fixtureDocument: document,
       } satisfies DocumentRouteLoaderData;
     } catch {

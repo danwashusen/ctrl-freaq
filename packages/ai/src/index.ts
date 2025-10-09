@@ -9,6 +9,7 @@
 // Core AI functionality exports
 export * from './providers/index.js';
 export * from './utils/index.js';
+export * from './session/proposal-runner.js';
 
 // CLI export
 export { cli } from './cli.js';
