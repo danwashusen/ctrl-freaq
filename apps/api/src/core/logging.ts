@@ -189,8 +189,8 @@ export function createLogger(config: LoggingConfig): Logger {
  * Creates HTTP request logging middleware
  */
 export function createHttpLogger(logger: Logger, _config: LoggingConfig) {
-  return pinoHttp({
-    logger,
+  return pinoHttp<IncomingMessage, ServerResponse, never>({
+    logger: logger as Logger<never>,
 
     // Custom request ID generator (will be overridden by request-id middleware)
     genReqId: (req: IncomingMessage & { headers: NodeJS.Dict<string | string[] | undefined> }) =>
