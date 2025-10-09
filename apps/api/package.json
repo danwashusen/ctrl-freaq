@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build && pnpm --filter @ctrl-freaq/templates build && pnpm --filter @ctrl-freaq/template-resolver build && pnpm --filter @ctrl-freaq/qa build && pnpm --filter @ctrl-freaq/editor-core build && pnpm --filter @ctrl-freaq/editor-persistence build",
+    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build && pnpm --filter @ctrl-freaq/templates build && pnpm --filter @ctrl-freaq/template-resolver build && pnpm --filter @ctrl-freaq/qa build && pnpm --filter @ctrl-freaq/editor-core build && pnpm --filter @ctrl-freaq/editor-persistence build && pnpm --filter @ctrl-freaq/ai build",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "dev": "tsx watch src/index.ts",
     "prelint": "pnpm run build:deps",
