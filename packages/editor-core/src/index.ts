@@ -12,6 +12,7 @@ export * from './extensions/index.js';
 export * from './patch-engine.js';
 export * from './diff/section-diff.js';
 export * from './assumptions/index.js';
+export * from './streaming/section-stream-queue.js';
 
 // Core types and interfaces
 export interface EditorConfig {

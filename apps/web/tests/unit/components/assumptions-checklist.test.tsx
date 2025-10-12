@@ -71,4 +71,27 @@ describe('AssumptionsChecklist', () => {
 
     expect(screen.getByText(/Loading assumption prompts/i)).toBeVisible();
   });
+
+  it('renders fallback messaging when fallback delivery is active', () => {
+    render(
+      <AssumptionsChecklist
+        prompts={[buildPrompt()]}
+        overridesOpen={0}
+        onRespond={vi.fn()}
+        streamingStatus="fallback"
+        fallbackState={{
+          status: 'active',
+          message: 'Assistant became unavailable. Retry shortly or continue with manual edits.',
+          progressCopy: 'Assumptions fallback in progress — 3 seconds elapsed.',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        /Assistant became unavailable\. Retry shortly or continue with manual edits/i
+      )
+    ).toBeVisible();
+    expect(screen.getByText(/Assumptions fallback in progress — 3 seconds elapsed/i)).toBeVisible();
+  });
 });

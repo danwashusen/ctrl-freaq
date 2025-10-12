@@ -11,7 +11,19 @@ import type {
   SectionAssumption,
   SectionAssumptionUpdate,
 } from '@ctrl-freaq/shared-data';
-import { serializeAnswerValue, type CreateSessionWithPromptsInput } from '@ctrl-freaq/shared-data';
+import {
+  serializeAnswerValue,
+  createStreamingProgressEvent,
+  type CreateSessionWithPromptsInput,
+  type StreamingProgressEvent,
+  type StreamingDeltaType,
+  type StreamingAnnouncementPriority,
+} from '@ctrl-freaq/shared-data';
+import {
+  createSectionStreamQueue,
+  type QueueCancellationReason,
+  type SectionStreamQueue,
+} from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
 
 import { SectionEditorServiceError } from './section-editor.errors.js';
 
@@ -84,6 +96,37 @@ export interface AssumptionPromptTemplate {
   responseType: 'single_select' | 'multi_select' | 'text';
   options?: AssumptionOption[];
   priority?: number;
+}
+
+export interface AssumptionStreamingProgressEvent {
+  type: 'progress';
+  sequence?: number;
+  stageLabel: string;
+  contentSnippet?: string | null;
+  deltaType?: StreamingDeltaType;
+  announcementPriority?: StreamingAnnouncementPriority;
+  elapsedMs?: number;
+}
+
+export interface AssumptionStreamingStatusEvent {
+  type: 'status';
+  status: 'queued' | 'streaming' | 'deferred' | 'resumed' | 'completed' | 'canceled' | 'error';
+  reason?: string;
+}
+
+export type AssumptionStreamingEvent =
+  | AssumptionStreamingProgressEvent
+  | AssumptionStreamingStatusEvent;
+
+export interface AssumptionStreamingProvider {
+  generateEvents(input: {
+    sessionId: string;
+    prompt: SectionAssumption;
+    action: RespondToAssumptionInput['action'];
+    updates: SectionAssumptionUpdate;
+    getNextSequence: () => number;
+    timestamp: Date;
+  }): Promise<AssumptionStreamingEvent[]>;
 }
 
 export interface AssumptionPromptProvider {
@@ -165,6 +208,10 @@ export interface AssumptionSessionServiceDependencies {
   promptProvider?: AssumptionPromptProvider;
   timeProvider?: TimeProvider;
   decisionProvider?: DocumentDecisionProvider;
+  queue?: SectionStreamQueue;
+  streaming?: {
+    provider?: AssumptionStreamingProvider;
+  };
 }
 
 const DEFAULT_PROMPTS: AssumptionPromptTemplate[] = [
@@ -202,6 +249,240 @@ const DEFAULT_PROMPTS: AssumptionPromptTemplate[] = [
   },
 ];
 
+type AssumptionStreamPayload = { type: string; data: unknown };
+
+type QueueSessionState = {
+  sectionId: string;
+  status: 'active' | 'pending';
+  buffered: AssumptionStreamPayload[];
+  concurrencySlot?: number;
+};
+
+const isAssumptionStatus = (value: string): value is AssumptionStreamingStatusEvent['status'] => {
+  return (
+    value === 'queued' ||
+    value === 'streaming' ||
+    value === 'deferred' ||
+    value === 'resumed' ||
+    value === 'completed' ||
+    value === 'canceled' ||
+    value === 'error'
+  );
+};
+
+class AssumptionStreamController implements AsyncIterable<AssumptionStreamPayload> {
+  private readonly bufferedProgress = new Map<number, StreamingProgressEvent>();
+  private eventQueue: AssumptionStreamPayload[] = [];
+  private pendingResolvers: Array<(result: IteratorResult<AssumptionStreamPayload>) => void> = [];
+  private pendingRejecters: Array<(error: unknown) => void> = [];
+  private closed = false;
+  private failure: unknown = null;
+  private expectedSequence = 0;
+
+  emitProgress(event: StreamingProgressEvent): void {
+    if (this.closed || this.failure) {
+      return;
+    }
+
+    if (event.sequence <= this.expectedSequence) {
+      return;
+    }
+
+    if (event.sequence === this.expectedSequence + 1) {
+      this.expectedSequence = event.sequence;
+      this.push({ type: 'progress', data: event });
+      this.flushBuffered();
+      return;
+    }
+
+    this.bufferedProgress.set(event.sequence, event);
+  }
+
+  emitStatus(
+    status: AssumptionStreamingStatusEvent['status'],
+    metadata: Record<string, unknown> = {}
+  ): void {
+    if (this.closed || this.failure) {
+      return;
+    }
+
+    this.push({
+      type: 'status',
+      data: {
+        status,
+        ...metadata,
+      },
+    });
+  }
+
+  emitTelemetry(payload: Record<string, unknown>): void {
+    if (this.closed || this.failure) {
+      return;
+    }
+
+    this.push({
+      type: 'telemetry',
+      data: payload,
+    });
+  }
+
+  emitReplacement(replacedSessionId: string, timestamp: string): void {
+    if (this.closed || this.failure) {
+      return;
+    }
+
+    this.push({
+      type: 'replacement',
+      data: {
+        replacedSessionId,
+        timestamp,
+      },
+    });
+  }
+
+  complete(
+    status: 'completed' | 'canceled' | 'error',
+    metadata: Record<string, unknown> = {}
+  ): void {
+    if (this.closed) {
+      return;
+    }
+
+    if (status !== 'completed') {
+      this.emitStatus(status, metadata);
+    }
+
+    this.closed = true;
+
+    for (const resolve of this.pendingResolvers.splice(0)) {
+      resolve({ value: undefined, done: true });
+    }
+
+    this.pendingRejecters.splice(0);
+    this.eventQueue = [];
+  }
+
+  fail(error: unknown): void {
+    if (this.failure || this.closed) {
+      return;
+    }
+
+    this.failure = error;
+
+    for (const reject of this.pendingRejecters.splice(0)) {
+      reject(error);
+    }
+
+    for (const resolve of this.pendingResolvers.splice(0)) {
+      resolve({ value: undefined, done: true });
+    }
+
+    this.eventQueue = [];
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<AssumptionStreamPayload> {
+    return {
+      next: () => this.next(),
+    };
+  }
+
+  private async next(): Promise<IteratorResult<AssumptionStreamPayload>> {
+    if (this.failure) {
+      throw this.failure;
+    }
+
+    if (this.eventQueue.length > 0) {
+      const value = this.eventQueue.shift();
+      if (value !== undefined) {
+        return { value, done: false };
+      }
+    }
+
+    if (this.closed) {
+      return { value: undefined, done: true };
+    }
+
+    return await new Promise<IteratorResult<AssumptionStreamPayload>>((resolve, reject) => {
+      this.pendingResolvers.push(resolve);
+      this.pendingRejecters.push(reject);
+    });
+  }
+
+  private push(event: AssumptionStreamPayload): void {
+    if (this.failure || this.closed) {
+      return;
+    }
+
+    const resolver = this.pendingResolvers.shift();
+    if (resolver) {
+      this.pendingRejecters.shift();
+      resolver({ value: event, done: false });
+      return;
+    }
+
+    this.eventQueue.push(event);
+  }
+
+  private flushBuffered(): void {
+    while (this.bufferedProgress.size > 0) {
+      const nextSequence = this.expectedSequence + 1;
+      const nextEvent = this.bufferedProgress.get(nextSequence);
+      if (!nextEvent) {
+        break;
+      }
+
+      this.bufferedProgress.delete(nextSequence);
+      this.expectedSequence = nextEvent.sequence;
+      this.push({ type: 'progress', data: nextEvent });
+    }
+  }
+}
+
+class DefaultAssumptionStreamingProvider implements AssumptionStreamingProvider {
+  async generateEvents(input: Parameters<AssumptionStreamingProvider['generateEvents']>[0]) {
+    if (input.action === 'defer') {
+      return [
+        {
+          type: 'status' as const,
+          status: 'deferred' as const,
+        },
+      ];
+    }
+
+    if (input.action === 'answer') {
+      const summarySequence = input.getNextSequence();
+      const analysisSequence = input.getNextSequence();
+
+      return [
+        {
+          type: 'status' as const,
+          status: 'resumed' as const,
+        },
+        {
+          type: 'progress' as const,
+          sequence: summarySequence,
+          stageLabel: 'assumptions.progress.summary',
+          contentSnippet: `Summary for ${input.prompt.promptHeading}`,
+          deltaType: 'text' as const,
+          announcementPriority: 'polite' as const,
+          elapsedMs: 60,
+        },
+        {
+          type: 'progress' as const,
+          sequence: analysisSequence,
+          stageLabel: 'assumptions.progress.analysis',
+          contentSnippet: `Resolved: ${input.prompt.promptHeading}`,
+          deltaType: 'text' as const,
+          announcementPriority: 'polite' as const,
+          elapsedMs: 120,
+        },
+      ];
+    }
+
+    return [];
+  }
+}
+
 export class StaticPromptProvider implements AssumptionPromptProvider {
   async getPrompts(): Promise<AssumptionPromptTemplate[]> {
     return DEFAULT_PROMPTS;
@@ -221,6 +502,12 @@ export class AssumptionSessionService {
   private readonly promptProvider: AssumptionPromptProvider;
   private readonly now: TimeProvider;
   private readonly decisionProvider: DocumentDecisionProvider;
+  private readonly streamingProvider: AssumptionStreamingProvider;
+  private readonly queue: SectionStreamQueue;
+  private readonly streams = new Map<string, AssumptionStreamController>();
+  private readonly sequenceCounters = new Map<string, number>();
+  private readonly deferredSessions = new Set<string>();
+  private readonly queueStates = new Map<string, QueueSessionState>();
 
   constructor(deps: AssumptionSessionServiceDependencies) {
     this.repository = deps.repository;
@@ -228,6 +515,14 @@ export class AssumptionSessionService {
     this.promptProvider = deps.promptProvider ?? new StaticPromptProvider();
     this.now = deps.timeProvider ?? DEFAULT_TIME_PROVIDER;
     this.decisionProvider = deps.decisionProvider ?? NULL_DECISION_PROVIDER;
+    this.streamingProvider = deps.streaming?.provider ?? new DefaultAssumptionStreamingProvider();
+    this.queue = deps.queue ?? createSectionStreamQueue();
+  }
+
+  private bumpSequence(sessionId: string): number {
+    const next = (this.sequenceCounters.get(sessionId) ?? 0) + 1;
+    this.sequenceCounters.set(sessionId, next);
+    return next;
   }
 
   async startSession(input: StartAssumptionSessionInput): Promise<StartedAssumptionSession> {
@@ -405,11 +700,384 @@ export class AssumptionSessionService {
       durationMs
     );
 
+    await this.dispatchStreamingEvents({
+      session: updatedSession,
+      prompt,
+      action: input.action,
+      updates: strategy.updates,
+      requestId,
+    });
+
     const state = this.toPromptState(prompt, updatedSession);
     if (strategy.escalation) {
       state.escalation = strategy.escalation;
     }
     return state;
+  }
+
+  async openStreamingSession(input: {
+    sessionId: string;
+    sectionId: string;
+    requestId: string;
+    actorId: string;
+  }): Promise<{
+    disposition: 'started' | 'pending';
+    replacedSessionId: string | null;
+    stream: AsyncIterable<{ type: string; data: unknown }>;
+  }> {
+    let stream = this.streams.get(input.sessionId);
+    if (!stream) {
+      stream = new AssumptionStreamController();
+      this.streams.set(input.sessionId, stream);
+      if (!this.sequenceCounters.has(input.sessionId)) {
+        this.sequenceCounters.set(input.sessionId, 0);
+      }
+    }
+
+    const enqueuedAt = this.now().getTime();
+    const queueResult = this.queue.enqueue({
+      sessionId: input.sessionId,
+      sectionId: input.sectionId,
+      enqueuedAt,
+    });
+
+    const queueState: QueueSessionState = {
+      sectionId: input.sectionId,
+      status: queueResult.disposition === 'started' ? 'active' : 'pending',
+      buffered: [],
+      concurrencySlot:
+        queueResult.disposition === 'started' ? queueResult.concurrencySlot : undefined,
+    };
+
+    this.queueStates.set(input.sessionId, queueState);
+
+    this.logger.info(
+      {
+        requestId: input.requestId,
+        sessionId: input.sessionId,
+        sectionId: input.sectionId,
+        actorId: input.actorId,
+        queueDisposition: queueResult.disposition,
+        concurrencySlot: queueState.concurrencySlot,
+        replacedSessionId:
+          queueResult.disposition === 'pending' ? (queueResult.replacedSessionId ?? null) : null,
+      },
+      'Assumption streaming session opened'
+    );
+
+    if (queueResult.disposition === 'started') {
+      stream.emitStatus('streaming', {
+        timestamp: this.now().toISOString(),
+        concurrencySlot: queueState.concurrencySlot ?? null,
+      });
+    }
+
+    return {
+      disposition: queueResult.disposition,
+      replacedSessionId:
+        queueResult.disposition === 'pending' ? (queueResult.replacedSessionId ?? null) : null,
+      stream,
+    };
+  }
+
+  async completeStreamingSession(input: {
+    sessionId: string;
+    sectionId: string;
+    reason: 'client_close' | 'canceled' | 'error';
+  }): Promise<void> {
+    const stream = this.streams.get(input.sessionId);
+    const timestamp = this.now().toISOString();
+
+    if (stream) {
+      const status = input.reason === 'client_close' ? 'completed' : input.reason;
+      stream.complete(status, { timestamp });
+    }
+
+    this.streams.delete(input.sessionId);
+    this.sequenceCounters.delete(input.sessionId);
+    this.deferredSessions.delete(input.sessionId);
+
+    const state = this.queueStates.get(input.sessionId);
+    this.queueStates.delete(input.sessionId);
+
+    if (input.reason === 'client_close') {
+      const completion = this.queue.complete(input.sessionId);
+      if (completion?.activated) {
+        this.activateQueuePromotion(completion.activated);
+      }
+    } else {
+      const cancelResult = this.queue.cancel(
+        input.sessionId,
+        this.mapQueueCancellationReason(input.reason)
+      );
+      if (cancelResult.promoted) {
+        this.activateQueuePromotion(cancelResult.promoted);
+      }
+    }
+
+    this.logger.info(
+      {
+        sessionId: input.sessionId,
+        sectionId: input.sectionId,
+        reason: input.reason,
+        timestamp,
+        queueState: state?.status ?? 'unknown',
+      },
+      'Assumption streaming session closed'
+    );
+  }
+
+  private async dispatchStreamingEvents(params: {
+    session: AssumptionSession;
+    prompt: SectionAssumption;
+    action: RespondToAssumptionInput['action'];
+    updates: SectionAssumptionUpdate;
+    requestId: string;
+  }): Promise<void> {
+    const timestamp = this.now();
+    const isoTimestamp = timestamp.toISOString();
+    const sessionId = params.session.id;
+
+    if (params.action === 'defer') {
+      this.publishOrBuffer(sessionId, {
+        type: 'status',
+        data: { status: 'deferred', timestamp: isoTimestamp },
+      });
+      this.deferredSessions.add(sessionId);
+      this.logger.info(
+        {
+          event: 'assumptions.streaming.status',
+          sessionId,
+          sectionId: params.session.sectionId,
+          assumptionId: params.prompt.id,
+          status: 'deferred',
+          requestId: params.requestId,
+        },
+        'Assumption streaming deferred'
+      );
+      return;
+    }
+
+    const events = await this.streamingProvider.generateEvents({
+      sessionId: params.session.id,
+      prompt: params.prompt,
+      action: params.action,
+      updates: params.updates,
+      timestamp,
+      getNextSequence: () => this.bumpSequence(params.session.id),
+    });
+
+    if (params.action === 'answer' && this.deferredSessions.has(sessionId)) {
+      const hasResumed = events.some(
+        event => event.type === 'status' && event.status === 'resumed'
+      );
+      if (!hasResumed) {
+        this.publishOrBuffer(sessionId, {
+          type: 'status',
+          data: { status: 'resumed', timestamp: isoTimestamp },
+        });
+      }
+      this.deferredSessions.delete(sessionId);
+    }
+
+    for (const event of events) {
+      if (event.type === 'status') {
+        this.publishOrBuffer(sessionId, {
+          type: 'status',
+          data: { status: event.status, timestamp: isoTimestamp },
+        });
+        continue;
+      }
+
+      const sequence = event.sequence ?? this.bumpSequence(sessionId);
+      const progress = createStreamingProgressEvent({
+        sessionId,
+        sequence,
+        stageLabel: event.stageLabel,
+        timestamp,
+        contentSnippet: event.contentSnippet ?? null,
+        deltaType: event.deltaType ?? 'text',
+        announcementPriority: event.announcementPriority ?? 'polite',
+        deliveryChannel: 'streaming',
+        elapsedMs: event.elapsedMs ?? 0,
+      });
+
+      this.publishOrBuffer(sessionId, {
+        type: 'progress',
+        data: progress,
+      });
+
+      this.logger.info(
+        {
+          event: 'assumptions.streaming.progress',
+          sessionId,
+          sectionId: params.session.sectionId,
+          assumptionId: params.prompt.id,
+          sequence: progress.sequence,
+          stageLabel: progress.stageLabel,
+          requestId: params.requestId,
+        },
+        'Assumption streaming progress event'
+      );
+    }
+  }
+
+  private publishOrBuffer(sessionId: string, payload: AssumptionStreamPayload): void {
+    const stream = this.streams.get(sessionId);
+    if (!stream) {
+      return;
+    }
+
+    const state = this.queueStates.get(sessionId);
+    if (state && state.status === 'pending') {
+      state.buffered.push(payload);
+      return;
+    }
+
+    this.dispatchToStream(stream, payload);
+  }
+
+  private dispatchToStream(
+    stream: AssumptionStreamController,
+    payload: AssumptionStreamPayload
+  ): void {
+    if (payload.type === 'progress') {
+      stream.emitProgress(payload.data as StreamingProgressEvent);
+      return;
+    }
+
+    if (payload.type === 'status') {
+      const data = payload.data as { status?: string } & Record<string, unknown>;
+      if (typeof data.status === 'string' && isAssumptionStatus(data.status)) {
+        const { status, ...rest } = data;
+        stream.emitStatus(status, rest);
+      }
+      return;
+    }
+
+    if (payload.type === 'telemetry') {
+      stream.emitTelemetry(payload.data as Record<string, unknown>);
+    }
+  }
+
+  private flushBufferedEvents(
+    sessionId: string,
+    stream: AssumptionStreamController,
+    state: QueueSessionState
+  ): void {
+    if (state.buffered.length === 0) {
+      return;
+    }
+
+    const buffered = state.buffered.splice(0);
+    for (const payload of buffered) {
+      this.dispatchToStream(stream, payload);
+    }
+
+    this.logger.debug(
+      {
+        sessionId,
+        bufferedCount: buffered.length,
+      },
+      'Flushed buffered assumption streaming events after activation'
+    );
+  }
+
+  private activateQueuePromotion(promotion: {
+    sessionId: string;
+    sectionId: string;
+    concurrencySlot: number;
+  }): void {
+    const state = this.queueStates.get(promotion.sessionId);
+    const nowIso = this.now().toISOString();
+
+    if (!state) {
+      this.queueStates.set(promotion.sessionId, {
+        sectionId: promotion.sectionId,
+        status: 'active',
+        buffered: [],
+        concurrencySlot: promotion.concurrencySlot,
+      });
+    } else {
+      state.status = 'active';
+      state.concurrencySlot = promotion.concurrencySlot;
+    }
+
+    const stream = this.streams.get(promotion.sessionId);
+    if (!stream) {
+      return;
+    }
+
+    stream.emitStatus('streaming', {
+      timestamp: nowIso,
+      concurrencySlot: promotion.concurrencySlot,
+    });
+
+    const currentState = this.queueStates.get(promotion.sessionId);
+    if (currentState) {
+      this.flushBufferedEvents(promotion.sessionId, stream, currentState);
+    }
+  }
+
+  private mapQueueCancellationReason(
+    reason: 'client_close' | 'canceled' | 'error'
+  ): QueueCancellationReason {
+    if (reason === 'canceled') {
+      return 'author_cancelled';
+    }
+    if (reason === 'error') {
+      return 'transport_failure';
+    }
+    return 'deferred';
+  }
+
+  handleQueuePromotion(promotion: {
+    sessionId: string;
+    sectionId: string;
+    concurrencySlot: number;
+  }): void {
+    this.activateQueuePromotion(promotion);
+  }
+
+  handleQueueCancellation(details: {
+    sessionId: string;
+    sectionId: string;
+    reason: QueueCancellationReason;
+    state: 'active' | 'pending';
+  }): void {
+    const stream = this.streams.get(details.sessionId);
+    const timestamp = this.now().toISOString();
+
+    if (stream) {
+      if (details.reason === 'replaced_by_new_request') {
+        stream.emitReplacement(details.sessionId, timestamp);
+      }
+
+      stream.emitStatus('canceled', {
+        timestamp,
+        reason: details.reason,
+        state: details.state,
+      });
+      stream.complete('completed', {
+        timestamp,
+      });
+    }
+
+    this.streams.delete(details.sessionId);
+    this.sequenceCounters.delete(details.sessionId);
+    this.deferredSessions.delete(details.sessionId);
+    this.queueStates.delete(details.sessionId);
+
+    this.logger.info(
+      {
+        sessionId: details.sessionId,
+        sectionId: details.sectionId,
+        reason: details.reason,
+        state: details.state,
+        timestamp,
+      },
+      'Assumption streaming session canceled via shared queue'
+    );
   }
 
   async createProposal(input: CreateProposalInput): Promise<CreatedProposal> {

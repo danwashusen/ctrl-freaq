@@ -5,5 +5,6 @@ export { default as MilkdownEditor } from './milkdown-editor';
 export { default as DiffPreview } from './diff-preview';
 export { default as DocumentSectionPreview } from './document-section-preview';
 export * from './co-authoring';
+export * from './document-qa';
 
 export type { DocumentEditorProps } from './document-editor';

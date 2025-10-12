@@ -1,0 +1,304 @@
+openapi: 3.1.0
+info:
+  title: CTRL FreaQ Streaming Interaction API
+  version: 0.1.0
+  description: >
+    Contracts covering streaming AI interactions, queue replacement, and fallback
+    delivery for the document editor.
+servers:
+  - url: https://api.ctrl-freaq.local/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /sections/{sectionId}/interactions:
+    post:
+      summary: Start a new streaming interaction for a section
+      operationId: startStreamingInteraction
+      tags:
+        - Streaming
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartInteractionRequest'
+      responses:
+        '202':
+          description: Interaction accepted (may start immediately or be queued)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionSession'
+        '409':
+          description: Active interaction already running for this section
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictResponse'
+  /sections/{sectionId}/interactions/{sessionId}/stream:
+    get:
+      summary: Subscribe to streaming progress events (SSE)
+      operationId: streamInteraction
+      tags:
+        - Streaming
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                progressEvent:
+                  summary: Progress event payload
+                  value: |
+                    event: progress
+                    data: {"sessionId":"59d5...","sequence":3,"stageLabel":"drafting","deltaType":"text","contentSnippet":"Refining acceptance criteria...","deliveryChannel":"streaming","announcementPriority":"polite","elapsedMs":120}
+                stateEvent:
+                  summary: State transition payload
+                  value: |
+                    event: state
+                    data: {"sessionId":"59d5...","status":"fallback_active","fallbackReason":"transport_blocked","announcementPriority":"assertive"}
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sections/{sectionId}/interactions/{sessionId}/cancel:
+    post:
+      summary: Cancel an active or pending interaction
+      operationId: cancelInteraction
+      tags:
+        - Streaming
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Interaction canceled successfully
+        '409':
+          description: Session already completed or replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictResponse'
+  /sections/{sectionId}/interactions/{sessionId}/retry:
+    post:
+      summary: Retry a canceled or fallback-completed interaction
+      operationId: retryInteraction
+      tags:
+        - Streaming
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '202':
+          description: Retry accepted and enqueued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionSession'
+        '409':
+          description: Another pending interaction already exists for this section
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictResponse'
+  /sections/{sectionId}/interactions/{sessionId}:
+    get:
+      summary: Retrieve final interaction summary (fallback or completed stream)
+      operationId: getInteractionSummary
+      tags:
+        - Streaming
+      parameters:
+        - $ref: '#/components/parameters/SectionId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Finalized interaction summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionSummaryResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    SectionId:
+      name: sectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    StartInteractionRequest:
+      type: object
+      required:
+        - interactionType
+        - prompt
+      properties:
+        interactionType:
+          type: string
+          enum:
+            - co_author
+            - assumption_loop
+            - qa
+        prompt:
+          type: string
+          description: Serialized author request or follow-up context
+        metadata:
+          type: object
+          additionalProperties: true
+        clientRequestId:
+          type: string
+          description: Optional idempotency token from the client
+    InteractionSession:
+      type: object
+      required:
+        - sessionId
+        - sectionId
+        - status
+        - mode
+        - queuedAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - fallback_active
+            - completed
+            - canceled
+        mode:
+          type: string
+          enum:
+            - streaming
+            - fallback
+        queuedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        concurrencySlot:
+          type: integer
+          minimum: 0
+        replacementPolicy:
+          type: string
+          enum:
+            - newest_replaces_pending
+    InteractionSummaryResponse:
+      type: object
+      required:
+        - sessionId
+        - status
+        - finalSummary
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - completed
+            - canceled
+        finalSummary:
+          type: object
+          required:
+            - rationale
+            - suggestedCopy
+          properties:
+            rationale:
+              type: string
+            suggestedCopy:
+              type: string
+            confidence:
+              type: number
+              format: float
+            citations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Citation'
+        fallbackDetails:
+          $ref: '#/components/schemas/FallbackDetails'
+    FallbackDetails:
+      type: object
+      properties:
+        triggeredAt:
+          type: string
+          format: date-time
+        rootCause:
+          type: string
+          enum:
+            - transport_blocked
+            - stream_timeout
+            - sse_error
+            - policy_restriction
+        preservedTokensCount:
+          type: integer
+        retryAttempted:
+          type: boolean
+    Citation:
+      type: object
+      required:
+        - label
+        - url
+      properties:
+        label:
+          type: string
+        url:
+          type: string
+          format: uri
+    ConflictResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+            - SESSION_ACTIVE
+            - SESSION_COMPLETED
+            - PENDING_EXISTS
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string

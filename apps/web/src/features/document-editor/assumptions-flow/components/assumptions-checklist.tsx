@@ -19,6 +19,15 @@ export interface AssumptionsChecklistProps {
   ) => void;
   isLoading?: boolean;
   disabled?: boolean;
+  streamingStatus?: 'idle' | 'streaming' | 'deferred' | 'canceled' | 'fallback';
+  streamingBullets?: Array<{ sequence: number; stageLabel: string; content: string | null }>;
+  streamingHasOutOfOrder?: boolean;
+  streamingAnnouncements?: string[];
+  fallbackState?: {
+    status: 'active' | 'completed' | 'canceled' | 'failed';
+    message: string;
+    progressCopy?: string;
+  } | null;
 }
 
 const getRemainingCount = (prompts: AssumptionPromptState[]): number =>
@@ -264,8 +273,40 @@ export const AssumptionsChecklist = ({
   onRespond,
   isLoading = false,
   disabled = false,
+  streamingStatus = 'idle',
+  streamingBullets = [],
+  streamingHasOutOfOrder = false,
+  streamingAnnouncements = [],
+  fallbackState = null,
 }: AssumptionsChecklistProps) => {
   const remaining = useMemo(() => getRemainingCount(prompts), [prompts]);
+  const streamingStatusBadge = useMemo(() => {
+    switch (streamingStatus) {
+      case 'streaming':
+        return {
+          label: 'Live guidance in progress',
+          className: 'bg-sky-100 text-sky-700',
+        };
+      case 'deferred':
+        return {
+          label: 'Streaming deferred',
+          className: 'bg-amber-100 text-amber-800',
+        };
+      case 'canceled':
+        return {
+          label: 'Streaming canceled',
+          className: 'bg-rose-100 text-rose-700',
+        };
+      case 'fallback':
+        return {
+          label: 'Fallback delivery in progress',
+          className: 'bg-amber-100 text-amber-800',
+        };
+      default:
+        return null;
+    }
+  }, [streamingStatus]);
+  const latestAnnouncement = streamingAnnouncements[streamingAnnouncements.length - 1] ?? '';
 
   if (isLoading) {
     return (
@@ -292,6 +333,50 @@ export const AssumptionsChecklist = ({
 
       {overridesOpen > 0 ? <OverrideWarningBanner overridesOpen={overridesOpen} /> : null}
 
+      {streamingStatusBadge || streamingBullets.length > 0 || streamingHasOutOfOrder ? (
+        <div className="space-y-2">
+          {streamingStatusBadge ? (
+            <div
+              className={`flex items-center justify-between rounded-md px-3 py-2 text-xs font-medium ${streamingStatusBadge.className}`}
+            >
+              <span>{streamingStatusBadge.label}</span>
+              {streamingHasOutOfOrder ? (
+                <span className="flex items-center gap-1 text-amber-700">
+                  <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Resequenced updates
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {streamingStatus === 'fallback' && fallbackState ? (
+            <div
+              className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+              role="status"
+              aria-live="assertive"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
+              <div>
+                <p className="font-medium">{fallbackState.message}</p>
+                {fallbackState.progressCopy ? (
+                  <p className="text-xs text-amber-800">{fallbackState.progressCopy}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {streamingBullets.length > 0 ? (
+            <ul className="border-border/60 bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {streamingBullets.map(bullet => (
+                <li key={bullet.sequence} className="flex items-start gap-2">
+                  <span className="text-foreground text-xs font-semibold">{bullet.stageLabel}</span>
+                  <span>{bullet.content ?? 'Processing…'}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
       <ul className="space-y-3">
         {prompts.map(prompt => (
           <li key={prompt.id} className="list-none">
@@ -305,6 +390,10 @@ export const AssumptionsChecklist = ({
           No assumption prompts available for this section.
         </p>
       ) : null}
+
+      <div className="sr-only" aria-live="polite">
+        {latestAnnouncement}
+      </div>
     </section>
   );
 };

@@ -183,6 +183,123 @@ export class AssumptionsApiService extends ApiClient {
     }
   }
 
+  subscribeToStream(
+    sectionId: string,
+    sessionId: string,
+    handler: (event: { type: string; data: unknown }) => void
+  ): { close: () => void } {
+    const client = this as unknown as PrivateApiClientShape;
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        const headers: Record<string, string> = {
+          Accept: 'text/event-stream',
+          'X-Request-ID': client.requestId,
+        };
+
+        if (client.getAuthToken) {
+          const token = await client.getAuthToken();
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+        }
+
+        const response = await fetch(
+          `${client.baseUrl}/sections/${sectionId}/assumptions/session/${sessionId}/stream`,
+          {
+            method: 'GET',
+            headers,
+            signal: controller.signal,
+          }
+        );
+
+        client.applyCorrelationFromResponse(response);
+
+        if (!response.ok || !response.body) {
+          throw new Error(`Streaming request failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += this.decoder.decode(value, { stream: true });
+
+          let separatorIndex = buffer.indexOf('\n\n');
+          while (separatorIndex !== -1) {
+            const rawEvent = buffer.slice(0, separatorIndex);
+            buffer = buffer.slice(separatorIndex + 2);
+            this.handleStreamingEvent(rawEvent, handler);
+            separatorIndex = buffer.indexOf('\n\n');
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        handler({
+          type: 'error',
+          data: {
+            message: error instanceof Error ? error.message : 'Streaming connection failed',
+          },
+        });
+      }
+    };
+
+    void run();
+
+    return {
+      close: () => {
+        controller.abort();
+      },
+    };
+  }
+
+  private handleStreamingEvent(
+    rawEvent: string,
+    handler: (event: { type: string; data: unknown }) => void
+  ): void {
+    const lines = rawEvent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    let eventType: string | undefined;
+    let dataPayload = '';
+
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventType = line.replace('event:', '').trim();
+      } else if (line.startsWith('data:')) {
+        const fragment = line.replace('data:', '').trim();
+        dataPayload = dataPayload.length > 0 ? `${dataPayload}\n${fragment}` : fragment;
+      }
+    }
+
+    if (!dataPayload) {
+      return;
+    }
+
+    let parsed: unknown = dataPayload;
+    try {
+      parsed = JSON.parse(dataPayload);
+    } catch {
+      // keep raw payload if not JSON
+    }
+
+    handler({
+      type: eventType ?? 'message',
+      data: parsed,
+    });
+  }
+
   private cacheSessionResponse(sectionId: string, response: StartAssumptionSessionResponse): void {
     if (!this.queryClient) {
       return;

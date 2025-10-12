@@ -7,10 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from 'pino';
 
 import { AssumptionSessionRepository } from '@ctrl-freaq/shared-data';
+import type { SectionStreamQueue } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
 
 import {
   AssumptionSessionService,
   type AssumptionPromptTemplate,
+  type AssumptionStreamingProvider,
 } from './assumption-session.service';
 
 describe('AssumptionSessionService', () => {
@@ -202,6 +204,433 @@ describe('AssumptionSessionService', () => {
         status: 'decision_conflict',
         decisionId: 'doc-security-baseline',
       }),
+    });
+  });
+
+  describe('streaming progress events', () => {
+    const createStreamingProvider = (
+      overrides: Partial<Parameters<AssumptionStreamingProvider['generateEvents']>[0]> = {}
+    ): AssumptionStreamingProvider => {
+      return {
+        async generateEvents(input) {
+          const base = {
+            ...input,
+            ...overrides,
+          };
+
+          const firstSequence = base.getNextSequence();
+          const secondSequence = base.getNextSequence();
+
+          return [
+            {
+              type: 'progress' as const,
+              sequence: secondSequence,
+              stageLabel: 'assumptions.progress.analysis',
+              contentSnippet: `Resolved: ${base.prompt.promptHeading}`,
+              deltaType: 'text' as const,
+              announcementPriority: 'polite' as const,
+              elapsedMs: 120,
+            },
+            {
+              type: 'progress' as const,
+              sequence: firstSequence,
+              stageLabel: 'assumptions.progress.summary',
+              contentSnippet: `Summary for ${base.prompt.promptHeading}`,
+              deltaType: 'text' as const,
+              announcementPriority: 'polite' as const,
+              elapsedMs: 40,
+            },
+          ];
+        },
+      };
+    };
+
+    const createPendingQueueStub = (): SectionStreamQueue => {
+      const pendingBySection = new Map<
+        string,
+        { sessionId: string; sectionId: string; enqueuedAt: number }
+      >();
+
+      return {
+        enqueue: vi.fn(request => {
+          pendingBySection.set(request.sectionId, {
+            sessionId: request.sessionId,
+            sectionId: request.sectionId,
+            enqueuedAt: request.enqueuedAt,
+          });
+          return {
+            disposition: 'pending' as const,
+            sessionId: request.sessionId,
+            sectionId: request.sectionId,
+            replacedSessionId: null,
+          };
+        }),
+        complete: vi.fn(() => null),
+        cancel: vi.fn((_sessionId, reason) => ({
+          released: true,
+          reason,
+          promoted: null,
+        })),
+        snapshot: vi.fn(() => ({
+          active: new Map<string, any>(),
+          pending: new Map(pendingBySection),
+        })),
+      };
+    };
+
+    const collectEvents = async (
+      stream: AsyncIterable<{ type: string; data: any }>,
+      count: number,
+      filter: (event: { type: string; data: any }) => boolean = () => true
+    ) => {
+      const events: Array<{ type: string; data: any }> = [];
+      for await (const event of stream) {
+        if (!filter(event)) {
+          continue;
+        }
+        events.push(event);
+        if (events.length >= count) {
+          break;
+        }
+      }
+      return events;
+    };
+
+    it('buffers out-of-order progress events and emits them sequentially', async () => {
+      service = new AssumptionSessionService({
+        repository,
+        logger,
+        promptProvider: {
+          async getPrompts() {
+            return promptTemplates;
+          },
+        },
+        timeProvider: () => fixedNow,
+        decisionProvider,
+        streaming: {
+          provider: createStreamingProvider(),
+        },
+      });
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '1.0.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      const streamRegistration = await service.openStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        requestId: 'req-stream-order',
+        actorId: 'user-assumption-author',
+      });
+
+      expect(streamRegistration.disposition).toBe('started');
+
+      const prompt = session.prompts[0]!;
+      await service.respondToAssumption({
+        assumptionId: prompt.id,
+        actorId: 'user-assumption-author',
+        action: 'answer',
+        answer: 'Risk accepted',
+      });
+
+      const events = await collectEvents(
+        streamRegistration.stream,
+        2,
+        event => event.type === 'progress'
+      );
+      expect(events).toHaveLength(2);
+      expect(events[0]).toMatchObject({
+        type: 'progress',
+        data: {
+          sequence: 1,
+          stageLabel: 'assumptions.progress.summary',
+          contentSnippet: 'Summary for Performance guardrail',
+        },
+      });
+      expect(events[1]).toMatchObject({
+        type: 'progress',
+        data: {
+          sequence: 2,
+          stageLabel: 'assumptions.progress.analysis',
+        },
+      });
+
+      await service.completeStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        reason: 'client_close',
+      });
+    });
+
+    it('queues streaming output when pending and flushes after promotion', async () => {
+      const queueStub = createPendingQueueStub();
+
+      service = new AssumptionSessionService({
+        repository,
+        logger,
+        promptProvider: {
+          async getPrompts() {
+            return promptTemplates;
+          },
+        },
+        timeProvider: () => fixedNow,
+        decisionProvider,
+        streaming: {
+          provider: createStreamingProvider(),
+        },
+        queue: queueStub,
+      });
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '1.0.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      const streamRegistration = await service.openStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        requestId: 'req-stream-pending',
+        actorId: 'user-assumption-author',
+      });
+
+      expect(streamRegistration.disposition).toBe('pending');
+
+      const progressEventsPromise = collectEvents(
+        streamRegistration.stream,
+        2,
+        event => event.type === 'progress'
+      );
+
+      const prompt = session.prompts[0]!;
+      await service.respondToAssumption({
+        assumptionId: prompt.id,
+        actorId: 'user-assumption-author',
+        action: 'answer',
+        answer: 'Concurrency guard verified',
+      });
+
+      service.handleQueuePromotion({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        concurrencySlot: 1,
+      });
+
+      const progressEvents = await progressEventsPromise;
+      expect(progressEvents).toHaveLength(2);
+      expect(progressEvents[0]?.data).toMatchObject({ sequence: 1 });
+      expect(progressEvents[1]?.data).toMatchObject({ sequence: 2 });
+
+      await service.completeStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        reason: 'client_close',
+      });
+    });
+
+    it('emits deferred and resumed status updates around prompt actions', async () => {
+      service = new AssumptionSessionService({
+        repository,
+        logger,
+        promptProvider: {
+          async getPrompts() {
+            return promptTemplates;
+          },
+        },
+        timeProvider: () => fixedNow,
+        decisionProvider,
+        streaming: {
+          provider: createStreamingProvider(),
+        },
+      });
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '1.0.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      const { stream } = await service.openStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        requestId: 'req-stream-defer',
+        actorId: 'user-assumption-author',
+      });
+
+      const prompt = session.prompts[0]!;
+      await service.respondToAssumption({
+        assumptionId: prompt.id,
+        actorId: 'user-assumption-author',
+        action: 'defer',
+      });
+
+      const [firstEvent] = await collectEvents(
+        stream,
+        1,
+        event => !(event.type === 'status' && event.data?.status === 'streaming')
+      );
+      expect(firstEvent).toMatchObject({
+        type: 'status',
+        data: {
+          status: 'deferred',
+        },
+      });
+
+      await service.respondToAssumption({
+        assumptionId: prompt.id,
+        actorId: 'user-assumption-author',
+        action: 'answer',
+        answer: 'Proceed later',
+      });
+
+      const [second] = await collectEvents(
+        stream,
+        1,
+        event => !(event.type === 'status' && event.data?.status === 'streaming')
+      );
+      expect(second).toMatchObject({
+        type: 'status',
+        data: {
+          status: 'resumed',
+        },
+      });
+
+      const [third] = await collectEvents(
+        stream,
+        1,
+        event => event.type !== 'status' || event.data?.status !== 'streaming'
+      );
+      expect(third).toMatchObject({
+        type: 'progress',
+      });
+
+      await service.completeStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        reason: 'client_close',
+      });
+    });
+
+    it('emits cancellation telemetry when queue cancels a session', async () => {
+      const queueStub = createPendingQueueStub();
+      service = new AssumptionSessionService({
+        repository,
+        logger,
+        promptProvider: {
+          async getPrompts() {
+            return promptTemplates;
+          },
+        },
+        timeProvider: () => fixedNow,
+        decisionProvider,
+        streaming: {
+          provider: createStreamingProvider(),
+        },
+        queue: queueStub,
+      });
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '1.0.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      const streamRegistration = await service.openStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        requestId: 'req-stream-cancel',
+        actorId: 'user-assumption-author',
+      });
+
+      expect(streamRegistration.disposition).toBe('pending');
+
+      const captured: Array<{ type: string; data: any }> = [];
+      const consumeStream = (async () => {
+        for await (const event of streamRegistration.stream) {
+          captured.push(event);
+        }
+      })();
+
+      service.handleQueueCancellation({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        reason: 'replaced_by_new_request',
+        state: 'pending',
+      });
+
+      await consumeStream;
+
+      expect(captured.some(event => event.type === 'replacement')).toBe(true);
+
+      const internals = service as unknown as {
+        streams: Map<string, unknown>;
+        queueStates: Map<string, unknown>;
+      };
+
+      expect(internals.streams.has(session.sessionId)).toBe(false);
+      expect(internals.queueStates.has(session.sessionId)).toBe(false);
+    });
+
+    it('records telemetry for streaming progress events', async () => {
+      const telemetryLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      } as unknown as Logger;
+
+      service = new AssumptionSessionService({
+        repository,
+        logger: telemetryLogger,
+        promptProvider: {
+          async getPrompts() {
+            return promptTemplates;
+          },
+        },
+        timeProvider: () => fixedNow,
+        decisionProvider,
+        streaming: {
+          provider: createStreamingProvider(),
+        },
+      });
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '1.0.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      const { stream } = await service.openStreamingSession({
+        sessionId: session.sessionId,
+        sectionId: session.sectionId,
+        requestId: 'req-stream-telemetry',
+        actorId: 'user-assumption-author',
+      });
+
+      const prompt = session.prompts[0]!;
+      await service.respondToAssumption({
+        assumptionId: prompt.id,
+        actorId: 'user-assumption-author',
+        action: 'answer',
+        answer: 'Telemetry please',
+      });
+
+      await collectEvents(stream, 2);
+
+      expect(telemetryLogger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'assumptions.streaming.progress',
+          sessionId: session.sessionId,
+        }),
+        'Assumption streaming progress event'
+      );
     });
   });
 

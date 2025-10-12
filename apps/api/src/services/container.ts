@@ -61,11 +61,13 @@ import type { BuildCoAuthorContextDependencies } from './co-authoring/context-bu
 import { createVercelAIProposalProvider } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { CoAuthoringDraftPersistenceAdapter } from './co-authoring/draft-persistence.js';
 import { createCoAuthoringAuditLogger } from '@ctrl-freaq/qa';
+import { DocumentQaStreamingService } from '../modules/document-qa/services/document-qa-streaming.service.js';
 import type { ServiceContainer } from '../core/service-locator.js';
 import type {
   ProposalProvider,
   ProposalProviderEvent,
 } from '@ctrl-freaq/ai/session/proposal-runner.js';
+import { SharedSectionStreamQueueCoordinator } from './streaming/shared-section-stream-queue.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -118,6 +120,11 @@ export function createRepositoryRegistrationMiddleware() {
     container.register(
       'assumptionSessionRepository',
       () => new AssumptionSessionRepository(getDb())
+    );
+
+    container.register(
+      'sectionStreamQueueCoordinator',
+      () => new SharedSectionStreamQueueCoordinator()
     );
 
     container.register('draftBundleRepository', currentContainer => {
@@ -219,6 +226,16 @@ export function createRepositoryRegistrationMiddleware() {
       ) as CoAuthoringChangelogRepository;
       const draftPersistence = new CoAuthoringDraftPersistenceAdapter(drafts, logger);
       const auditLogger = createCoAuthoringAuditLogger(logger);
+      const queueCoordinator = currentContainer.get(
+        'sectionStreamQueueCoordinator'
+      ) as SharedSectionStreamQueueCoordinator;
+
+      let serviceRef: AIProposalService | null = null;
+      const sharedQueue = queueCoordinator.registerOwner('coAuthor', {
+        onPromoted(promotion) {
+          serviceRef?.handleQueuePromotion(promotion);
+        },
+      });
 
       const providerMode = (process.env.COAUTHORING_PROVIDER_MODE ?? '').trim().toLowerCase();
       const useMockProvider =
@@ -237,6 +254,7 @@ export function createRepositoryRegistrationMiddleware() {
         draftPersistence,
         changelogRepo,
         auditLogger,
+        streamQueue: sharedQueue,
         providerFactory: useMockProvider
           ? createMockProposalProvider
           : () => createVercelAIProposalProvider(),
@@ -246,7 +264,36 @@ export function createRepositoryRegistrationMiddleware() {
         logger.debug('Co-authoring service using mock proposal provider');
       }
 
-      return new AIProposalService(serviceDeps);
+      const service = new AIProposalService(serviceDeps);
+      serviceRef = service;
+      return service;
+    });
+
+    container.register('documentQaStreamingService', currentContainer => {
+      const logger = currentContainer.get('logger') as Logger;
+      const queueCoordinator = currentContainer.get(
+        'sectionStreamQueueCoordinator'
+      ) as SharedSectionStreamQueueCoordinator;
+      const telemetry = {
+        logReview(payload: Record<string, unknown>) {
+          logger.info(payload, 'Document QA streaming telemetry');
+        },
+      };
+
+      let serviceRef: DocumentQaStreamingService | null = null;
+      const sharedQueue = queueCoordinator.registerOwner('documentQa', {
+        onPromoted(promotion) {
+          serviceRef?.handleQueuePromotion(promotion);
+        },
+      });
+
+      const service = new DocumentQaStreamingService({
+        logger,
+        telemetry,
+        queue: sharedQueue,
+      });
+      serviceRef = service;
+      return service;
     });
 
     container.register('templateResolver', currentContainer => {
@@ -374,12 +421,29 @@ export function createRepositoryRegistrationMiddleware() {
       const decisionProvider = currentContainer.get(
         'documentDecisionProvider'
       ) as DocumentDecisionProvider;
-      return new AssumptionSessionService({
+      const queueCoordinator = currentContainer.get(
+        'sectionStreamQueueCoordinator'
+      ) as SharedSectionStreamQueueCoordinator;
+
+      let serviceRef: AssumptionSessionService | null = null;
+      const sharedQueue = queueCoordinator.registerOwner('assumptions', {
+        onPromoted(promotion) {
+          serviceRef?.handleQueuePromotion(promotion);
+        },
+        onCanceled(details) {
+          serviceRef?.handleQueueCancellation(details);
+        },
+      });
+
+      const service = new AssumptionSessionService({
         repository,
         logger,
         promptProvider,
         decisionProvider,
+        queue: sharedQueue,
       });
+      serviceRef = service;
+      return service;
     });
 
     container.register('sectionConflictService', currentContainer => {

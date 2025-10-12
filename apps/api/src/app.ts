@@ -214,6 +214,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { sectionsRouter } = await import('./routes/sections.js');
   const { sessionsRouter } = await import('./routes/sessions.js');
   const { coAuthoringRouter } = await import('./routes/co-authoring.js');
+  const { documentQaRouter } = await import('./routes/document-qa.js');
   const { clerkAuthMiddleware, requireAuth, createUserRateLimit } = await import(
     './middleware/auth.js'
   );
@@ -253,6 +254,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use('/api/v1', documentsRouter);
   app.use('/api/v1', sectionsRouter);
   app.use('/api/v1', sessionsRouter);
+  app.use('/api/v1', documentQaRouter);
   app.use('/api/v1', coAuthoringRouter);
   const shouldRegisterTestRoutes =
     isTestEnv || (process.env.NODE_ENV ?? 'development') !== 'production';

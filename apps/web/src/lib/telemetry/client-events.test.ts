@@ -93,3 +93,215 @@ describe('client draft telemetry events', () => {
     });
   });
 });
+
+describe('document QA streaming telemetry events', () => {
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('logs QA streaming metrics locally', async () => {
+    const { emitQaStreamingMetric } = await import('./client-events');
+
+    const metricPayload = {
+      sessionId: 'session-qa-1',
+      sectionId: 'section-qa',
+      elapsedMs: 240,
+      stageLabel: 'analysis',
+      firstUpdateMs: 180,
+      retryCount: 0,
+      concurrencySlot: 2,
+    };
+
+    emitQaStreamingMetric(metricPayload);
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[draft.telemetry] qa.streaming.metric', {
+      message: 'QA streaming metric recorded',
+      payload: metricPayload,
+    });
+  });
+
+  it('logs resequence telemetry when out-of-order events occur', async () => {
+    const { emitQaStreamingResequence } = await import('./client-events');
+
+    const resequencePayload = {
+      sessionId: 'session-qa-1',
+      sectionId: 'section-qa',
+      reorderedCount: 4,
+      highestSequence: 12,
+    };
+
+    emitQaStreamingResequence(resequencePayload);
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[draft.telemetry] qa.streaming.resequence', {
+      message: 'QA stream resequenced to recover ordering',
+      payload: resequencePayload,
+    });
+  });
+
+  it('logs cancel telemetry with reasons', async () => {
+    const { emitQaStreamingCancel } = await import('./client-events');
+
+    const cancelPayload = {
+      sessionId: 'session-qa-1',
+      sectionId: 'section-qa',
+      cancelReason: 'author_cancelled',
+      retryCount: 2,
+    };
+
+    emitQaStreamingCancel(cancelPayload);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[draft.telemetry] qa.streaming.cancelled', {
+      message: 'QA streaming canceled client-side',
+      payload: cancelPayload,
+    });
+  });
+
+  it('logs fallback telemetry with diagnostics', async () => {
+    const { emitQaStreamingFallback } = await import('./client-events');
+
+    const fallbackPayload = {
+      sessionId: 'session-qa-1',
+      sectionId: 'section-qa',
+      fallbackReason: 'transport_blocked',
+      triggeredAt: '2025-10-10T10:00:00.000Z',
+      preservedTokensCount: 6,
+      retryAttempted: false,
+      elapsedMs: 2200,
+    };
+
+    emitQaStreamingFallback(fallbackPayload);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[draft.telemetry] qa.streaming.fallback', {
+      message: 'QA streaming fallback engaged',
+      payload: fallbackPayload,
+    });
+  });
+
+  it('logs co-author fallback telemetry with diagnostics', async () => {
+    const { emitCoAuthorStreamingFallback } = await import('./client-events');
+
+    const payload = {
+      sessionId: 'coauthor-session-1',
+      sectionId: 'section-coauthor',
+      fallbackReason: 'transport_blocked',
+      preservedTokensCount: 8,
+      retryAttempted: true,
+      elapsedMs: 3100,
+      cancelReason: undefined,
+    };
+
+    emitCoAuthorStreamingFallback(payload);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[draft.telemetry] coauthor.streaming.fallback', {
+      message: 'Co-author streaming fallback engaged',
+      payload,
+    });
+  });
+});
+
+describe('assumption streaming telemetry events', () => {
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('logs assumption streaming metrics locally', async () => {
+    const { emitAssumptionStreamingMetric } = await import('./client-events');
+
+    const metricPayload = {
+      sessionId: 'assumption-session-1',
+      sectionId: 'section-assumption',
+      elapsedMs: 180,
+      stageLabel: 'rationale',
+      status: 'streaming' as const,
+    };
+
+    emitAssumptionStreamingMetric(metricPayload);
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[draft.telemetry] assumptions.streaming.metric', {
+      message: 'Assumption streaming metric recorded',
+      payload: metricPayload,
+    });
+  });
+
+  it('logs assumption streaming status transitions', async () => {
+    const { emitAssumptionStreamingStatus } = await import('./client-events');
+
+    const statusPayload = {
+      sessionId: 'assumption-session-1',
+      sectionId: 'section-assumption',
+      status: 'canceled' as const,
+      reason: 'author_cancelled',
+    };
+
+    emitAssumptionStreamingStatus(statusPayload);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[draft.telemetry] assumptions.streaming.status', {
+      message: 'Assumption streaming status change',
+      payload: statusPayload,
+    });
+  });
+
+  it('logs resequence telemetry for assumption streams', async () => {
+    const { emitAssumptionStreamingResequence } = await import('./client-events');
+
+    const resequencePayload = {
+      sessionId: 'assumption-session-1',
+      sectionId: 'section-assumption',
+      correctedCount: 3,
+      highestSequence: 9,
+    };
+
+    emitAssumptionStreamingResequence(resequencePayload);
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[draft.telemetry] assumptions.streaming.resequence',
+      {
+        message: 'Assumption stream resequenced to recover ordering',
+        payload: resequencePayload,
+      }
+    );
+  });
+
+  it('logs fallback telemetry for assumption streams', async () => {
+    const { emitAssumptionStreamingFallback } = await import('./client-events');
+
+    const fallbackPayload = {
+      sessionId: 'assumption-session-1',
+      sectionId: 'section-assumption',
+      fallbackReason: 'transport_blocked',
+      preservedTokensCount: 2,
+      retryAttempted: false,
+      elapsedMs: 1500,
+    };
+
+    emitAssumptionStreamingFallback(fallbackPayload);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[draft.telemetry] assumptions.streaming.fallback',
+      {
+        message: 'Assumption streaming fallback engaged',
+        payload: fallbackPayload,
+      }
+    );
+  });
+});

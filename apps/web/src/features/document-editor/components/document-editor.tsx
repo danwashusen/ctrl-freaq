@@ -42,7 +42,9 @@ import { useDocumentFixtureBootstrap } from '../hooks/use-document-fixture';
 import { AssumptionsChecklist } from '../assumptions-flow/components/assumptions-checklist';
 import { useAssumptionsFlow } from '../assumptions-flow/hooks/use-assumptions-flow';
 import { CoAuthorSidebar } from './co-authoring';
+import { DocumentQaPanel } from './document-qa';
 import { useCoAuthorSession } from '../hooks/useCoAuthorSession';
+import { useDocumentQaSession } from '../hooks/useDocumentQaSession';
 import type { CoAuthoringIntent } from '../stores/co-authoring-store';
 
 export interface DocumentEditorProps {
@@ -85,6 +87,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const [quotaMessage, setQuotaMessage] = useState<string | null>(null);
     const [isRecoveryProcessing, setIsRecoveryProcessing] = useState(false);
     const [isCoAuthorOpen, setIsCoAuthorOpen] = useState(false);
+    const [isDocumentQaOpen, setIsDocumentQaOpen] = useState(false);
     const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<string[]>(['knowledge:wcag']);
     const [selectedDecisionIds, setSelectedDecisionIds] = useState<string[]>([
       'decision:telemetry',
@@ -299,6 +302,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       isLoading: isAssumptionFlowLoading,
       error: assumptionFlowError,
       respond: respondToAssumptionPrompt,
+      streaming: assumptionStreaming,
     } = useAssumptionsFlow({
       sectionId: shouldEnableAssumptionsFlow ? activeSection?.id : undefined,
       documentId,
@@ -382,12 +386,19 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       authorId: effectiveUserId,
     });
 
+    const documentQa = useDocumentQaSession({
+      documentId,
+      sectionId: activeSectionId ?? null,
+      reviewerId: effectiveUserId,
+    });
+
     const {
       session: coAuthorSessionState,
       progress: coAuthorProgress,
       transcript: coAuthorTranscript,
       pendingProposal: coAuthorPendingProposal,
       fallback: coAuthorFallback,
+      replacementNotice: coAuthorReplacementNotice,
       analyze: analyzeWithCoAuthor,
       requestProposal: requestCoAuthorProposal,
       approveProposal: approveCoAuthorProposal,
@@ -400,6 +411,15 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       pushFallback: pushCoAuthorFallback,
       dismissProposal: dismissCoAuthorProposal,
     } = coAuthor;
+
+    const {
+      progress: documentQaProgress,
+      transcript: documentQaTranscript,
+      replacementNotice: documentQaReplacementNotice,
+      ensureSession: ensureDocumentQaSession,
+      cancelStreaming: cancelDocumentQaStreaming,
+      teardown: teardownDocumentQa,
+    } = documentQa;
 
     useEffect(() => {
       if (!coAuthorSessionState) {
@@ -418,6 +438,22 @@ export const DocumentEditor = memo<DocumentEditorProps>(
 
       setCoAuthorContextSources(nextSources);
     }, [coAuthorSessionState, contextSources, setCoAuthorContextSources]);
+
+    useEffect(() => {
+      if (!isDocumentQaOpen) {
+        return;
+      }
+      void ensureDocumentQaSession();
+    }, [ensureDocumentQaSession, isDocumentQaOpen, activeSectionId]);
+
+    useEffect(() => {
+      if (!isDocumentQaOpen) {
+        return;
+      }
+      return () => {
+        teardownDocumentQa();
+      };
+    }, [isDocumentQaOpen, teardownDocumentQa]);
 
     const completedSections = useMemo(() => {
       return sectionsList
@@ -1380,14 +1416,24 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                       Close diff view
                     </Button>
                   )}
-                  <Button
-                    variant={isCoAuthorOpen ? 'default' : 'secondary'}
-                    size="sm"
-                    onClick={handleToggleCoAuthor}
-                    disabled={!activeSection}
-                  >
-                    {isCoAuthorOpen ? 'Close Co-Author' : 'Open Co-Author'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={isDocumentQaOpen ? 'default' : 'secondary'}
+                      size="sm"
+                      onClick={() => setIsDocumentQaOpen(prev => !prev)}
+                      disabled={!activeSection}
+                    >
+                      {isDocumentQaOpen ? 'Close QA Review' : 'Open QA Review'}
+                    </Button>
+                    <Button
+                      variant={isCoAuthorOpen ? 'default' : 'secondary'}
+                      size="sm"
+                      onClick={handleToggleCoAuthor}
+                      disabled={!activeSection}
+                    >
+                      {isCoAuthorOpen ? 'Close Co-Author' : 'Open Co-Author'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1396,10 +1442,17 @@ export const DocumentEditor = memo<DocumentEditorProps>(
               <div
                 className={cn(
                   'p-6',
-                  isCoAuthorOpen ? 'lg:flex lg:items-start lg:gap-6' : 'space-y-6'
+                  isCoAuthorOpen || isDocumentQaOpen
+                    ? 'lg:flex lg:items-start lg:gap-6'
+                    : 'space-y-6'
                 )}
               >
-                <div className={cn('min-w-0 space-y-6', isCoAuthorOpen && 'lg:flex-1')}>
+                <div
+                  className={cn(
+                    'min-w-0 space-y-6',
+                    isCoAuthorOpen || isDocumentQaOpen ? 'lg:flex-1' : undefined
+                  )}
+                >
                   {activeSection ? (
                     <div data-section-id={activeSection.id}>
                       <DocumentSectionPreview
@@ -1436,6 +1489,11 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                             overridesOpen={assumptionFlowState?.overridesOpen ?? 0}
                             isLoading={isAssumptionFlowLoading}
                             onRespond={respondToAssumptionPrompt}
+                            streamingStatus={assumptionStreaming.status}
+                            streamingBullets={assumptionStreaming.bullets}
+                            streamingHasOutOfOrder={assumptionStreaming.hasOutOfOrder}
+                            streamingAnnouncements={assumptionStreaming.announcements}
+                            fallbackState={assumptionStreaming.fallback}
                           />
                         </div>
                       )}
@@ -1559,31 +1617,47 @@ console.log('code snippet');
                     </div>
                   )}
                 </div>
-                {isCoAuthorOpen && activeSection ? (
-                  <div className="mt-6 w-full max-w-full lg:mt-0 lg:w-[360px] lg:flex-shrink-0">
-                    <CoAuthorSidebar
-                      documentTitle={documentTitle}
-                      sectionTitle={activeSection.title}
-                      activeIntent={activeCoAuthorIntent}
-                      onIntentChange={handleIntentChange}
-                      selectedKnowledge={selectedKnowledgeIds}
-                      knowledgeOptions={knowledgeOptions}
-                      onToggleKnowledge={toggleKnowledge}
-                      selectedDecisions={selectedDecisionIds}
-                      decisionOptions={decisionOptions}
-                      onToggleDecision={toggleDecision}
-                      onRunAnalyze={handleAnalyzeRequest}
-                      onRunProposal={handleProposalRequest}
-                      onApproveProposal={handleApproveProposal}
-                      onRejectProposal={handleRejectProposal}
-                      onRequestChanges={handleCoAuthorRequestChanges}
-                      progress={coAuthorProgress}
-                      onCancelStreaming={cancelCoAuthorStreaming}
-                      onRetry={handleRetryAssistant}
-                      pendingProposal={coAuthorPendingProposal}
-                      fallback={coAuthorFallback}
-                      transcript={coAuthorTranscript}
-                    />
+                {(isCoAuthorOpen || isDocumentQaOpen) && activeSection ? (
+                  <div className="mt-6 w-full max-w-full space-y-6 lg:mt-0 lg:w-[360px] lg:flex-shrink-0">
+                    {isCoAuthorOpen ? (
+                      <CoAuthorSidebar
+                        documentTitle={documentTitle}
+                        sectionTitle={activeSection.title}
+                        activeIntent={activeCoAuthorIntent}
+                        onIntentChange={handleIntentChange}
+                        selectedKnowledge={selectedKnowledgeIds}
+                        knowledgeOptions={knowledgeOptions}
+                        onToggleKnowledge={toggleKnowledge}
+                        selectedDecisions={selectedDecisionIds}
+                        decisionOptions={decisionOptions}
+                        onToggleDecision={toggleDecision}
+                        onRunAnalyze={handleAnalyzeRequest}
+                        onRunProposal={handleProposalRequest}
+                        onApproveProposal={handleApproveProposal}
+                        onRejectProposal={handleRejectProposal}
+                        onRequestChanges={handleCoAuthorRequestChanges}
+                        progress={coAuthorProgress}
+                        replacementNotice={coAuthorReplacementNotice}
+                        onCancelStreaming={cancelCoAuthorStreaming}
+                        onRetry={handleRetryAssistant}
+                        pendingProposal={coAuthorPendingProposal}
+                        fallback={coAuthorFallback}
+                        transcript={coAuthorTranscript}
+                      />
+                    ) : null}
+                    {isDocumentQaOpen ? (
+                      <DocumentQaPanel
+                        documentTitle={documentTitle}
+                        sectionTitle={activeSection.title}
+                        progress={documentQaProgress}
+                        transcript={documentQaTranscript}
+                        replacementNotice={documentQaReplacementNotice}
+                        onCancel={() => cancelDocumentQaStreaming()}
+                        onRetry={() => {
+                          void ensureDocumentQaSession();
+                        }}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </div>

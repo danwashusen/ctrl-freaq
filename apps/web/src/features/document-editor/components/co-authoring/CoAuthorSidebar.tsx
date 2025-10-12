@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FC, type FormEvent } from 'react';
 import type {
   CoAuthoringIntent,
   PendingProposalSnapshot,
+  ReplacementNotice,
   StreamProgressState,
 } from '../../stores/co-authoring-store';
 import type { CoAuthorFallbackState } from '../../hooks/useCoAuthorSession';
@@ -38,6 +39,7 @@ export interface CoAuthorSidebarProps {
   onRejectProposal: () => void;
   onRequestChanges: () => void;
   progress: StreamProgressState;
+  replacementNotice: ReplacementNotice | null;
   onCancelStreaming: () => void;
   onRetry: () => void;
   pendingProposal: PendingProposalSnapshot | null;
@@ -69,6 +71,7 @@ const CoAuthorSidebar: FC<CoAuthorSidebarProps> = props => {
     onRejectProposal,
     onRequestChanges,
     progress,
+    replacementNotice,
     onCancelStreaming,
     onRetry,
     pendingProposal,
@@ -234,8 +237,8 @@ const CoAuthorSidebar: FC<CoAuthorSidebarProps> = props => {
       </form>
 
       <SessionProgress
-        status={progress.status}
-        elapsedMs={progress.elapsedMs}
+        progress={progress}
+        replacementNotice={replacementNotice}
         onCancel={onCancelStreaming}
         onRetry={onRetry}
       />
@@ -263,8 +266,10 @@ const CoAuthorSidebar: FC<CoAuthorSidebarProps> = props => {
       >
         {fallback ? (
           <p>
-            Assistant fallback — {fallback.message}.{' '}
-            {fallback.retryable ? 'Try again when ready.' : ''}
+            {fallback.message}
+            <br />
+            <span className="co-author-sidebar__fallback-progress">{fallback.progressCopy}</span>
+            {fallback.retryable ? ' Try again when ready.' : ''}
           </p>
         ) : null}
       </div>
