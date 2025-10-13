@@ -1,5 +1,88 @@
 # Change Log
 
+## 012-epic-2-story-7
+
+> Feature scope: Streaming parity for co-authoring, document QA, and assumption
+> flows
+
+### Overview
+
+Implemented a shared section-stream queue and document QA streaming service so
+co-authoring, QA, and assumption loops enforce per-section serialization while
+keeping the editor responsive. Updated the document editor frontend, telemetry,
+and fallback handling to surface progress cues, cancellation controls, and
+parity between streaming and fallback deliveries.
+
+### Highlights
+
+- Added document QA streaming endpoints, service, and telemetry wiring that
+  reuse the shared queue (`apps/api/src/routes/document-qa.ts:1`,
+  `apps/api/src/modules/document-qa/services/document-qa-streaming.service.ts:1`,
+  `apps/api/src/services/container.ts:1`).
+- Shared coordinator and editor-core queue utilities replace ad hoc logic across
+  co-authoring, QA, and assumption services
+  (`apps/api/src/services/streaming/shared-section-stream-queue.ts:1`,
+  `packages/editor-core/src/streaming/section-stream-queue.ts:1`,
+  `apps/api/src/modules/section-editor/services/assumption-session.service.ts:1`).
+- Extended the document editor with a QA panel, Zustand store, and session hooks
+  that stream, resequence, and announce progress while honoring cancel/retry and
+  fallback toggles
+  (`apps/web/src/features/document-editor/components/document-qa/DocumentQaPanel.tsx:1`,
+  `apps/web/src/features/document-editor/stores/document-qa-store.ts:1`,
+  `apps/web/src/features/document-editor/hooks/useDocumentQaSession.ts:1`).
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-001      | Met    | Shared queue plus streaming services and hooks deliver incremental updates across co-authoring, QA, and assumption flows (`packages/editor-core/src/streaming/section-stream-queue.ts:1`, `apps/api/src/modules/document-qa/services/document-qa-streaming.service.ts:1`, `apps/api/src/modules/section-editor/services/assumption-session.service.ts:1`, `apps/web/src/features/document-editor/hooks/useDocumentQaSession.ts:1`).     |
+| FR-002      | Met    | Progress tracker emits stage labels and first-update latency while UI components surface chips and timers (`apps/web/src/lib/streaming/progress-tracker.ts:1`, `apps/web/src/features/document-editor/components/co-authoring/SessionProgress.tsx:1`, `apps/web/src/features/document-editor/components/document-qa/DocumentQaPanel.tsx:1`).                                                                                            |
+| FR-003      | Met    | Editor stores keep sessions editable and persist transcripts/summaries after completion (`apps/web/src/features/document-editor/stores/co-authoring-store.ts:1`, `apps/web/src/features/document-editor/stores/document-qa-store.ts:1`, `apps/api/src/modules/document-qa/services/document-qa-streaming.service.ts:1`).                                                                                                                |
+| FR-004      | Met    | Streaming progress tracker, QA hook, and telemetry emit ARIA-friendly announcements and fallback notices (`apps/web/src/lib/streaming/progress-tracker.ts:1`, `apps/web/src/features/document-editor/hooks/useDocumentQaSession.ts:1`, `apps/web/src/lib/telemetry/client-events.ts:1`).                                                                                                                                                |
+| FR-005      | Met    | Cancel/retry endpoints and UI handlers normalize queue reasons and confirmations (`apps/api/src/routes/document-qa.ts:1`, `apps/api/src/routes/co-authoring.ts:1`, `apps/web/src/features/document-editor/hooks/useDocumentQaSession.ts:1`, `apps/web/src/features/document-editor/hooks/useCoAuthorSession.ts:1`).                                                                                                                     |
+| FR-006      | Met    | Services detect transport flags and emit fallback parity while frontend displays deterministic fallback progress (`apps/api/src/modules/document-qa/services/document-qa-streaming.service.ts:1`, `apps/api/src/services/co-authoring/ai-proposal.service.ts:1`, `apps/web/src/lib/streaming/fallback-messages.ts:1`).                                                                                                                  |
+| FR-007      | Met    | Streaming and fallback flows share summary/tokens and are validated by unit tests (`apps/api/src/modules/document-qa/services/document-qa-streaming.service.ts:1`, `apps/api/tests/unit/document-qa/document-qa-streaming.service.test.ts:1`, `apps/web/src/lib/streaming/fallback-messages.test.ts:1`).                                                                                                                                |
+| FR-008      | Met    | Audit middleware, QA telemetry, and client events log queue disposition, fallback, and latency metrics (`apps/api/src/middleware/ai-request-audit.ts:84`, `packages/qa/src/audit/co-authoring.ts:14`, `apps/web/src/lib/telemetry/client-events.ts:1`).                                                                                                                                                                                 |
+| FR-009      | Met    | Section stream queue enforces per-section serialization with promotions and cancellation propagation, verified through API/service tests (`packages/editor-core/src/streaming/section-stream-queue.ts:1`, `apps/api/src/services/streaming/shared-section-stream-queue.ts:1`, `apps/api/src/services/co-authoring/ai-proposal.service.test.ts:1`, `apps/api/src/modules/section-editor/services/assumption-session.service.test.ts:1`). |
+
+### Testing
+
+- Added or expanded 11 Vitest suites covering queue replacement, Document QA
+  streaming, fallback parity, telemetry, and UI session hooks; contract tests
+  for the new document QA routes remain TODO before release.
+
+### Risks & Mitigations
+
+- Document QA streaming service currently emits deterministic placeholder
+  tokens; integrate the real review pipeline or flag this as a temporary stub
+  before production cutover.
+- New document QA endpoints lack contract coverage; add `*.contract.test.ts`
+  exercising `specs/012-epic-2-story-7/contracts/streaming-openapi.yaml` prior
+  to merging to main.
+
+### Clarifications
+
+- 2025-10-09: Multiple requests for the same section keep only the newest
+  pending entry; enforced via shared section-stream queue.
+- 2025-10-09: Cross-section concurrency is allowed; queue tracks concurrency
+  slots per active session.
+- 2025-10-09: Target capacity is 40+ concurrent interactions per workspace;
+  telemetry captures slots and latency for validation.
+- 2025-10-09: Streaming sessions are identified by server-generated UUID
+  `sessionId`; all telemetry and stores persist this key.
+
+### Assumption Log
+
+- Queue utilities in
+  `packages/editor-core/src/streaming/section-stream-queue.ts:1` serve
+  co-authoring, document QA, and assumptions to align with FR-009 and
+  cancel/retry parity.
+- Document QA streaming shares co-authoring contract shapes so APIs and UI hooks
+  can remain symmetrical until dedicated QA modules land.
+- Document QA reviews derive deterministic prompts from document and section
+  identifiers when UI does not supply explicit copy, preserving contract
+  compliance.
+
 ## 011-epic-2-story-6
 
 > Feature scope: Section-scoped conversational co-authoring assistant
