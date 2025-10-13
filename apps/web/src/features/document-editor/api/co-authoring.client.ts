@@ -4,7 +4,7 @@ const RAW_API_BASE =
     : undefined) ?? '/api/v1';
 const API_BASE_PATH = RAW_API_BASE.replace(/\/$/, '');
 
-const buildApiUrl = (path: string): string => {
+export const buildApiUrl = (path: string): string => {
   return `${API_BASE_PATH}${path}`;
 };
 
@@ -107,8 +107,27 @@ export interface RequestResult<TBody> {
 }
 
 export type CoAuthoringStreamEvent =
-  | { type: 'progress'; status: string; elapsedMs: number }
-  | { type: 'token'; value: string }
+  | {
+      type: 'progress';
+      status: string;
+      elapsedMs: number;
+      stage?: string;
+      announcementPriority?: 'polite' | 'assertive';
+      sequence?: number;
+      concurrencySlot?: number;
+      cancelReason?: string;
+      retryCount?: number;
+      fallbackReason?: string;
+      preservedTokensCount?: number;
+      delivery?: 'streaming' | 'fallback';
+      retryAttempted?: boolean;
+      replacement?: {
+        previousSessionId: string;
+        promotedSessionId?: string | null;
+      };
+      isEditorLocked?: boolean;
+    }
+  | { type: 'token'; value: string; sequence?: number }
   | {
       type: 'proposal.ready';
       proposalId: string;
@@ -120,6 +139,16 @@ export type CoAuthoringStreamEvent =
       diffHash?: string;
     }
   | { type: 'analysis.completed'; timestamp: string; sessionId: string }
+  | {
+      type: 'state';
+      status: string;
+      fallbackReason?: string;
+      preservedTokensCount?: number;
+      retryAttempted?: boolean;
+      elapsedMs?: number;
+      timestamp?: string;
+      delivery?: 'streaming' | 'fallback';
+    }
   | { type: 'error'; message: string };
 
 export interface EventSubscription {
@@ -256,13 +285,30 @@ export const postApply = async (
   return readJson<ApplyResponseBody>(response);
 };
 
+const resolveStreamPath = (streamPath: string | undefined, sessionId: string): string => {
+  if (!streamPath) {
+    return buildApiUrl(`/co-authoring/sessions/${sessionId}/events`);
+  }
+
+  if (/^https?:\/\//i.test(streamPath)) {
+    return streamPath;
+  }
+
+  if (streamPath.startsWith('/')) {
+    return streamPath;
+  }
+
+  const normalized = streamPath.startsWith('/') ? streamPath : `/${streamPath}`;
+  return buildApiUrl(normalized);
+};
+
 export const subscribeToSession = (
   sessionId: string,
   onEvent: (event: CoAuthoringStreamEvent) => void,
-  options?: { eventSourceFactory?: (url: string) => EventSource }
+  options?: { eventSourceFactory?: (url: string) => EventSource; streamPath?: string }
 ): EventSubscription => {
   const factory = options?.eventSourceFactory ?? ((url: string) => new EventSource(url));
-  const eventSource = factory(buildApiUrl(`/co-authoring/sessions/${sessionId}/events`));
+  const eventSource = factory(resolveStreamPath(options?.streamPath, sessionId));
 
   const handleMessage = (event: MessageEvent<string>) => {
     if (!event?.data) {
@@ -280,12 +326,92 @@ export const subscribeToSession = (
       case 'progress': {
         const status = typeof parsed.status === 'string' ? parsed.status : 'unknown';
         const elapsedMs = typeof parsed.elapsedMs === 'number' ? parsed.elapsedMs : 0;
-        onEvent({ type: 'progress', status, elapsedMs });
+        const stage = typeof parsed.stage === 'string' ? parsed.stage : undefined;
+        const announcementPriority =
+          parsed.announcementPriority === 'assertive' || parsed.announcementPriority === 'polite'
+            ? (parsed.announcementPriority as 'polite' | 'assertive')
+            : undefined;
+        const sequence =
+          typeof parsed.sequence === 'number' && Number.isFinite(parsed.sequence)
+            ? (parsed.sequence as number)
+            : undefined;
+        const concurrencySlot =
+          typeof parsed.concurrencySlot === 'number' && Number.isFinite(parsed.concurrencySlot)
+            ? (parsed.concurrencySlot as number)
+            : undefined;
+        const cancelReason =
+          typeof parsed.cancelReason === 'string' ? parsed.cancelReason : undefined;
+        const retryCount =
+          typeof parsed.retryCount === 'number' && Number.isFinite(parsed.retryCount)
+            ? (parsed.retryCount as number)
+            : undefined;
+        const fallbackReason =
+          typeof parsed.fallbackReason === 'string' ? parsed.fallbackReason : undefined;
+        const preservedTokensCount =
+          typeof parsed.preservedTokensCount === 'number' &&
+          Number.isFinite(parsed.preservedTokensCount)
+            ? (parsed.preservedTokensCount as number)
+            : undefined;
+        const delivery =
+          parsed.delivery === 'fallback' || parsed.delivery === 'streaming'
+            ? (parsed.delivery as 'fallback' | 'streaming')
+            : undefined;
+        const retryAttempted =
+          typeof parsed.retryAttempted === 'boolean'
+            ? (parsed.retryAttempted as boolean)
+            : undefined;
+
+        let replacement:
+          | {
+              previousSessionId: string;
+              promotedSessionId?: string | null;
+            }
+          | undefined;
+
+        const previousSessionId =
+          typeof parsed.previousSessionId === 'string'
+            ? parsed.previousSessionId
+            : typeof parsed.replacedSessionId === 'string'
+              ? parsed.replacedSessionId
+              : undefined;
+        if (previousSessionId) {
+          const promoted =
+            typeof parsed.promotedSessionId === 'string' ? parsed.promotedSessionId : undefined;
+          replacement = {
+            previousSessionId,
+            promotedSessionId: promoted ?? null,
+          };
+        }
+
+        const isEditorLocked =
+          typeof parsed.isEditorLocked === 'boolean' ? parsed.isEditorLocked : undefined;
+
+        onEvent({
+          type: 'progress',
+          status,
+          elapsedMs,
+          stage,
+          announcementPriority,
+          sequence,
+          concurrencySlot,
+          cancelReason,
+          retryCount,
+          replacement,
+          isEditorLocked,
+          fallbackReason,
+          preservedTokensCount,
+          delivery,
+          retryAttempted,
+        });
         break;
       }
       case 'token': {
         const value = typeof parsed.value === 'string' ? parsed.value : '';
-        onEvent({ type: 'token', value });
+        const sequence =
+          typeof parsed.sequence === 'number' && Number.isFinite(parsed.sequence)
+            ? (parsed.sequence as number)
+            : undefined;
+        onEvent({ type: 'token', value, sequence });
         break;
       }
       case 'proposal.ready': {
@@ -317,6 +443,41 @@ export const subscribeToSession = (
         onEvent({ type: 'error', message });
         break;
       }
+      case 'state': {
+        const status = typeof parsed.status === 'string' ? parsed.status : 'unknown';
+        const fallbackReason =
+          typeof parsed.fallbackReason === 'string' ? parsed.fallbackReason : undefined;
+        const preservedTokensCount =
+          typeof parsed.preservedTokensCount === 'number' &&
+          Number.isFinite(parsed.preservedTokensCount)
+            ? (parsed.preservedTokensCount as number)
+            : undefined;
+        const retryAttempted =
+          typeof parsed.retryAttempted === 'boolean'
+            ? (parsed.retryAttempted as boolean)
+            : undefined;
+        const elapsedMs =
+          typeof parsed.elapsedMs === 'number' && Number.isFinite(parsed.elapsedMs)
+            ? (parsed.elapsedMs as number)
+            : undefined;
+        const timestamp = typeof parsed.timestamp === 'string' ? parsed.timestamp : undefined;
+        const delivery =
+          parsed.delivery === 'fallback' || parsed.delivery === 'streaming'
+            ? (parsed.delivery as 'fallback' | 'streaming')
+            : undefined;
+
+        onEvent({
+          type: 'state',
+          status,
+          fallbackReason,
+          preservedTokensCount,
+          retryAttempted,
+          elapsedMs,
+          timestamp,
+          delivery,
+        });
+        break;
+      }
       default:
         break;
     }
@@ -331,6 +492,7 @@ export const subscribeToSession = (
   eventSource.addEventListener('proposal.ready', handleMessage);
   eventSource.addEventListener('analysis.completed', handleMessage);
   eventSource.addEventListener('error', handleMessage);
+  eventSource.addEventListener('state', handleMessage);
   eventSource.onerror = handleError;
 
   return {
@@ -340,6 +502,7 @@ export const subscribeToSession = (
       eventSource.removeEventListener('proposal.ready', handleMessage);
       eventSource.removeEventListener('analysis.completed', handleMessage);
       eventSource.removeEventListener('error', handleMessage);
+      eventSource.removeEventListener('state', handleMessage);
       eventSource.onerror = null;
       eventSource.close();
     },

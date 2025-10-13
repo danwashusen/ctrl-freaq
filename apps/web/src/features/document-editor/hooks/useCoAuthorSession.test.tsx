@@ -358,4 +358,179 @@ describe('useCoAuthorSession', () => {
       unmount();
     }
   });
+
+  it('records stage labels and first-update latency for visible progress cues', async () => {
+    const callbacks = new Map<string, (event: CoAuthoringStreamEvent) => void>();
+    const subscribeToSession = vi.fn(
+      (sessionId: string, handler: (event: CoAuthoringStreamEvent) => void) => {
+        callbacks.set(sessionId, handler);
+        return { close: vi.fn() };
+      }
+    );
+
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useCoAuthorSession({
+          documentId: 'doc-queued',
+          sectionId: 'section-stages',
+          authorId: 'author-stage',
+          api: { subscribeToSession },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      }
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    const session = useCoAuthoringStore.getState().session;
+    const handler = session ? callbacks.get(session.sessionId) : undefined;
+    expect(handler).toBeDefined();
+
+    act(() => {
+      handler?.({
+        type: 'progress',
+        status: 'streaming',
+        elapsedMs: 180,
+        stage: 'drafting',
+        announcementPriority: 'polite',
+      } as unknown as CoAuthoringStreamEvent);
+    });
+
+    const progressWithStage = result.current.progress as unknown as {
+      stageLabel?: string;
+      firstUpdateMs?: number;
+    };
+    expect(progressWithStage.stageLabel).toBe('drafting');
+    expect(progressWithStage.firstUpdateMs).toBeLessThanOrEqual(300);
+  });
+
+  it('surfaces cancel confirmations and retry counters in progress state', async () => {
+    const subscribeToSession = vi.fn(
+      (_sessionId: string, _handler: (event: CoAuthoringStreamEvent) => void) => ({
+        close: vi.fn(),
+      })
+    );
+
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useCoAuthorSession({
+          documentId: 'doc-cancel',
+          sectionId: 'section-cancel',
+          authorId: 'author-cancel',
+          api: { subscribeToSession },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      }
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    act(() => {
+      result.current.cancelStreaming();
+    });
+
+    expect(result.current.progress.status).toBe('canceled');
+    expect((result.current.progress as unknown as { cancelReason?: string }).cancelReason).toBe(
+      'author_cancelled'
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    expect(
+      (result.current.progress as unknown as { retryCount?: number }).retryCount
+    ).toBeGreaterThan(0);
+  });
+
+  it('resequences out-of-order streaming tokens before updating transcript', async () => {
+    const callbacks = new Map<string, (event: CoAuthoringStreamEvent) => void>();
+    const subscribeToSession = vi.fn(
+      (sessionId: string, handler: (event: CoAuthoringStreamEvent) => void) => {
+        callbacks.set(sessionId, handler);
+        return { close: vi.fn() };
+      }
+    );
+
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useCoAuthorSession({
+          documentId: 'doc-resequence',
+          sectionId: 'section-resequence',
+          authorId: 'author-resequence',
+          api: { subscribeToSession },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      }
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    const session = useCoAuthoringStore.getState().session;
+    const handler = session ? callbacks.get(session.sessionId) : undefined;
+    expect(handler).toBeDefined();
+
+    act(() => {
+      handler?.({
+        type: 'token',
+        value: 'Second token',
+        sequence: 2,
+      } as unknown as CoAuthoringStreamEvent);
+      handler?.({
+        type: 'token',
+        value: 'First token',
+        sequence: 1,
+      } as unknown as CoAuthoringStreamEvent);
+    });
+
+    expect(useCoAuthoringStore.getState().transcript).toEqual(['First token', 'Second token']);
+  });
+
+  it('keeps editor interactions unblocked while streaming updates dispatch', async () => {
+    const subscribeToSession = vi.fn(
+      (_sessionId: string, _handler: (event: CoAuthoringStreamEvent) => void) => ({
+        close: vi.fn(),
+      })
+    );
+
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useCoAuthorSession({
+          documentId: 'doc-editing',
+          sectionId: 'section-editing',
+          authorId: 'author-editing',
+          api: { subscribeToSession },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      }
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    expect((result.current as unknown as { isEditorLocked?: boolean }).isEditorLocked).toBe(false);
+  });
 });

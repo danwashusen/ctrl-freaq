@@ -1569,6 +1569,77 @@ sectionsRouter.post(
   }
 );
 
+sectionsRouter.get(
+  '/sections/:sectionId/assumptions/session/:sessionId/stream',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const requestId = req.requestId ?? 'unknown';
+    const logger = getRequestLogger(req);
+    const { sectionId, sessionId } = req.params;
+
+    if (!sectionId || !sessionId) {
+      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+      return;
+    }
+
+    try {
+      const service = getAssumptionSessionService(req);
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders?.();
+
+      let closed = false;
+
+      req.on('close', () => {
+        closed = true;
+        void service.completeStreamingSession({
+          sessionId,
+          sectionId,
+          reason: 'client_close',
+        });
+      });
+
+      const registration = await service.openStreamingSession({
+        sessionId,
+        sectionId,
+        requestId,
+        actorId: req.auth?.userId ?? 'anonymous-user',
+      });
+
+      for await (const event of registration.stream) {
+        if (closed) {
+          break;
+        }
+        res.write(`event: ${event.type}\n`);
+        res.write(`data: ${JSON.stringify(event.data)}\n\n`);
+      }
+
+      if (!closed) {
+        await service.completeStreamingSession({
+          sessionId,
+          sectionId,
+          reason: 'client_close',
+        });
+      }
+
+      res.end();
+    } catch (error) {
+      logger.error(
+        {
+          requestId,
+          sectionId,
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to stream assumption session events'
+      );
+
+      res.end();
+    }
+  }
+);
+
 sectionsRouter.post(
   '/sections/:sectionId/assumptions/session/:sessionId/proposals',
   async (req: AuthenticatedRequest, res: Response) => {

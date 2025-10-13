@@ -32,3 +32,21 @@ and CLI use during database bootstrap.
 Future stories will add concrete migrations (e.g., `005_template_catalog.sql`)
 that introduce the template catalog tables consumed by repositories and
 validators.
+
+## Upcoming Streaming Tables
+
+Story `012-epic-2-story-7` reserves the next migration slot for persisted
+streaming state. The migration must introduce:
+
+- `streaming_interaction_sessions` — stores queue disposition, cancel/retry
+  metadata, fallback mode, and observability fields (time-to-first-update,
+  concurrency slot, etc.).
+- `streaming_progress_events` — ordered progress rows per session so the API can
+  replay buffered updates and audit elapsed timings.
+- `streaming_fallback_records` — one-to-one diagnostics capturing fallback root
+  cause, retry attempts, and preserved token counts.
+
+Each table must include the standard audit columns noted above. JSON metadata
+fields should use `_json` suffixes for clarity (e.g., `metadata_json`). When the
+migration publishes, update the numeric prefix to the next available version and
+append the SQL scripts alongside this README.

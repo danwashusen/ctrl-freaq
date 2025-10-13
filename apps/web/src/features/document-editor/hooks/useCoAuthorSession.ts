@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import {
@@ -20,12 +20,16 @@ import {
   type PendingProposalSnapshot,
   type SectionConversationSession,
   type StreamProgressState,
+  type ReplacementNotice,
 } from '../stores/co-authoring-store';
 import { createStreamingProgressTracker } from '../../../lib/streaming/progress-tracker';
 import {
-  mapFallbackReasonToAnnouncement,
+  buildFallbackProgressCopy,
   resolveCoAuthorFallbackMessage,
+  resolveFallbackAnnouncement,
+  resolveFallbackCancelMessage,
 } from '../../../lib/streaming/fallback-messages';
+import { emitCoAuthorStreamingFallback } from '@/lib/telemetry/client-events';
 
 export interface AnalyzeInput {
   intent: CoAuthoringIntent;
@@ -51,8 +55,14 @@ export interface ApproveProposalInput {
 }
 
 export interface CoAuthorFallbackState {
+  status: 'active' | 'completed' | 'canceled' | 'failed';
   message: string;
+  progressCopy: string;
+  reason: string;
   retryable: boolean;
+  preservedTokens: number;
+  elapsedMs: number;
+  lastUpdatedAt: string;
 }
 
 export interface UseCoAuthorSessionOptions {
@@ -75,9 +85,11 @@ export interface CoAuthorSessionHookValue {
   turns: ConversationTurn[];
   transcript: string[];
   progress: StreamProgressState;
+  replacementNotice: ReplacementNotice | null;
   pendingProposal: PendingProposalSnapshot | null;
   approvedHistory: ApprovedProposalRecord[];
   fallback: CoAuthorFallbackState | null;
+  isEditorLocked: boolean;
   isAnalyzing: boolean;
   isRequestingProposal: boolean;
   isApproving: boolean;
@@ -98,10 +110,21 @@ export interface CoAuthorSessionHookValue {
 }
 
 const mapProgressStatus = (status: string): StreamProgressState['status'] => {
-  if (status === 'streaming' || status === 'awaiting-approval' || status === 'queued') {
-    return status === 'queued' ? 'streaming' : status;
+  switch (status) {
+    case 'queued':
+      return 'queued';
+    case 'streaming':
+    case 'awaiting-approval':
+      return status;
+    case 'fallback':
+      return 'fallback';
+    case 'canceled':
+      return 'canceled';
+    case 'error':
+      return 'error';
+    default:
+      return 'idle';
   }
-  return status === 'error' ? 'error' : 'idle';
 };
 
 const createSessionId = (): string => {
@@ -249,6 +272,7 @@ export function useCoAuthorSession(
   const turns = useCoAuthoringStore(state => state.turns);
   const transcript = useCoAuthoringStore(state => state.transcript);
   const progress = useCoAuthoringStore(state => state.progress);
+  const replacementNotice = useCoAuthoringStore(state => state.replacementNotice);
   const pendingProposal = useCoAuthoringStore(state => state.pendingProposal);
   const approvedHistory = useCoAuthoringStore(state => state.approvedHistory);
 
@@ -257,6 +281,8 @@ export function useCoAuthorSession(
   const appendTranscriptToken = useCoAuthoringStore(state => state.appendTranscriptToken);
   const clearTranscript = useCoAuthoringStore(state => state.clearTranscript);
   const updateStreamProgress = useCoAuthoringStore(state => state.updateStreamProgress);
+  const resetProgress = useCoAuthoringStore(state => state.resetProgress);
+  const setReplacementNotice = useCoAuthoringStore(state => state.setReplacementNotice);
   const setPendingProposal = useCoAuthoringStore(state => state.setPendingProposal);
   const clearPendingProposal = useCoAuthoringStore(state => state.clearPendingProposal);
   const approveProposalInStore = useCoAuthoringStore(state => state.approveProposal);
@@ -266,6 +292,7 @@ export function useCoAuthorSession(
   const resetStore = useCoAuthoringStore(state => state.reset);
 
   const [fallback, setFallback] = useState<CoAuthorFallbackState | null>(null);
+  const [, forceRender] = useReducer(count => count + 1, 0);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const subscriptionRef = useRef<ReturnType<typeof subscribeToSession> | null>(null);
@@ -273,8 +300,13 @@ export function useCoAuthorSession(
   const turnCounterRef = useRef<number>(0);
   const activeProposalTurnRef = useRef<string | null>(null);
   const activeInteractionRef = useRef<ActiveInteractionState | null>(null);
+  const tokenBufferRef = useRef<Map<number, string>>(new Map());
+  const expectedTokenSequenceRef = useRef<number>(1);
+  const firstProgressRecordedRef = useRef<boolean>(false);
+  const fallbackTelemetryEmittedRef = useRef<boolean>(false);
   const progressTrackerRef = useRef(
     createStreamingProgressTracker({
+      interaction: 'coauthor',
       announce: announcement => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('coauthor:announcement', { detail: announcement }));
@@ -292,6 +324,51 @@ export function useCoAuthorSession(
     }
   }, []);
 
+  const updateFallbackState = useCallback(
+    (input: {
+      status: CoAuthorFallbackState['status'];
+      reason: string;
+      elapsedMs: number;
+      preservedTokens?: number;
+      retryable?: boolean;
+      retryAttempted?: boolean;
+      customMessage?: string;
+    }) => {
+      setFallback(previous => {
+        const preservedTokens = Math.max(
+          0,
+          input.preservedTokens ?? previous?.preservedTokens ?? 0
+        );
+        const elapsedMs = Math.max(input.elapsedMs, previous?.elapsedMs ?? 0);
+        const announcement = resolveFallbackAnnouncement({
+          interaction: 'coauthor',
+          state: input.status === 'failed' ? 'canceled' : input.status,
+          reason: input.reason,
+          elapsedMs,
+          preservedTokens,
+          retryAttempted: input.retryAttempted ?? false,
+        });
+        const message = input.customMessage ?? announcement.message;
+
+        return {
+          status: input.status,
+          message,
+          progressCopy: buildFallbackProgressCopy({
+            interaction: 'coauthor',
+            elapsedMs,
+            preservedTokens,
+          }),
+          reason: input.reason,
+          retryable: input.retryable ?? (input.status === 'failed' || input.status === 'canceled'),
+          preservedTokens,
+          elapsedMs,
+          lastUpdatedAt: new Date().toISOString(),
+        } satisfies CoAuthorFallbackState;
+      });
+    },
+    []
+  );
+
   const closeSubscription = useCallback(() => {
     subscriptionRef.current?.close();
     subscriptionRef.current = null;
@@ -302,8 +379,33 @@ export function useCoAuthorSession(
     abortControllerRef.current = null;
     clearProgressTimer();
     progressStartedAtRef.current = null;
-    updateStreamProgress({ status: 'idle', elapsedMs: 0 });
-  }, [clearProgressTimer, updateStreamProgress]);
+    tokenBufferRef.current.clear();
+    expectedTokenSequenceRef.current = 1;
+    firstProgressRecordedRef.current = false;
+    setReplacementNotice(null);
+
+    const currentProgress = useCoAuthoringStore.getState().progress;
+    const nextRetry = (currentProgress.retryCount ?? 0) + 1;
+    const elapsedMs = currentProgress.elapsedMs ?? 0;
+
+    progressTrackerRef.current.update({
+      status: 'canceled',
+      elapsedMs,
+      reason: 'author_cancelled',
+      cancelReason: 'author_cancelled',
+      retryCount: nextRetry,
+    });
+
+    updateStreamProgress({
+      status: 'canceled',
+      elapsedMs,
+      cancelReason: 'author_cancelled',
+      retryCount: nextRetry,
+      stageLabel: undefined,
+      firstUpdateMs: currentProgress.firstUpdateMs ?? null,
+    });
+    forceRender();
+  }, [clearProgressTimer, setReplacementNotice, updateStreamProgress]);
 
   const teardown = useCallback(
     (reason: 'section-change' | 'navigation' | 'logout' | 'manual') => {
@@ -347,19 +449,249 @@ export function useCoAuthorSession(
       }
 
       subscriptionRef.current = subscribeToSession(sessionId, (event: CoAuthoringStreamEvent) => {
+        if (event.type === 'state') {
+          const fallbackStatus: CoAuthorFallbackState['status'] | null = (() => {
+            switch (event.status) {
+              case 'fallback_active':
+                return 'active';
+              case 'fallback_completed':
+                return 'completed';
+              case 'fallback_canceled':
+                return 'canceled';
+              case 'fallback_failed':
+                return 'failed';
+              default:
+                return null;
+            }
+          })();
+
+          if (fallbackStatus) {
+            const reason = event.fallbackReason ?? 'assistant_unavailable';
+            const elapsedMs =
+              typeof event.elapsedMs === 'number' && Number.isFinite(event.elapsedMs)
+                ? event.elapsedMs
+                : progress.elapsedMs;
+            const preservedTokens =
+              typeof event.preservedTokensCount === 'number' &&
+              Number.isFinite(event.preservedTokensCount)
+                ? event.preservedTokensCount
+                : undefined;
+
+            let customMessage: string | undefined;
+            if (fallbackStatus === 'failed') {
+              customMessage = resolveCoAuthorFallbackMessage(reason);
+            } else if (fallbackStatus === 'canceled') {
+              customMessage = resolveFallbackCancelMessage(reason);
+            }
+
+            updateFallbackState({
+              status: fallbackStatus,
+              reason,
+              elapsedMs,
+              preservedTokens,
+              retryable: fallbackStatus === 'failed' || fallbackStatus === 'canceled',
+              retryAttempted: event.retryAttempted,
+              customMessage,
+            });
+
+            if (fallbackStatus === 'active' || fallbackStatus === 'completed') {
+              updateStreamProgress({
+                status: 'fallback',
+                elapsedMs,
+                fallbackReason: reason,
+                preservedTokens,
+                delivery: event.delivery ?? 'fallback',
+              });
+              progressTrackerRef.current.update({
+                status: 'fallback',
+                elapsedMs,
+                reason,
+                preservedTokens,
+              });
+            } else if (fallbackStatus === 'canceled') {
+              updateStreamProgress({
+                status: 'canceled',
+                elapsedMs,
+                cancelReason: reason,
+                fallbackReason: reason,
+                preservedTokens,
+                delivery: event.delivery ?? 'fallback',
+              });
+              progressTrackerRef.current.update({
+                status: 'canceled',
+                elapsedMs,
+                reason,
+              });
+            } else if (fallbackStatus === 'failed') {
+              updateStreamProgress({
+                status: 'error',
+                elapsedMs,
+                fallbackReason: reason,
+                preservedTokens,
+                delivery: event.delivery ?? 'fallback',
+              });
+              progressTrackerRef.current.update({
+                status: 'error',
+                elapsedMs,
+                reason,
+              });
+            }
+
+            if (fallbackStatus === 'active' && !fallbackTelemetryEmittedRef.current && session) {
+              emitCoAuthorStreamingFallback({
+                sessionId: session.sessionId,
+                sectionId: session.sectionId,
+                fallbackReason: reason,
+                preservedTokensCount: preservedTokens,
+                retryAttempted: event.retryAttempted ?? false,
+                elapsedMs,
+              });
+              fallbackTelemetryEmittedRef.current = true;
+            } else if (
+              fallbackTelemetryEmittedRef.current &&
+              (fallbackStatus === 'completed' ||
+                fallbackStatus === 'canceled' ||
+                fallbackStatus === 'failed')
+            ) {
+              fallbackTelemetryEmittedRef.current = false;
+            }
+          }
+
+          return;
+        }
+
         if (event.type === 'progress') {
-          updateStreamProgress({
-            status: mapProgressStatus(event.status),
+          const mappedStatus = mapProgressStatus(event.status);
+          const nextUpdate: Partial<StreamProgressState> & {
+            status: StreamProgressState['status'];
+          } = {
+            status: mappedStatus,
             elapsedMs: event.elapsedMs,
+          };
+
+          if (typeof event.stage === 'string' && event.stage.trim().length > 0) {
+            nextUpdate.stageLabel = event.stage.trim();
+          }
+
+          if (!firstProgressRecordedRef.current && mappedStatus === 'streaming') {
+            nextUpdate.firstUpdateMs = event.elapsedMs;
+            firstProgressRecordedRef.current = true;
+          }
+
+          if (event.cancelReason) {
+            nextUpdate.cancelReason = event.cancelReason;
+          }
+
+          if (typeof event.retryCount === 'number' && Number.isFinite(event.retryCount)) {
+            nextUpdate.retryCount = event.retryCount;
+          }
+
+          if (event.fallbackReason) {
+            nextUpdate.fallbackReason = event.fallbackReason;
+          }
+
+          if (
+            typeof event.preservedTokensCount === 'number' &&
+            Number.isFinite(event.preservedTokensCount)
+          ) {
+            nextUpdate.preservedTokens = event.preservedTokensCount;
+          }
+
+          if (event.delivery) {
+            nextUpdate.delivery = event.delivery;
+          }
+
+          if (mappedStatus === 'fallback') {
+            const reason = event.fallbackReason ?? 'assistant_unavailable';
+            updateFallbackState({
+              status: 'active',
+              reason,
+              elapsedMs: event.elapsedMs,
+              preservedTokens: event.preservedTokensCount,
+              retryable: false,
+              retryAttempted: event.retryAttempted,
+            });
+
+            progressTrackerRef.current.update({
+              status: 'fallback',
+              elapsedMs: event.elapsedMs,
+              reason,
+              preservedTokens: event.preservedTokensCount,
+            });
+
+            updateStreamProgress({
+              ...nextUpdate,
+              status: 'fallback',
+              fallbackReason: reason,
+              preservedTokens: event.preservedTokensCount,
+              delivery: event.delivery ?? 'fallback',
+            });
+
+            if (!fallbackTelemetryEmittedRef.current && session) {
+              emitCoAuthorStreamingFallback({
+                sessionId: session.sessionId,
+                sectionId: session.sectionId,
+                fallbackReason: reason,
+                preservedTokensCount: event.preservedTokensCount,
+                retryAttempted: event.retryAttempted ?? false,
+                elapsedMs: event.elapsedMs ?? 0,
+              });
+              fallbackTelemetryEmittedRef.current = true;
+            }
+
+            forceRender();
+            return;
+          }
+
+          if (event.replacement?.previousSessionId) {
+            const notice: ReplacementNotice = {
+              previousSessionId: event.replacement.previousSessionId,
+              replacedAt: new Date().toISOString(),
+              promotedSessionId: event.replacement.promotedSessionId ?? null,
+            };
+            setReplacementNotice(notice);
+          } else if (mappedStatus === 'streaming') {
+            setReplacementNotice(null);
+          }
+
+          progressTrackerRef.current.update({
+            status: mappedStatus,
+            elapsedMs: event.elapsedMs,
+            cancelReason: event.cancelReason,
+            retryCount: event.retryCount,
           });
+
+          updateStreamProgress(nextUpdate);
+          forceRender();
           return;
         }
 
         if (event.type === 'token') {
-          appendTranscriptToken(event.value);
-          if (activeInteractionRef.current) {
-            activeInteractionRef.current.tokens.push(event.value);
-          }
+          const enqueueToken = (value: string, sequence?: number) => {
+            const emitToken = (tokenValue: string) => {
+              appendTranscriptToken(tokenValue);
+              if (activeInteractionRef.current) {
+                activeInteractionRef.current.tokens.push(tokenValue);
+              }
+            };
+
+            if (typeof sequence === 'number' && Number.isFinite(sequence)) {
+              tokenBufferRef.current.set(sequence, value);
+              while (tokenBufferRef.current.has(expectedTokenSequenceRef.current)) {
+                const nextValue = tokenBufferRef.current.get(expectedTokenSequenceRef.current);
+                tokenBufferRef.current.delete(expectedTokenSequenceRef.current);
+                expectedTokenSequenceRef.current += 1;
+                if (typeof nextValue === 'string') {
+                  emitToken(nextValue);
+                }
+              }
+              return;
+            }
+
+            emitToken(value);
+          };
+
+          enqueueToken(event.value, event.sequence);
           return;
         }
 
@@ -417,17 +749,25 @@ export function useCoAuthorSession(
               };
               setPendingProposal(proposal);
             } catch {
-              const reason = mapFallbackReasonToAnnouncement('approval_failed');
-              setFallback({
-                message: resolveCoAuthorFallbackMessage('approval_failed'),
+              const fallbackReason = 'approval_failed';
+              updateFallbackState({
+                status: 'failed',
+                reason: fallbackReason,
+                elapsedMs: progress.elapsedMs,
+                preservedTokens: progress.preservedTokens ?? undefined,
                 retryable: true,
+                customMessage: resolveCoAuthorFallbackMessage(fallbackReason),
               });
               progressTrackerRef.current.update({
                 status: 'error',
                 elapsedMs: progress.elapsedMs,
-                reason,
+                reason: fallbackReason,
               });
-              updateStreamProgress({ status: 'error', elapsedMs: progress.elapsedMs });
+              updateStreamProgress({
+                status: 'error',
+                elapsedMs: progress.elapsedMs,
+                fallbackReason,
+              });
             } finally {
               activeInteractionRef.current = null;
             }
@@ -436,33 +776,48 @@ export function useCoAuthorSession(
         }
 
         if (event.type === 'error') {
-          const reason = mapFallbackReasonToAnnouncement(event.message);
-          setFallback({
-            message: resolveCoAuthorFallbackMessage(event.message),
+          const fallbackReason = event.message ?? 'assistant_unavailable';
+          updateFallbackState({
+            status: 'failed',
+            reason: fallbackReason,
+            elapsedMs: progress.elapsedMs,
+            preservedTokens: progress.preservedTokens ?? undefined,
             retryable: true,
+            customMessage: resolveCoAuthorFallbackMessage(fallbackReason),
           });
           progressTrackerRef.current.update({
             status: 'error',
             elapsedMs: progress.elapsedMs,
-            reason,
+            reason: fallbackReason,
           });
-          updateStreamProgress({ status: 'error', elapsedMs: progress.elapsedMs });
+          updateStreamProgress({
+            status: 'error',
+            elapsedMs: progress.elapsedMs,
+            fallbackReason,
+          });
         }
       });
     },
     [
       appendTranscriptToken,
-      progress.elapsedMs,
+      progress,
       recordTurn,
+      session,
       setPendingProposal,
+      setReplacementNotice,
       subscribeToSession,
+      updateFallbackState,
       updateStreamProgress,
+      forceRender,
     ]
   );
 
   useEffect(() => {
     const handleProgressChange = (nextProgress: StreamProgressState) => {
-      const isStreaming = nextProgress.status === 'streaming' || nextProgress.status === 'queued';
+      const isStreaming =
+        nextProgress.status === 'streaming' ||
+        nextProgress.status === 'queued' ||
+        nextProgress.status === 'fallback';
       if (!isStreaming) {
         progressStartedAtRef.current = null;
         clearProgressTimer();
@@ -545,6 +900,10 @@ export function useCoAuthorSession(
       cancelStreaming();
       closeSubscription();
       clearTranscript();
+      tokenBufferRef.current.clear();
+      expectedTokenSequenceRef.current = 1;
+      firstProgressRecordedRef.current = false;
+      setReplacementNotice(null);
       startSession(newSession);
       ensureSubscription(sessionId);
       return newSession;
@@ -559,6 +918,7 @@ export function useCoAuthorSession(
       ensureSubscription,
       session,
       sectionId,
+      setReplacementNotice,
       startSession,
     ]
   );
@@ -574,7 +934,17 @@ export function useCoAuthorSession(
     mutationFn: async (input: { session: SectionConversationSession; payload: AnalyzeInput }) => {
       const controller = createAbortController();
       clearTranscript();
-      updateStreamProgress({ status: 'queued', elapsedMs: 0 });
+      tokenBufferRef.current.clear();
+      expectedTokenSequenceRef.current = 1;
+      firstProgressRecordedRef.current = false;
+      setReplacementNotice(null);
+      resetProgress();
+      updateStreamProgress({
+        status: 'queued',
+        elapsedMs: 0,
+        stageLabel: undefined,
+        cancelReason: null,
+      });
       setFallback(null);
 
       const { session: activeSession, payload } = input;
@@ -627,7 +997,14 @@ export function useCoAuthorSession(
         return;
       }
       const reason = 'assistant_unavailable';
-      setFallback({ message: resolveCoAuthorFallbackMessage(reason), retryable: true });
+      updateFallbackState({
+        status: 'failed',
+        reason,
+        elapsedMs: progress.elapsedMs,
+        preservedTokens: progress.preservedTokens ?? undefined,
+        retryable: true,
+        customMessage: resolveCoAuthorFallbackMessage(reason),
+      });
       progressTrackerRef.current.update({
         status: 'error',
         elapsedMs: progress.elapsedMs,
@@ -641,7 +1018,17 @@ export function useCoAuthorSession(
     mutationFn: async (input: { session: SectionConversationSession; payload: ProposalInput }) => {
       const controller = createAbortController();
       clearTranscript();
-      updateStreamProgress({ status: 'queued', elapsedMs: 0 });
+      tokenBufferRef.current.clear();
+      expectedTokenSequenceRef.current = 1;
+      firstProgressRecordedRef.current = false;
+      setReplacementNotice(null);
+      resetProgress();
+      updateStreamProgress({
+        status: 'queued',
+        elapsedMs: 0,
+        stageLabel: undefined,
+        cancelReason: null,
+      });
       setFallback(null);
 
       const { session: activeSession, payload } = input;
@@ -699,7 +1086,14 @@ export function useCoAuthorSession(
         return;
       }
       const reason = 'assistant_unavailable';
-      setFallback({ message: resolveCoAuthorFallbackMessage(reason), retryable: true });
+      updateFallbackState({
+        status: 'failed',
+        reason,
+        elapsedMs: progress.elapsedMs,
+        preservedTokens: progress.preservedTokens ?? undefined,
+        retryable: true,
+        customMessage: resolveCoAuthorFallbackMessage(reason),
+      });
       progressTrackerRef.current.update({
         status: 'error',
         elapsedMs: progress.elapsedMs,
@@ -744,7 +1138,14 @@ export function useCoAuthorSession(
         return;
       }
       const reason = 'approval_failed';
-      setFallback({ message: resolveCoAuthorFallbackMessage(reason), retryable: true });
+      updateFallbackState({
+        status: 'failed',
+        reason,
+        elapsedMs: progress.elapsedMs,
+        preservedTokens: progress.preservedTokens ?? undefined,
+        retryable: true,
+        customMessage: resolveCoAuthorFallbackMessage(reason),
+      });
       progressTrackerRef.current.update({
         status: 'error',
         elapsedMs: progress.elapsedMs,
@@ -793,20 +1194,34 @@ export function useCoAuthorSession(
     [ensureSession, runApprove, session]
   );
 
-  const clearFallbackState = useCallback(() => setFallback(null), []);
+  const clearFallbackState = useCallback(() => {
+    fallbackTelemetryEmittedRef.current = false;
+    setFallback(null);
+  }, []);
 
   const pushFallback = useCallback<CoAuthorSessionHookValue['pushFallback']>(
     (message, retryable = true) => {
-      const reason = mapFallbackReasonToAnnouncement(message);
-      setFallback({ message: resolveCoAuthorFallbackMessage(message), retryable });
+      const fallbackReason = message ?? 'assistant_unavailable';
+      updateFallbackState({
+        status: 'failed',
+        reason: fallbackReason,
+        elapsedMs: progress.elapsedMs,
+        preservedTokens: progress.preservedTokens ?? undefined,
+        retryable,
+        customMessage: resolveCoAuthorFallbackMessage(fallbackReason),
+      });
       progressTrackerRef.current.update({
         status: 'error',
         elapsedMs: progress.elapsedMs,
-        reason,
+        reason: fallbackReason,
       });
-      updateStreamProgress({ status: 'error', elapsedMs: progress.elapsedMs });
+      updateStreamProgress({
+        status: 'error',
+        elapsedMs: progress.elapsedMs,
+        fallbackReason,
+      });
     },
-    [progress.elapsedMs, updateStreamProgress]
+    [progress.elapsedMs, progress.preservedTokens, updateFallbackState, updateStreamProgress]
   );
 
   const dismissPendingProposal = useCallback(() => {
@@ -823,12 +1238,27 @@ export function useCoAuthorSession(
     clearPendingProposal();
   }, [clearPendingProposal, documentId, pendingProposal, postRejectProposal, sectionId, session]);
 
+  const isEditorLocked = progress.status === 'awaiting-approval';
+
+  const progressSnapshot = useMemo(() => ({ ...progress }), [progress]);
+
   useEffect(() => {
     progressTrackerRef.current.update({
       status: progress.status,
       elapsedMs: progress.elapsedMs,
+      cancelReason: progress.cancelReason ?? undefined,
+      reason: progress.fallbackReason ?? progress.cancelReason ?? undefined,
+      retryCount: progress.retryCount,
+      preservedTokens: progress.preservedTokens ?? undefined,
     });
-  }, [progress.elapsedMs, progress.status]);
+  }, [
+    progress.cancelReason,
+    progress.elapsedMs,
+    progress.fallbackReason,
+    progress.preservedTokens,
+    progress.retryCount,
+    progress.status,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -843,10 +1273,12 @@ export function useCoAuthorSession(
       session,
       turns,
       transcript,
-      progress,
+      progress: progressSnapshot,
+      replacementNotice,
       pendingProposal,
       approvedHistory,
       fallback,
+      isEditorLocked,
       isAnalyzing,
       isRequestingProposal,
       isApproving,
@@ -870,11 +1302,13 @@ export function useCoAuthorSession(
       clearFallbackState,
       ensureSession,
       fallback,
+      isEditorLocked,
       isAnalyzing,
       isApproving,
       isRequestingProposal,
       pendingProposal,
-      progress,
+      replacementNotice,
+      progressSnapshot,
       requestProposal,
       session,
       setActiveIntent,

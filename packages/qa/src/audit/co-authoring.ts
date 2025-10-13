@@ -14,6 +14,17 @@ export interface CoAuthoringIntentEvent {
   decisionIds?: string[];
 }
 
+type ProposalStatus =
+  | 'queued'
+  | 'streaming'
+  | 'awaiting-approval'
+  | 'error'
+  | 'replaced'
+  | 'canceled'
+  | 'retried'
+  | 'fallback'
+  | 'fallback_failed';
+
 export interface CoAuthoringProposalEvent {
   eventId: string;
   documentId: string;
@@ -21,8 +32,17 @@ export interface CoAuthoringProposalEvent {
   sessionId: string;
   promptId: string;
   intent: string;
-  status: 'queued' | 'streaming' | 'awaiting-approval' | 'error';
+  status: ProposalStatus;
   elapsedMs: number;
+  concurrencySlot?: number;
+  replacementPolicy?: string;
+  replacedSessionId?: string | null;
+  cancelReason?: string;
+  sourceSessionId?: string;
+  fallbackReason?: string;
+  preservedTokensCount?: number;
+  retryAttempted?: boolean;
+  delivery?: 'streaming' | 'fallback';
 }
 
 export interface CoAuthoringApprovalEvent {
@@ -108,7 +128,7 @@ export function createCoAuthoringAuditLogger(logger: LoggerLike): CoAuthoringAud
     },
 
     logProposal(input) {
-      const payload = {
+      const payload: Record<string, unknown> = {
         event: 'coauthor.proposal',
         eventId: input.eventId,
         documentId: input.documentId,
@@ -120,6 +140,34 @@ export function createCoAuthoringAuditLogger(logger: LoggerLike): CoAuthoringAud
         elapsedMs: Math.max(0, Math.round(input.elapsedMs)),
         latencyBucket: toLatencyBucket(Math.max(0, Math.round(input.elapsedMs))),
       } satisfies Record<string, unknown>;
+
+      if (typeof input.concurrencySlot === 'number') {
+        payload.concurrencySlot = input.concurrencySlot;
+      }
+      if (input.replacementPolicy) {
+        payload.replacementPolicy = input.replacementPolicy;
+      }
+      if (input.replacedSessionId) {
+        payload.replacedSessionId = input.replacedSessionId;
+      }
+      if (input.cancelReason) {
+        payload.cancelReason = input.cancelReason;
+      }
+      if (input.sourceSessionId) {
+        payload.sourceSessionId = input.sourceSessionId;
+      }
+      if (input.fallbackReason) {
+        payload.fallbackReason = input.fallbackReason;
+      }
+      if (typeof input.preservedTokensCount === 'number') {
+        payload.preservedTokensCount = Math.max(0, Math.round(input.preservedTokensCount));
+      }
+      if (typeof input.retryAttempted === 'boolean') {
+        payload.retryAttempted = input.retryAttempted;
+      }
+      if (input.delivery) {
+        payload.delivery = input.delivery;
+      }
 
       logger.info(payload, 'Co-authoring proposal streaming');
     },

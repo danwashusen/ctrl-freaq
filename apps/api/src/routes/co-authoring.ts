@@ -8,6 +8,7 @@ import {
   type RateLimitResult,
 } from '../middleware/ai-request-audit.js';
 import { AIProposalService } from '../services/co-authoring/ai-proposal.service.js';
+import type { QueueCancellationReason } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 import { SessionRateLimiter } from './co-authoring-rate-limiter.js';
 
@@ -104,6 +105,36 @@ const parseStringArray = (value: unknown): string[] => {
 
 const resolveAuthorId = (req: AuthenticatedRequest): string => {
   return req.auth?.userId ?? req.user?.userId ?? 'unknown';
+};
+
+const normalizeCancelReason = (value: unknown): QueueCancellationReason => {
+  if (
+    value === 'replaced_by_new_request' ||
+    value === 'transport_failure' ||
+    value === 'deferred'
+  ) {
+    return value;
+  }
+  return 'author_cancelled';
+};
+
+const resolveFallbackDelivery = () => {
+  const flag =
+    process.env.STREAMING_DISABLED ??
+    process.env.COAUTHOR_STREAMING_DISABLED ??
+    process.env.AI_STREAMING_DISABLED;
+
+  if (!flag) {
+    return { mode: 'streaming' as const, reason: null };
+  }
+
+  const normalized = String(flag).trim().toLowerCase();
+  const enabled =
+    normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+
+  return enabled
+    ? { mode: 'fallback' as const, reason: 'transport_blocked' as const }
+    : { mode: 'streaming' as const, reason: null };
 };
 
 coAuthoringRouter.get<{ sessionId: string }>(
@@ -221,8 +252,110 @@ coAuthoringRouter.post<{ documentId: string; sectionId: string }>(
         decisionIds,
       });
 
+      const fallbackDelivery = resolveFallbackDelivery();
+
       res.setHeader('HX-Stream-Location', response.streamLocation);
-      res.status(202).json(response.responseBody);
+      res.status(202).json({
+        ...response.responseBody,
+        queue: response.queue,
+        delivery: {
+          mode: fallbackDelivery.mode,
+          reason: fallbackDelivery.reason,
+        },
+      });
+
+      const audit = res.locals.aiAudit as
+        | { logQueueDisposition?: (payload: Record<string, unknown>) => void }
+        | undefined;
+      if (typeof audit?.logQueueDisposition === 'function') {
+        if (response.queue.disposition === 'started') {
+          audit.logQueueDisposition({
+            sessionId: response.responseBody.sessionId,
+            disposition: 'active',
+            concurrencySlot: response.queue.concurrencySlot,
+          });
+        }
+        if (response.queue.replacedSessionId) {
+          audit.logQueueDisposition({
+            sessionId: response.queue.replacedSessionId,
+            disposition: 'replaced',
+            replacedSessionId: response.responseBody.sessionId,
+          });
+        }
+        if (fallbackDelivery.mode === 'fallback') {
+          audit.logQueueDisposition({
+            sessionId: response.responseBody.sessionId,
+            disposition: 'fallback',
+            fallbackReason: fallbackDelivery.reason ?? 'assistant_unavailable',
+            preservedTokensCount: 0,
+            retryAttempted: false,
+          });
+        }
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+coAuthoringRouter.post<{ documentId: string; sectionId: string; sessionId: string }>(
+  '/documents/:documentId/sections/:sectionId/co-author/sessions/:sessionId/cancel',
+  async (
+    req: CoAuthoringRequest<{ documentId: string; sectionId: string; sessionId: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const service = getService(req);
+      const result = await service.cancelInteraction({
+        sessionId: req.params.sessionId,
+        sectionId: req.params.sectionId,
+        reason: normalizeCancelReason(req.body?.reason),
+      });
+
+      const statusCode = result.status === 'canceled' ? 200 : 404;
+      res.status(statusCode).json(result);
+
+      if (result.status === 'canceled') {
+        const audit = res.locals.aiAudit as
+          | { logQueueDisposition?: (payload: Record<string, unknown>) => void }
+          | undefined;
+        audit?.logQueueDisposition?.({
+          sessionId: req.params.sessionId,
+          disposition: 'canceled',
+          cancelReason: result.cancelReason,
+          promotedSessionId: result.promotedSessionId,
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+coAuthoringRouter.post<{ documentId: string; sectionId: string; sessionId: string }>(
+  '/documents/:documentId/sections/:sectionId/co-author/sessions/:sessionId/retry',
+  async (
+    req: CoAuthoringRequest<{ documentId: string; sectionId: string; sessionId: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const service = getService(req);
+      const result = await service.retryInteraction({
+        sessionId: req.params.sessionId,
+        sectionId: req.params.sectionId,
+        intent: typeof req.body?.intent === 'string' ? req.body.intent : undefined,
+      });
+
+      res.setHeader('HX-Stream-Location', result.streamLocation);
+      res.status(202).json({
+        status: result.status,
+        previousSessionId: result.previousSessionId,
+        sessionId: result.sessionId,
+        queue: result.queue,
+        response: result.responseBody,
+      });
     } catch (error) {
       next(error);
     }

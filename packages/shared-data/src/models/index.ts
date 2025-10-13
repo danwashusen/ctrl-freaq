@@ -48,3 +48,4 @@ export {
   toSnakeCaseColumn as toAssumptionSessionSnakeCaseColumn,
 } from './assumption-session.js';
 export * from './draft-proposal.js';
+export * from './streaming.js';

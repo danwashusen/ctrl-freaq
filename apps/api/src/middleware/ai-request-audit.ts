@@ -84,6 +84,31 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
         intent,
       });
 
+      const logQueueDisposition = (payload: {
+        sessionId: string;
+        disposition: 'active' | 'replaced' | 'canceled' | 'fallback';
+        cancelReason?: string;
+        replacedSessionId?: string;
+        discrepancyFlag?: boolean;
+        concurrencySlot?: number;
+        fallbackReason?: string;
+        preservedTokensCount?: number;
+        retryAttempted?: boolean;
+        elapsedMs?: number;
+      }) => {
+        const telemetryPayload = {
+          requestId,
+          userId,
+          documentId,
+          sectionId,
+          intent,
+          ...payload,
+        } satisfies Record<string, unknown>;
+
+        options.emitTelemetry('coauthor.queue', telemetryPayload);
+        options.logger.info(telemetryPayload, 'Co-author queue disposition updated');
+      };
+
       res.locals.aiAudit = {
         requestId,
         userId,
@@ -91,6 +116,7 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
         sectionId,
         intent,
         startedAt: new Date(),
+        logQueueDisposition,
       };
 
       next();

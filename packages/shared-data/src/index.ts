@@ -60,6 +60,37 @@ export * from './models/index.js';
 
 // Co-authoring value objects
 export * from './co-authoring/index.js';
+export type {
+  StreamingInteractionSession,
+  StreamingInteractionMode,
+  StreamingInteractionStatus,
+  StreamingInteractionType,
+  StreamingCancellationReason,
+  StreamingFallbackReason,
+  StreamingProgressEvent,
+  StreamingFallbackRecord,
+  StreamingDeliveryChannel,
+  StreamingAnnouncementPriority,
+  StreamingDeltaType,
+  StreamingFallbackRootCause,
+} from './co-authoring/streaming-interaction-session.js';
+export {
+  StreamingInteractionSessionSchema,
+  StreamingProgressEventSchema,
+  StreamingFallbackRecordSchema,
+  StreamingInteractionModeSchema,
+  StreamingInteractionStatusSchema,
+  StreamingInteractionTypeSchema,
+  StreamingCancellationReasonSchema,
+  StreamingFallbackReasonSchema,
+  StreamingDeliveryChannelSchema,
+  StreamingAnnouncementPrioritySchema,
+  StreamingDeltaTypeSchema,
+  StreamingFallbackRootCauseSchema,
+  createStreamingInteractionSession,
+  createStreamingProgressEvent,
+  createStreamingFallbackRecord,
+} from './co-authoring/streaming-interaction-session.js';
 
 // Export repositories
 export * from './repositories/index.js';
