@@ -47,6 +47,14 @@ vi.mock('@/components/ui/card', () => ({
   ),
 }));
 
+const { mockUseQualityGates } = vi.hoisted(() => ({
+  mockUseQualityGates: vi.fn(),
+}));
+
+vi.mock('../quality-gates/hooks', () => ({
+  useQualityGates: mockUseQualityGates,
+}));
+
 describe('SectionCard', () => {
   const mockSectionWithContent: SectionView = {
     id: 'section-123',
@@ -102,6 +110,19 @@ describe('SectionCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseQualityGates.mockReturnValue({
+      runSection: vi.fn(),
+      runDocument: vi.fn(),
+      isRunning: false,
+      status: 'idle',
+      statusMessage: 'Validation not run yet.',
+      timeoutCopy: null,
+      lastStatus: null,
+      remediation: [],
+      isSubmissionBlocked: false,
+      blockerCount: 0,
+      incidentId: null,
+    });
   });
 
   describe('rendering', () => {
@@ -406,6 +427,37 @@ describe('SectionCard', () => {
       await user.click(startButton);
 
       expect(onEditClick).toHaveBeenCalledWith('section-empty');
+    });
+
+    it('disables save when quality gates block submission', async () => {
+      mockUseQualityGates.mockReturnValueOnce({
+        runSection: vi.fn(),
+        runDocument: vi.fn(),
+        isRunning: false,
+        status: 'completed',
+        statusMessage: 'Validation found blockers.',
+        timeoutCopy: null,
+        lastStatus: 'Blocker',
+        remediation: [],
+        isSubmissionBlocked: true,
+        blockerCount: 1,
+        incidentId: 'incident-blocker',
+      });
+
+      const user = userEvent.setup();
+      const onSaveClick = vi.fn();
+
+      const editingSection: SectionView = {
+        ...mockSectionWithContent,
+        viewState: 'edit_mode',
+      };
+
+      render(<SectionCard {...defaultProps} section={editingSection} onSaveClick={onSaveClick} />);
+
+      const saveButton = screen.getByTestId('save-section');
+      expect(saveButton).toBeDisabled();
+      await user.click(saveButton);
+      expect(onSaveClick).not.toHaveBeenCalled();
     });
 
     it('calls onSaveClick when save button is clicked', async () => {

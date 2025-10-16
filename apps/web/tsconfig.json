@@ -19,7 +19,7 @@
       "@/*": ["apps/web/src/*"]
     }
   },
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "src/**/*.json"],
   "references": [
     { "path": "../../packages/editor-core" },
     { "path": "../../packages/editor-persistence" },

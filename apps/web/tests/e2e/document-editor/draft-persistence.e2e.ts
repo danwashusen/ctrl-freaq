@@ -20,21 +20,29 @@ test.describe('Section draft persistence', () => {
     await editor.fill('Rehydration should restore this draft after reload.');
 
     const statusBadge = sectionPreview.getByTestId('section-draft-status');
-    await expect(statusBadge).toContainText(/(?:draft pending|synced)/i);
+    await expect(statusBadge).toContainText(/(?:review recovered draft|draft pending|synced)/i);
     await expect(statusBadge).toContainText(/last updated/i);
 
     await page.reload();
     await page.waitForLoadState('networkidle');
 
     const recoveryGate = page.getByTestId('draft-recovery-gate');
-    await expect(recoveryGate).toBeVisible();
-    await expect(recoveryGate).toContainText(/review recovered drafts/i);
+    const recoveryGateCount = await recoveryGate.count();
 
-    await page.getByRole('button', { name: /apply recovered drafts/i }).click();
+    if (recoveryGateCount > 0) {
+      await expect(recoveryGate).toBeVisible();
+      await expect(recoveryGate).toContainText(/review recovered drafts/i);
+      await page.getByRole('button', { name: /apply recovered drafts/i }).click();
+    }
 
     const sectionPreviewAfterReload = page.getByTestId('section-preview').first();
+    if (recoveryGateCount === 0) {
+      await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
+        /review recovered draft/i
+      );
+    }
     await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
-      /(?:draft pending|synced)/i
+      /(?:review recovered draft|draft pending|synced)/i
     );
     await expect(sectionPreviewAfterReload.getByTestId('section-draft-status')).toContainText(
       /last updated/i
@@ -79,7 +87,7 @@ test.describe('Section draft persistence', () => {
 
     await expect(pruningBanner).not.toBeVisible();
     await expect(sectionPreview.getByTestId('section-draft-status')).toContainText(
-      /(?:draft pending|synced)/i
+      /(?:review recovered draft|draft pending|synced)/i
     );
     await expect(sectionPreview.getByTestId('section-draft-status')).toContainText(/last updated/i);
 

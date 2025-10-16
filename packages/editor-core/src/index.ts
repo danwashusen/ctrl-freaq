@@ -13,6 +13,7 @@ export * from './patch-engine.js';
 export * from './diff/section-diff.js';
 export * from './assumptions/index.js';
 export * from './streaming/section-stream-queue.js';
+export * from './quality-gates/status.js';
 
 // Core types and interfaces
 export interface EditorConfig {

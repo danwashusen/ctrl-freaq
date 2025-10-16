@@ -67,6 +67,32 @@ interface AssumptionStreamingResequencePayload {
   highestSequence: number;
 }
 
+interface QualityGateValidationMetricPayload {
+  requestId: string;
+  documentId: string;
+  scope: 'section' | 'document';
+  triggeredBy: string | null;
+  durationMs: number;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  sectionId?: string;
+  incidentId?: string;
+  outcome?: 'Pass' | 'Warning' | 'Blocker' | 'Neutral';
+}
+
+interface QualityGateDashboardMetricPayload {
+  requestId: string;
+  documentId: string;
+  triggeredBy: string | null;
+  durationMs: number;
+  publishBlocked: boolean;
+  statusCounts: {
+    pass: number;
+    warning: number;
+    blocker: number;
+    neutral: number;
+  };
+}
+
 type TelemetryEvent =
   | 'draft.saved'
   | 'draft.pruned'
@@ -80,7 +106,9 @@ type TelemetryEvent =
   | 'assumptions.streaming.status'
   | 'assumptions.streaming.resequence'
   | 'assumptions.streaming.fallback'
-  | 'coauthor.streaming.fallback';
+  | 'coauthor.streaming.fallback'
+  | 'qualityGates.validation.metric'
+  | 'qualityGates.dashboard.metric';
 
 const logToConsole = <T extends object>(
   level: 'info' | 'warn',
@@ -94,6 +122,8 @@ const logToConsole = <T extends object>(
     message,
     payload,
   });
+  const serialized = JSON.stringify({ message, payload });
+  consoleMethod(`[draft.telemetry] ${event}`, serialized);
 };
 
 export const emitDraftSaved = (payload: DraftEventPayload) => {
@@ -182,4 +212,31 @@ export const emitAssumptionStreamingResequence = (
     'Assumption stream resequenced to recover ordering',
     payload
   );
+};
+
+export const emitQualityGateValidationMetric = (payload: QualityGateValidationMetricPayload) => {
+  const durationMs =
+    Number.isFinite(payload.durationMs) && payload.durationMs > 0
+      ? Math.round(payload.durationMs)
+      : 0;
+  logToConsole(
+    payload.status === 'failed' ? 'warn' : 'info',
+    'qualityGates.validation.metric',
+    'Quality gate validation metric recorded',
+    {
+      ...payload,
+      durationMs,
+    }
+  );
+};
+
+export const emitQualityGateDashboardMetric = (payload: QualityGateDashboardMetricPayload) => {
+  const durationMs = Number.isFinite(payload.durationMs) ? Math.max(0, payload.durationMs) : 0;
+  const normalized = {
+    ...payload,
+    durationMs,
+    scope: 'document' as const,
+    emittedAt: new Date().toISOString(),
+  };
+  console.info('qualityGates.dashboard.metric', JSON.stringify(normalized));
 };

@@ -19,6 +19,10 @@
     "./gates/*": {
       "import": "./dist/gates/*.js",
       "types": "./dist/gates/*.d.ts"
+    },
+    "./traceability/*": {
+      "import": "./dist/traceability/*.js",
+      "types": "./dist/traceability/*.d.ts"
     }
   },
   "main": "dist/index.js",
@@ -37,6 +41,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ctrl-freaq/editor-core": "workspace:*",
+    "@ctrl-freaq/shared-data": "workspace:*",
     "ajv": "^8.0.0",
     "chalk": "^5.0.0",
     "commander": "^14.0.1",

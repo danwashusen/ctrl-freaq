@@ -1,0 +1,394 @@
+openapi: 3.1.0
+info:
+  title: Document Quality Gates API
+  version: 0.1.0
+  description: >
+    Endpoints powering section-level validation, document dashboards, and
+    traceability sync for Story 013-epic-2-story-8.
+servers:
+  - url: https://local.ctrl-freaq.dev/api/v1
+paths:
+  /documents/{documentId}/sections/{sectionId}/quality-gates/run:
+    post:
+      summary: Execute section quality gates
+      operationId: runSectionQualityGates
+      tags: [QualityGates]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                debounceContextMs:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Client debounce window to help scheduler prioritize runs.
+      responses:
+        '202':
+          description: Gate run accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionGateRunAccepted'
+        '423':
+          description: Section is currently locked by another run
+        '404':
+          description: Section not found
+  /documents/{documentId}/sections/{sectionId}/quality-gates/result:
+    get:
+      summary: Fetch latest section gate result
+      operationId: getSectionGateResult
+      tags: [QualityGates]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/SectionId'
+      responses:
+        '200':
+          description: Latest gate result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionQualityGateResult'
+        '404':
+          description: Section result not found
+  /documents/{documentId}/quality-gates:
+    get:
+      summary: Retrieve aggregated document quality status
+      operationId: getDocumentQualitySummary
+      tags: [QualityGates]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: Current document gate summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentQualityGateSummary'
+        '404':
+          description: Document not found
+    post:
+      summary: Re-run document gates across all sections
+      operationId: rerunDocumentQualityGates
+      tags: [QualityGates]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '202':
+          description: Re-run accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentGateRunAccepted'
+        '423':
+          description: Global gate runner busy
+  /documents/{documentId}/traceability:
+    get:
+      summary: Fetch traceability matrix view
+      operationId: getTraceabilityMatrix
+      tags: [Traceability]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - in: query
+          name: includeOrphans
+          schema:
+            type: boolean
+            default: true
+          description: Include requirements without coverage
+      responses:
+        '200':
+          description: Traceability matrix listing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentId:
+                    type: string
+                    format: uuid
+                  requirements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TraceabilityLink'
+        '404':
+          description: Document not found
+  /documents/{documentId}/quality-gates/audit:
+    get:
+      summary: Query validation audit log
+      operationId: listValidationAuditEvents
+      tags: [QualityGates]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - in: query
+          name: scope
+          schema:
+            type: string
+            enum: [section, document]
+          description: Filter to section or document runs
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Pagination cursor
+      responses:
+        '200':
+          description: Audit events page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ValidationAuditLog'
+                  nextCursor:
+                    type: string
+                    nullable: true
+        '404':
+          description: Document not found
+
+components:
+  parameters:
+    DocumentId:
+      in: path
+      name: documentId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SectionId:
+      in: path
+      name: sectionId
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    SectionGateRunAccepted:
+      type: object
+      required: [documentId, sectionId, requestId, queuedAt]
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+        queuedAt:
+          type: string
+          format: date-time
+        estimatedStartDelayMs:
+          type: integer
+          minimum: 0
+    SectionQualityGateResult:
+      type: object
+      required:
+        - documentId
+        - sectionId
+        - status
+        - evaluatedRules
+        - lastRunAt
+        - gatingVersion
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pass, warning, blocker, error]
+        evaluatedRules:
+          type: array
+          items:
+            type: object
+            required: [ruleId, severity, message]
+            properties:
+              ruleId:
+                type: string
+              severity:
+                type: string
+                enum: [info, warning, blocker]
+              message:
+                type: string
+              remediation:
+                type: string
+              inlineAnchor:
+                type: string
+        lastRunAt:
+          type: string
+          format: date-time
+        lastSuccessAt:
+          type: string
+          format: date-time
+          nullable: true
+        triggeredBy:
+          type: string
+          format: uuid
+        runDurationMs:
+          type: integer
+        gatingVersion:
+          type: string
+        requestId:
+          type: string
+    DocumentGateRunAccepted:
+      type: object
+      required: [documentId, requestId, queuedAt]
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+        queuedAt:
+          type: string
+          format: date-time
+        estimatedCompletionSeconds:
+          type: integer
+    DocumentQualityGateSummary:
+      type: object
+      required:
+        - documentId
+        - blockers
+        - warnings
+        - passes
+        - publishBlocked
+        - lastRunAt
+        - sections
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        blockers:
+          type: integer
+          minimum: 0
+        warnings:
+          type: integer
+          minimum: 0
+        passes:
+          type: integer
+          minimum: 0
+        publishBlocked:
+          type: boolean
+        lastRunAt:
+          type: string
+          format: date-time
+        lastTriggeredBy:
+          type: string
+          format: uuid
+        sections:
+          type: array
+          items:
+            type: object
+            required: [sectionId, status, lastRunAt]
+            properties:
+              sectionId:
+                type: string
+                format: uuid
+              status:
+                type: string
+                enum: [pass, warning, blocker, error]
+              lastRunAt:
+                type: string
+                format: date-time
+    TraceabilityLink:
+      type: object
+      required:
+        - id
+        - requirementId
+        - gateStatus
+      properties:
+        id:
+          type: string
+          format: uuid
+        requirementId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+          nullable: true
+        documentId:
+          type: string
+          format: uuid
+        gateStatus:
+          type: string
+          enum: [pass, warning, blocker, missing]
+        lastValidatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        validationSource:
+          type: string
+          enum: [section_gate, document_gate]
+        auditorNotes:
+          type: string
+          nullable: true
+        orphanedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+    ValidationAuditLog:
+      type: object
+      required:
+        - id
+        - documentId
+        - runScope
+        - status
+        - startedAt
+        - completedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        sectionId:
+          type: string
+          format: uuid
+          nullable: true
+        runScope:
+          type: string
+          enum: [section, document]
+        status:
+          type: string
+          enum: [pass, warning, blocker, error]
+        rulesFailed:
+          type: array
+          items:
+            type: string
+        triggeredBy:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        retryOf:
+          type: string
+          format: uuid
+          nullable: true

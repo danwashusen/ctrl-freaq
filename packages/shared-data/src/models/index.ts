@@ -49,3 +49,8 @@ export {
 } from './assumption-session.js';
 export * from './draft-proposal.js';
 export * from './streaming.js';
+export * from './quality-gates/gate-rule-result.js';
+export * from './quality-gates/section-quality-gate-result.js';
+export * from './quality-gates/document-quality-gate-summary.js';
+export * from './traceability/traceability-audit-event.js';
+export * from './traceability/traceability-link.js';

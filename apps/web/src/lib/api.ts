@@ -138,6 +138,109 @@ interface TemplateVersionResponse {
   version: Record<string, unknown>;
 }
 
+type QualityGateStatusDTO = 'Pass' | 'Warning' | 'Blocker' | 'Neutral';
+type QualityGateRunSourceDTO = 'auto' | 'manual' | 'dashboard';
+
+interface RequirementGapDTO {
+  requirementId: string;
+  reason: 'no-link' | 'blocker' | 'warning-override';
+  linkedSections: string[];
+}
+
+interface TraceabilityAuditEventDTO {
+  eventId: string;
+  type: 'link-created' | 'link-updated' | 'link-orphaned' | 'link-reassigned';
+  timestamp: string;
+  actorId: string;
+  details?: Record<string, unknown>;
+}
+
+interface TraceabilityRequirementDTO {
+  requirementId: string;
+  sectionId: string;
+  title: string;
+  preview: string;
+  gateStatus: QualityGateStatusDTO;
+  coverageStatus: 'covered' | 'warning' | 'blocker' | 'orphaned';
+  lastValidatedAt: string | null;
+  validatedBy: string | null;
+  notes: string[];
+  revisionId: string;
+  auditTrail: TraceabilityAuditEventDTO[];
+}
+
+interface TraceabilityMatrixResponseDTO {
+  documentId: string;
+  requirements: TraceabilityRequirementDTO[];
+}
+
+interface TraceabilityOrphanResponseDTO {
+  requirementId: string;
+  sectionId: string;
+  coverageStatus: 'covered' | 'warning' | 'blocker' | 'orphaned';
+  reason: 'no-link' | 'blocker' | 'warning-override';
+  lastValidatedAt: string;
+  validatedBy: string | null;
+}
+
+interface DocumentQualitySummaryDTO {
+  documentId: string;
+  statusCounts: {
+    pass: number;
+    warning: number;
+    blocker: number;
+    neutral: number;
+  };
+  blockerSections: string[];
+  warningSections: string[];
+  lastRunAt: string | null;
+  triggeredBy: string;
+  requestId: string;
+  publishBlocked: boolean;
+  coverageGaps: RequirementGapDTO[];
+}
+
+interface SectionQualityRuleResultDTO {
+  ruleId: string;
+  title: string;
+  severity: QualityGateStatusDTO;
+  guidance: string[];
+  docLink?: string | null;
+  location?: {
+    path: string;
+    start: number;
+    end: number;
+  };
+}
+
+interface SectionQualityGateResultDTO {
+  sectionId: string;
+  documentId: string;
+  runId: string;
+  status: QualityGateStatusDTO;
+  rules: SectionQualityRuleResultDTO[];
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  triggeredBy: string;
+  source: QualityGateRunSourceDTO;
+  durationMs: number;
+  remediationState: 'pending' | 'in-progress' | 'resolved';
+  incidentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestId?: string | null;
+}
+
+interface QualityGateRunAcknowledgementDTO {
+  requestId: string;
+  status: 'queued' | 'running';
+  runId: string;
+  sectionId?: string;
+  documentId: string;
+  triggeredBy: string;
+  receivedAt?: string;
+}
+
 class ApiClient {
   private baseUrl: string;
   private getAuthToken?: () => Promise<string | null>;
@@ -376,6 +479,69 @@ class ApiClient {
     const url = `/activities${query.toString() ? `?${query.toString()}` : ''}`;
     return this.makeRequest<ActivitiesListResponseDTO>(url);
   }
+
+  async runSectionQualityGate(
+    documentId: string,
+    sectionId: string,
+    payload?: { reason?: QualityGateRunSourceDTO }
+  ): Promise<QualityGateRunAcknowledgementDTO> {
+    return this.makeRequest<QualityGateRunAcknowledgementDTO>(
+      `/documents/${documentId}/sections/${sectionId}/quality-gates/run`,
+      {
+        method: 'POST',
+        body: payload?.reason ? JSON.stringify({ reason: payload.reason }) : undefined,
+      }
+    );
+  }
+
+  async getSectionQualityGate(
+    documentId: string,
+    sectionId: string
+  ): Promise<SectionQualityGateResultDTO> {
+    return this.makeRequest<SectionQualityGateResultDTO>(
+      `/documents/${documentId}/sections/${sectionId}/quality-gates/result`
+    );
+  }
+
+  async runDocumentQualityGate(
+    documentId: string,
+    payload?: { reason?: QualityGateRunSourceDTO }
+  ): Promise<QualityGateRunAcknowledgementDTO> {
+    return this.makeRequest<QualityGateRunAcknowledgementDTO>(
+      `/documents/${documentId}/quality-gates/run`,
+      {
+        method: 'POST',
+        body: payload?.reason ? JSON.stringify({ reason: payload.reason }) : undefined,
+      }
+    );
+  }
+
+  async getDocumentQualityGateSummary(documentId: string): Promise<DocumentQualitySummaryDTO> {
+    return this.makeRequest<DocumentQualitySummaryDTO>(
+      `/documents/${documentId}/quality-gates/summary`
+    );
+  }
+
+  async getDocumentTraceability(documentId: string): Promise<TraceabilityMatrixResponseDTO> {
+    return this.makeRequest<TraceabilityMatrixResponseDTO>(`/documents/${documentId}/traceability`);
+  }
+
+  async markTraceabilityRequirementOrphaned(
+    documentId: string,
+    payload: {
+      requirementId: string;
+      sectionId: string;
+      reason?: 'no-link' | 'blocker' | 'warning-override';
+    }
+  ): Promise<TraceabilityOrphanResponseDTO> {
+    return this.makeRequest<TraceabilityOrphanResponseDTO>(
+      `/documents/${documentId}/traceability/orphans`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  }
 }
 
 export const createApiClient = (options?: ApiClientOptions) => new ApiClient(options);
@@ -397,4 +563,14 @@ export type {
   DashboardProjectListItemDTO,
   ActivityDTO,
   ActivitiesListResponseDTO,
+  SectionQualityGateResultDTO,
+  SectionQualityRuleResultDTO,
+  QualityGateRunAcknowledgementDTO,
+  QualityGateRunSourceDTO,
+  QualityGateStatusDTO,
+  DocumentQualitySummaryDTO,
+  TraceabilityMatrixResponseDTO,
+  TraceabilityRequirementDTO,
+  TraceabilityOrphanResponseDTO,
+  TraceabilityAuditEventDTO,
 };

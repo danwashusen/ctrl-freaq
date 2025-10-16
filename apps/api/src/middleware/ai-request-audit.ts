@@ -40,6 +40,7 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
     const intent = typeof req.body?.intent === 'string' ? req.body.intent : 'unknown';
 
     try {
+      const startedAt = Date.now();
       const rateResult = await options.limiter({ userId, documentId, sectionId, intent });
 
       if (!rateResult.allowed) {
@@ -72,6 +73,7 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
         documentId,
         sectionId,
         intent,
+        triggeredBy: userId,
         prompt: redactPrompt(),
         citations: telemetryCitations,
       });
@@ -79,6 +81,7 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
       options.logger.info({
         requestId,
         userId,
+        triggeredBy: userId,
         documentId,
         sectionId,
         intent,
@@ -96,12 +99,19 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
         retryAttempted?: boolean;
         elapsedMs?: number;
       }) => {
+        const durationMs =
+          typeof payload.elapsedMs === 'number' && Number.isFinite(payload.elapsedMs)
+            ? Math.max(0, Math.round(payload.elapsedMs))
+            : Math.max(0, Math.round(Date.now() - startedAt));
+
         const telemetryPayload = {
           requestId,
           userId,
+          triggeredBy: userId,
           documentId,
           sectionId,
           intent,
+          durationMs,
           ...payload,
         } satisfies Record<string, unknown>;
 
@@ -112,10 +122,11 @@ export function createAIRequestAuditMiddleware(options: AIRequestAuditOptions): 
       res.locals.aiAudit = {
         requestId,
         userId,
+        triggeredBy: userId,
         documentId,
         sectionId,
         intent,
-        startedAt: new Date(),
+        startedAt: new Date(startedAt),
         logQueueDisposition,
       };
 

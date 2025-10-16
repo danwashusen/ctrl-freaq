@@ -432,6 +432,12 @@ importers:
 
   packages/qa:
     dependencies:
+      '@ctrl-freaq/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@ctrl-freaq/shared-data':
+        specifier: workspace:*
+        version: link:../shared-data
       ajv:
         specifier: ^8.0.0
         version: 8.17.1
@@ -463,6 +469,9 @@ importers:
 
   packages/shared-data:
     dependencies:
+      '@ctrl-freaq/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1

@@ -15,6 +15,10 @@
     "./extensions/*": {
       "import": "./dist/extensions/*.js",
       "types": "./dist/extensions/*.d.ts"
+    },
+    "./quality-gates/*": {
+      "import": "./dist/quality-gates/*.js",
+      "types": "./dist/quality-gates/*.d.ts"
     }
   },
   "main": "dist/index.js",

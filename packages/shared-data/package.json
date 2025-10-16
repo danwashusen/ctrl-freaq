@@ -70,6 +70,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ctrl-freaq/editor-core": "workspace:*",
     "better-sqlite3": "^12.4.1",
     "commander": "^14.0.1",
     "pino": "^9.12.0",

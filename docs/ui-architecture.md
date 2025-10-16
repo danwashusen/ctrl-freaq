@@ -863,6 +863,42 @@ export const ProtectedRoute = () => {
 - **Assumption Resolution**: Full document state including unsaved changes for
   context-aware assumptions
 
+#### Quality Gate Stores & Hooks {#quality-gate-stores-hooks}
+
+- **Section Quality Store (`section-quality-store.ts`)**: Tracks per-section
+  validation status, remediation cards, and submission gating. `useQualityGates`
+  mutates this store in response to TanStack Query mutations so UI chips stay in
+  sync with API runs and CLI-triggered retries.
+- **Document Quality Store (`document-quality-store.ts`)**: Aggregates summary
+  tiles, SLA messaging, and publish disablement flags. The dashboard loads via
+  `fetchDocumentQualitySummary` and keeps the Zustand slice hydrated for both
+  server-fetched and optimistic updates.
+- **Traceability Store (`traceability-store.ts`)**: Normalises requirement rows,
+  filter state, orphan counts, and matrix metadata. The new `useTraceability`
+  hook wires TanStack Query for `/documents/:id/traceability`, exposes an
+  imperative orphan mutation, and resets state when the document context
+  changes.
+- **Telemetry Integration**: Section/document hooks emit
+  `emitQualityGateValidationMetric`, while traceability endpoints log orphan
+  actions in `TraceabilityController` and append audit events in the shared-data
+  repository so SOC2 logging spans UI triggers, API handlers, and persistence.
+
+#### Traceability Matrix & Alerts UI {#traceability-matrix-ui}
+
+- **Matrix Component (`TraceabilityMatrix.tsx`)**: Renders two-line requirement
+  previews, coverage badges, and filter chips. The wrapper advertises
+  `aria-live="polite"` and `aria-busy` states so assistive tech hears loading
+  transitions, while status badges reuse the shared token palette for visual
+  alignment with dashboard tiles.
+- **Alerts Component (`TraceabilityAlerts.tsx`)**: Surfaces orphan banners and
+  slow-run incident copy with `role="alert"`, reusing the same resolver callback
+  the dashboard banner exposes. Clicking `Resolve now` routes the store filter
+  to the `neutral` bucket, matching the quickstart guidance.
+- **Dashboard Composition**: `DocumentQualityDashboard.tsx` consumes both hooks,
+  rendering SLA tiles, traceability alerts, the matrix, and publish controls in
+  a single layout. The component waits for TanStack Query hydration before
+  enabling action buttons to avoid stale state changes.
+
 ### Data Flow Architecture {#data-flow-architecture}
 
 ```mermaid
