@@ -321,6 +321,9 @@ importers:
 
   packages/editor-core:
     dependencies:
+      '@ctrl-freaq/shared-data':
+        specifier: workspace:*
+        version: link:../shared-data
       '@milkdown/core':
         specifier: 7.15.5
         version: 7.15.5
@@ -469,9 +472,6 @@ importers:
 
   packages/shared-data:
     dependencies:
-      '@ctrl-freaq/editor-core':
-        specifier: workspace:*
-        version: link:../editor-core
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { QualityGateStatus } from '@ctrl-freaq/editor-core/quality-gates/status';
+import type { QualityGateStatus } from './status.js';
 
 export const QUALITY_GATE_COVERAGE_GAP_REASONS = [
   'no-link',

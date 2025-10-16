@@ -92,7 +92,9 @@ describe('TraceabilityAlerts', () => {
     expect(
       screen.getByText(/Traceability gap detected: 2 requirements need reassignment/i)
     ).toBeVisible();
-    expect(screen.getByText(/Last validation run completed on 14 Oct/i)).toBeVisible();
+    const lastRunBanner = screen.getByText(/Last validation run completed on/i);
+    expect(lastRunBanner).toBeVisible();
+    expect(lastRunBanner).toHaveTextContent(/(Oct 14|14 Oct)/i);
     expect(screen.getByText(/Reference incident incident-trace-123 in follow-ups/i)).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: /Resolve now/i }));

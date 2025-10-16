@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-import {
-  QUALITY_GATE_STATUSES,
-  type QualityGateStatus,
-} from '@ctrl-freaq/editor-core/quality-gates/status';
+import { QUALITY_GATE_STATUSES, type QualityGateStatus } from '../quality-gates/status.js';
 
 import { TraceabilityAuditEventSchema } from './traceability-audit-event.js';
 

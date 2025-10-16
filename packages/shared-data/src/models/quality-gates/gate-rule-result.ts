@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-import {
-  QUALITY_GATE_STATUSES,
-  type QualityGateStatus,
-} from '@ctrl-freaq/editor-core/quality-gates/status';
+import { QUALITY_GATE_STATUSES, type QualityGateStatus } from './status.js';
 
 const [BLOCKER_STATUS, WARNING_STATUS, PASS_STATUS, NEUTRAL_STATUS] = QUALITY_GATE_STATUSES;
 
