@@ -37,7 +37,7 @@
     "@ai-sdk/openai": "^2.0.38",
     "ai": "^3.0.0",
     "commander": "^14.0.1",
-    "zod": "^4.1.11"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

@@ -35,10 +35,10 @@
   "dependencies": {
     "archiver": "^7.0.0",
     "commander": "^14.0.1",
-    "jspdf": "^3.0.2",
+    "jspdf": "^3.0.3",
     "markdown-it": "^14.0.0",
     "puppeteer": "^24.23.0",
-    "zod": "^4.1.11"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.0",
