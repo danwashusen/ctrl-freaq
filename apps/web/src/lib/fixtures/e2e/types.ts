@@ -321,6 +321,56 @@ export const documentFixtureSchema = z.object({
   lifecycleStatus: z.enum(documentLifecycleStatuses),
   sections: z.record(z.string(), sectionFixtureSchema),
   retentionPolicy: retentionPolicyFixtureSchema.optional(),
+  quality: z
+    .object({
+      summary: z.object({
+        statusCounts: z.object({
+          pass: z.number().int().nonnegative(),
+          warning: z.number().int().nonnegative(),
+          blocker: z.number().int().nonnegative(),
+          neutral: z.number().int().nonnegative(),
+        }),
+        blockerSections: z.array(z.string()),
+        warningSections: z.array(z.string()),
+        lastRunAt: z.string().nullable(),
+        triggeredBy: z.string().min(1),
+        requestId: z.string().min(1),
+        publishBlocked: z.boolean(),
+        coverageGaps: z.array(
+          z.object({
+            requirementId: z.string().min(1),
+            reason: z.enum(['no-link', 'blocker', 'warning-override']),
+            linkedSections: z.array(z.string()),
+          })
+        ),
+      }),
+      traceability: z.array(
+        z.object({
+          requirementId: z.string().min(1),
+          sectionId: z.string().min(1),
+          title: z.string().min(1),
+          preview: z.string().min(1),
+          gateStatus: z.enum(['Pass', 'Warning', 'Blocker', 'Neutral']),
+          coverageStatus: z.enum(['covered', 'warning', 'blocker', 'orphaned']),
+          lastValidatedAt: z.string().nullable(),
+          validatedBy: z.string().nullable(),
+          notes: z.array(z.string()).default([]),
+          revisionId: z.string().min(1),
+          auditTrail: z
+            .array(
+              z.object({
+                eventId: z.string().min(1),
+                type: z.enum(['link-created', 'link-updated', 'link-orphaned', 'link-reassigned']),
+                timestamp: z.string().min(1),
+                actorId: z.string().min(1),
+                details: z.record(z.string(), z.unknown()).optional(),
+              })
+            )
+            .default([]),
+        })
+      ),
+    })
+    .optional(),
 });
 export type DocumentFixture = z.infer<typeof documentFixtureSchema>;
 

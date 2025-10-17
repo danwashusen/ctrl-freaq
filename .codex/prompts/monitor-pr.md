@@ -11,4 +11,4 @@ description: Monitor a Pull Request CI pipeline until the CI pipeline is success
 - Avoid waiting for the CI pipeline to complete if a stage has failed.
 - Attempt to fix CI issues as long as it does not require significant changes to what is being delivered.
 - Consult existing comments on the Pull Request for context.
-- Keep notes on issues and progress as comments on the Pull Request.
+- Keep notes on issues and progress as comments on the Pull Request, use Github CLI with the `--body-file <FILE_PATH>` argument to ensure formatting is preserved.

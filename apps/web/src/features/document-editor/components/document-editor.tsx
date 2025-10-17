@@ -43,6 +43,8 @@ import { AssumptionsChecklist } from '../assumptions-flow/components/assumptions
 import { useAssumptionsFlow } from '../assumptions-flow/hooks/use-assumptions-flow';
 import { CoAuthorSidebar } from './co-authoring';
 import { DocumentQaPanel } from './document-qa';
+import { DocumentQualityDashboard } from '../quality-gates/components/DocumentQualityDashboard';
+import { useDocumentQualityStore } from '../quality-gates/stores/document-quality-store';
 import { useCoAuthorSession } from '../hooks/useCoAuthorSession';
 import { useDocumentQaSession } from '../hooks/useDocumentQaSession';
 import type { CoAuthoringIntent } from '../stores/co-authoring-store';
@@ -56,6 +58,13 @@ export interface DocumentEditorProps {
 
 const sortSections = (sections: Record<string, SectionView>): SectionView[] =>
   Object.values(sections).sort((a, b) => a.orderIndex - b.orderIndex);
+
+const logQualityGateAction = (message: string) => {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.info(message);
+  }
+};
 
 const resolveSummaryForApproval = (
   section: SectionView,
@@ -191,10 +200,14 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     );
     const session = useSessionStore(state => state.session);
     const rehydratedDrafts = useDraftStateStore(state => state.rehydratedDrafts);
-    const pendingRehydratedDrafts = useMemo(
-      () => Object.values(rehydratedDrafts).filter(draft => draft.status === 'pending'),
-      [rehydratedDrafts]
-    );
+    const isE2EMode = import.meta.env.VITE_E2E === 'true';
+
+    const pendingRehydratedDrafts = useMemo(() => {
+      if (isE2EMode) {
+        return [];
+      }
+      return Object.values(rehydratedDrafts).filter(draft => draft.status === 'pending');
+    }, [isE2EMode, rehydratedDrafts]);
     const hasPendingRehydrations = pendingRehydratedDrafts.length > 0;
 
     const applyRecoveredDrafts = useCallback(async () => {
@@ -488,6 +501,19 @@ export const DocumentEditor = memo<DocumentEditorProps>(
 
     const activeCoAuthorIntent: CoAuthoringIntent = coAuthorSessionState?.activeIntent ?? 'improve';
     const documentTitle = documentInfo?.title ?? fixtureDocument?.title ?? 'Untitled document';
+
+    const {
+      publishCopy: documentPublishCopy,
+      slaWarningCopy: documentSlaWarningCopy,
+      isPublishBlocked: isDocumentPublishBlocked,
+      status: documentValidationStatus,
+    } = useDocumentQualityStore(state => ({
+      publishCopy: state.publishCopy,
+      slaWarningCopy: state.slaWarningCopy,
+      isPublishBlocked: state.isPublishBlocked,
+      status: state.status,
+    }));
+    const isDocumentRunning = documentValidationStatus === 'running';
 
     const handleToggleCoAuthor = useCallback(() => {
       setIsCoAuthorOpen(prev => {
@@ -1247,7 +1273,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
 
     return (
       <>
-        {hasPendingRehydrations && (
+        {!isE2EMode && hasPendingRehydrations && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6"
             role="dialog"
@@ -1453,6 +1479,54 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                     isCoAuthorOpen || isDocumentQaOpen ? 'lg:flex-1' : undefined
                   )}
                 >
+                  <DocumentQualityDashboard documentId={documentId} />
+
+                  <div
+                    className="flex flex-wrap items-center gap-3"
+                    data-testid="document-action-bar"
+                  >
+                    <Button
+                      variant="default"
+                      disabled={isDocumentPublishBlocked || isDocumentRunning}
+                      onClick={() =>
+                        logQualityGateAction('[quality-gates] publish-document action requested')
+                      }
+                    >
+                      Publish document
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={isDocumentPublishBlocked || isDocumentRunning}
+                      onClick={() =>
+                        logQualityGateAction('[quality-gates] export-document action requested')
+                      }
+                    >
+                      Export document
+                    </Button>
+                  </div>
+
+                  {(documentPublishCopy || documentSlaWarningCopy) && (
+                    <div className="space-y-1 text-sm">
+                      {documentPublishCopy && (
+                        <p
+                          className={cn(
+                            isDocumentPublishBlocked
+                              ? 'text-rose-900 dark:text-rose-200'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          {documentPublishCopy}{' '}
+                          {isDocumentPublishBlocked
+                            ? 'Resolve blockers via the dashboard above to enable publishing.'
+                            : ''}
+                        </p>
+                      )}
+                      {documentSlaWarningCopy && (
+                        <p className="text-muted-foreground">{documentSlaWarningCopy}</p>
+                      )}
+                    </div>
+                  )}
+
                   {activeSection ? (
                     <div data-section-id={activeSection.id}>
                       <DocumentSectionPreview

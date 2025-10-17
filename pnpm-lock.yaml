@@ -322,6 +322,9 @@ importers:
 
   packages/editor-core:
     dependencies:
+      '@ctrl-freaq/shared-data':
+        specifier: workspace:*
+        version: link:../shared-data
       '@milkdown/core':
         specifier: 7.15.5
         version: 7.15.5
@@ -433,6 +436,12 @@ importers:
 
   packages/qa:
     dependencies:
+      '@ctrl-freaq/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@ctrl-freaq/shared-data':
+        specifier: workspace:*
+        version: link:../shared-data
       ajv:
         specifier: ^8.0.0
         version: 8.17.1

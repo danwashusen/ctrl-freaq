@@ -129,6 +129,70 @@ const overviewManualSaveAt = Date.parse('2025-01-15T15:28:45.000Z');
 const overviewLastSavedAt = '2025-01-15T15:29:15.000Z';
 const overviewDiffGeneratedAt = '2025-01-15T15:29:25.000Z';
 
+const documentQualitySummaryFixture = {
+  statusCounts: {
+    pass: 8,
+    warning: 3,
+    blocker: 1,
+    neutral: 2,
+  },
+  blockerSections: ['sec-overview'],
+  warningSections: ['sec-api'],
+  lastRunAt: baseUpdatedAt,
+  triggeredBy: 'user-nova',
+  requestId: 'req-doc-quality-summary',
+  publishBlocked: true,
+  coverageGaps: [
+    {
+      requirementId: 'req-governance-escalation',
+      reason: 'blocker',
+      linkedSections: ['sec-overview'],
+    },
+    {
+      requirementId: 'req-traceability-coverage',
+      reason: 'no-link',
+      linkedSections: [],
+    },
+  ],
+};
+
+const traceabilityRequirementFixtures = [
+  {
+    requirementId: 'req-governance-escalation',
+    sectionId: 'sec-overview',
+    title: 'Escalation policy documented',
+    preview: 'Document escalation paths for outages with executive contacts.',
+    gateStatus: 'Blocker',
+    coverageStatus: 'blocker',
+    lastValidatedAt: baseUpdatedAt,
+    validatedBy: 'user-morgan',
+    notes: ['Blocked until executive overview adds mitigation summary.'],
+    revisionId: 'rev-sec-overview-qa',
+    auditTrail: [
+      {
+        eventId: 'evt-traceability-created',
+        type: 'link-created',
+        timestamp: baseUpdatedAt,
+        actorId: 'user-nova',
+        details: { sectionId: 'sec-overview' },
+      },
+    ],
+  },
+  {
+    requirementId: 'req-traceability-coverage',
+    sectionId: 'sec-compliance',
+    title: 'Traceability coverage assigned',
+    preview: 'Link each requirement to compliant sections before publishing.',
+    gateStatus: 'Neutral',
+    coverageStatus: 'orphaned',
+    lastValidatedAt: null,
+    validatedBy: null,
+    notes: [],
+    revisionId: 'rev-sec-compliance-qa',
+    auditTrail: [],
+  },
+];
+
 const sectionFixtures: Record<string, SectionFixture> = {
   'sec-overview': sectionFixtureSchema.parse({
     id: 'sec-overview',
@@ -472,6 +536,10 @@ export const demoArchitectureDocument: DocumentFixture = documentFixtureSchema.p
     retentionWindow: '30d',
     guidance:
       'Client-only drafts must be reviewed or escalated to compliance storage within 30 days.',
+  },
+  quality: {
+    summary: documentQualitySummaryFixture,
+    traceability: traceabilityRequirementFixtures,
   },
 });
 

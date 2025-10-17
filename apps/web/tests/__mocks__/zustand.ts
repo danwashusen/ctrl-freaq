@@ -76,3 +76,8 @@ export const create = <TState>(
 
   return (nextInitializer: StateInitializer<TState>) => initializeStore(nextInitializer);
 };
+
+export const useStore = <TState, TSelected = TState>(
+  store: UseStore<TState>,
+  selector: (state: TState) => TSelected = state => state as unknown as TSelected
+): TSelected => selector(store.getState());

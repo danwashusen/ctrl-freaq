@@ -2,6 +2,143 @@
 
 import { Command } from 'commander';
 
+const DEFAULT_API_BASE_URL = process.env.QUALITY_GATES_API_URL ?? 'http://localhost:5001/api/v1';
+const DEFAULT_API_TOKEN = process.env.QUALITY_GATES_TOKEN ?? null;
+
+type QualityGateSource = 'auto' | 'manual' | 'dashboard';
+
+interface RunSectionInput {
+  sectionId: string;
+  documentId: string;
+  triggeredBy?: string | null;
+  source?: QualityGateSource;
+}
+
+interface RunDocumentInput {
+  documentId: string;
+  triggeredBy?: string | null;
+  source?: QualityGateSource;
+}
+
+interface RunResult {
+  requestId: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  runId?: string;
+  durationMs?: number;
+  message?: string;
+  incidentId?: string | null;
+}
+
+interface QualityGateCliHandlers {
+  runSection(input: RunSectionInput): Promise<RunResult>;
+  runDocument(input: RunDocumentInput): Promise<RunResult>;
+}
+
+interface QualityGateApiConfig {
+  apiUrl: string;
+  token?: string | null;
+  fetchImpl?: typeof fetch;
+}
+
+const createQualityGateCliHandlers = (config: QualityGateApiConfig): QualityGateCliHandlers => {
+  const fetchImpl = config.fetchImpl ?? fetch;
+
+  const buildHeaders = () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (config.token) {
+      headers.Authorization = `Bearer ${config.token}`;
+    }
+    return headers;
+  };
+
+  const toUrl = (path: string): string => {
+    const base = config.apiUrl.endsWith('/') ? config.apiUrl.slice(0, -1) : config.apiUrl;
+    return `${base}${path}`;
+  };
+
+  return {
+    async runSection(input) {
+      const response = await fetchImpl(
+        toUrl(`/documents/${input.documentId}/sections/${input.sectionId}/quality-gates/run`),
+        {
+          method: 'POST',
+          headers: buildHeaders(),
+          body: JSON.stringify({
+            reason: input.source,
+          }),
+        }
+      );
+
+      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+      if (!response.ok) {
+        const incidentId =
+          typeof payload?.details === 'object'
+            ? (payload.details as Record<string, unknown>).incidentId
+            : undefined;
+        return {
+          requestId: (payload.requestId as string) ?? 'unknown',
+          status: 'failed',
+          message:
+            (payload.message as string) ??
+            `Quality gate request failed with status ${response.status}`,
+          incidentId: incidentId && typeof incidentId === 'string' ? incidentId : null,
+        };
+      }
+
+      return {
+        requestId: (payload.requestId as string) ?? 'unknown',
+        status: (payload.status as RunResult['status']) ?? 'queued',
+        runId: typeof payload.runId === 'string' ? payload.runId : undefined,
+        message: payload.receivedAt ? `Accepted at ${payload.receivedAt}` : undefined,
+      };
+    },
+
+    async runDocument(input) {
+      const response = await fetchImpl(toUrl(`/documents/${input.documentId}/quality-gates/run`), {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify({
+          reason: input.source,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+      if (!response.ok) {
+        return {
+          requestId: (payload.requestId as string) ?? 'unknown',
+          status: 'failed',
+          message:
+            (payload.message as string) ??
+            `Document quality gate request failed with status ${response.status}`,
+        };
+      }
+
+      return {
+        requestId: (payload.requestId as string) ?? 'unknown',
+        status: (payload.status as RunResult['status']) ?? 'queued',
+        runId: typeof payload.runId === 'string' ? payload.runId : undefined,
+        message: payload.receivedAt ? `Accepted at ${payload.receivedAt}` : undefined,
+      };
+    },
+  };
+};
+
+const normalizeSource = (value?: string): QualityGateSource => {
+  switch ((value ?? 'manual').toLowerCase()) {
+    case 'auto':
+      return 'auto';
+    case 'dashboard':
+      return 'dashboard';
+    case 'manual':
+    default:
+      return 'manual';
+  }
+};
+
 const program = new Command();
 
 /**
@@ -99,6 +236,112 @@ export function cli(argv?: string[]): void {
       } else {
         console.log('Available Quality Gates:');
         gates.forEach(gate => console.log(`  - ${gate}`));
+      }
+    });
+
+  program
+    .command('run-section')
+    .description('Run quality gates for a single section')
+    .requiredOption('--section-id <sectionId>', 'Section identifier')
+    .requiredOption('--document-id <documentId>', 'Document identifier owning the section')
+    .option('--api-url <apiUrl>', 'Quality gates API base URL', DEFAULT_API_BASE_URL)
+    .option('--token <token>', 'Bearer token for authentication', DEFAULT_API_TOKEN ?? undefined)
+    .option('--triggered-by <userId>', 'Actor initiating the validation')
+    .option('--source <source>', 'Validation source (auto, manual, dashboard)', 'manual')
+    .option('--json', 'Output in JSON format', false)
+    .action(async options => {
+      const handlers = createQualityGateCliHandlers({
+        apiUrl: options.apiUrl ?? DEFAULT_API_BASE_URL,
+        token: options.token ?? DEFAULT_API_TOKEN,
+      });
+      const source = normalizeSource(options.source);
+
+      const result = await handlers.runSection({
+        sectionId: options.sectionId,
+        documentId: options.documentId,
+        triggeredBy: options.triggeredBy ?? null,
+        source,
+      });
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              scope: 'section',
+              sectionId: options.sectionId,
+              documentId: options.documentId,
+              triggeredBy: options.triggeredBy ?? null,
+              source,
+              runId: result.runId ?? null,
+              ...result,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log('Quality Gate Section Run');
+        console.log(`  Document: ${options.documentId}`);
+        console.log(`  Section:  ${options.sectionId}`);
+        console.log(`  Request:  ${result.requestId}`);
+        if (result.runId) {
+          console.log(`  Run ID:   ${result.runId}`);
+        }
+        console.log(`  Status:   ${result.status}`);
+        console.log(`  Source:   ${source}`);
+        if (result.message) {
+          console.log(`\n${result.message}`);
+        }
+        if (result.incidentId) {
+          console.log(`\nIncident ID: ${result.incidentId}`);
+        }
+      }
+    });
+
+  program
+    .command('run-document')
+    .description('Run quality gates across an entire document')
+    .requiredOption('--document-id <documentId>', 'Document identifier to validate')
+    .option('--triggered-by <userId>', 'Actor initiating the validation')
+    .option('--source <source>', 'Validation source (auto, manual, dashboard)', 'manual')
+    .option('--api-url <apiUrl>', 'Quality gates API base URL', DEFAULT_API_BASE_URL)
+    .option('--token <token>', 'Bearer token for authentication', DEFAULT_API_TOKEN ?? undefined)
+    .option('--json', 'Output in JSON format', false)
+    .action(async options => {
+      const handlers = createQualityGateCliHandlers({
+        apiUrl: options.apiUrl ?? DEFAULT_API_BASE_URL,
+        token: options.token ?? DEFAULT_API_TOKEN,
+      });
+      const source = normalizeSource(options.source);
+      const result = await handlers.runDocument({
+        documentId: options.documentId,
+        triggeredBy: options.triggeredBy ?? null,
+        source,
+      });
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              scope: 'document',
+              documentId: options.documentId,
+              triggeredBy: options.triggeredBy ?? null,
+              source,
+              ...result,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log('Quality Gate Document Run');
+        console.log(`  Document: ${options.documentId}`);
+        console.log(`  Request:  ${result.requestId}`);
+        console.log(`  Status:   ${result.status}`);
+        console.log(`  Source:   ${source}`);
+        if (result.message) {
+          console.log(`\n${result.message}`);
+        }
       }
     });
 

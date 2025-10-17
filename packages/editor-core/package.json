@@ -15,6 +15,10 @@
     "./extensions/*": {
       "import": "./dist/extensions/*.js",
       "types": "./dist/extensions/*.d.ts"
+    },
+    "./quality-gates/*": {
+      "import": "./dist/quality-gates/*.js",
+      "types": "./dist/quality-gates/*.d.ts"
     }
   },
   "main": "dist/index.js",
@@ -23,6 +27,7 @@
     "ctrl-freaq-editor-core": "dist/cli.js"
   },
   "scripts": {
+    "prebuild": "pnpm --filter @ctrl-freaq/shared-data build",
     "build": "tsc",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
@@ -30,9 +35,11 @@
     "lint": "eslint src/",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --watch",
+    "pretypecheck": "pnpm --filter @ctrl-freaq/shared-data build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ctrl-freaq/shared-data": "workspace:*",
     "@milkdown/core": "7.15.5",
     "@milkdown/plugin-history": "7.16.0",
     "@milkdown/plugin-listener": "7.15.5",

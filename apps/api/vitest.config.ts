@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
-const sharedDataDist = resolve(rootDir, '..', 'packages', 'shared-data', 'dist');
+const sharedDataSrc = resolve(rootDir, '..', 'packages', 'shared-data', 'src');
 const templatesDist = resolve(rootDir, '..', 'packages', 'templates', 'dist');
 const templateResolverDist = resolve(rootDir, '..', 'packages', 'template-resolver', 'dist');
 const editorCoreDist = resolve(rootDir, '..', 'packages', 'editor-core', 'dist');
@@ -35,11 +35,20 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
-      '@ctrl-freaq/shared-data': sharedDataDist,
+      '@ctrl-freaq/shared-data': sharedDataSrc,
       '@ctrl-freaq/templates': templatesDist,
       '@ctrl-freaq/template-resolver': templateResolverDist,
       '@ctrl-freaq/editor-core': editorCoreDist,
       '@ctrl-freaq/qa': qaDist,
+      '@ctrl-freaq/qa/traceability': resolve(
+        rootDir,
+        '..',
+        'packages',
+        'qa',
+        'src',
+        'traceability',
+        'index.ts'
+      ),
       '@ctrl-freaq/ai': aiDist,
     },
   },

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
 import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionView, SectionViewState } from '../types/section-view';
+import { SectionQualityStatusChip, SectionRemediationList } from '../quality-gates/components';
+import { useQualityGates } from '../quality-gates/hooks';
 
 interface SectionCardProps {
   section: SectionView;
@@ -80,6 +82,13 @@ export const SectionCard = memo<SectionCardProps>(
       return date.toLocaleString();
     }, []);
 
+    const qualityGates = useQualityGates({
+      sectionId: section.id,
+      documentId: section.docId,
+    });
+
+    const isSaveBlocked = qualityGates.isSubmissionBlocked;
+
     return (
       <Card
         className={cn(
@@ -151,7 +160,7 @@ export const SectionCard = memo<SectionCardProps>(
                   <Button
                     size="sm"
                     onClick={handleSaveClick}
-                    disabled={isSaving}
+                    disabled={isSaving || isSaveBlocked}
                     data-testid="save-section"
                   >
                     {isSaving ? (
@@ -168,10 +177,30 @@ export const SectionCard = memo<SectionCardProps>(
                 </>
               )}
             </div>
+
+            <div className="mt-3 w-full max-w-xs">
+              <SectionQualityStatusChip
+                status={qualityGates.status}
+                statusMessage={qualityGates.statusMessage}
+                timeoutCopy={qualityGates.timeoutCopy}
+                lastStatus={qualityGates.lastStatus ?? null}
+                incidentId={qualityGates.incidentId}
+                isSubmissionBlocked={qualityGates.isSubmissionBlocked}
+                blockerCount={qualityGates.blockerCount}
+                onRun={qualityGates.runSection}
+                onRetry={qualityGates.runSection}
+              />
+            </div>
           </div>
         </CardHeader>
 
         <CardContent>
+          {qualityGates.remediation.length > 0 && (
+            <div className="mb-4">
+              <SectionRemediationList items={qualityGates.remediation} />
+            </div>
+          )}
+
           {section.hasContent ? (
             <div
               className="prose prose-sm dark:prose-invert max-w-none"

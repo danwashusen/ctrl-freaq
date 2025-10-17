@@ -19,6 +19,10 @@ import {
   DraftConflictLogRepositoryImpl,
   SectionReviewRepositoryImpl,
   AssumptionSessionRepository,
+  SectionQualityGateResultRepository,
+  TraceabilityRepository,
+  TraceabilitySyncRepository,
+  type RequirementGap,
 } from '@ctrl-freaq/shared-data';
 import { CoAuthoringChangelogRepository } from '@ctrl-freaq/shared-data/repositories/changelog/changelog.repository.js';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
@@ -60,14 +64,27 @@ import {
 import type { BuildCoAuthorContextDependencies } from './co-authoring/context-builder.js';
 import { createVercelAIProposalProvider } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { CoAuthoringDraftPersistenceAdapter } from './co-authoring/draft-persistence.js';
-import { createCoAuthoringAuditLogger } from '@ctrl-freaq/qa';
+import { createCoAuthoringAuditLogger, createQualityGateAuditLogger } from '@ctrl-freaq/qa';
+import { createSectionQualityRunner } from '@ctrl-freaq/qa/gates/section/section-quality-runner';
+import { evaluateSectionQualityRules } from '@ctrl-freaq/qa/gates/section/section-quality-evaluator';
+import { createTraceabilitySyncService } from '@ctrl-freaq/qa/traceability';
+import type { TraceabilitySyncService } from '@ctrl-freaq/qa/traceability';
 import { DocumentQaStreamingService } from '../modules/document-qa/services/document-qa-streaming.service.js';
+import {
+  createSectionQualityService,
+  type SectionRunTelemetryPayload,
+} from '../modules/quality-gates/services/section-quality.service.js';
+import {
+  createDocumentQualityService,
+  type DocumentRunTelemetryPayload,
+} from '../modules/quality-gates/services/document-quality.service.js';
 import type { ServiceContainer } from '../core/service-locator.js';
 import type {
   ProposalProvider,
   ProposalProviderEvent,
 } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { SharedSectionStreamQueueCoordinator } from './streaming/shared-section-stream-queue.js';
+import { DocumentQualityGateSummaryRepository } from '../../../../packages/shared-data/src/repositories/quality-gates/document-quality-gate-summary.repository.js';
 
 /**
  * Registers repository factories into the per-request service container.
@@ -120,6 +137,23 @@ export function createRepositoryRegistrationMiddleware() {
     container.register(
       'assumptionSessionRepository',
       () => new AssumptionSessionRepository(getDb())
+    );
+
+    container.register(
+      'sectionQualityGateResultRepository',
+      () => new SectionQualityGateResultRepository(getDb())
+    );
+    container.register(
+      'documentQualityGateSummaryRepository',
+      () => new DocumentQualityGateSummaryRepository(getDb())
+    );
+    container.register('traceabilityRepository', () => new TraceabilityRepository(getDb()));
+    container.register(
+      'traceabilitySyncRepository',
+      currentContainer =>
+        new TraceabilitySyncRepository({
+          repository: currentContainer.get('traceabilityRepository') as TraceabilityRepository,
+        })
     );
 
     container.register(
@@ -294,6 +328,210 @@ export function createRepositoryRegistrationMiddleware() {
       });
       serviceRef = service;
       return service;
+    });
+
+    container.register('sectionQualityService', currentContainer => {
+      const logger = currentContainer.get('logger') as Logger;
+      const traceabilityService = currentContainer.get(
+        'traceabilitySyncService'
+      ) as TraceabilitySyncService;
+      const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+
+      const repository = currentContainer.get(
+        'sectionQualityGateResultRepository'
+      ) as SectionQualityGateResultRepository;
+
+      const telemetry = {
+        emitSectionRun(payload: SectionRunTelemetryPayload) {
+          logger.info(payload, 'Section quality gate run');
+        },
+      };
+
+      const runner = createSectionQualityRunner({
+        async evaluateRules(context) {
+          const section = await sectionRepository.findById(context.sectionId);
+          if (!section) {
+            return [
+              {
+                ruleId: 'qa.section.missing',
+                title: 'Section could not be located',
+                severity: 'Blocker',
+                guidance: [
+                  'Ensure the section exists before running quality gates.',
+                  'Refresh the editor to reload the latest document structure.',
+                ],
+              },
+            ];
+          }
+
+          return evaluateSectionQualityRules({
+            sectionId: context.sectionId,
+            documentId: context.documentId,
+            title: section.title,
+            content: section.contentMarkdown ?? '',
+          });
+        },
+        async persistResult(payload) {
+          await repository.upsertResult({
+            sectionId: payload.sectionId,
+            documentId: payload.documentId,
+            runId: payload.runId,
+            status: payload.status,
+            rules: payload.rules,
+            lastRunAt: payload.lastRunAt,
+            lastSuccessAt: payload.lastSuccessAt,
+            triggeredBy: payload.triggeredBy,
+            source: payload.source,
+            durationMs: payload.durationMs,
+            remediationState: payload.remediationState,
+            incidentId: payload.incidentId ?? null,
+          });
+        },
+        emitTelemetry(event, payload) {
+          logger.debug({ event, payload }, 'Section quality runner telemetry');
+        },
+        generateRunId: () => randomUUID(),
+        getRequestId: () => randomUUID(),
+        now: () => Date.now(),
+      });
+
+      const auditLogger = createQualityGateAuditLogger(logger);
+
+      return createSectionQualityService({
+        sectionRunner: runner,
+        repository,
+        telemetry,
+        auditLogger,
+        traceabilityQueue: {
+          async enqueueSectionSync(payload) {
+            await traceabilityService.syncSectionRun({
+              documentId: payload.documentId,
+              sectionId: payload.sectionId,
+              runId: payload.runId,
+              revisionId: payload.revisionId,
+              status: payload.status,
+              triggeredBy: payload.triggeredBy,
+              source: payload.source,
+              completedAt: payload.completedAt,
+            });
+          },
+        },
+        resolveSectionRevision: async ({ sectionId }) => {
+          const section = await sectionRepository.findById(sectionId);
+          if (!section) {
+            return null;
+          }
+
+          const version = typeof section.approvedVersion === 'number' ? section.approvedVersion : 0;
+          const updatedAt =
+            section.updatedAt instanceof Date ? section.updatedAt : new Date(section.updatedAt);
+          const safeSectionId = sectionId.replace(/[^a-z0-9-]/g, '-').toLowerCase();
+          return `rev-${safeSectionId}-v${version}-${updatedAt.getTime()}`;
+        },
+      });
+    });
+
+    container.register('traceabilitySyncService', currentContainer => {
+      const repository = currentContainer.get(
+        'traceabilitySyncRepository'
+      ) as TraceabilitySyncRepository;
+      const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+      return createTraceabilitySyncService({
+        repository,
+        async getSectionPreview(sectionId) {
+          const section = await sectionRepository.findById(sectionId);
+          if (!section || typeof section.contentMarkdown !== 'string') {
+            return '';
+          }
+          return section.contentMarkdown.trim().slice(0, 180);
+        },
+      });
+    });
+
+    container.register('documentQualityService', currentContainer => {
+      const logger = currentContainer.get('logger') as Logger;
+      const sectionRepository = currentContainer.get(
+        'sectionQualityGateResultRepository'
+      ) as SectionQualityGateResultRepository;
+      const summaryRepository = currentContainer.get(
+        'documentQualityGateSummaryRepository'
+      ) as DocumentQualityGateSummaryRepository;
+      const traceabilityService = currentContainer.get(
+        'traceabilitySyncService'
+      ) as TraceabilitySyncService;
+
+      const telemetry = {
+        emitDocumentRun(payload: DocumentRunTelemetryPayload) {
+          logger.info(payload, 'Document quality gate run');
+        },
+      };
+
+      const auditLogger = createQualityGateAuditLogger(logger);
+      const severityRank = (value: RequirementGap['reason']): number => {
+        switch (value) {
+          case 'blocker':
+            return 2;
+          case 'warning-override':
+            return 1;
+          case 'no-link':
+          default:
+            return 0;
+        }
+      };
+
+      const coverageResolver = async (documentId: string): Promise<RequirementGap[]> => {
+        const entries = await traceabilityService.listDocumentTraceability(documentId);
+        const gaps = new Map<string, RequirementGap>();
+
+        for (const entry of entries) {
+          let reason: RequirementGap['reason'] | null = null;
+          if (entry.coverageStatus === 'blocker') {
+            reason = 'blocker';
+          } else if (entry.coverageStatus === 'warning') {
+            reason = 'warning-override';
+          } else if (entry.coverageStatus === 'orphaned') {
+            reason = 'no-link';
+          }
+
+          if (!reason) {
+            continue;
+          }
+
+          const existing = gaps.get(entry.requirementId);
+          const linkedSections = new Set(existing?.linkedSections ?? []);
+          if (entry.sectionId) {
+            linkedSections.add(entry.sectionId);
+          }
+
+          if (!existing) {
+            gaps.set(entry.requirementId, {
+              requirementId: entry.requirementId,
+              reason,
+              linkedSections: Array.from(linkedSections),
+            });
+            continue;
+          }
+
+          const currentSeverity = severityRank(existing.reason);
+          const incomingSeverity = severityRank(reason);
+          const mergedReason = incomingSeverity > currentSeverity ? reason : existing.reason;
+          gaps.set(entry.requirementId, {
+            requirementId: entry.requirementId,
+            reason: mergedReason,
+            linkedSections: Array.from(linkedSections),
+          });
+        }
+
+        return Array.from(gaps.values());
+      };
+
+      return createDocumentQualityService({
+        sectionRepository,
+        summaryRepository,
+        telemetry,
+        auditLogger,
+        coverageResolver,
+      });
     });
 
     container.register('templateResolver', currentContainer => {

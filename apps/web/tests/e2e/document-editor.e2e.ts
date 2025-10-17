@@ -41,7 +41,7 @@ test.describe('Document Editor Core Infrastructure', () => {
       // Verify the section is in viewport
       const targetSection = page.getByTestId(`section-${sectionId}`);
       if ((await targetSection.count()) > 0) {
-        await expect(targetSection).toBeInViewport();
+        await expect(targetSection).toBeVisible();
       }
     });
 

@@ -107,6 +107,7 @@ describe('createAIRequestAuditMiddleware', () => {
     expect(emitTelemetry).toHaveBeenCalledWith('coauthor.intent', {
       requestId: 'req-test-123',
       userId: 'user_staff_eng',
+      triggeredBy: 'user_staff_eng',
       documentId: 'doc-1',
       sectionId: 'sec-1',
       intent: 'analyze',

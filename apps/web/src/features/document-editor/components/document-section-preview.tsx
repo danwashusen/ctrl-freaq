@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { CheckCircle2, Clock, PencilLine, ShieldAlert, UserCheck } from 'lucide-react';
 
@@ -9,6 +9,10 @@ import { useAuth } from '@/lib/clerk-client';
 import { DraftStatusBadge } from './section-draft/DraftStatusBadge';
 import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionStatus, SectionView } from '../types/section-view';
+import { SectionQualityStatusChip, SectionRemediationList } from '../quality-gates/components';
+import { useQualityGates } from '../quality-gates/hooks';
+import { sectionQualityStore } from '../quality-gates/stores/section-quality-store';
+import { createDocQualityTranslator } from '@/lib/i18n';
 
 interface SectionApprovalMetadata {
   approvedVersion?: number | null;
@@ -127,6 +131,81 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
 
     const auth = useAuth();
     const authorId = auth.userId ?? 'user-local-author';
+    const qualityGates = useQualityGates({
+      sectionId: section.id,
+      documentId: documentId ?? null,
+    });
+    const {
+      status: qualityStatus,
+      statusMessage: qualityStatusMessage,
+      timeoutCopy: qualityTimeoutCopy,
+      lastStatus: qualityLastStatus,
+      incidentId: qualityIncidentId,
+      blockerCount: qualityBlockerCount,
+      isSubmissionBlocked: qualityIsSubmissionBlocked,
+      remediation: qualityRemediation,
+      runSection: runSectionMutation,
+    } = qualityGates;
+    const hasAutoRun = useRef(false);
+    const autoRunTimerRef = useRef<number | null>(null);
+    const docQualityTranslator = useMemo(() => createDocQualityTranslator(), []);
+    const [isInitialAutoRun, setInitialAutoRun] = useState(false);
+
+    useEffect(() => {
+      if (qualityLastStatus === null) {
+        return;
+      }
+
+      if (hasAutoRun.current || qualityLastStatus === 'Neutral') {
+        return;
+      }
+
+      hasAutoRun.current = true;
+      setInitialAutoRun(true);
+      if (typeof window !== 'undefined') {
+        if (autoRunTimerRef.current) {
+          window.clearTimeout(autoRunTimerRef.current);
+        }
+        autoRunTimerRef.current = window.setTimeout(() => {
+          setInitialAutoRun(false);
+          autoRunTimerRef.current = null;
+        }, 750);
+      }
+      sectionQualityStore.getState().beginValidation({
+        requestId: `auto-${section.id}`,
+        triggeredBy: 'system-auto',
+        startedAt: Date.now(),
+        source: 'auto',
+      });
+      void runSectionMutation({ reason: 'auto' });
+    }, [qualityLastStatus, runSectionMutation, section.id]);
+
+    useEffect(() => {
+      return () => {
+        if (typeof window !== 'undefined' && autoRunTimerRef.current) {
+          window.clearTimeout(autoRunTimerRef.current);
+          autoRunTimerRef.current = null;
+        }
+      };
+    }, []);
+
+    const handleManualRun = useCallback(async () => {
+      setInitialAutoRun(false);
+      if (typeof window !== 'undefined' && autoRunTimerRef.current) {
+        window.clearTimeout(autoRunTimerRef.current);
+        autoRunTimerRef.current = null;
+      }
+      await runSectionMutation({ reason: 'manual' });
+    }, [runSectionMutation]);
+
+    const chipStatus = isInitialAutoRun ? 'validating' : qualityStatus;
+    const chipStatusMessage = isInitialAutoRun
+      ? docQualityTranslator.status('validating')
+      : qualityStatusMessage;
+    const chipLastStatus = isInitialAutoRun ? null : qualityLastStatus;
+    const chipTimeoutCopy = isInitialAutoRun ? null : qualityTimeoutCopy;
+    const chipIncidentId = isInitialAutoRun ? null : qualityIncidentId;
+    const chipBlockerCount = qualityBlockerCount;
 
     return (
       <Card
@@ -173,33 +252,49 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {assumptionSession && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenAssumptionModal}
-                  data-testid="assumption-conflict-trigger"
-                >
-                  <ShieldAlert className="mr-1 h-4 w-4" aria-hidden="true" />
-                  Review Assumptions
-                  <span className="ml-2 rounded bg-amber-200 px-1 py-0.5 text-xs font-semibold text-amber-900">
-                    {overridesOpen}
-                  </span>
-                </Button>
-              )}
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex items-center gap-2">
+                {assumptionSession && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenAssumptionModal}
+                    data-testid="assumption-conflict-trigger"
+                  >
+                    <ShieldAlert className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Review Assumptions
+                    <span className="ml-2 rounded bg-amber-200 px-1 py-0.5 text-xs font-semibold text-amber-900">
+                      {overridesOpen}
+                    </span>
+                  </Button>
+                )}
 
-              <Button
-                size="sm"
-                onClick={handleEnterEdit}
-                disabled={isEditDisabled}
-                data-testid="enter-edit"
-                aria-label="Enter edit mode"
-                className="bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500"
-              >
-                <PencilLine className="mr-1 h-4 w-4" aria-hidden="true" />
-                Edit Section
-              </Button>
+                <Button
+                  size="sm"
+                  onClick={handleEnterEdit}
+                  disabled={isEditDisabled}
+                  data-testid="enter-edit"
+                  aria-label="Enter edit mode"
+                  className="bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500"
+                >
+                  <PencilLine className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Edit Section
+                </Button>
+              </div>
+
+              <div className="w-full min-w-[18rem] max-w-xs">
+                <SectionQualityStatusChip
+                  status={chipStatus}
+                  statusMessage={chipStatusMessage}
+                  timeoutCopy={chipTimeoutCopy}
+                  lastStatus={chipLastStatus}
+                  incidentId={chipIncidentId}
+                  isSubmissionBlocked={qualityIsSubmissionBlocked}
+                  blockerCount={chipBlockerCount}
+                  onRun={handleManualRun}
+                  onRetry={handleManualRun}
+                />
+              </div>
             </div>
           </div>
 
@@ -234,6 +329,12 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {qualityRemediation.length > 0 && (
+            <div className="space-y-3" data-testid="section-quality-remediation">
+              <SectionRemediationList items={qualityRemediation} />
+            </div>
+          )}
+
           <div
             className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100"
             data-testid={`section-${section.id}`}

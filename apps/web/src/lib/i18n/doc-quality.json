@@ -1,0 +1,34 @@
+{
+  "namespace": "doc-quality",
+  "status": {
+    "idle": "Validation not run yet.",
+    "validating": "Validating section…",
+    "slow": "Still checking—this may take another moment.",
+    "passed": "Validation passed.",
+    "warning": "Validation completed with warnings.",
+    "blocker": "Validation found blockers.",
+    "documentUpdated": "Document validations updated.",
+    "failed": "Validation failed—retry required."
+  },
+  "helper": {
+    "incident": "Incident {{incidentId}} logged for QA follow-up.",
+    "genericFailure": "Validation paused—service unavailable. Try again or contact QA.",
+    "notRun": "Run validation before submission.",
+    "blocked": "Publishing blocked: resolve {{count}} blocker issues first.",
+    "ready": "All sections ready—publishing enabled."
+  },
+  "actions": {
+    "run": "Run validation",
+    "rerun": "Re-run validation",
+    "retry": "Retry validation"
+  },
+  "links": {
+    "policy": "View policy"
+  },
+  "toast": {
+    "runnerFailure": "Validation paused—service unavailable. Try again or contact QA."
+  },
+  "aria": {
+    "statusUpdated": "Validation status updated: {{status}}"
+  }
+}
