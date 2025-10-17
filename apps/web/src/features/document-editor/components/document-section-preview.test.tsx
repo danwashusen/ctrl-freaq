@@ -33,6 +33,13 @@ vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }));
 
+const runSectionMock = vi.fn();
+const useQualityGatesMock = vi.fn();
+
+vi.mock('../quality-gates/hooks', () => ({
+  useQualityGates: (...args: unknown[]) => useQualityGatesMock(...args),
+}));
+
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, disabled, 'data-testid': testId, ...props }: any) => (
     <button type="button" onClick={onClick} disabled={disabled} data-testid={testId} {...props}>
@@ -94,6 +101,32 @@ describe('DocumentSectionPreview', () => {
 
   beforeEach(() => {
     draftBadgeInvocations.length = 0;
+    runSectionMock.mockReset();
+    useQualityGatesMock.mockReset();
+    useQualityGatesMock.mockReturnValue({
+      runSection: runSectionMock,
+      runDocument: vi.fn(),
+      isRunning: false,
+      status: 'completed' as const,
+      statusMessage: 'Validation found blockers.',
+      timeoutCopy: null,
+      lastStatus: 'Blocker' as const,
+      remediation: [],
+      isSubmissionBlocked: false,
+      blockerCount: 0,
+      incidentId: null,
+      documentStatus: 'completed' as const,
+      documentStatusMessage: '',
+      documentPublishCopy: null,
+      documentSlaWarningCopy: null,
+      documentSummary: null,
+      documentLastRunAt: null,
+      documentRequestId: null,
+      documentTriggeredBy: null,
+      documentDurationMs: null,
+      isDocumentPublishBlocked: false,
+      isDocumentRunning: false,
+    });
   });
 
   it('renders approval metadata and edit CTA', async () => {
@@ -119,6 +152,47 @@ describe('DocumentSectionPreview', () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId('enter-edit'));
     expect(onEnterEdit).toHaveBeenCalledWith('section-1');
+  });
+
+  it('auto-runs validation when prior results exist', () => {
+    render(
+      <DocumentSectionPreview section={baseSection} projectSlug="demo-project" documentId="doc-1" />
+    );
+
+    expect(runSectionMock).toHaveBeenCalledWith({ reason: 'auto' });
+  });
+
+  it('skips auto-run when last status is neutral', () => {
+    useQualityGatesMock.mockReturnValueOnce({
+      runSection: runSectionMock,
+      runDocument: vi.fn(),
+      isRunning: false,
+      status: 'idle' as const,
+      statusMessage: 'Validation not run yet.',
+      timeoutCopy: null,
+      lastStatus: 'Neutral' as const,
+      remediation: [],
+      isSubmissionBlocked: false,
+      blockerCount: 0,
+      incidentId: null,
+      documentStatus: 'idle' as const,
+      documentStatusMessage: '',
+      documentPublishCopy: null,
+      documentSlaWarningCopy: null,
+      documentSummary: null,
+      documentLastRunAt: null,
+      documentRequestId: null,
+      documentTriggeredBy: null,
+      documentDurationMs: null,
+      isDocumentPublishBlocked: false,
+      isDocumentRunning: false,
+    });
+
+    render(
+      <DocumentSectionPreview section={baseSection} projectSlug="demo-project" documentId="doc-1" />
+    );
+
+    expect(runSectionMock).not.toHaveBeenCalled();
   });
 
   it('falls back to placeholder content when section is empty', () => {

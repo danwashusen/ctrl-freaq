@@ -72,6 +72,10 @@ type ParsedRequest =
   | { kind: 'apiCoAuthorReject'; documentId: string; sectionId: string }
   | { kind: 'apiCoAuthorTeardown'; documentId: string; sectionId: string }
   | { kind: 'apiCoAuthorStream'; sessionId: string }
+  | { kind: 'apiDocumentQualitySummary'; documentId: string }
+  | { kind: 'apiDocumentQualityRun'; documentId: string }
+  | { kind: 'apiDocumentTraceability'; documentId: string }
+  | { kind: 'apiTraceabilityOrphan'; documentId: string }
   | { kind: 'unknown' };
 
 const notFoundError: FixtureErrorResponse = fixtureErrorSchema.parse({
@@ -246,6 +250,24 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
         if (segments.length === 8 && segments[6] === 'proposal' && segments[7] === 'reject') {
           return { kind: 'apiCoAuthorReject', documentId, sectionId };
         }
+      }
+    }
+
+    if (segments[3] === 'quality-gates') {
+      if (segments.length === 5 && segments[4] === 'summary') {
+        return { kind: 'apiDocumentQualitySummary', documentId };
+      }
+      if (segments.length === 5 && segments[4] === 'run') {
+        return { kind: 'apiDocumentQualityRun', documentId };
+      }
+    }
+
+    if (segments[3] === 'traceability') {
+      if (segments.length === 4) {
+        return { kind: 'apiDocumentTraceability', documentId };
+      }
+      if (segments.length === 5 && segments[4] === 'orphans') {
+        return { kind: 'apiTraceabilityOrphan', documentId };
       }
     }
 
@@ -1053,6 +1075,95 @@ function handleAssumptionsStart(res: ServerResponse, sectionId: string) {
   });
 }
 
+function handleDocumentQualitySummary(res: ServerResponse, documentId: string) {
+  const document = fixturesByDocumentId[documentId];
+  if (!document?.quality?.summary) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  sendJson(res, 200, cloneValue(document.quality.summary));
+}
+
+function handleDocumentTraceability(res: ServerResponse, documentId: string) {
+  const document = fixturesByDocumentId[documentId];
+  if (!document?.quality?.traceability) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  sendJson(res, 200, {
+    documentId,
+    requirements: cloneValue(document.quality.traceability),
+  });
+}
+
+function handleDocumentQualityRun(res: ServerResponse, documentId: string) {
+  const document = fixturesByDocumentId[documentId];
+  const summary = document?.quality?.summary;
+  sendJson(res, 202, {
+    status: 'running' as const,
+    requestId: summary?.requestId ?? `req-${documentId}-quality`,
+    runId: `run-${documentId}`,
+    documentId,
+    triggeredBy: summary?.triggeredBy ?? 'user-fixture',
+    receivedAt: new Date().toISOString(),
+  });
+}
+
+async function handleTraceabilityOrphan(
+  req: IncomingMessage,
+  res: ServerResponse,
+  documentId: string
+) {
+  const document = fixturesByDocumentId[documentId];
+  if (!document?.quality?.traceability) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const payload = await readJsonBody(req);
+  const requirementId = typeof payload.requirementId === 'string' ? payload.requirementId : '';
+  const sectionId = typeof payload.sectionId === 'string' ? payload.sectionId : '';
+  const reason =
+    typeof payload.reason === 'string'
+      ? (payload.reason as 'no-link' | 'blocker' | 'warning-override')
+      : 'no-link';
+
+  if (!requirementId || !sectionId) {
+    sendJson(res, 400, {
+      code: 'fixtures.invalid_payload',
+      message: 'Requirement identifier and section identifier are required.',
+    });
+    return;
+  }
+
+  const requirement = document.quality.traceability.find(
+    entry => entry.requirementId === requirementId
+  );
+
+  if (!requirement) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  const coverageStatus =
+    reason === 'blocker' ? 'blocker' : reason === 'warning-override' ? 'warning' : 'orphaned';
+
+  requirement.coverageStatus = coverageStatus;
+  requirement.lastValidatedAt = new Date().toISOString();
+  requirement.validatedBy = 'user-fixture';
+
+  sendJson(res, 200, {
+    requirementId,
+    sectionId,
+    coverageStatus,
+    reason,
+    lastValidatedAt: requirement.lastValidatedAt,
+    validatedBy: requirement.validatedBy,
+  });
+}
+
 export type FixtureRequestHandler = (
   req: IncomingMessage,
   res: ServerResponse,
@@ -1135,6 +1246,38 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
             return;
           }
           handleAssumptionsStart(res, parsed.sectionId);
+          return;
+        }
+        case 'apiDocumentQualitySummary': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleDocumentQualitySummary(res, parsed.documentId);
+          return;
+        }
+        case 'apiDocumentQualityRun': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleDocumentQualityRun(res, parsed.documentId);
+          return;
+        }
+        case 'apiDocumentTraceability': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleDocumentTraceability(res, parsed.documentId);
+          return;
+        }
+        case 'apiTraceabilityOrphan': {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          await handleTraceabilityOrphan(req, res, parsed.documentId);
           return;
         }
         case 'apiProjectRetention': {

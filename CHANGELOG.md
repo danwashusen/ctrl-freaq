@@ -1,5 +1,87 @@
 # Change Log
 
+## 013-epic-2-story-8
+
+> Feature scope: Section/document quality gates, telemetry, and traceability
+> sync for the document editor
+
+### Overview
+
+Implemented end-to-end quality gate orchestration across shared libraries, the
+API, CLI, and React UX so section authors receive immediate remediation guidance
+while document owners manage blockers from a unified dashboard. Traceability
+links now stay in sync with the latest validated revision, reinforcing
+compliance evidence and telemetry coverage.
+
+### Highlights
+
+- Added section and document quality gate controllers, services, and routes with
+  audit logging and CLI parity (`apps/api/src/modules/quality-gates/**/*`,
+  `packages/qa/src/cli.ts`).
+- Introduced shared models, repositories, and migrations for gate results,
+  document summaries, and traceability links
+  (`packages/shared-data/src/{models,repositories}/quality-gates/**/*`,
+  `packages/shared-data/migrations/20251013_quality_gates.sql`).
+- Delivered React stores, dashboards, and telemetry hooks that enforce publish
+  gating and SLA messaging in the editor
+  (`apps/web/src/features/document-editor/quality-gates/**/*`,
+  `apps/web/src/lib/telemetry/client-events.ts`).
+- Authored contract/unit/e2e suites and fixtures to validate SLA, remediation,
+  and traceability flows (`apps/api/tests/contract/quality-gates/*`,
+  `apps/web/tests/**/*quality-gates*`).
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                                                                                             |
+| ----------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-001      | Met    | `apps/api/src/modules/quality-gates/services/section-quality.service.ts`, `packages/qa/src/gates/section/section-quality-runner.ts`, `apps/web/src/features/document-editor/components/document-section-preview.tsx` |
+| FR-002      | Met    | `packages/qa/src/gates/section/section-quality-evaluator.ts`, `apps/web/src/features/document-editor/quality-gates/components/SectionRemediationList.tsx`                                                            |
+| FR-003      | Met    | `apps/web/src/features/document-editor/quality-gates/stores/section-quality-store.ts`, `apps/web/src/features/document-editor/components/section-card.tsx`                                                           |
+| FR-004      | Met    | `packages/qa/src/dashboard/document-quality-summary.ts`, `apps/web/src/features/document-editor/quality-gates/components/DocumentQualityDashboard.tsx`                                                               |
+| FR-005      | Met    | `apps/web/src/features/document-editor/quality-gates/stores/document-quality-store.ts`, `apps/web/src/features/document-editor/components/document-editor.tsx`                                                       |
+| FR-006      | Met    | `apps/api/src/modules/quality-gates/services/document-quality.service.ts`, `apps/web/src/features/document-editor/quality-gates/hooks/useQualityGates.ts`                                                            |
+| FR-007      | Met    | `packages/qa/src/traceability/traceability-sync.ts`, `apps/web/src/features/document-editor/quality-gates/components/TraceabilityMatrix.tsx`                                                                         |
+| FR-008      | Met    | `packages/qa/src/dashboard/document-quality-summary.ts`, `apps/web/src/features/document-editor/quality-gates/components/TraceabilityAlerts.tsx`                                                                     |
+| FR-009      | Met    | `packages/qa/src/audit/index.ts`, `apps/api/src/modules/quality-gates/services/{section-quality,document-quality}.service.ts`                                                                                        |
+| FR-010      | Met    | `apps/web/src/lib/telemetry/client-events.ts`, `apps/web/tests/e2e/document-editor/quality-gates-sla.e2e.ts`                                                                                                         |
+| FR-011      | Met    | `apps/api/src/routes/quality-gates.ts`, `apps/api/tests/contract/quality-gates/sections.contract.test.ts`                                                                                                            |
+
+### Testing
+
+- Added Vitest contract/unit suites and Playwright E2E scenarios covering
+  section/document runs, remediation, SLA telemetry, and traceability matrices;
+  no outstanding test gaps identified.
+
+### Risks & Mitigations
+
+- New SQLite tables for quality gate results and traceability links require
+  migrating environments;
+  `packages/shared-data/migrations/20251013_quality_gates.sql` and the shared
+  migration loader execute automatically during startup.
+- SLA adherence depends on telemetry monitoring; dashboard timers and
+  `qualityGates.*` console metrics illuminate slow runs for immediate triage.
+
+### Clarifications
+
+- 2025-10-13: Access partitioning confirmed—any authenticated collaborator can
+  run quality gates and view remediation/traceability details (spec.md
+  “Clarifications”).
+
+### Assumption Log
+
+- SQLite migrations can manage new quality gate tables (validated by
+  `packages/shared-data/migrations/20251013_quality_gates.sql`).
+- TanStack Query caching suffices for new endpoints; stores leverage existing
+  query clients without additional invalidation.
+- Remediation state mapping (`pending`/`in-progress`/`resolved`) anchors UI copy
+  (`packages/qa/src/gates/section/section-quality-runner.ts`,
+  `apps/web/src/features/document-editor/quality-gates/stores/section-quality-store.ts`).
+- Prior placeholder rule evaluation replaced with real catalog wiring
+  (`packages/qa/src/gates/section/section-quality-evaluator.ts`).
+- Section revision identifiers derived from `approvedVersion` and `updatedAt`
+  now persist through traceability sync (`apps/api/src/services/container.ts`,
+  `packages/qa/src/traceability/traceability-sync.ts`).
+
 ## 012-epic-2-story-7
 
 > Feature scope: Streaming parity for co-authoring, document QA, and assumption
