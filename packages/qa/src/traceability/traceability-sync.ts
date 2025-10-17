@@ -1,4 +1,4 @@
-import type { QualityGateStatus } from '@ctrl-freaq/editor-core';
+import type { QualityGateStatus } from '@ctrl-freaq/shared-data/models/quality-gates/status';
 import type {
   TraceabilityLink,
   TraceabilityCoverageStatus,

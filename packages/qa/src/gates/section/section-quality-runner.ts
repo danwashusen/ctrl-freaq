@@ -1,5 +1,7 @@
-import { maxQualityGateStatus } from '@ctrl-freaq/editor-core';
-import type { QualityGateStatus } from '@ctrl-freaq/editor-core';
+import {
+  maxQualityGateStatus,
+  type QualityGateStatus,
+} from '@ctrl-freaq/shared-data/models/quality-gates/status';
 
 export type RemediationState = 'pending' | 'in-progress' | 'resolved';
 

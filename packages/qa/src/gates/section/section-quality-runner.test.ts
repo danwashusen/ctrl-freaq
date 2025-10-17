@@ -5,7 +5,7 @@ import {
   type SectionQualityRunner,
   type SectionQualityRunnerDependencies,
 } from './section-quality-runner';
-import type { QualityGateStatus } from '@ctrl-freaq/editor-core';
+import type { QualityGateStatus } from '@ctrl-freaq/shared-data/models/quality-gates/status';
 
 interface RuleFixture {
   ruleId: string;

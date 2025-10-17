@@ -1,5 +1,7 @@
-import { maxQualityGateStatus } from '@ctrl-freaq/editor-core/quality-gates/status';
-import type { QualityGateStatus } from '@ctrl-freaq/editor-core/quality-gates/status';
+import {
+  maxQualityGateStatus,
+  type QualityGateStatus,
+} from '@ctrl-freaq/shared-data/models/quality-gates/status';
 import type {
   CreateDocumentQualityGateSummaryInput,
   RequirementGap,

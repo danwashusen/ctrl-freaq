@@ -27,6 +27,7 @@
     "ctrl-freaq-editor-core": "dist/cli.js"
   },
   "scripts": {
+    "prebuild": "pnpm --filter @ctrl-freaq/shared-data build",
     "build": "tsc",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "cli": "tsx src/cli.ts",
@@ -34,6 +35,7 @@
     "lint": "eslint src/",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --watch",
+    "pretypecheck": "pnpm --filter @ctrl-freaq/shared-data build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
