@@ -38,6 +38,12 @@
         "./packages/shared-data/dist/*.d.ts",
         "./packages/shared-data/src/*"
       ],
+      "@ctrl-freaq/shared-data/models/*.js": [
+        "./packages/shared-data/dist/models/*.d.ts"
+      ],
+      "@ctrl-freaq/shared-data/co-authoring/*.js": [
+        "./packages/shared-data/dist/co-authoring/*.d.ts"
+      ],
       "@ctrl-freaq/templates": [
         "./packages/templates/dist/index.d.ts",
         "./packages/templates/src/index.ts"
@@ -85,12 +91,12 @@
         "./packages/editor-persistence/src/assumption-sessions/*"
       ],
       "@ctrl-freaq/template-resolver": [
-        "./packages/template-resolver/dist/index.d.ts",
-        "./packages/template-resolver/src/index.ts"
+        "./packages/template-resolver/src/index.ts",
+        "./packages/template-resolver/dist/index.d.ts"
       ],
       "@ctrl-freaq/template-resolver/*": [
-        "./packages/template-resolver/dist/*.d.ts",
-        "./packages/template-resolver/src/*"
+        "./packages/template-resolver/src/*",
+        "./packages/template-resolver/dist/*.d.ts"
       ],
       "@/*": ["./apps/web/src/*"]
     }

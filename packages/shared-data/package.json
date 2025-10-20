@@ -16,7 +16,19 @@
       "types": "./src/models/*.ts",
       "default": "./dist/models/*.js"
     },
+    "./models/*.js": {
+      "development": "./src/models/*.ts",
+      "import": "./dist/models/*.js",
+      "types": "./src/models/*.ts",
+      "default": "./dist/models/*.js"
+    },
     "./co-authoring/*": {
+      "development": "./src/co-authoring/*.ts",
+      "import": "./dist/co-authoring/*.js",
+      "types": "./src/co-authoring/*.ts",
+      "default": "./dist/co-authoring/*.js"
+    },
+    "./co-authoring/*.js": {
       "development": "./src/co-authoring/*.ts",
       "import": "./dist/co-authoring/*.js",
       "types": "./src/co-authoring/*.ts",

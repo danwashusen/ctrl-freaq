@@ -5,15 +5,13 @@ import { Command } from 'commander';
 import Database from 'better-sqlite3';
 import pino from 'pino';
 
-import { resolveWorkspaceDatabasePath } from '@ctrl-freaq/shared-data/utils/database-path';
 import {
+  resolveWorkspaceDatabasePath,
   DocumentTemplateRepositoryImpl,
   type DocumentTemplate,
-} from '@ctrl-freaq/shared-data/models/document-template';
-import {
   TemplateVersionRepositoryImpl,
   type TemplateVersion,
-} from '@ctrl-freaq/shared-data/models/template-version';
+} from '@ctrl-freaq/shared-data';
 
 import { registerActivateCommand } from './cli/activate-command.js';
 import { registerMigrateCommand } from './cli/migrate-command.js';

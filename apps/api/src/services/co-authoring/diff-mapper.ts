@@ -5,11 +5,8 @@ import {
   type GenerateProposalDiffArgs,
   type ProposalDiffAnnotation,
   type ProposalDiffResult,
-} from '@ctrl-freaq/editor-core/diff/section-proposal';
-import {
-  createAIProposalSnapshot,
-  type AIProposalSnapshot,
-} from '@ctrl-freaq/shared-data/co-authoring/ai-proposal-snapshot';
+} from '@ctrl-freaq/editor-core';
+import { createAIProposalSnapshot, type AIProposalSnapshot } from '@ctrl-freaq/shared-data';
 
 export interface DiffMapperInput {
   proposalId: string;

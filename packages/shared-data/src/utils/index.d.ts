@@ -41,4 +41,6 @@ export declare function formatDateForDB(date: Date): string;
  * Parse date from database (ISO string to Date)
  */
 export declare function parseDateFromDB(dateString: string): Date;
+export { resolveWorkspaceDatabasePath } from './database-path.js';
+export { resolveWorkspaceRoot } from './workspace-path.js';
 //# sourceMappingURL=index.d.ts.map

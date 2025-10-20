@@ -22,12 +22,12 @@ import {
   type BuildCoAuthorContextInput,
   type ProviderContextPayload,
 } from './context-builder.js';
-import type { CoAuthoringChangelogRepository } from '@ctrl-freaq/shared-data/repositories/changelog/changelog.repository.js';
+import type { CoAuthoringChangelogRepository } from '@ctrl-freaq/shared-data';
 import type { CoAuthoringAuditLogger, CoAuthoringProposalEvent } from '@ctrl-freaq/qa';
 import type { DraftPersistenceAdapter } from './draft-persistence.js';
 import { mapProposalDiff, type DiffMapperResult } from './diff-mapper.js';
 import { AppError, BusinessLogicError } from '../../core/errors.js';
-import { AI_PROPOSAL_DEFAULT_TTL_MS } from '@ctrl-freaq/shared-data/co-authoring/ai-proposal-snapshot.js';
+import { AI_PROPOSAL_DEFAULT_TTL_MS } from '@ctrl-freaq/shared-data';
 
 interface SessionEventPayload {
   event: string;

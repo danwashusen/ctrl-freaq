@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { Logger } from 'pino';
 
-import { SectionDraftRepositoryImpl } from '@ctrl-freaq/shared-data/repositories/section-draft.repository.js';
+import { SectionDraftRepositoryImpl } from '@ctrl-freaq/shared-data';
 
 export interface QueueProposalInput {
   documentId: string;

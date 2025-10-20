@@ -11,6 +11,7 @@ export * from './editor/index.js';
 export * from './extensions/index.js';
 export * from './patch-engine.js';
 export * from './diff/section-diff.js';
+export * from './diff/section-proposal.js';
 export * from './assumptions/index.js';
 export * from './streaming/section-stream-queue.js';
 export * from './quality-gates/status.js';

@@ -13,14 +13,6 @@ const getPriority = (status: QualityGateStatus): number => QUALITY_GATE_PRIORITY
 
 export const DEFAULT_QUALITY_GATE_STATUS: QualityGateStatus = 'Neutral';
 
-export function isQualityGateStatus(value: unknown): value is QualityGateStatus {
-  return typeof value === 'string' && QUALITY_GATE_STATUSES.includes(value as QualityGateStatus);
-}
-
-export function compareQualityGateStatus(a: QualityGateStatus, b: QualityGateStatus): number {
-  return getPriority(a) - getPriority(b);
-}
-
 export function maxQualityGateStatus(statuses: Iterable<QualityGateStatus>): QualityGateStatus {
   let highest: QualityGateStatus = DEFAULT_QUALITY_GATE_STATUS;
 
