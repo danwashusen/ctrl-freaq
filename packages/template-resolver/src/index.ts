@@ -244,4 +244,4 @@ export const packageInfo = {
   name: '@ctrl-freaq/template-resolver',
   version: '0.1.0',
   description: 'Template resolution and dependency management library for CTRL FreaQ',
-};
+} as const;

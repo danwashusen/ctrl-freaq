@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { registerDocumentQualityFixtures } from './fixtures';
+import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Quality gate neutral state', () => {
   test('surfaces neutral badge, tooltip copy, and CTA', async ({ page }) => {
@@ -10,6 +11,7 @@ test.describe('Quality gate neutral state', () => {
       '/documents/demo-architecture/sections/sec-deployment?fixture=quality-gates-neutral'
     );
     await page.waitForLoadState('networkidle');
+    await selectSimpleAuthUser(page);
 
     const status = page.getByTestId('section-quality-status');
     await expect(status).toBeVisible();

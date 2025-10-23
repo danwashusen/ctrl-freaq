@@ -2,14 +2,14 @@ import { readFile } from 'node:fs/promises';
 
 import Database from 'better-sqlite3';
 
-import { resolveWorkspaceDatabasePath } from '@ctrl-freaq/shared-data/utils/database-path';
-import { DocumentRepositoryImpl } from '@ctrl-freaq/shared-data/models/document';
-import { DocumentTemplateMigrationRepositoryImpl } from '@ctrl-freaq/shared-data/models/document-template-migration';
-import { DocumentTemplateRepositoryImpl } from '@ctrl-freaq/shared-data/models/document-template';
 import {
+  resolveWorkspaceDatabasePath,
+  DocumentRepositoryImpl,
+  DocumentTemplateMigrationRepositoryImpl,
+  DocumentTemplateRepositoryImpl,
   TemplateVersionRepositoryImpl,
   TemplateVersionStatus,
-} from '@ctrl-freaq/shared-data/models/template-version';
+} from '@ctrl-freaq/shared-data';
 
 import { templateEngine } from '../templates/index.js';
 import { createTemplateValidator } from '../validators/template-validator.js';

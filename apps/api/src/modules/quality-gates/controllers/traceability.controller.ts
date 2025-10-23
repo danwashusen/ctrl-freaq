@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import type { Logger } from 'pino';
 
 import type { AuthenticatedRequest } from '../../../middleware/auth.js';
-import type { TraceabilitySyncService, TraceabilityMatrixEntry } from '@ctrl-freaq/qa/traceability';
+import type { TraceabilitySyncService, TraceabilityMatrixEntry } from '@ctrl-freaq/qa';
 
 interface TraceabilityOrphanRequestBody {
   requirementId?: string;

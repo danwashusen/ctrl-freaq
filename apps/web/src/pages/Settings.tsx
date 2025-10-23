@@ -1,4 +1,4 @@
-import { UserButton } from '@/lib/clerk-client';
+import { UserButton } from '@/lib/auth-provider';
 import { ArrowLeft, User, Bell, Shield, Database } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

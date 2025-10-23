@@ -5,8 +5,7 @@ import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { runSharedDataMigrations } from '@ctrl-freaq/shared-data/migrations/run-migrations';
-import { DocumentTemplateRepositoryImpl } from '@ctrl-freaq/shared-data/models/document-template';
+import { runSharedDataMigrations, DocumentTemplateRepositoryImpl } from '@ctrl-freaq/shared-data';
 
 import { createTemplatePublisher } from './template-publisher.js';
 

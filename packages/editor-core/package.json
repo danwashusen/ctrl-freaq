@@ -5,24 +5,32 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     },
     "./editor/*": {
+      "development": "./src/editor/*.ts",
       "import": "./dist/editor/*.js",
-      "types": "./dist/editor/*.d.ts"
+      "types": "./src/editor/*.ts",
+      "default": "./dist/editor/*.js"
     },
     "./extensions/*": {
+      "development": "./src/extensions/*.ts",
       "import": "./dist/extensions/*.js",
-      "types": "./dist/extensions/*.d.ts"
+      "types": "./src/extensions/*.ts",
+      "default": "./dist/extensions/*.js"
     },
     "./quality-gates/*": {
+      "development": "./src/quality-gates/*.ts",
       "import": "./dist/quality-gates/*.js",
-      "types": "./dist/quality-gates/*.d.ts"
+      "types": "./src/quality-gates/*.ts",
+      "default": "./dist/quality-gates/*.js"
     }
   },
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "bin": {
     "ctrl-freaq-editor-core": "dist/cli.js"
   },

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { resolveAuthProviderConfig } from './config/auth-provider.js';
+
 // Minimal .env loader supporting .env and .env.local
 // Precedence: real environment variables > .env.local > .env
 // Does not override variables already present in the process environment.
@@ -75,8 +77,25 @@ if (localVars) {
   }
 }
 
-// Optionally, hint in dev if critical Clerk keys are still missing
-if (process.env.NODE_ENV !== 'production') {
+const authConfig = resolveAuthProviderConfig({ env: process.env, cwd });
+setEnvValue('AUTH_PROVIDER', authConfig.provider);
+
+if (authConfig.provider === 'simple') {
+  if (authConfig.simpleAuthUserFile) {
+    setEnvValue('SIMPLE_AUTH_USER_FILE', authConfig.simpleAuthUserFile);
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      {
+        authProvider: authConfig.provider,
+        simpleAuthUserFile: authConfig.simpleAuthUserFile,
+      },
+      'Simple auth provider enabled for local development'
+    );
+  }
+} else if (process.env.NODE_ENV !== 'production') {
   const missing: string[] = [];
   if (!process.env.CLERK_PUBLISHABLE_KEY) missing.push('CLERK_PUBLISHABLE_KEY');
   if (!process.env.CLERK_SECRET_KEY) missing.push('CLERK_SECRET_KEY');

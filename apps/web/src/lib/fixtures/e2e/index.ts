@@ -55,9 +55,48 @@ const runtimeDocuments: Record<string, RuntimeDocumentState> = initializeRuntime
 const SAVE_INCREMENT_MS = 30_000;
 const DIFF_GENERATED_OFFSET_MS = 5_000;
 
+const simpleAuthUsersFixture: Array<{
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  image_url?: string;
+  org_role?: string;
+  org_permissions?: string[];
+}> = [
+  {
+    id: 'user-local-author',
+    email: 'user-local-author@example.com',
+    first_name: 'Local',
+    last_name: 'Author',
+    image_url: undefined,
+    org_role: 'editor',
+    org_permissions: ['view:projects'],
+  },
+  {
+    id: 'user_alpha',
+    email: 'alpha@example.com',
+    first_name: 'Alpha',
+    last_name: 'Tester',
+    image_url: undefined,
+    org_role: 'qa_lead',
+    org_permissions: ['view:projects', 'manage:qa'],
+  },
+  {
+    id: 'user_beta',
+    email: 'beta@example.com',
+    first_name: 'Beta',
+    last_name: 'Reviewer',
+    image_url: undefined,
+    org_role: 'approver',
+    org_permissions: ['documents:review'],
+  },
+];
+
 type ParsedRequest =
   | { kind: 'document'; documentId: string }
   | { kind: 'section'; documentId: string; sectionId: string }
+  | { kind: 'apiSimpleAuthUsers' }
   | { kind: 'apiSaveDraft'; sectionId: string }
   | { kind: 'apiDiff'; sectionId: string }
   | { kind: 'apiSubmitDraft'; sectionId: string }
@@ -348,6 +387,16 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
     }
   }
 
+  if (segments[0] === 'api' && segments[1] === 'auth' && segments[2] === 'simple') {
+    if (segments.length === 4 && segments[3] === 'users') {
+      return { kind: 'apiSimpleAuthUsers' };
+    }
+  }
+
+  if (segments[0] === 'auth' && segments[1] === 'simple' && segments[2] === 'users') {
+    return { kind: 'apiSimpleAuthUsers' };
+  }
+
   return { kind: 'unknown' };
 }
 
@@ -430,6 +479,12 @@ function handleProjectRetentionResponse(res: ServerResponse, projectSlug: string
     policyId: policy.policyId,
     retentionWindow: policy.retentionWindow,
     guidance: policy.guidance,
+  });
+}
+
+function handleSimpleAuthUsers(res: ServerResponse) {
+  sendJson(res, 200, {
+    users: simpleAuthUsersFixture,
   });
 }
 
@@ -1286,6 +1341,14 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
             return;
           }
           handleProjectRetentionResponse(res, parsed.projectSlug);
+          return;
+        }
+        case 'apiSimpleAuthUsers': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handleSimpleAuthUsers(res);
           return;
         }
         case 'apiCoAuthorAnalyze': {

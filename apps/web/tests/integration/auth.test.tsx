@@ -1,4 +1,4 @@
-import { ClerkProvider, useAuth } from '@/lib/clerk-client';
+import { ClerkProvider, useAuth } from '@/lib/auth-provider';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 // No router needed for these tests; components under test don't use routing
@@ -20,7 +20,8 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
  */
 
 // Mock Clerk hook
-vi.mock('@/lib/clerk-client', () => ({
+vi.mock('@/lib/auth-provider', () => ({
+  AUTH_PROVIDER: 'clerk' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),

@@ -80,5 +80,19 @@ export function useE2EFixtures(): E2EFixtureContextValue {
 }
 
 export function isE2EModeEnabled(): boolean {
-  return import.meta.env.VITE_E2E === 'true';
+  const env = import.meta.env ?? {};
+  if (env?.VITE_E2E === 'true') {
+    return true;
+  }
+
+  if (env?.MODE === 'e2e') {
+    return true;
+  }
+
+  const apiBaseUrl = env?.VITE_API_BASE_URL;
+  if (typeof apiBaseUrl === 'string' && apiBaseUrl.includes('__fixtures')) {
+    return true;
+  }
+
+  return false;
 }

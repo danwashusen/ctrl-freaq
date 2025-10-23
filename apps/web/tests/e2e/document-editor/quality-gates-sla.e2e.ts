@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { registerDocumentQualityFixtures } from './fixtures';
+import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Quality gate SLA telemetry', () => {
   test('updates status within SLA and emits telemetry duration metric', async ({ page }) => {
@@ -15,6 +16,7 @@ test.describe('Quality gate SLA telemetry', () => {
 
     await page.goto('/documents/demo-architecture/sections/sec-overview?fixture=quality-gates-sla');
     await page.waitForLoadState('networkidle');
+    await selectSimpleAuthUser(page);
 
     const statusChip = page.getByTestId('section-quality-status-chip');
     await expect(statusChip).toBeVisible();

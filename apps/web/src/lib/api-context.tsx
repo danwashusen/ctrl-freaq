@@ -1,4 +1,4 @@
-import { useAuth } from '@/lib/clerk-client';
+import { useAuth } from '@/lib/auth-provider';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -34,7 +34,15 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
   const tokenFetcher = useMemo(() => {
     const maybeAuth = auth as unknown as { getToken?: unknown };
     if (typeof maybeAuth.getToken === 'function') {
-      return maybeAuth.getToken as () => Promise<string | null>;
+      const fetcher = maybeAuth.getToken as () => Promise<string | null>;
+      return async () => {
+        const token = await fetcher();
+        if (typeof token === 'string') {
+          const trimmed = token.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        return token;
+      };
     }
     return async () => null;
   }, [auth]);

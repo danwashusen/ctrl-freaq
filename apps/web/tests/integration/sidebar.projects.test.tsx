@@ -1,10 +1,11 @@
-import { ClerkProvider, useAuth, useUser } from '@/lib/clerk-client';
+import { ClerkProvider, useAuth, useUser } from '@/lib/auth-provider';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import App from '../../src/App';
 
-vi.mock('@/lib/clerk-client', () => ({
+vi.mock('@/lib/auth-provider', () => ({
+  AUTH_PROVIDER: 'clerk' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),

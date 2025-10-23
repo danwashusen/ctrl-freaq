@@ -6,15 +6,18 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     },
     "./resolvers/*": {
       "import": "./dist/resolvers/*.js",
-      "types": "./dist/resolvers/*.d.ts"
+      "types": "./src/resolvers/*.ts",
+      "default": "./dist/resolvers/*.js"
     },
     "./dependencies/*": {
       "import": "./dist/dependencies/*.js",
-      "types": "./dist/dependencies/*.d.ts"
+      "types": "./src/dependencies/*.ts",
+      "default": "./dist/dependencies/*.js"
     }
   },
   "main": "dist/index.js",

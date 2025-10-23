@@ -1,5 +1,105 @@
 # Change Log
 
+## 014-simple-auth-provider
+
+> Feature scope: Deliver a YAML-driven simple auth provider for local
+> development sign-in
+
+### Overview
+
+Enabled a configuration-driven simple auth provider so developers can run the
+stack without Clerk while keeping production defaults untouched. The backend now
+validates simple mode inputs, exposes `/auth/simple/*` endpoints, and wires
+token enforcement, while the frontend presents a local user selector and warning
+controls.
+
+### Highlights
+
+- Introduced auth-provider resolution and `SimpleAuthService` validation to gate
+  `AUTH_PROVIDER`/`SIMPLE_AUTH_USER_FILE` combinations
+  (`apps/api/src/config/auth-provider.ts:22`,
+  `apps/api/src/services/simple-auth.service.ts:22`,
+  `apps/api/src/load-env.ts:80`).
+- Mounted simple auth routes, middleware, and seeding so `simple:<userId>`
+  bearer tokens unlock `/api/v1` while malformed requests fail fast
+  (`apps/api/src/routes/auth/simple.ts:17`,
+  `apps/api/src/middleware/simple-auth.middleware.ts:147`,
+  `apps/api/src/middleware/test-user-seed.ts:13`).
+- Swapped the web app to a provider abstraction, accessible login screen, and
+  warning banner that persist selections and feed tokens to API calls
+  (`apps/web/src/lib/auth-provider/index.tsx:25`,
+  `apps/web/src/lib/auth-provider/SimpleAuthProvider.tsx:135`,
+  `apps/web/src/components/simple-auth/LoginScreen.tsx:49`,
+  `apps/web/src/components/simple-auth/SimpleAuthWarningBanner.tsx:17`).
+- Documented simple mode configuration with `.env` defaults, README
+  instructions, and a reference YAML sample (`.env.example:1`, `README.md:190`,
+  `docs/examples/simple-auth-users.yaml:1`).
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                                                                  |
+| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-001      | ✅     | apps/api/src/config/auth-provider.ts:22<br>apps/api/src/load-env.ts:80<br>apps/web/src/lib/auth-provider/index.tsx:25                                                                     |
+| FR-002      | ✅     | apps/api/src/config/auth-provider.ts:44<br>apps/api/src/app.ts:139<br>apps/api/tests/contract/auth/simple-auth-users.contract.test.ts:68                                                  |
+| FR-003      | ✅     | apps/api/src/services/simple-auth.service.ts:105<br>apps/api/tests/unit/auth/simple-auth.service.test.ts:114                                                                              |
+| FR-004      | ✅     | apps/api/src/routes/auth/simple.ts:17<br>apps/api/tests/contract/auth/simple-auth-users.contract.test.ts:40                                                                               |
+| FR-005      | ✅     | apps/api/src/middleware/simple-auth.middleware.ts:179<br>apps/api/tests/unit/auth/simple-auth.middleware.test.ts:95<br>apps/api/tests/integration/auth/simple-auth.integration.test.ts:47 |
+| FR-006      | ✅     | apps/api/src/middleware/test-user-seed.ts:13<br>apps/api/tests/integration/auth/simple-auth.integration.test.ts:55                                                                        |
+| FR-007      | ✅     | apps/api/src/routes/auth/simple.ts:39<br>apps/web/src/lib/auth-provider/SimpleAuthProvider.tsx:311<br>apps/web/src/lib/auth-provider/SimpleAuthProvider.test.tsx:196                      |
+| FR-008      | ✅     | apps/web/src/lib/auth-provider/index.tsx:45<br>apps/web/src/App.tsx:1<br>apps/web/src/main.tsx:11                                                                                         |
+| FR-009      | ✅     | apps/web/src/lib/auth-provider/SimpleAuthProvider.tsx:135<br>apps/web/src/components/simple-auth/LoginScreen.tsx:49<br>apps/web/src/components/simple-auth/LoginScreen.test.tsx:24        |
+| FR-010      | ✅     | apps/web/src/lib/auth-provider/SimpleAuthProvider.tsx:223<br>apps/web/src/lib/auth-provider/SimpleAuthProvider.tsx:304<br>apps/web/src/lib/auth-provider/SimpleAuthProvider.test.tsx:133  |
+| FR-011      | ✅     | apps/api/src/config/auth-provider.ts:22<br>apps/web/src/main.tsx:11<br>README.md:190                                                                                                      |
+| FR-012      | ⚠️     | .env.example:1<br>docs/examples/simple-auth-users.yaml:1<br>specs/014-simple-auth-provider/tasks.md:35 (still need `docs/simple-auth.md`)                                                 |
+| FR-013      | ✅     | apps/api/src/app.ts:129<br>apps/api/src/load-env.ts:88<br>apps/web/src/components/simple-auth/SimpleAuthWarningBanner.tsx:17                                                              |
+
+### Testing
+
+- Added unit coverage for config resolution, service validation, and service
+  locator wiring (`apps/api/tests/unit/config/auth-provider-config.test.ts:1`,
+  `apps/api/tests/unit/auth/simple-auth.service.test.ts:60`,
+  `apps/api/tests/unit/core/service-locator.test.ts:12`).
+- Added contract and integration tests for `/auth/simple/users` and simple token
+  flows (`apps/api/tests/contract/auth/simple-auth-users.contract.test.ts:40`,
+  `apps/api/tests/integration/auth/simple-auth.integration.test.ts:47`).
+- Added frontend unit and Playwright fixtures to exercise the login selector and
+  provider swap (`apps/web/src/components/simple-auth/LoginScreen.test.tsx:24`,
+  `apps/web/src/lib/auth-provider/SimpleAuthProvider.test.tsx:82`,
+  `apps/web/tests/e2e/support/draft-recovery.ts:1`).
+- Outstanding: add automated coverage for `POST /auth/simple/logout` to guard
+  regressions (`apps/api/src/routes/auth/simple.ts:39`).
+
+### Risks & Mitigations
+
+- `docs/simple-auth.md` was not updated even though the plan calls it out;
+  capture the new workflow in that doc or revise references before release
+  (`specs/014-simple-auth-provider/tasks.md:35`).
+- The reference YAML shipped under `docs/examples/simple-auth-users.yaml`, but
+  tooling still points to `templates/simple-auth-user.yaml`; either add the
+  template or update docs/CLI guidance to match
+  (`specs/014-simple-auth-provider/tasks.md:33`).
+- Branch protection status checks remain unconfigured (F006); enable the
+  required checks on `main` using the recommendations in
+  `scripts/ci/check-protection.sh:138`
+  (`specs/014-simple-auth-provider/tasks.md:291`).
+
+### Clarifications
+
+- 2025-10-20 — Simple auth may run in any environment, but deployments must emit
+  explicit warnings when the provider is `simple`.
+- 2025-10-20 — Use the resolved provider value itself to decide when to log
+  “production” warnings; avoid additional environment heuristics.
+
+### Assumption Log
+
+- `js-yaml` is available in the workspace; satisfied by adding it to the API
+  package (`specs/014-simple-auth-provider/tasks.md:271`,
+  `apps/api/package.json:29`).
+- Backend auth routes live under `apps/api/src/routes/auth/`; fulfilled by
+  introducing `routes/auth/simple.ts`
+  (`specs/014-simple-auth-provider/tasks.md:275`,
+  `apps/api/src/routes/auth/simple.ts:17`).
+
 ## 013-epic-2-story-8
 
 > Feature scope: Section/document quality gates, telemetry, and traceability

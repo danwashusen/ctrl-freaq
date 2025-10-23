@@ -5,7 +5,7 @@ import { CheckCircle2, Clock, PencilLine, ShieldAlert, UserCheck } from 'lucide-
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
-import { useAuth } from '@/lib/clerk-client';
+import { useAuth } from '@/lib/auth-provider';
 import { DraftStatusBadge } from './section-draft/DraftStatusBadge';
 import type { AssumptionFlowState } from '../assumptions-flow';
 import type { SectionStatus, SectionView } from '../types/section-view';

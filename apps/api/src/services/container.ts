@@ -22,9 +22,10 @@ import {
   SectionQualityGateResultRepository,
   TraceabilityRepository,
   TraceabilitySyncRepository,
+  CoAuthoringChangelogRepository,
+  DocumentQualityGateSummaryRepository,
   type RequirementGap,
 } from '@ctrl-freaq/shared-data';
-import { CoAuthoringChangelogRepository } from '@ctrl-freaq/shared-data/repositories/changelog/changelog.repository.js';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type {
   TemplateResolver,
@@ -64,11 +65,14 @@ import {
 import type { BuildCoAuthorContextDependencies } from './co-authoring/context-builder.js';
 import { createVercelAIProposalProvider } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { CoAuthoringDraftPersistenceAdapter } from './co-authoring/draft-persistence.js';
-import { createCoAuthoringAuditLogger, createQualityGateAuditLogger } from '@ctrl-freaq/qa';
-import { createSectionQualityRunner } from '@ctrl-freaq/qa/gates/section/section-quality-runner';
-import { evaluateSectionQualityRules } from '@ctrl-freaq/qa/gates/section/section-quality-evaluator';
-import { createTraceabilitySyncService } from '@ctrl-freaq/qa/traceability';
-import type { TraceabilitySyncService } from '@ctrl-freaq/qa/traceability';
+import {
+  createCoAuthoringAuditLogger,
+  createQualityGateAuditLogger,
+  createSectionQualityRunner,
+  evaluateSectionQualityRules,
+  createTraceabilitySyncService,
+  type TraceabilitySyncService,
+} from '@ctrl-freaq/qa';
 import { DocumentQaStreamingService } from '../modules/document-qa/services/document-qa-streaming.service.js';
 import {
   createSectionQualityService,
@@ -84,7 +88,6 @@ import type {
   ProposalProviderEvent,
 } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { SharedSectionStreamQueueCoordinator } from './streaming/shared-section-stream-queue.js';
-import { DocumentQualityGateSummaryRepository } from '../../../../packages/shared-data/src/repositories/quality-gates/document-quality-gate-summary.repository.js';
 
 /**
  * Registers repository factories into the per-request service container.

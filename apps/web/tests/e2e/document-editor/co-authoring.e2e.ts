@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dismissDraftRecoveryGate } from '../support/draft-recovery';
+import { dismissDraftRecoveryGate, selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Conversational co-authoring assistant', () => {
   test('guidance, proposal, and approval flow with fallback handling', async ({ page }) => {
@@ -7,6 +7,7 @@ test.describe('Conversational co-authoring assistant', () => {
       '/documents/demo-architecture/sections/architecture-overview?fixture=co-authoring'
     );
     await page.waitForLoadState('networkidle');
+    await selectSimpleAuthUser(page);
     await dismissDraftRecoveryGate(page);
 
     const preview = page.getByTestId('section-preview');

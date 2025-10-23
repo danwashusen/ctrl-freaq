@@ -14,8 +14,10 @@ test.describe('Long Section Rendering Performance', () => {
       await conflictDialog.waitFor({ state: 'hidden' });
     }
 
+    await page.waitForSelector('[data-testid="section-preview"]', { timeout: 8000 });
     const preview = page.getByTestId('section-preview');
-    await expect(preview).toBeVisible();
+
+    await expect(preview).toBeVisible({ timeout: 8000 });
     await expect(preview.getByTestId('section-preview-content')).toContainText(
       'These fixtures guarantee the modal renders deterministic content for E2E tests.'
     );

@@ -1,4 +1,8 @@
 import { devices, type PlaywrightTestConfig } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 export const DEFAULT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 
@@ -84,6 +88,11 @@ export function createFixtureConfig(): PlaywrightTestConfig {
       VITE_E2E: 'true',
       VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || 'http://localhost:5173/__fixtures/api',
     },
+  };
+
+  config.use = {
+    ...config.use,
+    storageState: path.resolve(moduleDir, './tests/e2e/support/simple-auth.storage.json'),
   };
 
   return config;

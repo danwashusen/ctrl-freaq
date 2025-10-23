@@ -19,15 +19,13 @@ vi.mock('./section-draft/DraftStatusBadge', () => ({
   },
 }));
 
-vi.mock('@clerk/clerk-react', async () => {
-  const actual = (await vi.importActual<typeof import('@clerk/clerk-react')>(
-    '@clerk/clerk-react'
-  )) as Record<string, unknown>;
-  return {
-    ...actual,
-    useAuth: () => ({ userId: 'test-user' }),
-  };
-});
+vi.mock('@/lib/auth-provider', () => ({
+  useAuth: () => ({
+    userId: 'test-user',
+    isSignedIn: true,
+    getToken: async () => 'test-token',
+  }),
+}));
 
 vi.mock('@/features/document-editor/lib/utils', () => ({
   cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),

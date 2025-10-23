@@ -500,6 +500,7 @@ test.describe('Document Editor Core Infrastructure', () => {
       page,
     }) => {
       await page.goto('/documents/demo-architecture/sections/sec-assumptions');
+      await dismissDraftRecoveryGate(page);
 
       const conflictDialog = page.getByTestId('conflict-dialog');
       if (await conflictDialog.isVisible()) {

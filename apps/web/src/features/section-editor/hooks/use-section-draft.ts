@@ -773,10 +773,17 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
 
       let bundleFailure: unknown = null;
       const appliedDraftKeys = new Set<string>();
+      const bundleExecutor = bundleClient ?? new DraftPersistenceClient();
 
-      if (bundleClient && targetDocumentId) {
+      if (targetDocumentId) {
+        logger.debug('Applying draft bundle', {
+          projectSlug: resolvedProjectSlug,
+          documentId: targetDocumentId,
+          sectionId,
+          submittedSections: submittedSections.map(section => section.sectionPath),
+        });
         try {
-          const bundleResponse = await bundleClient.applyDraftBundle(
+          const bundleResponse = await bundleExecutor.applyDraftBundle(
             resolvedProjectSlug,
             targetDocumentId,
             {
@@ -839,7 +846,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       const isCleanResponse = (response.conflictState ?? '').toLowerCase() === 'clean';
 
       const expectedSectionCount = submittedSections.length;
-      const bundleClientAvailable = Boolean(bundleClient && targetDocumentId);
+      const bundleClientAvailable = Boolean(bundleExecutor && targetDocumentId);
 
       if (
         isCleanResponse &&

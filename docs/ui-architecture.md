@@ -146,6 +146,10 @@ src/
 │   │   ├── client.ts
 │   │   ├── endpoints.ts
 │   │   └── types.ts
+│   ├── auth-provider/      # Auth provider switch (Clerk or Simple)
+│   │   ├── index.tsx
+│   │   ├── SimpleAuthProvider.tsx
+│   │   └── SimpleAuthProvider.test.tsx
 │   ├── streaming/          # SSE/WebStream utilities
 │   │   ├── sse-client.ts
 │   │   └── stream-parser.ts
@@ -2084,8 +2088,21 @@ The React frontend communicates with the Express.js backend through:
 2. **Server-Sent Events (SSE)** for streaming AI responses
 3. **WebSocket** connections for real-time collaboration (Phase 2)
 
-All API calls include Clerk authentication tokens and follow the error handling
-patterns defined in the backend architecture document.
+All API calls include the configured authentication token — Clerk JWTs in
+production or `simple:<userId>` bearer tokens in simple mode — and follow the
+error handling patterns defined in the backend architecture document.
+
+### Authentication Provider Switch {#auth-provider-switch}
+
+- `apps/web/src/lib/auth-provider/index.tsx` resolves `VITE_AUTH_PROVIDER` and
+  exports either the Clerk bindings or `SimpleAuthProvider`.
+- `SimpleAuthProvider` fetches configured users from `/auth/simple/users`,
+  persists the selection in `localStorage`, and exposes `useAuth/useUser`
+  helpers that return `simple:<userId>` tokens for API requests.
+- The login surface (`LoginScreen`) highlights simple mode with a warning banner
+  and accessible card controls (ARIA announcements for keyboard users).
+- API helpers in `api-context.tsx` call `getToken()` from the provider, so
+  switching between Clerk and Simple mode requires only environment changes.
 
 ## Constitutional Compliance {#constitutional-compliance-frontend}
 

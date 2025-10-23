@@ -76,6 +76,53 @@ export interface DatabaseHealth {
   };
 }
 
+interface MigrationRepairContext {
+  db: DatabaseType;
+  config: DatabaseConfig;
+  logger: Logger;
+  migration: Migration;
+  applied: {
+    version: number;
+    checksum: string;
+  };
+}
+
+interface MigrationRepairStrategy {
+  legacyChecksums: string[];
+  execute: (context: MigrationRepairContext) => void;
+}
+
+const MIGRATION_REPAIRS: Record<number, MigrationRepairStrategy> = {
+  12: {
+    legacyChecksums: ['33d8d0b19db2ed96423c21d45a79cbfc1aa91266931ce02fd3951b032a1662e1'],
+    execute: ({ db, logger, migration }) => {
+      logger.warn('Detected legacy assumption session schema; rebuilding tables for migration 12');
+
+      db.exec('PRAGMA foreign_keys = OFF');
+
+      try {
+        const dropStatements = [
+          'DROP TABLE IF EXISTS assumption_conflict_events',
+          'DROP TABLE IF EXISTS section_assumption_responses',
+          'DROP TABLE IF EXISTS draft_proposal_records',
+          'DROP TABLE IF EXISTS section_assumption_sessions',
+          'DROP TABLE IF EXISTS assumption_sessions',
+          'DROP TABLE IF EXISTS section_assumptions',
+          'DROP TABLE IF EXISTS draft_proposals',
+        ];
+
+        for (const statement of dropStatements) {
+          db.exec(statement);
+        }
+
+        db.exec(migration.up);
+      } finally {
+        db.exec('PRAGMA foreign_keys = ON');
+      }
+    },
+  },
+};
+
 /**
  * Database connection manager
  */
@@ -412,9 +459,13 @@ export class DatabaseManager {
     for (const applied of appliedMigrations) {
       const migration = migrations.find(m => m.version === applied.version);
       if (migration && migration.checksum !== applied.checksum) {
-        throw new Error(
-          `Migration ${applied.version} checksum mismatch. Database may be corrupted.`
-        );
+        const repaired = await this.handleMigrationMismatch(applied, migration);
+        if (!repaired) {
+          throw new Error(
+            `Migration ${applied.version} checksum mismatch. Database may be corrupted.`
+          );
+        }
+        applied.checksum = migration.checksum;
       }
     }
 
@@ -451,6 +502,55 @@ export class DatabaseManager {
     });
 
     this.logger.info(`Applied ${pendingMigrations.length} migrations`);
+  }
+
+  private async handleMigrationMismatch(
+    applied: { version: number; checksum: string },
+    migration: Migration
+  ): Promise<boolean> {
+    if (!this.db) {
+      return false;
+    }
+
+    const repairStrategy = MIGRATION_REPAIRS[applied.version];
+    if (!repairStrategy) {
+      return false;
+    }
+
+    if (!repairStrategy.legacyChecksums.includes(applied.checksum)) {
+      return false;
+    }
+
+    this.logger.warn(
+      {
+        version: applied.version,
+        legacyChecksum: applied.checksum,
+      },
+      'Attempting automatic repair for legacy migration checksum'
+    );
+
+    await this.transaction(db => {
+      repairStrategy.execute({
+        db,
+        config: this.config,
+        logger: this.logger,
+        migration,
+        applied,
+      });
+
+      db.prepare(
+        `UPDATE ${this.config.migrations.table} SET name = ?, checksum = ?, applied_at = CURRENT_TIMESTAMP WHERE version = ?`
+      ).run(migration.name, migration.checksum, migration.version);
+    });
+
+    this.logger.info(
+      {
+        version: applied.version,
+      },
+      'Legacy migration repair completed successfully'
+    );
+
+    return true;
   }
 
   /**

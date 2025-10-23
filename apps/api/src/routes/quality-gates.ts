@@ -8,7 +8,7 @@ import { DocumentQualityController } from '../modules/quality-gates/controllers/
 import { TraceabilityController } from '../modules/quality-gates/controllers/traceability.controller.js';
 import type { DocumentQualityService } from '../modules/quality-gates/services/document-quality.service.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
-import type { TraceabilitySyncService } from '@ctrl-freaq/qa/traceability';
+import type { TraceabilitySyncService } from '@ctrl-freaq/qa';
 
 export const qualityGatesRouter: Router = createRouter();
 
