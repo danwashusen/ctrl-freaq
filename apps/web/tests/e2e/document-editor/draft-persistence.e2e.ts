@@ -6,6 +6,8 @@ test.describe('Section draft persistence', () => {
   test('re-hydrates drafts after reload and offers revert-to-published guardrails', async ({
     page,
   }) => {
+    test.setTimeout(15000);
+
     await page.goto('/documents/demo-architecture/sections/sec-api?fixture=draft-persistence');
     await page.waitForLoadState('networkidle');
     await dismissDraftRecoveryGate(page);
