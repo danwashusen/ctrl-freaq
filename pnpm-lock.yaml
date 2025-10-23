@@ -198,8 +198,8 @@ importers:
         specifier: 7.15.5
         version: 7.15.5
       '@milkdown/preset-commonmark':
-        specifier: 7.16.0
-        version: 7.16.0
+        specifier: 7.17.1
+        version: 7.17.1
       '@milkdown/react':
         specifier: 7.17.1
         version: 7.17.1(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.6)(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
@@ -338,8 +338,8 @@ importers:
         specifier: 7.15.5
         version: 7.15.5
       '@milkdown/preset-commonmark':
-        specifier: 7.16.0
-        version: 7.16.0
+        specifier: 7.17.1
+        version: 7.17.1
       '@milkdown/react':
         specifier: 7.17.1
         version: 7.17.1(@codemirror/language@6.11.3)(@codemirror/state@6.5.2)(@codemirror/view@6.38.6)(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
@@ -1736,9 +1736,6 @@ packages:
   '@milkdown/plugin-upload@7.17.1':
     resolution: {integrity: sha512-pIMF/XcejZgdyLDO0pl//a6CJeBzpOCbBZEyiDc7cnpmtfyEDET8kVYfy5qVKEatenzrEs2c4+0Y0zF6coW6Zg==}
 
-  '@milkdown/preset-commonmark@7.16.0':
-    resolution: {integrity: sha512-Cac56ICJhpAr7xn3PdQU0yqZRZpJ18b8L2yquLx9VYHvmLG0QRvDUj0bB7w+yOt2QPo+D3LETZtmSVIPuOYMOg==}
-
   '@milkdown/preset-commonmark@7.17.1':
     resolution: {integrity: sha512-kWiH91tJ1qdzGM3F7Yr6HmsnyLLbwQqpYo2P6QJCkOzWhABOwTx5jQuGwdgKA7qt+wk0TK7AisXSCcbHiwUwfg==}
 
@@ -1774,9 +1771,6 @@ packages:
 
   '@milkdown/utils@7.15.5':
     resolution: {integrity: sha512-/B5DBD9H8lPkY7jCiUEEJJUaTSrLKzLsjK5so+JxgmPJZ1E4gJjOUGnQtgzMhYZxd1Az7+vFc3XKgLY/WAzqKg==}
-
-  '@milkdown/utils@7.16.0':
-    resolution: {integrity: sha512-x1WKTNFE073rtvFJYdcNnQHRy97U4eXeJqy1c+Rf1aLrB319xwsOktQn07YKn8jZGHM2qpzM4oIWHF97ggUHfA==}
 
   '@milkdown/utils@7.17.1':
     resolution: {integrity: sha512-QTjbaxv+ZOB4a1BaQULkeJExyIvMnQw69UKf9QoM/E8iY2q1c8kppnN6i6ZeN9ZkCh4lXu+r7w/LH6zSFXrsdA==}
@@ -5763,9 +5757,6 @@ packages:
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
 
-  unist-util-is@6.0.0:
-    resolution: {integrity: sha512-2qCTHimwdxLfz+YzdGfkqNlH0tLi9xjTnHddPmJwtIG9MGsdbutfTc4P+haPD7l7Cjxf/WZj+we5qfVPvvxfYw==}
-
   unist-util-is@6.0.1:
     resolution: {integrity: sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==}
 
@@ -5774,9 +5765,6 @@ packages:
 
   unist-util-stringify-position@4.0.0:
     resolution: {integrity: sha512-0ASV06AAoKCDkS2+xw5RXJywruurpbC4JZSm7nr7MOt1ojAzvyyaO+UxZf18j8FCF6kmzCZKcAgN/yu2gm2XgQ==}
-
-  unist-util-visit-parents@6.0.1:
-    resolution: {integrity: sha512-L/PqWzfTP9lzzEa6CKs0k2nARxTdZduw3zyh8d2NVBnsyvHjSX4TWse388YrrQKbvI8w20fGjGlhgT96WwKykw==}
 
   unist-util-visit-parents@6.0.2:
     resolution: {integrity: sha512-goh1s1TBrqSqukSc8wrjwWhL0hiJxgA8m4kFxGlQ+8FYQ3C/m11FcTs4YYem7V664AhHVvgoQLk890Ssdsr2IQ==}
@@ -7486,20 +7474,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@milkdown/preset-commonmark@7.16.0':
-    dependencies:
-      '@milkdown/core': 7.16.0
-      '@milkdown/ctx': 7.16.0
-      '@milkdown/exception': 7.16.0
-      '@milkdown/prose': 7.16.0
-      '@milkdown/transformer': 7.16.0
-      '@milkdown/utils': 7.16.0
-      remark-inline-links: 7.0.0
-      unist-util-visit: 5.0.0
-      unist-util-visit-parents: 6.0.1
-    transitivePeerDependencies:
-      - supports-color
-
   '@milkdown/preset-commonmark@7.17.1':
     dependencies:
       '@milkdown/core': 7.17.1
@@ -7644,17 +7618,6 @@ snapshots:
       '@milkdown/transformer': 7.15.5
       nanoid: 3.3.11
       tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-
-  '@milkdown/utils@7.16.0':
-    dependencies:
-      '@milkdown/core': 7.16.0
-      '@milkdown/ctx': 7.16.0
-      '@milkdown/exception': 7.16.0
-      '@milkdown/prose': 7.16.0
-      '@milkdown/transformer': 7.16.0
-      nanoid: 3.3.11
     transitivePeerDependencies:
       - supports-color
 
@@ -10529,7 +10492,7 @@ snapshots:
   mdast-util-phrasing@4.1.0:
     dependencies:
       '@types/mdast': 4.0.4
-      unist-util-is: 6.0.0
+      unist-util-is: 6.0.1
 
   mdast-util-to-markdown@2.1.2:
     dependencies:
@@ -11266,8 +11229,8 @@ snapshots:
 
   prosemirror-view@1.41.2:
     dependencies:
-      prosemirror-model: 1.25.4
-      prosemirror-state: 1.4.4
+      prosemirror-model: 1.25.3
+      prosemirror-state: 1.4.3
       prosemirror-transform: 1.10.4
 
   prosemirror-view@1.41.3:
@@ -12304,10 +12267,6 @@ snapshots:
       trough: 2.2.0
       vfile: 6.0.3
 
-  unist-util-is@6.0.0:
-    dependencies:
-      '@types/unist': 3.0.3
-
   unist-util-is@6.0.1:
     dependencies:
       '@types/unist': 3.0.3
@@ -12321,11 +12280,6 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
-  unist-util-visit-parents@6.0.1:
-    dependencies:
-      '@types/unist': 3.0.3
-      unist-util-is: 6.0.0
-
   unist-util-visit-parents@6.0.2:
     dependencies:
       '@types/unist': 3.0.3
@@ -12334,8 +12288,8 @@ snapshots:
   unist-util-visit@5.0.0:
     dependencies:
       '@types/unist': 3.0.3
-      unist-util-is: 6.0.0
-      unist-util-visit-parents: 6.0.1
+      unist-util-is: 6.0.1
+      unist-util-visit-parents: 6.0.2
 
   unpipe@1.0.0: {}
 
