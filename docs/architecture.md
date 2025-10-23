@@ -40,9 +40,10 @@ CTRL FreaQ MVP implements a modular monolith architecture running locally with
 Express.js API server, SQLite database, and library-first design patterns. The
 system provides comprehensive document editing with WYSIWYG Markdown, Git-style
 patching, conversational co-authoring via LLM integration (OpenAI/Vercel AI
-SDK), and streaming responses for real-time UX. Authentication uses Clerk with
-stateless JWT, while all core functionality is exposed through CLI interfaces
-per Constitutional requirements.
+SDK), and streaming responses for real-time UX. Authentication defaults to Clerk
+with stateless JWT sessions, while local development can switch to the simple
+provider that loads YAML users and issues bearer tokens. All core functionality
+is exposed through CLI interfaces per Constitutional requirements.
 
 ### High Level Overview {#high-level-overview}
 
@@ -70,6 +71,7 @@ graph TD
     web -->|Streaming SSE| api
     api -->|Export| files[docs/*.md Files]
     api --> clerk[Clerk Auth Service]
+    api --> simple[(Simple Auth User YAML)]
 
     subgraph Libraries
         shared-data[shared-data]
@@ -244,21 +246,21 @@ process.on('exit', () => clearInterval(interval));
 
 ### Technology Stack Table {#technology-stack-table}
 
-| Category              | Technology       | Version         | Purpose                      | Rationale                                       |
-| --------------------- | ---------------- | --------------- | ---------------------------- | ----------------------------------------------- |
-| **Language**          | TypeScript       | 5.9.x           | Primary development language | Strong typing, excellent tooling, team standard |
-| **Runtime**           | Node.js          | 22.x            | JavaScript runtime           | LTS version, stable performance                 |
-| **Backend Framework** | Express.js       | 5.1.0           | API server framework         | Mature, flexible middleware ecosystem           |
-| **Database**          | SQLite           | 3.x             | Local data storage (MVP)     | Zero-config, embedded, easy migration path      |
-| **DB Access**         | better-sqlite3   | 12.x            | SQLite driver                | Fast synchronous API, type-safe                 |
-| **Authentication**    | Clerk            | latest          | User authentication          | Hosted solution, quick setup for MVP            |
-| **LLM SDK**           | Vercel AI SDK    | 3.x             | AI model integration         | Provider abstraction, streaming support         |
-| **Testing**           | Vitest           | 3.x             | Unit and integration testing | Fast, TypeScript-native                         |
-| **Monorepo**          | pnpm + Turborepo | 9.x/2.x         | Workspace management         | Efficient dependency management, caching        |
-| **Logging**           | Pino             | 9.12.0          | Structured logging           | High-performance JSON logging                   |
-| **UI Framework**      | React            | 19.x            | Frontend framework           | Component model, ecosystem, team expertise      |
-| **CSS**               | Tailwind CSS     | 3.x             | Utility-first styling        | Rapid development, consistent design            |
-| **Editor**            | Milkdown         | 7.15.5 / 7.16.x | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches  |
+| Category              | Technology                       | Version         | Purpose                      | Rationale                                                |
+| --------------------- | -------------------------------- | --------------- | ---------------------------- | -------------------------------------------------------- |
+| **Language**          | TypeScript                       | 5.9.x           | Primary development language | Strong typing, excellent tooling, team standard          |
+| **Runtime**           | Node.js                          | 22.x            | JavaScript runtime           | LTS version, stable performance                          |
+| **Backend Framework** | Express.js                       | 5.1.0           | API server framework         | Mature, flexible middleware ecosystem                    |
+| **Database**          | SQLite                           | 3.x             | Local data storage (MVP)     | Zero-config, embedded, easy migration path               |
+| **DB Access**         | better-sqlite3                   | 12.x            | SQLite driver                | Fast synchronous API, type-safe                          |
+| **Authentication**    | Clerk (default) / Simple (local) | latest          | Configurable auth providers  | Clerk handles production; simple mode enables local auth |
+| **LLM SDK**           | Vercel AI SDK                    | 3.x             | AI model integration         | Provider abstraction, streaming support                  |
+| **Testing**           | Vitest                           | 3.x             | Unit and integration testing | Fast, TypeScript-native                                  |
+| **Monorepo**          | pnpm + Turborepo                 | 9.x/2.x         | Workspace management         | Efficient dependency management, caching                 |
+| **Logging**           | Pino                             | 9.12.0          | Structured logging           | High-performance JSON logging                            |
+| **UI Framework**      | React                            | 19.x            | Frontend framework           | Component model, ecosystem, team expertise               |
+| **CSS**               | Tailwind CSS                     | 3.x             | Utility-first styling        | Rapid development, consistent design                     |
+| **Editor**            | Milkdown                         | 7.15.5 / 7.16.x | WYSIWYG Markdown editor      | Markdown-native, extensible, Git-style patches           |
 
 ## Data Models {#data-models}
 
@@ -437,16 +439,18 @@ content generation, quality gates, export functionality, streaming responses
 
 - REST API endpoints under `/api/v1/*`
 - SSE streaming for chat and proposals
-- Clerk session validation
+- Auth provider resolution (Clerk or Simple)
+- Clerk session validation plus simple token middleware
 - Anti-CSRF protection
 
-**Dependencies:** All library packages, Clerk SDK, Express middleware
+**Dependencies:** All library packages, Clerk SDK, SimpleAuthService, Express
+middleware
 
 **Technology Stack:** Express.js 5.1.0, TypeScript 5.9.x, Node.js 22.x
 
 **Key Modules:**
 
-- Auth Module: Clerk integration, session management
+- Auth Module: Clerk integration, simple auth middleware, session management
 - Document Editor: WYSIWYG editing, Git-style patching, ToC navigation
 - Assumptions Engine: Per-section assumption lifecycle management
 - Context Builder: Token budgeting, redaction, context composition
@@ -664,6 +668,17 @@ with jitter on 429/5xx errors
 
 **Integration Notes:** SDK-based integration, session validation on all
 authoring endpoints
+
+### Simple Auth Provider (Local) {#simple-auth-provider}
+
+- **Purpose:** Local authentication for development without external services
+- **Data Source:** `SIMPLE_AUTH_USER_FILE` YAML validated and cached by
+  `SimpleAuthService`
+- **Authentication:** Bearer tokens of the form `simple:<userId>` verified by
+  `simpleAuthMiddleware`
+- **API Surface:** `GET /auth/simple/users`, `POST /auth/simple/logout`
+- **Operational Notes:** Seeds users into SQLite on startup and emits structured
+  warnings (logs + UI banner) whenever simple mode is active
 
 ## Core Workflows {#core-workflows}
 
@@ -1338,12 +1353,20 @@ All data access must verify:
 
 ### Authentication & Authorization {#auth-authorization}
 
-- **Auth Method:** Clerk with JWT sessions
-- **Session Management:** Stateless JWT, HttpOnly cookies
+- **Auth Method:** Configurable provider — Clerk (default) or Simple (local)
+- **Session Management:** Clerk uses stateless JWT with HttpOnly cookies. Simple
+  mode issues `simple:<userId>` bearer tokens validated by
+  `simpleAuthMiddleware` against the cached `SimpleAuthService`.
 - **Required Patterns:**
-  - Validate session on all `/api/v1/*` routes
-  - Return 401 for invalid/expired sessions
+  - Validate session or simple token on all `/api/v1/*` routes
+  - Return 401 for invalid/expired sessions or unknown simple IDs
+  - Seed YAML users into SQLite before protected routes when simple mode is
+    active
   - Document owner has full access (MVP)
+- **Operational Notes:**
+  - Emit structured warnings whenever simple mode is active (API + UI banner)
+  - Mount `/auth/simple/*` endpoints only in simple mode; Clerk deployments
+    bypass them entirely
 
 ### Secrets Management {#secrets-management}
 

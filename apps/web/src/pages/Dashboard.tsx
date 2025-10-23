@@ -1,4 +1,4 @@
-import { useUser, UserButton } from '@/lib/clerk-client';
+import { useUser, UserButton } from '@/lib/auth-provider';
 import { Plus, FileText, Settings, Activity } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -42,9 +42,16 @@ export default function Dashboard() {
   }, [api]);
 
   useEffect(() => {
-    if (isLoaded) {
-      void fetchProjects();
+    if (!isLoaded) {
+      return;
     }
+
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    void fetchProjects();
   }, [isLoaded, fetchProjects]);
 
   const createProject = () => {

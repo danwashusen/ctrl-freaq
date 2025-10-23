@@ -1,10 +1,11 @@
-import { ClerkProvider, useAuth, useUser } from '@/lib/clerk-client';
+import { ClerkProvider, useAuth, useUser } from '@/lib/auth-provider';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import App from '../../src/App';
 
-vi.mock('@/lib/clerk-client', () => ({
+vi.mock('@/lib/auth-provider', () => ({
+  AUTH_PROVIDER: 'clerk' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),
@@ -29,7 +30,6 @@ describe('Routing: dashboard default redirect', () => {
   });
 
   test('authenticated user at "/" is redirected to "/dashboard"', async () => {
-    const originalFetch = global.fetch;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const target =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -79,7 +79,7 @@ describe('Routing: dashboard default redirect', () => {
       });
     });
 
-    vi.stubGlobal('fetch', fetchMock);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);
 
     vi.mocked(useAuth).mockReturnValue({ isSignedIn: true, isLoaded: true } as any);
     vi.mocked(useUser).mockReturnValue({
@@ -104,8 +104,6 @@ describe('Routing: dashboard default redirect', () => {
     });
 
     expect(fetchMock).toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-    global.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 });

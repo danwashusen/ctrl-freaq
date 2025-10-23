@@ -54,6 +54,8 @@ test-results.xml
 .env*
 !.env.example
 
+local/
+
 # BMAD (local only)
 .bmad-core/
 .bmad-*/

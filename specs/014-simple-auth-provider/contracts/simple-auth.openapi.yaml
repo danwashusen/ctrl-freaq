@@ -1,0 +1,100 @@
+openapi: 3.0.3
+info:
+  title: CTRL FreaQ Simple Auth API
+  version: 0.1.0
+  description: Endpoints exposed when `AUTH_PROVIDER=simple` to support local multi-user authentication flows.
+servers:
+  - url: http://localhost:5001
+    description: Local API server
+security:
+  - SimpleTokenAuth: []
+paths:
+  /auth/simple/users:
+    get:
+      summary: List configured simple-auth users
+      description: Returns the list of local user identities sourced from the configured YAML file. No authentication token required because selection happens prior to login.
+      security: []
+      responses:
+        '200':
+          description: Successfully returned configured users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleAuthUserList'
+        '500':
+          description: YAML file missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/simple/logout:
+    post:
+      summary: Clear simple auth selection on the client
+      description: Provides a parity endpoint so the UI can perform a logout workflow. Always returns 204; clients should clear local state.
+      responses:
+        '204':
+          description: Logout acknowledged
+        '401':
+          description: Invalid or expired simple token supplied (if provided)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    SimpleTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: simple
+      description: Use tokens of the form `simple:<userId>`.
+  schemas:
+    SimpleAuthUser:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          description: Unique identifier defined in the YAML file.
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+          description: Avatar path or URL.
+        org_role:
+          type: string
+          nullable: true
+        org_permissions:
+          type: array
+          items:
+            type: string
+          nullable: true
+    SimpleAuthUserList:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimpleAuthUser'
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true

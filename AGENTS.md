@@ -26,12 +26,15 @@ package-specific flows, e.g.
 - `pnpm clean`: turbo clean plus delete node_modules; resets workspace caches.
 - `pnpm commitlint`: Runs Commitlint against staged message (usually via
   CI/hooks).
-- `pnpm dev`: Turbo dev for everything with concurrency cap of 12.
-- `pnpm dev:apps`: Dev mode limited to @ctrl-freaq/web and @ctrl-freaq/api.
+- `pnpm dev`: Turbo dev for everything with concurrency cap of 12. This command
+  does not exit and must be killed manually.
+- `pnpm dev:apps`: Dev mode limited to @ctrl-freaq/web and @ctrl-freaq/api. This
+  command does not exit and must be killed manually.
 - `pnpm --filter @ctrl-freaq/web dev:e2e`: Vite dev server in fixture mode
-  (`VITE_E2E=true`).
+  (`VITE_E2E=true`). This command does not exit and must be killed manually.
 - `pnpm --filter @ctrl-freaq/web dev:live`: Vite dev server pointed at live
-  services (`VITE_E2E` unset).
+  services (`VITE_E2E` unset). This command does not exit and must be killed
+  manually.
 - `pnpm format`: Prettier write on entire repo.
 - `pnpm format:check`: Prettier check only (fails on diff).
 - `pnpm lint`: Repo-wide Turbo lint with --force (rerun all) then repo ESLint

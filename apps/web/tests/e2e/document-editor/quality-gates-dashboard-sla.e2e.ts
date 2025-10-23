@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { registerDocumentQualityFixtures } from './fixtures';
+import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Document quality dashboard SLA', () => {
   test('re-runs document gates within SLA and emits telemetry', async ({ page }) => {
@@ -17,6 +18,7 @@ test.describe('Document quality dashboard SLA', () => {
       '/documents/demo-architecture/sections/sec-overview?fixture=quality-gates-dashboard'
     );
     await page.waitForLoadState('networkidle');
+    await selectSimpleAuthUser(page);
 
     const dashboard = page.getByTestId('document-quality-dashboard');
     await expect(dashboard).toBeVisible();

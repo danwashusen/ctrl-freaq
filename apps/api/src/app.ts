@@ -15,6 +15,9 @@ import {
 } from './core/logging.js';
 import { createServiceLocatorMiddleware } from './core/service-locator.js';
 import { createFullCorrelationMiddleware } from './middleware/request-id.js';
+import { SimpleAuthService, SimpleAuthServiceError } from './services/simple-auth.service.js';
+import { isSimpleAuthProvider, resolveAuthProviderConfig } from './config/auth-provider.js';
+import type { AuthProviderConfig } from './config/auth-provider.js';
 
 /**
  * Express App Configuration and Middleware Setup
@@ -50,6 +53,7 @@ export interface AppConfig {
     endpoint: string;
     versionedEndpoint: string;
   };
+  auth: AuthProviderConfig;
 }
 
 /**
@@ -66,6 +70,7 @@ export interface AppContext {
  * Create default application configuration
  */
 export function createDefaultAppConfig(): AppConfig {
+  const authProvider = resolveAuthProviderConfig();
   return {
     port: parseInt(process.env.PORT || '5001', 10),
     cors: {
@@ -82,6 +87,10 @@ export function createDefaultAppConfig(): AppConfig {
     health: {
       endpoint: '/health',
       versionedEndpoint: '/api/v1/health',
+    },
+    auth: {
+      provider: authProvider.provider,
+      simpleAuthUserFile: authProvider.simpleAuthUserFile,
     },
   };
 }
@@ -111,10 +120,51 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
         port: appConfig.port,
         environment: process.env.NODE_ENV || 'development',
         cors: appConfig.cors,
+        authProvider: appConfig.auth.provider,
       },
     },
     'Creating Express application'
   );
+
+  if (isSimpleAuthProvider(appConfig.auth)) {
+    logger.warn(
+      {
+        authProvider: appConfig.auth.provider,
+        simpleAuthUserFile: appConfig.auth.simpleAuthUserFile,
+      },
+      'Simple auth provider enabled for local workflows only'
+    );
+  }
+
+  let simpleAuthService: SimpleAuthService | null = null;
+  if (isSimpleAuthProvider(appConfig.auth)) {
+    simpleAuthService = new SimpleAuthService({ userFilePath: appConfig.auth.simpleAuthUserFile });
+
+    try {
+      await simpleAuthService.listUsers();
+    } catch (error) {
+      if (error instanceof SimpleAuthServiceError) {
+        logger.error(
+          {
+            simpleAuthUserFile: appConfig.auth.simpleAuthUserFile,
+            error: error.message,
+            details: error.details ?? undefined,
+          },
+          'Failed to initialize simple auth service'
+        );
+      } else {
+        logger.error(
+          {
+            simpleAuthUserFile: appConfig.auth.simpleAuthUserFile,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to initialize simple auth service'
+        );
+      }
+
+      throw error;
+    }
+  }
 
   // Create Express app
   const app = express();
@@ -143,7 +193,9 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use(httpLogger);
 
   // Service locator middleware (after correlation, before business logic)
-  const serviceLocatorMiddleware = createServiceLocatorMiddleware(logger, database);
+  const serviceLocatorMiddleware = createServiceLocatorMiddleware(logger, database, {
+    simpleAuthService: simpleAuthService ?? undefined,
+  });
   app.use(serviceLocatorMiddleware);
 
   // Register repository factories in the per-request container
@@ -205,6 +257,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
 
   // Import route modules
   const { healthRouter } = await import('./routes/health.js');
+  const { simpleAuthRouter } = await import('./routes/auth/simple.js');
   const { projectsRouter } = await import('./routes/projects.js');
   const { dashboardRouter } = await import('./routes/dashboard.js');
   const { activitiesRouter } = await import('./routes/activities.js');
@@ -221,12 +274,17 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   );
   const { testAuthShim } = await import('./middleware/test-auth.js');
   const { ensureTestUserMiddleware } = await import('./middleware/test-user-seed.js');
+  const { simpleAuthMiddleware } = await import('./middleware/simple-auth.middleware.js');
   const { testOnlyRouter } = await import('./routes/test-only.js');
 
   const userRateLimiter = createUserRateLimit(
     appConfig.security.rateLimiting.windowMs,
     appConfig.security.rateLimiting.max
   );
+
+  if (appConfig.auth.provider === 'simple') {
+    app.use('/auth/simple', simpleAuthRouter);
+  }
 
   // Health check routes (no authentication required)
   app.use('/', healthRouter);
@@ -236,13 +294,16 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   // and use a lightweight shim that only sets req.auth.userId when Authorization is present.
   const isTestEnv = isTestRuntime();
   const hasClerkConfig = Boolean(process.env.CLERK_SECRET_KEY || process.env.CLERK_PUBLISHABLE_KEY);
-  if (!isTestEnv && hasClerkConfig) {
+  const isSimpleAuth = isSimpleAuthProvider(appConfig.auth);
+  if (isSimpleAuth) {
+    app.use('/api/v1', simpleAuthMiddleware);
+  } else if (!isTestEnv && hasClerkConfig) {
     app.use('/api/v1', clerkAuthMiddleware);
   } else {
     app.use('/api/v1', testAuthShim);
   }
-  // In tests, ensure a user row exists for FK-free operations
-  if (isTestEnv) {
+
+  if (isTestEnv || isSimpleAuth) {
     app.use('/api/v1', ensureTestUserMiddleware);
   }
   app.use('/api/v1', requireAuth);

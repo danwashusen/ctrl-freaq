@@ -2,6 +2,8 @@ import type { Database } from 'better-sqlite3';
 import type { Request, Response, NextFunction } from 'express';
 import type { Logger } from 'pino';
 
+import { SimpleAuthService } from '../services/simple-auth.service.js';
+
 /**
  * Service Locator Pattern Implementation
  *
@@ -237,7 +239,15 @@ declare global {
 /**
  * Middleware factory for Express.js integration
  */
-export function createServiceLocatorMiddleware(baseLogger: Logger, database: Database) {
+export interface ServiceLocatorOptions {
+  simpleAuthService?: SimpleAuthService;
+}
+
+export function createServiceLocatorMiddleware(
+  baseLogger: Logger,
+  database: Database,
+  options: ServiceLocatorOptions = {}
+) {
   return (req: Request, res: Response, next: NextFunction): void => {
     // Create per-request service container
     const container = new RequestServiceContainer();
@@ -250,6 +260,14 @@ export function createServiceLocatorMiddleware(baseLogger: Logger, database: Dat
 
     // Register core services
     ServiceRegistrar.registerCoreServices(container, baseLogger, database, requestId, userId);
+
+    if (options.simpleAuthService) {
+      ServiceRegistrar.registerCustomService(
+        container,
+        'simpleAuthService',
+        options.simpleAuthService
+      );
+    }
 
     // Attach container to request
     req.services = container;

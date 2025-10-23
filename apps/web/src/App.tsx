@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@/lib/clerk-client';
+import { SignedIn, SignedOut, RedirectToSignIn, useUser } from '@/lib/auth-provider';
 import { useEffect, useMemo } from 'react';
 import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom';
 
@@ -10,6 +10,7 @@ import { Toaster } from './components/ui/toaster';
 import { ApiProvider } from './lib/api-context';
 import logger from './lib/logger';
 import { documentRoutes } from './app/router/document-routes';
+import { SimpleAuthWarningBanner } from './components/simple-auth/SimpleAuthWarningBanner';
 
 function App() {
   const { user } = useUser();
@@ -25,6 +26,10 @@ function App() {
   }, [user]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     logger.info('Application started', {
       url: window.location.href,
       userAgent: navigator.userAgent,
@@ -72,6 +77,7 @@ function App() {
 
   return (
     <div className="bg-background min-h-screen">
+      <SimpleAuthWarningBanner />
       <SignedIn>
         <ApiProvider>
           <RouterProvider router={router} />

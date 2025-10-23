@@ -136,7 +136,7 @@ pnpm typecheck  # Run TypeScript compiler
 - **Testing:** Vitest 1.x, React Testing Library
 - **Monorepo:** pnpm workspaces + Turborepo
 - **LLM Integration:** OpenAI via Vercel AI SDK
-- **Auth:** Clerk (JWT-based authentication)
+- **Auth:** Clerk (JWT-based) with optional simple YAML provider for local dev
 
 ## 🏗️ CI/CD Pipeline
 
@@ -186,6 +186,23 @@ comprehensive caching for optimal performance.
    ```bash
    pnpm dev  # Frontend: http://localhost:5173, API: http://localhost:5001
    ```
+
+### Authentication Modes
+
+- `AUTH_PROVIDER` defaults to `clerk`. Keep Clerk keys populated when this mode
+  is active so the web app and API initialize successfully.
+- Switch to simple mode by setting `AUTH_PROVIDER=simple`,
+  `VITE_AUTH_PROVIDER=simple`, and defining `SIMPLE_AUTH_USER_FILE` with a path
+  to a YAML file that lists local users. The API fails fast if the file cannot
+  be read or the schema does not match the reference schema in
+  `docs/examples/simple-auth-users.yaml` (copy this file to get started).
+- When simple mode boots, the API emits a structured warning, and the web shell
+  displays a banner noting that simple auth is intended for non-production
+  workflows. Leave these warnings enabled even in QA or demo environments.
+- Toggle back to Clerk by restoring `AUTH_PROVIDER=clerk`,
+  `VITE_AUTH_PROVIDER=clerk`, removing the simple file requirement, and
+  restarting both apps. Clerk keys are required again once the provider is set
+  to `clerk`.
 
 ### Testing
 

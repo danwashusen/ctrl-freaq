@@ -1,0 +1,18 @@
+users:
+  - id: user-local-author
+    email: user-local-author@example.com
+    first_name: Local
+    last_name: Author
+    org_role: editor
+    org_permissions:
+      - view:projects
+  - id: user_alpha
+    email: alpha@example.com
+    first_name: Alpha
+    last_name: Tester
+    org_role: qa_lead
+    org_permissions:
+      - view:projects
+      - manage:qa
+  - id: user_beta
+    email: beta@example.com

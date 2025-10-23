@@ -138,14 +138,21 @@ if [ "$HAS_GH_CLI" = true ] && [ "$HAS_GH_AUTH" = true ]; then
         fi
 
         # Check other protection settings
-        REQUIRE_REVIEWS=$(echo "$PROTECTION_DATA" | jq -r '.required_pull_request_reviews.required_approving_review_count' 2>/dev/null || echo "0")
+        REQUIRE_REVIEWS=$(echo "$PROTECTION_DATA" | jq -r '.required_pull_request_reviews.required_approving_review_count // 0' 2>/dev/null || echo "0")
+        if ! [[ "$REQUIRE_REVIEWS" =~ ^[0-9]+$ ]]; then
+            REQUIRE_REVIEWS=0
+        fi
         if [ "$REQUIRE_REVIEWS" -gt 0 ]; then
             log_check_pass "Pull request reviews required ($REQUIRE_REVIEWS)"
         else
             log_warning "Pull request reviews not required"
         fi
 
-        DISMISS_STALE=$(echo "$PROTECTION_DATA" | jq -r '.required_pull_request_reviews.dismiss_stale_reviews' 2>/dev/null || echo "false")
+        DISMISS_STALE=$(echo "$PROTECTION_DATA" | jq -r '.required_pull_request_reviews.dismiss_stale_reviews // false' 2>/dev/null || echo "false")
+        case "$DISMISS_STALE" in
+            true|false) ;;
+            *) DISMISS_STALE="false" ;;
+        esac
         if [ "$DISMISS_STALE" = "true" ]; then
             log_check_pass "Dismiss stale reviews enabled"
         else

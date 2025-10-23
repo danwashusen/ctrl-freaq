@@ -1,0 +1,38 @@
+# Sample simple auth user definitions for local development
+#
+# Update `SIMPLE_AUTH_USER_FILE` in your API `.env` to point at this file:
+#   SIMPLE_AUTH_USER_FILE=./local/simple-auth-users.yaml
+#
+# The frontend will surface these users when `VITE_AUTH_PROVIDER=simple`
+# and the API requires `AUTH_PROVIDER=simple`.
+
+users:
+  - id: user-local-author
+    email: user-local-author@example.com
+    first_name: Local
+    last_name: Author
+    org_role: editor
+    org_permissions:
+      - view:projects
+  - id: user_alpha
+    email: alpha@example.com
+    first_name: Alpha
+    last_name: Tester
+    org_role: qa_lead
+    org_permissions:
+      - view:projects
+      - manage:qa
+  - id: template_manager
+    email: manager@example.com
+    first_name: Morgan
+    last_name: Lee
+    org_role: template_manager
+    org_permissions:
+      - templates:manage
+  - id: user_beta
+    email: beta@example.com
+    first_name: Beta
+    last_name: Reviewer
+    org_role: reviewer
+    org_permissions:
+      - documents:review
