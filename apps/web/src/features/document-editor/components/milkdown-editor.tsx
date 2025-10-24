@@ -116,7 +116,7 @@ export const MilkdownEditor = memo<MilkdownEditorProps>(
           readOnly={readOnly}
           aria-label="Document content editor"
           className={cn(
-            'h-48 w-full resize-none border-none bg-transparent outline-none',
+            'outline-hidden h-48 w-full resize-none border-none bg-transparent',
             'prose prose-sm dark:prose-invert max-w-none',
             'placeholder:text-gray-400 dark:placeholder:text-gray-500'
           )}

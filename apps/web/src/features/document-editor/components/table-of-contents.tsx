@@ -109,11 +109,11 @@ const TocNodeItem = memo<TocNodeItemProps>(({ node, isActive, onSectionClick, on
         )}
 
         {/* Status indicator */}
-        <StatusIcon className={cn('h-3 w-3 flex-shrink-0', statusColors[node.status])} />
+        <StatusIcon className={cn('h-3 w-3 shrink-0', statusColors[node.status])} />
 
         {/* Content indicator */}
         {!node.hasContent && (
-          <div className="h-2 w-2 flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />
+          <div className="h-2 w-2 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" />
         )}
 
         {/* Section title */}
@@ -126,10 +126,7 @@ const TocNodeItem = memo<TocNodeItemProps>(({ node, isActive, onSectionClick, on
 
         {/* Unsaved changes indicator */}
         {node.hasUnsavedChanges && (
-          <div
-            className="h-2 w-2 flex-shrink-0 rounded-full bg-orange-400"
-            title="Unsaved changes"
-          />
+          <div className="h-2 w-2 shrink-0 rounded-full bg-orange-400" title="Unsaved changes" />
         )}
       </div>
 

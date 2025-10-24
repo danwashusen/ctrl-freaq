@@ -175,7 +175,7 @@ export const SectionQualityStatusChip: FC<SectionQualityStatusChipProps> = ({
   return (
     <div className="space-y-3" data-testid="section-quality-status">
       <div
-        className={`flex items-center justify-between gap-3 rounded-full px-4 py-2 text-sm shadow-sm transition-colors ${classes.container}`}
+        className={`shadow-xs flex items-center justify-between gap-3 rounded-full px-4 py-2 text-sm transition-colors ${classes.container}`}
         data-testid="section-quality-status-chip"
         aria-live="polite"
       >
@@ -201,7 +201,7 @@ export const SectionQualityStatusChip: FC<SectionQualityStatusChipProps> = ({
           {onRun && status !== 'failed' && (
             <button
               type="button"
-              className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-slate-800 shadow hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800"
+              className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-slate-800 shadow-sm hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800"
               onClick={handleRun}
               disabled={disabled}
               data-testid="quality-run-again"
@@ -232,7 +232,7 @@ export const SectionQualityStatusChip: FC<SectionQualityStatusChipProps> = ({
 
       {status === 'failed' && failureCopy && (
         <div
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 shadow-sm dark:border-red-800/70 dark:bg-red-900/40 dark:text-red-100"
+          className="shadow-xs rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800/70 dark:bg-red-900/40 dark:text-red-100"
           role="alert"
           data-testid="quality-runner-alert"
         >
@@ -248,7 +248,7 @@ export const SectionQualityStatusChip: FC<SectionQualityStatusChipProps> = ({
               type="button"
               onClick={handleRetry}
               disabled={disabled}
-              className="rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:bg-red-400"
+              className="focus-visible:outline-solid rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:bg-red-400"
               data-testid="quality-runner-retry"
             >
               {translator.actions('retry')}

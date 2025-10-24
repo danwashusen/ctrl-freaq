@@ -128,7 +128,7 @@ export const ManualSavePanel: FC<ManualSavePanelProps> = ({
   return (
     <section
       className={cn(
-        'flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm',
+        'shadow-xs flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5',
         className
       )}
       data-testid="manual-save-panel"
@@ -163,7 +163,7 @@ export const ManualSavePanel: FC<ManualSavePanelProps> = ({
         </label>
         <textarea
           id="summary-note"
-          className="min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="shadow-xs focus:outline-hidden min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           placeholder="Describe the intent behind these edits so reviewers have context."
           value={summaryNote}
           onChange={handleSummaryChange}

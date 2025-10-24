@@ -134,7 +134,7 @@ const DiffLineComponent = memo<{ line: DiffLine; showLineNumbers?: boolean }>(
         className={cn('flex items-start gap-2 px-3 py-1 font-mono text-sm', lineClasses[line.type])}
       >
         {/* Line type indicator */}
-        <div className="flex h-5 w-4 flex-shrink-0 items-center justify-center">
+        <div className="flex h-5 w-4 shrink-0 items-center justify-center">
           {Icon ? (
             <Icon className={cn('h-3 w-3', iconClasses[line.type])} />
           ) : (
@@ -144,14 +144,14 @@ const DiffLineComponent = memo<{ line: DiffLine; showLineNumbers?: boolean }>(
 
         {/* Line number */}
         {showLineNumbers && (
-          <div className="w-8 flex-shrink-0 select-none text-right text-gray-400">
+          <div className="w-8 shrink-0 select-none text-right text-gray-400">
             {line.lineNumber || ''}
           </div>
         )}
 
         {/* Content */}
         <div className="min-w-0 flex-1">
-          <pre className="whitespace-pre-wrap break-words text-xs">{line.content || ' '}</pre>
+          <pre className="wrap-break-word whitespace-pre-wrap text-xs">{line.content || ' '}</pre>
         </div>
       </div>
     );

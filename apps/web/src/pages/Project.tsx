@@ -193,7 +193,7 @@ export default function Project() {
             {isLongText ? (
               <textarea
                 id={key}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 rows={section.type === 'markdown' ? 6 : 3}
                 value={String(fieldValue ?? '')}
                 onChange={event => handleFieldChange(setFieldValue, path, event.target.value)}
@@ -201,7 +201,7 @@ export default function Project() {
             ) : (
               <input
                 id={key}
-                className="w-full rounded-md border border-gray-300 p-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 value={String(fieldValue ?? '')}
                 onChange={event => handleFieldChange(setFieldValue, path, event.target.value)}
               />
@@ -234,7 +234,7 @@ export default function Project() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white shadow-sm">
+      <header className="shadow-xs border-b bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-4">

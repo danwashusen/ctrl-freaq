@@ -70,7 +70,7 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm',
+        'backdrop-blur-xs fixed inset-0 z-50 flex items-center justify-center bg-black/40',
         className
       )}
       data-testid="conflict-dialog-backdrop"
@@ -81,7 +81,7 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
         aria-labelledby={dialogTitleId}
         aria-describedby={descriptionId}
         data-testid="conflict-dialog"
-        className="w-full max-w-xl rounded-lg border border-slate-200 bg-white shadow-xl focus:outline-none"
+        className="focus:outline-hidden w-full max-w-xl rounded-lg border border-slate-200 bg-white shadow-xl"
       >
         <header className="border-b border-slate-200 px-6 py-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
