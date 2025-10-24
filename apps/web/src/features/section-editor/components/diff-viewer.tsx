@@ -51,7 +51,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({
   return (
     <section
       className={cn(
-        'flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm',
+        'shadow-xs flex w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white',
         className
       )}
       role="region"
@@ -112,7 +112,7 @@ export const DiffViewer: FC<DiffViewerProps> = ({
                     <span className="text-slate-600">{renderLineInfo(segment)}</span>
                   )}
                 </div>
-                <pre className="whitespace-pre-wrap break-words text-[13px] text-current">
+                <pre className="wrap-break-word whitespace-pre-wrap text-[13px] text-current">
                   {segment.content || '(empty line)'}
                 </pre>
               </li>

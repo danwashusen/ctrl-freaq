@@ -47,7 +47,7 @@ export function AccessibilityModeToggle({ mode, onToggle }: AccessibilityModeTog
         onKeyDown={handleKeyDown}
         aria-pressed={mode === 'high_contrast'}
         aria-label="Accessibility mode"
-        className="border-input bg-background focus-visible:outline-ring inline-flex items-center rounded-md border px-3 py-1 text-sm font-medium shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="border-input bg-background focus-visible:outline-ring shadow-xs focus-visible:outline-solid inline-flex items-center rounded-md border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {mode === 'high_contrast' ? 'High contrast' : 'Standard'}
       </button>

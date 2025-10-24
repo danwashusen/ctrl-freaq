@@ -105,7 +105,7 @@ export const DocumentQualityDashboard = ({
   return (
     <section
       data-testid="document-quality-dashboard"
-      className={cn('border-border bg-card space-y-4 rounded-lg border p-4 shadow-sm', className)}
+      className={cn('border-border bg-card shadow-xs space-y-4 rounded-lg border p-4', className)}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>

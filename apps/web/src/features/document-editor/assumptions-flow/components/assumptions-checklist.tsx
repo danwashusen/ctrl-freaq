@@ -134,7 +134,7 @@ const AssumptionPromptCard = ({ prompt, onRespond, disabled }: AssumptionPromptC
       return (
         <textarea
           id={inputId}
-          className="border-input focus-visible:ring-primary mt-2 w-full resize-y rounded-md border bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2"
+          className="border-input focus-visible:ring-primary shadow-xs focus-visible:outline-hidden mt-2 w-full resize-y rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2"
           value={textAnswer}
           onChange={event => setTextAnswer(event.target.value)}
           aria-describedby={`${prompt.id}-helper`}
@@ -197,7 +197,7 @@ const AssumptionPromptCard = ({ prompt, onRespond, disabled }: AssumptionPromptC
   };
 
   return (
-    <article className="border-border bg-card rounded-md border px-4 py-3 shadow-sm">
+    <article className="border-border bg-card shadow-xs rounded-md border px-4 py-3">
       <div className="flex items-start justify-between gap-2">
         <div>
           <label
@@ -255,7 +255,7 @@ const OverrideWarningBanner = ({ overridesOpen }: { overridesOpen: number }) => 
     className="flex items-start gap-3 rounded-md border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     data-testid="override-banner"
   >
-    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
     <div>
       <p className="font-medium">Resolve overrides before submission</p>
       <p>

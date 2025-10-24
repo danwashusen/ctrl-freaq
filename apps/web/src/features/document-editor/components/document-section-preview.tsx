@@ -209,7 +209,7 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
 
     return (
       <Card
-        className={cn('w-full border border-gray-200 shadow-sm dark:border-gray-800', className)}
+        className={cn('shadow-xs w-full border border-gray-200 dark:border-gray-800', className)}
         data-testid="section-preview"
       >
         <CardHeader className="flex flex-col gap-3 pb-3">

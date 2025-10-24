@@ -81,7 +81,7 @@ export const FormattingToolbar: FC<FormattingToolbarProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 shadow-sm',
+        'shadow-xs flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2',
         className
       )}
       role="toolbar"

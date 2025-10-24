@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
 import { createFixtureRequestHandler } from './src/lib/fixtures/e2e';
@@ -65,7 +66,7 @@ export default defineConfig(({ mode }) => {
   process.env.VITE_E2E = resolvedE2E;
   const isE2EEnabled = resolvedE2E === 'true';
 
-  const plugins: import('vite').Plugin[] = [react()];
+  const plugins: import('vite').Plugin[] = [tailwindcss(), react()];
   if (isE2EEnabled) {
     plugins.push(createE2EFixturePlugin(isE2EEnabled));
   }

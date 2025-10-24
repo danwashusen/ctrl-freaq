@@ -44,7 +44,7 @@ export const SectionRemediationList: FC<SectionRemediationListProps> = ({ items 
         return (
           <article
             key={item.ruleId}
-            className={`rounded-lg border p-4 shadow-sm transition-colors ${classes.container}`}
+            className={`shadow-xs rounded-lg border p-4 transition-colors ${classes.container}`}
             data-testid="remediation-card"
           >
             <header className="flex items-start justify-between gap-3">

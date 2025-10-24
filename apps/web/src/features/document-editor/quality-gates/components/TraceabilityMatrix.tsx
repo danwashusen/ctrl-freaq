@@ -165,7 +165,7 @@ export const TraceabilityMatrix: FC<TraceabilityMatrixProps> = ({
           {filteredRequirements.map(requirement => (
             <li
               key={`${requirement.requirementId}-${requirement.sectionId}`}
-              className="border-border/70 bg-background rounded-md border p-4 shadow-sm"
+              className="border-border/70 bg-background shadow-xs rounded-md border p-4"
             >
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div>

@@ -1357,7 +1357,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
         >
           <div
             className={cn(
-              'flex w-80 flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-800',
+              'flex w-80 shrink-0 flex-col border-r border-gray-200 dark:border-gray-800',
               sidebarCollapsed && 'w-12'
             )}
           >
@@ -1424,7 +1424,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
+            <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -1692,7 +1692,7 @@ console.log('code snippet');
                   )}
                 </div>
                 {(isCoAuthorOpen || isDocumentQaOpen) && activeSection ? (
-                  <div className="mt-6 w-full max-w-full space-y-6 lg:mt-0 lg:w-[360px] lg:flex-shrink-0">
+                  <div className="mt-6 w-full max-w-full space-y-6 lg:mt-0 lg:w-[360px] lg:shrink-0">
                     {isCoAuthorOpen ? (
                       <CoAuthorSidebar
                         documentTitle={documentTitle}

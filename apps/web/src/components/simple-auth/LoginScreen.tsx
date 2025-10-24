@@ -122,7 +122,7 @@ export const LoginScreen = ({
               <li key={user.id}>
                 <button
                   type="button"
-                  className={`bg-background focus:ring-primary w-full rounded-md border p-4 text-left shadow-sm transition focus:outline-none focus:ring-2 ${
+                  className={`bg-background focus:ring-primary shadow-xs focus:outline-hidden w-full rounded-md border p-4 text-left transition focus:ring-2 ${
                     isSelected ? 'border-primary bg-primary/5' : 'hover:border-primary'
                   }`}
                   data-testid="simple-auth-user-card"
