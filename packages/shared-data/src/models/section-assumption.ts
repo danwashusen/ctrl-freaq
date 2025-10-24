@@ -3,17 +3,26 @@ import { z, type ZodErrorMap } from 'zod';
 export const AssumptionResponseTypeSchema = z.enum(['single_select', 'multi_select', 'text']);
 export type AssumptionResponseType = z.infer<typeof AssumptionResponseTypeSchema>;
 
-const assumptionStatusErrorMap: ZodErrorMap = issue => {
+const assumptionStatusError: ZodErrorMap = issue => {
   if (issue.code === 'invalid_value') {
     return { message: 'Invalid enum value' };
   }
-  return issue.message ?? undefined;
+  return issue.message;
 };
 
+const ASSUMPTION_STATUS_VALUES = [
+  'pending',
+  'answered',
+  'deferred',
+  'escalated',
+  'override_skipped',
+] as const;
+type AssumptionStatusValue = (typeof ASSUMPTION_STATUS_VALUES)[number];
+
 export const AssumptionStatusSchema = z.enum(
-  ['pending', 'answered', 'deferred', 'escalated', 'override_skipped'],
+  ASSUMPTION_STATUS_VALUES as unknown as [AssumptionStatusValue, ...AssumptionStatusValue[]],
   {
-    error: assumptionStatusErrorMap,
+    error: assumptionStatusError,
   }
 );
 export type AssumptionStatus = z.infer<typeof AssumptionStatusSchema>;

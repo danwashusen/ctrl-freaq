@@ -10,21 +10,21 @@ export const DRAFT_CONFLICT_RESOLUTION_METHODS = [
 ] as const;
 export type DraftConflictResolutionMethod = (typeof DRAFT_CONFLICT_RESOLUTION_METHODS)[number];
 
-const detectedDuringErrorMap: ZodErrorMap = issue => {
+const detectedDuringError: ZodErrorMap = issue => {
   if (issue.code === 'invalid_type') {
     return { message: 'detectedDuring is required' };
   }
   if (issue.code === 'invalid_value') {
     return { message: 'Invalid detectedDuring value' };
   }
-  return issue.message ?? undefined;
+  return issue.message;
 };
 
-const resolvedByErrorMap: ZodErrorMap = issue => {
+const resolvedByError: ZodErrorMap = issue => {
   if (issue.code === 'invalid_value') {
     return { message: 'Invalid resolvedBy value' };
   }
-  return issue.message ?? undefined;
+  return issue.message;
 };
 
 const DraftConflictLogObjectSchema = z.object({
@@ -32,15 +32,27 @@ const DraftConflictLogObjectSchema = z.object({
   sectionId: z.string().min(1, 'sectionId must be provided'),
   draftId: z.string().min(1, 'draftId must be provided'),
   detectedAt: z.date(),
-  detectedDuring: z.enum(DRAFT_CONFLICT_DETECTION_POINTS, {
-    error: detectedDuringErrorMap,
-  }),
+  detectedDuring: z.enum(
+    DRAFT_CONFLICT_DETECTION_POINTS as unknown as [
+      DraftConflictDetectionPoint,
+      ...DraftConflictDetectionPoint[],
+    ],
+    {
+      error: detectedDuringError,
+    }
+  ),
   previousApprovedVersion: z.number().int().min(0, 'previousApprovedVersion must be non-negative'),
   latestApprovedVersion: z.number().int().min(0, 'latestApprovedVersion must be non-negative'),
   resolvedBy: z
-    .enum(DRAFT_CONFLICT_RESOLUTION_METHODS, {
-      error: resolvedByErrorMap,
-    })
+    .enum(
+      DRAFT_CONFLICT_RESOLUTION_METHODS as unknown as [
+        DraftConflictResolutionMethod,
+        ...DraftConflictResolutionMethod[],
+      ],
+      {
+        error: resolvedByError,
+      }
+    )
     .nullable(),
   resolutionNote: z.string().max(1000, 'resolutionNote too long').nullable(),
   createdAt: z.date(),

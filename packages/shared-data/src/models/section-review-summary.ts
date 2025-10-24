@@ -3,14 +3,14 @@ import { z, type ZodErrorMap } from 'zod';
 export const SECTION_REVIEW_STATUSES = ['pending', 'approved', 'changes_requested'] as const;
 export type SectionReviewStatus = (typeof SECTION_REVIEW_STATUSES)[number];
 
-const reviewStatusErrorMap: ZodErrorMap = issue => {
+const reviewStatusError: ZodErrorMap = issue => {
   if (issue.code === 'invalid_type') {
     return { message: 'reviewStatus is required' };
   }
   if (issue.code === 'invalid_value') {
     return { message: 'Invalid reviewStatus value' };
   }
-  return issue.message ?? undefined;
+  return issue.message;
 };
 
 const SectionReviewSummaryObjectSchema = z.object({
@@ -19,9 +19,12 @@ const SectionReviewSummaryObjectSchema = z.object({
   documentId: z.string().min(1, 'documentId must be provided'),
   draftId: z.string().min(1, 'draftId must be provided'),
   reviewerId: z.string().min(1, 'reviewerId must be provided'),
-  reviewStatus: z.enum(SECTION_REVIEW_STATUSES, {
-    error: reviewStatusErrorMap,
-  }),
+  reviewStatus: z.enum(
+    SECTION_REVIEW_STATUSES as unknown as [SectionReviewStatus, ...SectionReviewStatus[]],
+    {
+      error: reviewStatusError,
+    }
+  ),
   reviewerNote: z.string().min(1, 'reviewerNote is required').max(2000, 'reviewerNote too long'),
   submittedAt: z.date(),
   decidedAt: z.date().nullable(),

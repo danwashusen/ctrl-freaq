@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
-import type { CoreMessage } from 'ai';
+import type { AssistantContent, CoreMessage } from 'ai';
 
 export type ProposalIntent = 'explain' | 'outline' | 'improve';
 
@@ -46,12 +46,56 @@ export interface ProposalCompletedEvent {
     annotations?: Array<Record<string, unknown>>;
     diff?: Record<string, unknown>;
     rawText?: string;
+    parts?: Array<Record<string, unknown>>;
   };
 }
 
 export type ProposalProviderEvent =
   | ProposalStreamEvent<'progress', { status: string; elapsedMs: number }>
   | ProposalStreamEvent<'token', { value: string }>
+  | ProposalStreamEvent<'reasoning-start', { id: string }>
+  | ProposalStreamEvent<'reasoning-delta', { id: string; value: string }>
+  | ProposalStreamEvent<'reasoning-end', { id: string }>
+  | ProposalStreamEvent<
+      'tool-input-start',
+      {
+        id: string;
+        toolName: string;
+        providerExecuted?: boolean;
+        dynamic?: boolean;
+      }
+    >
+  | ProposalStreamEvent<'tool-input-delta', { id: string; value: string }>
+  | ProposalStreamEvent<'tool-input-end', { id: string }>
+  | ProposalStreamEvent<'tool-call', Record<string, unknown>>
+  | ProposalStreamEvent<'tool-result', Record<string, unknown>>
+  | ProposalStreamEvent<'tool-error', Record<string, unknown>>
+  | ProposalStreamEvent<
+      'start-step',
+      {
+        request: Record<string, unknown>;
+        warnings: Array<Record<string, unknown>>;
+      }
+    >
+  | ProposalStreamEvent<
+      'finish-step',
+      {
+        response: Record<string, unknown>;
+        usage: Record<string, unknown>;
+        finishReason?: string | null;
+        providerMetadata?: Record<string, unknown> | undefined;
+      }
+    >
+  | ProposalStreamEvent<'start', Record<string, unknown>>
+  | ProposalStreamEvent<
+      'finish',
+      {
+        finishReason: string | null;
+        totalUsage: Record<string, unknown>;
+      }
+    >
+  | ProposalStreamEvent<'abort', Record<string, unknown>>
+  | ProposalStreamEvent<'raw', { value: unknown }>
   | ProposalCompletedEvent;
 
 export interface ProposalProviderPayload {
@@ -64,6 +108,14 @@ export interface ProposalProviderPayload {
 export interface ProposalProvider {
   streamProposal: (payload: ProposalProviderPayload) => AsyncIterable<ProposalProviderEvent>;
 }
+
+const toRecord = (value: unknown): Record<string, unknown> => {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+};
+
+const toRecordArray = (values: Array<unknown> | undefined): Array<Record<string, unknown>> => {
+  return Array.isArray(values) ? values.map(toRecord) : [];
+};
 
 export interface ProposalSessionResult {
   sessionId: string;
@@ -151,8 +203,94 @@ const buildMessages = (payload: ProposalProviderPayload): CoreMessage[] => {
   ];
 };
 
-const parseCompletion = (rawText: string): ProposalCompletedEvent['data'] => {
+type AssistantResponseMessage = {
+  role?: string;
+  content?: AssistantContent;
+};
+
+const extractAssistantResponse = (
+  messages: Array<AssistantResponseMessage | Record<string, unknown>> | undefined
+): { text: string; parts: Array<Record<string, unknown>> } => {
+  if (!Array.isArray(messages)) {
+    return { text: '', parts: [] };
+  }
+
+  let aggregatedText = '';
+  const parts: Array<Record<string, unknown>> = [];
+
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') {
+      continue;
+    }
+
+    const role = 'role' in message ? (message.role as string | undefined) : undefined;
+    if (role !== 'assistant') {
+      continue;
+    }
+
+    const content = 'content' in message ? (message.content as AssistantContent) : undefined;
+    if (typeof content === 'string') {
+      if (content.length > 0) {
+        aggregatedText += content;
+        parts.push({ type: 'text', text: content });
+      }
+      continue;
+    }
+
+    if (!Array.isArray(content)) {
+      continue;
+    }
+
+    for (const part of content) {
+      if (!part || typeof part !== 'object') {
+        continue;
+      }
+      const record = toRecord(part);
+      const type = typeof record.type === 'string' ? record.type : undefined;
+      if (!type) {
+        continue;
+      }
+
+      if (type === 'text') {
+        const textValue = typeof record.text === 'string' ? record.text : '';
+        aggregatedText += textValue;
+        parts.push({ type, text: textValue });
+        continue;
+      }
+
+      const snapshot: Record<string, unknown> = { type };
+      for (const [key, value] of Object.entries(record)) {
+        if (key === 'type') {
+          continue;
+        }
+
+        let normalized: string | number | boolean | undefined;
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          normalized = value;
+        } else if (value instanceof URL) {
+          normalized = value.toString();
+        }
+
+        if (normalized !== undefined) {
+          // Keys originate from provider-authored message parts and are safe to project.
+          // eslint-disable-next-line security/detect-object-injection
+          snapshot[key] = normalized;
+        }
+      }
+
+      parts.push(snapshot);
+    }
+  }
+
+  return { text: aggregatedText, parts };
+};
+
+const parseCompletion = (
+  rawText: string,
+  parts: Array<Record<string, unknown>> | undefined
+): ProposalCompletedEvent['data'] => {
   const parsed = extractJsonObject(rawText);
+  const normalizedParts = parts ?? [];
   if (!parsed) {
     return {
       proposalId: randomUUID(),
@@ -160,6 +298,7 @@ const parseCompletion = (rawText: string): ProposalCompletedEvent['data'] => {
       annotations: [],
       diff: undefined,
       rawText,
+      parts: normalizedParts,
     };
   }
 
@@ -187,6 +326,7 @@ const parseCompletion = (rawText: string): ProposalCompletedEvent['data'] => {
     annotations,
     diff,
     rawText,
+    parts: normalizedParts,
   };
 };
 
@@ -211,7 +351,6 @@ export function createVercelAIProposalProvider(
         apiKey,
         baseURL: options.baseUrl ?? process.env.AI_SDK_BASE_URL,
       });
-
       const startedAt = Date.now();
       yield {
         type: 'progress',
@@ -229,26 +368,156 @@ export function createVercelAIProposalProvider(
       let buffer = '';
 
       for await (const part of result.fullStream) {
-        if (part.type === 'text-delta') {
-          buffer += part.textDelta;
-          yield { type: 'token', data: { value: part.textDelta } } satisfies ProposalProviderEvent;
-        }
-
-        if (part.type === 'step-finish' || part.type === 'finish') {
-          const elapsed = Date.now() - startedAt;
-          yield {
-            type: 'progress',
-            data: { status: 'awaiting-approval', elapsedMs: elapsed },
-          } satisfies ProposalProviderEvent;
-        }
-
-        if (part.type === 'error') {
-          const error = part.error instanceof Error ? part.error : new Error(String(part.error));
-          throw error;
+        switch (part.type) {
+          case 'text-delta': {
+            const delta = part.text;
+            buffer += delta;
+            yield { type: 'token', data: { value: delta } } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'reasoning-start': {
+            yield {
+              type: 'reasoning-start',
+              data: { id: part.id },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'reasoning-delta': {
+            yield {
+              type: 'reasoning-delta',
+              data: { id: part.id, value: part.text },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'reasoning-end': {
+            yield { type: 'reasoning-end', data: { id: part.id } } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-input-start': {
+            yield {
+              type: 'tool-input-start',
+              data: {
+                id: part.id,
+                toolName: part.toolName,
+                providerExecuted: part.providerExecuted,
+                dynamic: part.dynamic,
+              },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-input-delta': {
+            yield {
+              type: 'tool-input-delta',
+              data: { id: part.id, value: part.delta },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-input-end': {
+            yield { type: 'tool-input-end', data: { id: part.id } } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-call': {
+            const { type: _type, ...rest } = part;
+            yield { type: 'tool-call', data: toRecord(rest) } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-result': {
+            const { type: _type, ...rest } = part;
+            yield { type: 'tool-result', data: toRecord(rest) } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'tool-error': {
+            const { type: _type, ...rest } = part;
+            yield { type: 'tool-error', data: toRecord(rest) } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'start-step': {
+            yield {
+              type: 'start-step',
+              data: {
+                request: toRecord(part.request),
+                warnings: toRecordArray(part.warnings),
+              },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'finish-step': {
+            const elapsed = Date.now() - startedAt;
+            yield {
+              type: 'progress',
+              data: { status: 'awaiting-approval', elapsedMs: elapsed },
+            } satisfies ProposalProviderEvent;
+            yield {
+              type: 'finish-step',
+              data: {
+                response: toRecord(part.response),
+                usage: toRecord(part.usage),
+                finishReason: part.finishReason ?? null,
+                providerMetadata: part.providerMetadata
+                  ? toRecord(part.providerMetadata)
+                  : undefined,
+              },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'start': {
+            yield { type: 'start', data: {} } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'finish': {
+            const elapsed = Date.now() - startedAt;
+            yield {
+              type: 'progress',
+              data: { status: 'awaiting-approval', elapsedMs: elapsed },
+            } satisfies ProposalProviderEvent;
+            yield {
+              type: 'finish',
+              data: {
+                finishReason: part.finishReason ?? null,
+                totalUsage: toRecord(part.totalUsage),
+              },
+            } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'abort': {
+            yield { type: 'abort', data: {} } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'raw': {
+            yield { type: 'raw', data: { value: part.rawValue } } satisfies ProposalProviderEvent;
+            break;
+          }
+          case 'error': {
+            const error = part.error instanceof Error ? part.error : new Error(String(part.error));
+            throw error;
+          }
+          default: {
+            break;
+          }
         }
       }
 
-      const completion = parseCompletion(buffer);
+      let aggregatedText = buffer;
+      let assistantParts: Array<Record<string, unknown>> = [];
+
+      try {
+        const response = await result.response;
+        const extracted = extractAssistantResponse(
+          response && 'messages' in response
+            ? (response.messages as Array<AssistantResponseMessage | Record<string, unknown>>)
+            : undefined
+        );
+        if (extracted.text && extracted.text.length > 0) {
+          aggregatedText = extracted.text;
+        }
+        if (extracted.parts.length > 0) {
+          assistantParts = extracted.parts;
+        }
+      } catch {
+        // Ignore response parsing errors and fall back to buffered text
+      }
+
+      const completion = parseCompletion(aggregatedText, assistantParts);
       return { type: 'completed', data: completion } as ProposalCompletedEvent;
     },
   } satisfies ProposalProvider;

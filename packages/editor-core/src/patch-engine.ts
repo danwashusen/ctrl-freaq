@@ -10,15 +10,17 @@ import { z, type ZodErrorMap } from 'zod';
 import { logger } from './logger';
 
 // Validation schemas
-const patchOperationErrorMap: ZodErrorMap = issue => {
+const patchOperationError: ZodErrorMap = issue => {
   if (issue.code === 'invalid_value') {
     return { message: 'Invalid enum value' };
   }
-  return issue.message ?? undefined;
+  return issue.message;
 };
 
 export const PatchDiffSchema = z.object({
-  op: z.enum(['add', 'remove', 'replace'], { error: patchOperationErrorMap }),
+  op: z.enum(['add', 'remove', 'replace'] as ['add', 'remove', 'replace'], {
+    error: patchOperationError,
+  }),
   path: z.string(),
   value: z.string().optional(),
   oldValue: z.string().optional(),
