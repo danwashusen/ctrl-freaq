@@ -24,7 +24,7 @@ export interface AIProvider {
 export interface GenerationOptions {
   model?: string;
   temperature?: number;
-  maxTokens?: number;
+  maxOutputTokens?: number;
   stream?: boolean;
 }
 

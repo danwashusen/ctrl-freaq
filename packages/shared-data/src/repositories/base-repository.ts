@@ -12,12 +12,12 @@ import type { QueryOptions } from '../types/index.js';
 export abstract class BaseRepository<T extends { id: string; createdAt: Date; updatedAt: Date }> {
   protected db: Database.Database;
   protected tableName: string;
-  protected schema: z.ZodSchema<T>;
+  protected schema: z.ZodType<T>;
   private statementCache = new Map<string, Database.Statement>();
   private readonly supportsSoftDelete: boolean;
   private readonly deletedColumnName: string | null;
 
-  constructor(db: Database.Database, tableName: string, schema: z.ZodSchema<T>) {
+  constructor(db: Database.Database, tableName: string, schema: z.ZodType<T>) {
     this.db = db;
     this.tableName = tableName;
     this.schema = schema;

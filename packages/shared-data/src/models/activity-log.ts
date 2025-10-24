@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 
 import { BaseRepository } from '../repositories/base-repository.js';
@@ -6,6 +7,8 @@ import { BaseRepository } from '../repositories/base-repository.js';
 /**
  * ActivityLog entity schema
  */
+const ipAddressSchema = z.string().refine(value => isIP(value) !== 0, 'Invalid IP address');
+
 export const ActivityLogSchema = z.object({
   id: z.string().uuid('Invalid activity log ID format'),
   userId: z.string().min(1, 'User ID is required'),
@@ -13,7 +16,7 @@ export const ActivityLogSchema = z.object({
   resourceType: z.string().min(1, 'Resource type is required').max(50, 'Resource type too long'),
   resourceId: z.string().min(1, 'Resource ID is required'),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
-  ipAddress: z.union([z.ipv4(), z.ipv6()]).optional().nullable(),
+  ipAddress: ipAddressSchema.optional().nullable(),
   userAgent: z.string().max(500, 'User agent too long').optional().nullable(),
   createdAt: z.date(),
   updatedAt: z.date(),

@@ -1,15 +1,5 @@
 import { z } from 'zod';
 
-export interface DiffPreviewAnnotation {
-  segmentId: string;
-  segmentType: 'added' | 'removed' | 'context';
-  originTurnId: string;
-  promptId: string;
-  rationale: string;
-  confidence: number;
-  citations: string[];
-}
-
 const IsoTimestampSchema = z
   .string()
   .min(1, 'Timestamp is required')
@@ -25,7 +15,7 @@ const DiffSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-const ProposalAnnotationSchema: z.ZodType<DiffPreviewAnnotation> = z.object({
+const ProposalAnnotationSchema = z.object({
   segmentId: z.string().min(1, 'segmentId is required'),
   segmentType: z.enum(['added', 'removed', 'context']),
   originTurnId: z.string().min(1, 'originTurnId is required'),
@@ -34,6 +24,8 @@ const ProposalAnnotationSchema: z.ZodType<DiffPreviewAnnotation> = z.object({
   confidence: z.number().min(0).max(1),
   citations: z.array(z.string()).default([]),
 });
+
+export type DiffPreviewAnnotation = z.infer<typeof ProposalAnnotationSchema>;
 
 const DEFAULT_PROPOSAL_TTL_MS = 10 * 60 * 1000;
 
