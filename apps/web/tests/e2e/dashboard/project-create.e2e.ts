@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 import type { CreateProjectRequest, ProjectData } from '@/lib/api';
+import { resetFixtureProjectsStore } from '@/lib/api';
 
 import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Dashboard Project Creation', () => {
+  test.beforeEach(() => {
+    resetFixtureProjectsStore();
+  });
+
   test('creates a project from the dashboard modal and shows lifecycle defaults', async ({
     page,
   }) => {

@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
 
 import { selectSimpleAuthUser } from '../support/draft-recovery';
+import { resetFixtureProjectsStore } from '@/lib/api';
 
 test.describe('Dashboard Project Update', () => {
+  test.beforeEach(() => {
+    resetFixtureProjectsStore();
+  });
+
   test('updates project metadata and surfaces version conflict messaging', async ({ page }) => {
     const projectId = 'proj-update-flow';
     let lastModifiedHeader = '2026-05-10T12:00:00.000Z';

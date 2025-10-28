@@ -14,6 +14,13 @@ const LOG_LEVELS: LogLevel = {
   FATAL: 50,
 };
 
+const resolvedEnv = ((): { DEV?: boolean; VITE_API_BASE_URL?: string } => {
+  if (typeof import.meta !== 'undefined' && typeof import.meta.env === 'object') {
+    return import.meta.env as { DEV?: boolean; VITE_API_BASE_URL?: string };
+  }
+  return { DEV: false };
+})();
+
 interface LogEntry {
   timestamp: string;
   level: keyof LogLevel;
@@ -55,7 +62,7 @@ class BrowserLogger {
   constructor(options: LoggerOptions = {}) {
     this.level = LOG_LEVELS[options.level || 'INFO'];
     this.apiBaseUrl =
-      options.apiBaseUrl || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+      options.apiBaseUrl || resolvedEnv.VITE_API_BASE_URL || 'http://localhost:5001';
     this.batchSize = options.batchSize || 10;
     this.flushInterval = options.flushInterval || 5000; // 5 seconds
     this.enableRemoteLogging = options.enableRemoteLogging !== false;
@@ -265,8 +272,8 @@ class BrowserLogger {
 }
 
 export const logger = new BrowserLogger({
-  level: import.meta.env.DEV ? 'DEBUG' : 'INFO',
-  enableRemoteLogging: !import.meta.env.DEV, // Only log to server in production
+  level: resolvedEnv.DEV ? 'DEBUG' : 'INFO',
+  enableRemoteLogging: !resolvedEnv.DEV, // Only log to server in production
 });
 
 export default logger;

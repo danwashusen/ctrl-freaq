@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 import type { ProjectData } from '@/lib/api';
+import { resetFixtureProjectsStore } from '@/lib/api';
 
 import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Dashboard Project Archive and Restore', () => {
+  test.beforeEach(() => {
+    resetFixtureProjectsStore();
+  });
+
   test('archives an active project and restores it from archived view', async ({ page }) => {
     const projectId = 'proj-archive-flow';
     const baseProject: ProjectData = {

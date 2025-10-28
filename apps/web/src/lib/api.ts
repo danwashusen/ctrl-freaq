@@ -294,6 +294,7 @@ class ApiClient {
   private baseUrl: string;
   private getAuthToken?: () => Promise<string | null>;
   private requestId: string;
+  private static fixtureProjectStores = new Set<ProjectData[]>();
   private fixtureProjects: ProjectData[] | null = null;
   private lastAuthToken: string | null = null;
   private lastResponseMetadata: { lastModified?: string } = {};
@@ -423,8 +424,15 @@ class ApiClient {
   private resolveFixtureProjectsStore(): ProjectData[] {
     if (!this.fixtureProjects) {
       this.fixtureProjects = [];
+      ApiClient.fixtureProjectStores.add(this.fixtureProjects);
     }
     return this.fixtureProjects;
+  }
+
+  static resetFixtureProjectStores(): void {
+    for (const store of ApiClient.fixtureProjectStores) {
+      store.length = 0;
+    }
   }
 
   private resolveFixtureUserId(): string {
@@ -967,6 +975,10 @@ class ApiClient {
 }
 
 export const createApiClient = (options?: ApiClientOptions) => new ApiClient(options);
+
+export const resetFixtureProjectsStore = (): void => {
+  ApiClient.resetFixtureProjectStores();
+};
 
 export default ApiClient;
 

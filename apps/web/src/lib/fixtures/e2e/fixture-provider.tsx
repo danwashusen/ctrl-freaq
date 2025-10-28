@@ -9,6 +9,7 @@ import {
   fixtureErrors,
 } from './index';
 import type { DocumentFixture, SectionFixture } from './types';
+import { resetFixtureProjectsStore } from '@/lib/api';
 
 export class FixtureNotFoundError extends Error {
   constructor(message: string) {
@@ -32,6 +33,7 @@ export interface E2EFixtureProviderProps {
 
 export function E2EFixtureProvider({ children }: E2EFixtureProviderProps) {
   useEffect(() => {
+    resetFixtureProjectsStore();
     // eslint-disable-next-line no-console -- Fixture banner is intentional for QA visibility.
     console.info(
       '[CTRL FreaQ] E2E fixtures enabled — serving deterministic document data for Playwright flows.'

@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
 
 import { selectSimpleAuthUser } from '../support/draft-recovery';
+import { resetFixtureProjectsStore } from '@/lib/api';
 
 test.describe('Dashboard Project Navigation', () => {
+  test.beforeEach(() => {
+    resetFixtureProjectsStore();
+  });
+
   test('preserves project list search and scroll state after viewing project details', async ({
     page,
   }) => {
