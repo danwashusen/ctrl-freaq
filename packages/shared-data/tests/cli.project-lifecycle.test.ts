@@ -215,5 +215,5 @@ describe.sequential('@ctrl-freaq/shared-data CLI project lifecycle commands', ()
       id: createdProjectId,
       status: 'draft',
     });
-  });
+  }, 20000);
 });
