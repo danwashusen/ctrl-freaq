@@ -73,7 +73,7 @@
     "prettier-plugin-tailwindcss": "^0.6.8",
     "turbo": "^2.0.12",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
+    "vitest": "^4.0.4",
     "yaml-eslint-parser": "^1.2.3"
   },
   "packageManager": "pnpm@9.0.0",
