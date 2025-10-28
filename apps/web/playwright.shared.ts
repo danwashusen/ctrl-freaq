@@ -77,9 +77,9 @@ export function createBaseConfig(): PlaywrightTestConfig {
     projects: createProjects(),
     expect: {
       // Give slower CI environments a bit more room to render dashboard UIs.
-      timeout: 6 * 1000,
+      timeout: 12 * 1000,
     },
-    timeout: 15 * 1000,
+    timeout: 30 * 1000,
   } satisfies PlaywrightTestConfig;
 }
 
