@@ -333,20 +333,17 @@ describe('project lifecycle telemetry events', () => {
       requestId: 'req-123',
     });
 
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
-      '[projects.telemetry] projects.lifecycle.create',
-      {
-        message: 'Project lifecycle create metric recorded',
-        payload: {
-          durationMs: 1544,
-          projectId: 'project-alpha',
-          visibility: 'workspace',
-          result: 'success',
-          triggeredAt: '2025-10-26T11:00:00.000Z',
-          requestId: 'req-123',
-        },
-      }
-    );
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[projects.telemetry] projects.lifecycle.create', {
+      message: 'Project lifecycle create metric recorded',
+      payload: {
+        durationMs: 1544,
+        projectId: 'project-alpha',
+        visibility: 'workspace',
+        result: 'success',
+        triggeredAt: '2025-10-26T11:00:00.000Z',
+        requestId: 'req-123',
+      },
+    });
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(infoMock).not.toHaveBeenCalled();
     expect(warnMock).not.toHaveBeenCalled();
@@ -363,20 +360,17 @@ describe('project lifecycle telemetry events', () => {
       errorMessage: 'CONFLICT',
     });
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '[projects.telemetry] projects.lifecycle.create',
-      {
-        message: 'Project lifecycle create metric recorded',
-        payload: {
-          durationMs: 0,
-          projectId: undefined,
-          visibility: 'private',
-          result: 'error',
-          triggeredAt: '2025-10-26T11:05:00.000Z',
-          errorMessage: 'CONFLICT',
-        },
-      }
-    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[projects.telemetry] projects.lifecycle.create', {
+      message: 'Project lifecycle create metric recorded',
+      payload: {
+        durationMs: 0,
+        projectId: undefined,
+        visibility: 'private',
+        result: 'error',
+        triggeredAt: '2025-10-26T11:05:00.000Z',
+        errorMessage: 'CONFLICT',
+      },
+    });
   });
 
   it('logs dashboard hydration timings', async () => {

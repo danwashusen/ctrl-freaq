@@ -7,7 +7,13 @@ import type { QueryOptions, Repository } from '../repositories/index.js';
 export const PROJECT_VISIBILITY_VALUES = ['private', 'workspace'] as const;
 export type ProjectVisibility = (typeof PROJECT_VISIBILITY_VALUES)[number];
 
-export const PROJECT_STATUS_VALUES = ['draft', 'active', 'paused', 'completed', 'archived'] as const;
+export const PROJECT_STATUS_VALUES = [
+  'draft',
+  'active',
+  'paused',
+  'completed',
+  'archived',
+] as const;
 export type ProjectStatus = (typeof PROJECT_STATUS_VALUES)[number];
 
 const VisibilitySchema = z.enum(PROJECT_VISIBILITY_VALUES);
@@ -285,14 +291,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
   }
 
   async findManyByUserId(userId: string, options: ProjectListOptions = {}): Promise<Project[]> {
-    const {
-      searchTerm,
-      includeArchived = false,
-      limit,
-      offset,
-      orderBy,
-      orderDirection,
-    } = options;
+    const { searchTerm, includeArchived = false, limit, offset, orderBy, orderDirection } = options;
 
     const { column, direction } = resolveOrdering(orderBy, orderDirection);
     const params: unknown[] = [userId];
@@ -305,8 +304,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
 
     if (typeof searchTerm === 'string' && searchTerm.trim().length > 0) {
       const like = `%${searchTerm.trim().toLowerCase()}%`;
-      query +=
-        ` AND (LOWER(name) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(IFNULL(description, '')) LIKE ? OR LOWER(IFNULL(goal_summary, '')) LIKE ?)`;
+      query += ` AND (LOWER(name) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(IFNULL(description, '')) LIKE ? OR LOWER(IFNULL(goal_summary, '')) LIKE ?)`;
       params.push(like, like, like, like);
     }
 
@@ -341,8 +339,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
 
     if (typeof searchTerm === 'string' && searchTerm.trim().length > 0) {
       const like = `%${searchTerm.trim().toLowerCase()}%`;
-      query +=
-        ` AND (LOWER(name) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(IFNULL(description, '')) LIKE ? OR LOWER(IFNULL(goal_summary, '')) LIKE ?)`;
+      query += ` AND (LOWER(name) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(IFNULL(description, '')) LIKE ? OR LOWER(IFNULL(goal_summary, '')) LIKE ?)`;
       params.push(like, like, like, like);
     }
 
@@ -422,9 +419,9 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
       id
     );
 
-    const row = this.db
-      .prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`)
-      .get(id) as Record<string, unknown> | undefined;
+    const row = this.db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`).get(id) as
+      | Record<string, unknown>
+      | undefined;
 
     if (!row) {
       throw new Error(`Failed to load archived project with id: ${id}`);
@@ -442,8 +439,7 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
       return project;
     }
 
-    const restoredStatus =
-      project.archivedStatusBefore ?? PROJECT_CONSTANTS.RESTORED_STATUS;
+    const restoredStatus = project.archivedStatusBefore ?? PROJECT_CONSTANTS.RESTORED_STATUS;
     const stmt = this.db.prepare(
       `UPDATE ${this.tableName}
         SET status = ?, archived_status_before = NULL, deleted_at = NULL, deleted_by = NULL, updated_at = ?, updated_by = ?
@@ -452,9 +448,9 @@ export class ProjectRepositoryImpl extends BaseRepository<Project> implements Pr
     const timestamp = restoredAt.toISOString();
     stmt.run(restoredStatus, timestamp, restoredBy, id);
 
-    const row = this.db
-      .prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`)
-      .get(id) as Record<string, unknown> | undefined;
+    const row = this.db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`).get(id) as
+      | Record<string, unknown>
+      | undefined;
 
     if (!row) {
       throw new Error(`Failed to load restored project with id: ${id}`);

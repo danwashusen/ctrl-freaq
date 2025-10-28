@@ -251,101 +251,97 @@ describe('Project CRUD Integration Tests', () => {
     });
   });
 
+  describe('Project Listing', () => {
+    test('lists multiple projects with lifecycle metadata and pagination', async () => {
+      const authHeader = { Authorization: `Bearer ${mockJwtToken}` };
+      const payloads = [
+        {
+          name: 'Dashboard Alpha',
+          description: 'Alpha project',
+          visibility: 'workspace',
+          goalTargetDate: '2026-07-01',
+          goalSummary: 'Hit alpha milestone',
+        },
+        {
+          name: 'Dashboard Bravo',
+          description: 'Bravo project',
+          visibility: 'private',
+          goalTargetDate: '2026-08-15',
+          goalSummary: 'Bravo milestone',
+        },
+        {
+          name: 'Dashboard Charlie',
+          description: 'Charlie project',
+          visibility: 'workspace',
+          goalTargetDate: '2026-09-10',
+          goalSummary: 'Charlie milestone',
+        },
+      ];
 
-describe('Project Listing', () => {
-  test('lists multiple projects with lifecycle metadata and pagination', async () => {
-    const authHeader = { Authorization: `Bearer ${mockJwtToken}` };
-    const payloads = [
-      {
-        name: 'Dashboard Alpha',
-        description: 'Alpha project',
-        visibility: 'workspace',
-        goalTargetDate: '2026-07-01',
-        goalSummary: 'Hit alpha milestone',
-      },
-      {
-        name: 'Dashboard Bravo',
-        description: 'Bravo project',
-        visibility: 'private',
-        goalTargetDate: '2026-08-15',
-        goalSummary: 'Bravo milestone',
-      },
-      {
-        name: 'Dashboard Charlie',
-        description: 'Charlie project',
-        visibility: 'workspace',
-        goalTargetDate: '2026-09-10',
-        goalSummary: 'Charlie milestone',
-      },
-    ];
+      for (const payload of payloads) {
+        const response = await request(app).post('/api/v1/projects').set(authHeader).send(payload);
 
-    for (const payload of payloads) {
-      const response = await request(app)
+        if (response.status !== 201 && response.status !== 409) {
+          expect(response.status).toBe(201);
+        }
+      }
+
+      const firstPage = await request(app)
+        .get('/api/v1/projects?limit=2&offset=0')
+        .set(authHeader)
+        .expect(200)
+        .expect('Content-Type', /json/);
+
+      expect(firstPage.body).toMatchObject({ limit: 2, offset: 0, total: payloads.length });
+      expect(firstPage.body.projects).toHaveLength(2);
+
+      const firstProject = firstPage.body.projects[0];
+      expect(firstProject).toMatchObject({
+        id: expect.any(String),
+        ownerUserId: expect.any(String),
+        name: expect.any(String),
+        slug: expect.any(String),
+        visibility: expect.stringMatching(/^(private|workspace)$/),
+        status: expect.stringMatching(/^(draft|active|paused|completed|archived)$/),
+      });
+      expect(firstProject).toHaveProperty('goalTargetDate');
+      expect(firstProject).toHaveProperty('goalSummary');
+      expect(firstProject).toHaveProperty('updatedAt');
+      expect(firstProject.lastModified).toBe(firstProject.updatedAt);
+
+      const secondPage = await request(app)
+        .get('/api/v1/projects?limit=2&offset=2')
+        .set(authHeader)
+        .expect(200)
+        .expect('Content-Type', /json/);
+
+      expect(secondPage.body).toMatchObject({ limit: 2, offset: 2, total: payloads.length });
+      expect(secondPage.body.projects.length).toBeLessThanOrEqual(1);
+      if (secondPage.body.projects.length === 1) {
+        const [archivedCandidate] = secondPage.body.projects;
+        expect(archivedCandidate.lastModified).toBe(archivedCandidate.updatedAt);
+      }
+    });
+
+    test('excludes archived projects by default and includes them when requested', async () => {
+      const authHeader = { Authorization: `Bearer ${mockJwtToken}` };
+
+      const active = await request(app)
         .post('/api/v1/projects')
         .set(authHeader)
-        .send(payload);
+        .send({ name: 'Active Project', visibility: 'workspace' })
+        .expect(201);
 
-      if (response.status !== 201 && response.status !== 409) {
-        expect(response.status).toBe(201);
-      }
-    }
+      const archived = await request(app)
+        .post('/api/v1/projects')
+        .set(authHeader)
+        .send({ name: 'Archived Project', visibility: 'workspace' })
+        .expect(201);
 
-    const firstPage = await request(app)
-      .get('/api/v1/projects?limit=2&offset=0')
-      .set(authHeader)
-      .expect(200)
-      .expect('Content-Type', /json/);
-
-    expect(firstPage.body).toMatchObject({ limit: 2, offset: 0, total: payloads.length });
-    expect(firstPage.body.projects).toHaveLength(2);
-
-    const firstProject = firstPage.body.projects[0];
-    expect(firstProject).toMatchObject({
-      id: expect.any(String),
-      ownerUserId: expect.any(String),
-      name: expect.any(String),
-      slug: expect.any(String),
-      visibility: expect.stringMatching(/^(private|workspace)$/),
-      status: expect.stringMatching(/^(draft|active|paused|completed|archived)$/),
-    });
-    expect(firstProject).toHaveProperty('goalTargetDate');
-    expect(firstProject).toHaveProperty('goalSummary');
-    expect(firstProject).toHaveProperty('updatedAt');
-    expect(firstProject.lastModified).toBe(firstProject.updatedAt);
-
-    const secondPage = await request(app)
-      .get('/api/v1/projects?limit=2&offset=2')
-      .set(authHeader)
-      .expect(200)
-      .expect('Content-Type', /json/);
-
-    expect(secondPage.body).toMatchObject({ limit: 2, offset: 2, total: payloads.length });
-    expect(secondPage.body.projects.length).toBeLessThanOrEqual(1);
-    if (secondPage.body.projects.length === 1) {
-      const [archivedCandidate] = secondPage.body.projects;
-      expect(archivedCandidate.lastModified).toBe(archivedCandidate.updatedAt);
-    }
-  });
-
-  test('excludes archived projects by default and includes them when requested', async () => {
-    const authHeader = { Authorization: `Bearer ${mockJwtToken}` };
-
-    const active = await request(app)
-      .post('/api/v1/projects')
-      .set(authHeader)
-      .send({ name: 'Active Project', visibility: 'workspace' })
-      .expect(201);
-
-    const archived = await request(app)
-      .post('/api/v1/projects')
-      .set(authHeader)
-      .send({ name: 'Archived Project', visibility: 'workspace' })
-      .expect(201);
-
-    const db = app.locals.appContext.database as SqliteDatabase;
-    const archivedAt = '2026-08-15T12:00:00.000Z';
-    db.prepare(
-      `UPDATE projects
+      const db = app.locals.appContext.database as SqliteDatabase;
+      const archivedAt = '2026-08-15T12:00:00.000Z';
+      db.prepare(
+        `UPDATE projects
         SET status = ?,
             archived_status_before = ?,
             deleted_at = ?,
@@ -353,43 +349,45 @@ describe('Project Listing', () => {
             updated_at = ?,
             updated_by = ?
         WHERE id = ?`
-    ).run('archived', 'active', archivedAt, mockUserId, archivedAt, mockUserId, archived.body.id);
+      ).run('archived', 'active', archivedAt, mockUserId, archivedAt, mockUserId, archived.body.id);
 
-    const defaultList = await request(app)
-      .get('/api/v1/projects')
-      .set(authHeader)
-      .expect(200)
-      .expect('Content-Type', /json/);
+      const defaultList = await request(app)
+        .get('/api/v1/projects')
+        .set(authHeader)
+        .expect(200)
+        .expect('Content-Type', /json/);
 
-    expect(defaultList.body.total).toBe(1);
-    expect(defaultList.body.projects).toHaveLength(1);
-    expect(defaultList.body.projects[0].id).toBe(active.body.id);
+      expect(defaultList.body.total).toBe(1);
+      expect(defaultList.body.projects).toHaveLength(1);
+      expect(defaultList.body.projects[0].id).toBe(active.body.id);
 
-    const explicitFalse = await request(app)
-      .get('/api/v1/projects?includeArchived=false')
-      .set(authHeader)
-      .expect(200)
-      .expect('Content-Type', /json/);
+      const explicitFalse = await request(app)
+        .get('/api/v1/projects?includeArchived=false')
+        .set(authHeader)
+        .expect(200)
+        .expect('Content-Type', /json/);
 
-    expect(explicitFalse.body.total).toBe(1);
-    expect(explicitFalse.body.projects).toHaveLength(1);
-    expect(explicitFalse.body.projects[0].id).toBe(active.body.id);
+      expect(explicitFalse.body.total).toBe(1);
+      expect(explicitFalse.body.projects).toHaveLength(1);
+      expect(explicitFalse.body.projects[0].id).toBe(active.body.id);
 
-    const withArchived = await request(app)
-      .get('/api/v1/projects?includeArchived=true')
-      .set(authHeader)
-      .expect(200)
-      .expect('Content-Type', /json/);
+      const withArchived = await request(app)
+        .get('/api/v1/projects?includeArchived=true')
+        .set(authHeader)
+        .expect(200)
+        .expect('Content-Type', /json/);
 
-    expect(withArchived.body.total).toBe(2);
-    const archivedEntry = withArchived.body.projects.find((p: Record<string, unknown>) => p.id === archived.body.id);
-    expect(archivedEntry).toBeDefined();
-    expect(archivedEntry?.status).toBe('archived');
-    expect(archivedEntry?.deletedAt).toBe(archivedAt);
-    expect(archivedEntry?.deletedBy).toBe(mockUserId);
-    expect(archivedEntry?.lastModified).toBe(archivedEntry?.updatedAt);
+      expect(withArchived.body.total).toBe(2);
+      const archivedEntry = withArchived.body.projects.find(
+        (p: Record<string, unknown>) => p.id === archived.body.id
+      );
+      expect(archivedEntry).toBeDefined();
+      expect(archivedEntry?.status).toBe('archived');
+      expect(archivedEntry?.deletedAt).toBe(archivedAt);
+      expect(archivedEntry?.deletedBy).toBe(mockUserId);
+      expect(archivedEntry?.lastModified).toBe(archivedEntry?.updatedAt);
+    });
   });
-});
 
   describe('Project Update Operations', () => {
     const createProject = async (payload: Record<string, unknown> = {}) => {
@@ -526,9 +524,7 @@ describe('Project Listing', () => {
 
       const persisted = getDbProject(id);
       expect(persisted?.description).toBe('Original copy');
-      expect(new Date(persisted?.updatedAt ?? '').getTime()).toBe(
-        new Date(lastModified).getTime()
-      );
+      expect(new Date(persisted?.updatedAt ?? '').getTime()).toBe(new Date(lastModified).getTime());
     });
 
     test('enforces valid lifecycle transitions', async () => {
@@ -625,24 +621,24 @@ describe('Project Listing', () => {
         .send({ status: 'active' })
         .expect(200);
 
-      await request(app)
-        .delete(`/api/v1/projects/${created.body.id}`)
-        .set(authHeader)
-        .expect(204);
+      await request(app).delete(`/api/v1/projects/${created.body.id}`).set(authHeader).expect(204);
 
-      const defaultList = await request(app)
-        .get('/api/v1/projects')
-        .set(authHeader)
-        .expect(200);
+      const defaultList = await request(app).get('/api/v1/projects').set(authHeader).expect(200);
 
       const includeArchived = await request(app)
         .get('/api/v1/projects?includeArchived=true')
         .set(authHeader)
         .expect(200);
 
-      expect(defaultList.body.projects.some((project: Record<string, unknown>) => project.id === created.body.id)).toBe(false);
+      expect(
+        defaultList.body.projects.some(
+          (project: Record<string, unknown>) => project.id === created.body.id
+        )
+      ).toBe(false);
 
-      const archivedProject = includeArchived.body.projects.find((project: Record<string, unknown>) => project.id === created.body.id);
+      const archivedProject = includeArchived.body.projects.find(
+        (project: Record<string, unknown>) => project.id === created.body.id
+      );
       expect(archivedProject).toMatchObject({
         status: 'archived',
         archivedStatusBefore: 'active',
@@ -655,12 +651,14 @@ describe('Project Listing', () => {
         .prepare(
           `SELECT status, archived_status_before as archivedStatusBefore, deleted_at as deletedAt, deleted_by as deletedBy FROM projects WHERE id = ?`
         )
-        .get(created.body.id) as {
-          status?: string;
-          archivedStatusBefore?: string | null;
-          deletedAt?: string | null;
-          deletedBy?: string | null;
-        } | undefined;
+        .get(created.body.id) as
+        | {
+            status?: string;
+            archivedStatusBefore?: string | null;
+            deletedAt?: string | null;
+            deletedBy?: string | null;
+          }
+        | undefined;
 
       expect(row).toMatchObject({
         status: 'archived',
@@ -701,10 +699,7 @@ describe('Project Listing', () => {
         .send({ status: 'completed' })
         .expect(200);
 
-      await request(app)
-        .delete(`/api/v1/projects/${created.body.id}`)
-        .set(authHeader)
-        .expect(204);
+      await request(app).delete(`/api/v1/projects/${created.body.id}`).set(authHeader).expect(204);
 
       const restoreResponse = await request(app)
         .post(`/api/v1/projects/${created.body.id}/restore`)
@@ -721,12 +716,14 @@ describe('Project Listing', () => {
         .prepare(
           `SELECT status, archived_status_before as archivedStatusBefore, deleted_at as deletedAt, deleted_by as deletedBy FROM projects WHERE id = ?`
         )
-        .get(created.body.id) as {
-          status?: string;
-          archivedStatusBefore?: string | null;
-          deletedAt?: string | null;
-          deletedBy?: string | null;
-        } | undefined;
+        .get(created.body.id) as
+        | {
+            status?: string;
+            archivedStatusBefore?: string | null;
+            deletedAt?: string | null;
+            deletedBy?: string | null;
+          }
+        | undefined;
 
       expect(row).toMatchObject({
         status: 'completed',
@@ -746,10 +743,7 @@ describe('Project Listing', () => {
         .send({ name: projectName })
         .expect(201);
 
-      await request(app)
-        .delete(`/api/v1/projects/${created.body.id}`)
-        .set(authHeader)
-        .expect(204);
+      await request(app).delete(`/api/v1/projects/${created.body.id}`).set(authHeader).expect(204);
 
       const recreate = await request(app)
         .post('/api/v1/projects')
@@ -797,7 +791,7 @@ describe('Project Listing', () => {
       expect(allowHeaders, 'access-control-allow-headers should be returned').toBeDefined();
       const allowHeadersValue = Array.isArray(allowHeaders)
         ? allowHeaders.join(', ')
-        : allowHeaders ?? '';
+        : (allowHeaders ?? '');
       expect(allowHeadersValue.toLowerCase()).toContain('x-client-timezone-offset');
     });
   });

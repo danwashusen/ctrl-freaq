@@ -480,7 +480,8 @@ describe('Projects API Contract Tests', () => {
         .expect(201);
 
       const lastModified =
-        (created.headers['last-modified'] as string | undefined) ?? (created.body.updatedAt as string);
+        (created.headers['last-modified'] as string | undefined) ??
+        (created.body.updatedAt as string);
 
       await request(app)
         .patch(`/api/v1/projects/${created.body.id}`)
@@ -505,8 +506,14 @@ describe('Projects API Contract Tests', () => {
         .expect(200)
         .expect('Content-Type', /application\/json/);
 
-      expect(defaultList.body.projects.find((project: Record<string, unknown>) => project.id === created.body.id)).toBeUndefined();
-      const archivedEntry = includeArchived.body.projects.find((project: Record<string, unknown>) => project.id === created.body.id);
+      expect(
+        defaultList.body.projects.find(
+          (project: Record<string, unknown>) => project.id === created.body.id
+        )
+      ).toBeUndefined();
+      const archivedEntry = includeArchived.body.projects.find(
+        (project: Record<string, unknown>) => project.id === created.body.id
+      );
       expect(archivedEntry).toMatchObject({
         status: 'archived',
         deletedBy: created.body.ownerUserId,

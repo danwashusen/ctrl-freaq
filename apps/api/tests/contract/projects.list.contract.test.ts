@@ -116,10 +116,7 @@ describe('Projects List API Contract', () => {
       .send({ name: `Archived ${uuidv4()}`, visibility: 'workspace' })
       .expect(201);
 
-    await request(app)
-      .delete(`/api/v1/projects/${archived.body.id}`)
-      .set(authHeader)
-      .expect(204);
+    await request(app).delete(`/api/v1/projects/${archived.body.id}`).set(authHeader).expect(204);
 
     const response = await request(app)
       .get('/api/v1/projects?includeArchived=false')

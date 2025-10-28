@@ -38,11 +38,15 @@ export function ArchiveProjectDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl" role="dialog" aria-modal="true">
+      <div
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+      >
         <h2 className="text-lg font-semibold text-gray-900">Archive project</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Are you sure you want to archive <span className="font-medium">{projectName}</span>? Archived
-          projects disappear from the dashboard for everyone until they are restored.
+          Are you sure you want to archive <span className="font-medium">{projectName}</span>?
+          Archived projects disappear from the dashboard for everyone until they are restored.
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

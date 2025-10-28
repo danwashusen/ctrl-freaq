@@ -5,7 +5,9 @@ import type { CreateProjectRequest, ProjectData } from '@/lib/api';
 import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Dashboard Project Creation', () => {
-  test('creates a project from the dashboard modal and shows lifecycle defaults', async ({ page }) => {
+  test('creates a project from the dashboard modal and shows lifecycle defaults', async ({
+    page,
+  }) => {
     const projects: ProjectData[] = [];
     type CreateProjectPayload = Required<
       Pick<
@@ -105,9 +107,7 @@ test.describe('Dashboard Project Creation', () => {
       .fill('Created via dashboard lifecycle flow');
     await dialog.getByTestId('create-project-visibility').selectOption('private');
     await dialog.getByTestId('create-project-goal-target-date').fill('2026-04-30');
-    await dialog
-      .getByTestId('create-project-goal-summary')
-      .fill('Ship dashboard lifecycle MVP');
+    await dialog.getByTestId('create-project-goal-summary').fill('Ship dashboard lifecycle MVP');
 
     const submitButton = dialog.getByTestId('create-project-submit');
     await expect(submitButton).toBeEnabled();

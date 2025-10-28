@@ -90,7 +90,12 @@ export default function Project() {
     goalSummary: '',
     goalTargetDate: '',
   });
-  const statusOptions: ReadonlyArray<EditableProjectStatus> = ['draft', 'active', 'paused', 'completed'];
+  const statusOptions: ReadonlyArray<EditableProjectStatus> = [
+    'draft',
+    'active',
+    'paused',
+    'completed',
+  ];
   const toDateInputValue = useCallback((value: string | null | undefined) => {
     if (!value) {
       return '';
@@ -111,16 +116,13 @@ export default function Project() {
     },
     [toDateInputValue]
   );
-  const initializeMetadataEditingState = useCallback(
-    (incoming: ProjectData | ProjectView) => {
-      if (metadataEditingInitializedRef.current) {
-        return;
-      }
-      setIsEditingMetadata(incoming.id === 'new');
-      metadataEditingInitializedRef.current = true;
-    },
-    []
-  );
+  const initializeMetadataEditingState = useCallback((incoming: ProjectData | ProjectView) => {
+    if (metadataEditingInitializedRef.current) {
+      return;
+    }
+    setIsEditingMetadata(incoming.id === 'new');
+    metadataEditingInitializedRef.current = true;
+  }, []);
   const handleMetadataChange = useCallback(
     (field: ProjectFormField) =>
       (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -176,9 +178,7 @@ export default function Project() {
         void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
 
         window.setTimeout(() => {
-          setMutationState(current =>
-            current.type === 'success' ? { type: 'idle' } : current
-          );
+          setMutationState(current => (current.type === 'success' ? { type: 'idle' } : current));
         }, 4000);
       } catch (updateError) {
         if (isApiError(updateError) && updateError.code === 'VERSION_CONFLICT') {
@@ -205,8 +205,7 @@ export default function Project() {
         } else if (isApiError(updateError)) {
           setMutationState({
             type: 'error',
-            message:
-              updateError.message ?? 'Unable to update the project. Please try again later.',
+            message: updateError.message ?? 'Unable to update the project. Please try again later.',
           });
         } else {
           setMutationState({
@@ -379,7 +378,15 @@ export default function Project() {
       cancelled = true;
       resetTemplate();
     };
-  }, [client, id, initializeMetadataEditingState, loadDocument, projects, resetTemplate, syncFormWithProject]);
+  }, [
+    client,
+    id,
+    initializeMetadataEditingState,
+    loadDocument,
+    projects,
+    resetTemplate,
+    syncFormWithProject,
+  ]);
 
   useEffect(() => {
     if (!project || project.id === 'new' || archiveRedirectRef.current) {
@@ -615,7 +622,7 @@ export default function Project() {
                   onSubmit={handleMetadataSubmit}
                 >
                   {isProjectArchived ? (
-                    <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2">
                       Archived projects are read-only. Restore the project to edit metadata.
                     </div>
                   ) : null}
@@ -752,17 +759,20 @@ export default function Project() {
                   className="grid grid-cols-1 gap-6 md:grid-cols-2"
                 >
                   {isProjectArchived ? (
-                    <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2">
                       Archived projects are read-only. Restore the project to edit metadata.
                     </div>
                   ) : (
-                    <p className="md:col-span-2 text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 md:col-span-2">
                       Review lifecycle details and select “Edit Project” to make changes.
                     </p>
                   )}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700">Project name</h3>
-                    <p data-testid="project-metadata-view-name" className="mt-1 text-sm text-gray-900">
+                    <p
+                      data-testid="project-metadata-view-name"
+                      className="mt-1 text-sm text-gray-900"
+                    >
                       {project.name}
                     </p>
                   </div>

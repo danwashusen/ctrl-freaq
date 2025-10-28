@@ -30,8 +30,7 @@ test.describe('Dashboard Project Update', () => {
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname;
-      const isApiPath =
-        path.startsWith('/api/') || path.startsWith('/__fixtures/api/');
+      const isApiPath = path.startsWith('/api/') || path.startsWith('/__fixtures/api/');
 
       if (!isApiPath) {
         await route.fallback();

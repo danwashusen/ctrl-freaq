@@ -110,9 +110,7 @@ type TelemetryEvent =
   | 'qualityGates.validation.metric'
   | 'qualityGates.dashboard.metric';
 
-type ProjectTelemetryEvent =
-  | 'projects.lifecycle.create'
-  | 'projects.dashboard.hydration';
+type ProjectTelemetryEvent = 'projects.lifecycle.create' | 'projects.dashboard.hydration';
 
 const logToConsole = <T extends object>(
   level: 'info' | 'warn',

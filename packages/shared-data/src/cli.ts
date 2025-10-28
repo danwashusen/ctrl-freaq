@@ -18,10 +18,7 @@ import { Command } from 'commander';
 
 import Database from 'better-sqlite3';
 import { PACKAGE_INFO } from './index.js';
-import {
-  ProjectRepositoryImpl,
-  type Project,
-} from './models/project.js';
+import { ProjectRepositoryImpl, type Project } from './models/project.js';
 
 // Typed option shapes for CLI commands
 type JsonFlag = { json?: boolean };
@@ -663,7 +660,11 @@ class SharedDataCLI {
     };
   }
 
-  private printProjectResult(project: Project, jsonOutput: boolean | undefined, heading: string): void {
+  private printProjectResult(
+    project: Project,
+    jsonOutput: boolean | undefined,
+    heading: string
+  ): void {
     const serialized = this.serializeProject(project);
     if (jsonOutput) {
       console.log(JSON.stringify({ project: serialized }, null, 2));

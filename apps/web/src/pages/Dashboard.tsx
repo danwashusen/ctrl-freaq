@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -178,12 +186,9 @@ export default function Dashboard() {
     []
   );
 
-  const showToast = useCallback(
-    (id: string, message: string, tone: ToastTone = 'success') => {
-      setToast({ id, message, tone });
-    },
-    []
-  );
+  const showToast = useCallback((id: string, message: string, tone: ToastTone = 'success') => {
+    setToast({ id, message, tone });
+  }, []);
 
   const applyArchiveOptimistic = useCallback(
     (project: ProjectData) => {
@@ -638,9 +643,7 @@ export default function Dashboard() {
   const isInitialLoading =
     (projectsQuery.isLoading || (projectsQuery.isFetching && isPlaceholderData)) && !hasProjects;
   const loadErrorMessage =
-    projectsQuery.error instanceof Error
-      ? projectsQuery.error.message
-      : 'Failed to load projects';
+    projectsQuery.error instanceof Error ? projectsQuery.error.message : 'Failed to load projects';
   const showInlineError = projectsQuery.isError && hasProjects;
   const showFullError = projectsQuery.isError && !hasProjects;
   const navIsLoading =
@@ -831,11 +834,14 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {projects.map(project => {
-              const isMenuOpen = openActionsProjectId === project.id && project.status !== 'archived';
+              const isMenuOpen =
+                openActionsProjectId === project.id && project.status !== 'archived';
               const archivingProjectId = archiveProjectMutation.variables?.project.id;
               const restoringProjectId = restoreProjectMutation.variables?.id;
-              const isArchiving = archiveProjectMutation.isPending && archivingProjectId === project.id;
-              const isRestoring = restoreProjectMutation.isPending && restoringProjectId === project.id;
+              const isArchiving =
+                archiveProjectMutation.isPending && archivingProjectId === project.id;
+              const isRestoring =
+                restoreProjectMutation.isPending && restoringProjectId === project.id;
 
               return (
                 <Card
@@ -960,9 +966,9 @@ export default function Dashboard() {
         onCancel={handleCloseDialog}
         onCreate={handleCreateProject}
         isSubmitting={createProjectMutation.isPending}
-      errorMessage={createErrorMessage}
-      defaultVisibility="workspace"
-    />
+        errorMessage={createErrorMessage}
+        defaultVisibility="workspace"
+      />
 
       <ArchiveProjectDialog
         open={Boolean(archiveTarget)}

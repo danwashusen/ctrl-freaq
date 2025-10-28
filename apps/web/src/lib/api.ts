@@ -350,9 +350,8 @@ class ApiClient {
       logger.debug?.('api.request', { endpoint, url });
       let response = await fetch(url, config);
 
-      const fallbackUrl = !response.ok && response.status === 404
-        ? this.buildFixtureFallbackUrl(endpoint)
-        : null;
+      const fallbackUrl =
+        !response.ok && response.status === 404 ? this.buildFixtureFallbackUrl(endpoint) : null;
 
       if (fallbackUrl && fallbackUrl !== url) {
         logger.warn('Fixture fallback triggered for request', { endpoint, url, fallbackUrl });
@@ -496,7 +495,11 @@ class ApiClient {
       try {
         payload = JSON.parse(parsed) as CreateProjectRequest;
       } catch (error) {
-        logger.error('Failed to parse project create payload for fixtures', { endpoint }, error instanceof Error ? error : undefined);
+        logger.error(
+          'Failed to parse project create payload for fixtures',
+          { endpoint },
+          error instanceof Error ? error : undefined
+        );
         payload = { name: 'Untitled Project' };
       }
 
@@ -509,7 +512,9 @@ class ApiClient {
 
       const project: ProjectData = {
         id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function'
+          typeof crypto !== 'undefined' &&
+          'randomUUID' in crypto &&
+          typeof crypto.randomUUID === 'function'
             ? crypto.randomUUID()
             : `proj_${Math.random().toString(36).slice(2, 10)}`,
         ownerUserId,
@@ -543,7 +548,11 @@ class ApiClient {
       try {
         payload = JSON.parse(parsed) as UpdateProjectRequest;
       } catch (error) {
-        logger.error('Failed to parse project update payload for fixtures', { endpoint }, error instanceof Error ? error : undefined);
+        logger.error(
+          'Failed to parse project update payload for fixtures',
+          { endpoint },
+          error instanceof Error ? error : undefined
+        );
         return;
       }
 
@@ -579,7 +588,7 @@ class ApiClient {
         goalTargetDate:
           payload.goalTargetDate === null
             ? null
-            : payload.goalTargetDate ?? existing.goalTargetDate,
+            : (payload.goalTargetDate ?? existing.goalTargetDate),
         goalSummary:
           payload.goalSummary && payload.goalSummary.trim().length > 0
             ? payload.goalSummary.trim()

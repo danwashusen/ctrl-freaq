@@ -132,7 +132,6 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('project-goal-target-date')).toHaveTextContent('Jul 1');
   });
 
-
   it('retains prior project data and surfaces retry messaging when refetch fails', async () => {
     mockGetAll.mockResolvedValue({
       projects: [projectFixture],
@@ -176,9 +175,7 @@ describe('Dashboard', () => {
     });
 
     const nowSequence = [50, 100, 460];
-    const perfSpy = vi.spyOn(performance, 'now').mockImplementation(
-      () => nowSequence.shift() ?? 0
-    );
+    const perfSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowSequence.shift() ?? 0);
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -192,7 +189,9 @@ describe('Dashboard', () => {
 
     const lastCallIndex = emitProjectDashboardHydrationMetric.mock.calls.length - 1;
     const payload =
-      lastCallIndex >= 0 ? emitProjectDashboardHydrationMetric.mock.calls[lastCallIndex]?.[0] : undefined;
+      lastCallIndex >= 0
+        ? emitProjectDashboardHydrationMetric.mock.calls[lastCallIndex]?.[0]
+        : undefined;
     expect(payload?.projectCount).toBe(1);
     expect(payload?.includeArchived).toBe(false);
     expect(payload?.durationMs).toBeGreaterThanOrEqual(0);
@@ -210,9 +209,7 @@ describe('Dashboard', () => {
     });
 
     const nowSequence = [10, 40, 200, 400, 610];
-    const perfSpy = vi.spyOn(performance, 'now').mockImplementation(
-      () => nowSequence.shift() ?? 0
-    );
+    const perfSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowSequence.shift() ?? 0);
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -242,10 +239,12 @@ describe('Dashboard', () => {
     const submitButton = dialogScope.getByTestId('create-project-submit');
     await userEvent.click(submitButton);
 
-    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({
-      name: 'Project Telemetry',
-      visibility: 'workspace',
-    }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith({
+        name: 'Project Telemetry',
+        visibility: 'workspace',
+      })
+    );
 
     await waitFor(() => expect(emitProjectCreateMetric).toHaveBeenCalledTimes(1));
 

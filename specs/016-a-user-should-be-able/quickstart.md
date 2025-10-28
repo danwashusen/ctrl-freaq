@@ -12,11 +12,11 @@
    - `pnpm --filter @ctrl-freaq/web dev:live` (or `dev:e2e` for fixture mode)
 3. Ensure SQLite database migrated:  
    `pnpm --filter @ctrl-freaq/shared-data cli migrate`
-4. For Clerk-less local runs, enable simple auth users
-   (`SIMPLE_AUTH_USER_FILE`) per existing quickstart guidance and ensure at
-   least one entry includes `manage:projects` so dashboard creation works. The
-   sample `docs/examples/simple-auth-users.yaml` ships with `user_alpha`
-   already granted this permission.
+4. For Clerk-less local runs, enable simple auth users (`SIMPLE_AUTH_USER_FILE`)
+   per existing quickstart guidance and ensure at least one entry includes
+   `manage:projects` so dashboard creation works. The sample
+   `docs/examples/simple-auth-users.yaml` ships with `user_alpha` already
+   granted this permission.
 
 > Tip: When iterating on API changes, run  
 > `pnpm --filter @ctrl-freaq/api test:integration --watch` to keep project
@@ -29,15 +29,14 @@
 1. Sign in via simple auth UI or Clerk depending on environment.
 2. Navigate to `/dashboard`; TanStack Query should load an empty project list.
 3. Trigger the “New Project” CTA and provide the project name (minimum
-   requirement); add description, visibility, goal summary, or goal target
-   date as needed.
+   requirement); add description, visibility, goal summary, or goal target date
+   as needed.
 4. Submit and confirm:
    - UI displays success toast and closes modal.
    - Dashboard list refetches (verify query devtools) and new project appears
      with `status=draft`.
 5. API validation:
-   - `curl -H "Authorization: Bearer <token>" \
-     http://localhost:5001/api/v1/projects`
+   - `curl -H "Authorization: Bearer <token>" \ http://localhost:5001/api/v1/projects`
    - Response includes `projects[0].status === "draft"` and `visibility`.
 6. Open the browser console and confirm the telemetry event
    `[projects.telemetry] projects.lifecycle.create` logs with `durationMs`
@@ -47,8 +46,8 @@
 
 1. Seed multiple projects using the supported create flow:
    - **UI**: Reopen the dashboard dialog and add at least two more projects.
-     Give them distinct names to exercise list sorting. This requires the
-     simple auth user to include `manage:projects`.
+     Give them distinct names to exercise list sorting. This requires the simple
+     auth user to include `manage:projects`.
    - **API** (optional for automation): Issue POST requests with an authorized
      token. Example:
 
@@ -58,10 +57,11 @@
        -H 'Authorization: Bearer simple:<managerUserId>' \
        -d '{"name":"Pilot Docs","visibility":"workspace"}'
      ```
+
 2. Refresh the dashboard; ensure totals update and cards show statuses, goal
    dates, and last updated timestamps.
-3. Confirm sidebar Projects navigation adopts the same dataset (highlight
-   active project).
+3. Confirm sidebar Projects navigation adopts the same dataset (highlight active
+   project).
 4. For archived projects, toggle “Include archived” (if surfaced) or confirm
    they stay hidden by default.
 5. Check `[projects.telemetry] projects.dashboard.hydration` in the console;
@@ -118,8 +118,8 @@ checks or manual recovery:
     --actor user_alpha
   ```
 
-The commands respect the same validations as the API and emit JSON when
-`--json` is supplied, matching the CLI Interface Standard.
+The commands respect the same validations as the API and emit JSON when `--json`
+is supplied, matching the CLI Interface Standard.
 
 ## Telemetry & Success Criteria Tracking
 
@@ -170,13 +170,13 @@ The commands respect the same validations as the API and emit JSON when
   `pnpm --filter @ctrl-freaq/api test:integration --filter projects` validates
   the new routes.
 - Contract coverage:  
-  `pnpm --filter @ctrl-freaq/api test:contract --filter projects` once
-  contracts update.
-- Web regression: `pnpm --filter @ctrl-freaq/web test:e2e:quick -- --grep
-  "Dashboard"` exercises create/list/archive flows and verifies telemetry.
+  `pnpm --filter @ctrl-freaq/api test:contract --filter projects` once contracts
+  update.
+- Web regression:
+  `pnpm --filter @ctrl-freaq/web test:e2e:quick -- --grep "Dashboard"` exercises
+  create/list/archive flows and verifies telemetry.
 - Audit sampling:  
-  `pnpm --filter @ctrl-freaq/qa cli audit archived-projects \
-  --input audits/archived-sample.json --threshold 5%`
+  `pnpm --filter @ctrl-freaq/qa cli audit archived-projects \ --input audits/archived-sample.json --threshold 5%`
 
 ## Rollback Guidance
 

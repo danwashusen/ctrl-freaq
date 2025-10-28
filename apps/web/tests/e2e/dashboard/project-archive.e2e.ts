@@ -172,7 +172,7 @@ test.describe('Dashboard Project Archive and Restore', () => {
         const previousStatus = currentProject.status;
         const archivedStatusBefore =
           previousStatus === 'archived'
-            ? currentProject.archivedStatusBefore ?? 'paused'
+            ? (currentProject.archivedStatusBefore ?? 'paused')
             : previousStatus;
         currentProject = {
           ...currentProject,
@@ -262,7 +262,9 @@ test.describe('Dashboard Project Archive and Restore', () => {
     await expect(restoredCard.getByTestId('project-status-badge')).toContainText(/active/i);
   });
 
-  test('notifies active project viewers when a project is archived mid-session', async ({ page }) => {
+  test('notifies active project viewers when a project is archived mid-session', async ({
+    page,
+  }) => {
     const projectId = 'proj-notify-archive';
     let isArchived = false;
     const baseProject: Record<string, unknown> = {
@@ -472,6 +474,8 @@ test.describe('Dashboard Project Archive and Restore', () => {
     await expect(notification).toContainText(/archived while you were viewing/i);
 
     await page.waitForURL('**/dashboard');
-    await expect(page.getByTestId('projects-toast-warning')).toContainText(/archived while you were viewing/i);
+    await expect(page.getByTestId('projects-toast-warning')).toContainText(
+      /archived while you were viewing/i
+    );
   });
 });

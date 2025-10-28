@@ -105,20 +105,11 @@
           },
           "visibility": {
             "type": "string",
-            "enum": [
-              "private",
-              "workspace"
-            ]
+            "enum": ["private", "workspace"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "draft",
-              "active",
-              "paused",
-              "completed",
-              "archived"
-            ]
+            "enum": ["draft", "active", "paused", "completed", "archived"]
           },
           "goalTargetDate": {
             "type": "string",
@@ -196,9 +187,7 @@
       },
       "ProjectCreateRequest": {
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "properties": {
           "name": {
             "type": "string",
@@ -212,10 +201,7 @@
           },
           "visibility": {
             "type": "string",
-            "enum": [
-              "private",
-              "workspace"
-            ],
+            "enum": ["private", "workspace"],
             "default": "workspace",
             "description": "Optional on create; defaults to workspace when omitted."
           },
@@ -247,19 +233,11 @@
           },
           "visibility": {
             "type": "string",
-            "enum": [
-              "private",
-              "workspace"
-            ]
+            "enum": ["private", "workspace"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "draft",
-              "active",
-              "paused",
-              "completed"
-            ]
+            "enum": ["draft", "active", "paused", "completed"]
           },
           "goalTargetDate": {
             "type": "string",
@@ -276,12 +254,7 @@
       },
       "ProjectListResponse": {
         "type": "object",
-        "required": [
-          "projects",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["projects", "total", "limit", "offset"],
         "properties": {
           "projects": {
             "type": "array",
@@ -305,12 +278,7 @@
       },
       "ProjectListEmpty": {
         "type": "object",
-        "required": [
-          "projects",
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["projects", "total", "limit", "offset"],
         "properties": {
           "projects": {
             "type": "array",
@@ -334,12 +302,7 @@
       },
       "ErrorResponse": {
         "type": "object",
-        "required": [
-          "error",
-          "message",
-          "requestId",
-          "timestamp"
-        ],
+        "required": ["error", "message", "requestId", "timestamp"],
         "properties": {
           "error": {
             "type": "string"

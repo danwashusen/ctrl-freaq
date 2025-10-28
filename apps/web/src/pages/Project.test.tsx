@@ -62,8 +62,7 @@ vi.mock('../stores/template-store', () => {
     reset: mockResetTemplate,
   };
   return {
-    useTemplateStore: (selector: (state: typeof defaultState) => unknown) =>
-      selector(defaultState),
+    useTemplateStore: (selector: (state: typeof defaultState) => unknown) => selector(defaultState),
   };
 });
 
@@ -174,7 +173,9 @@ describe('Project page metadata view', () => {
     const descriptionInput = screen.getByTestId(
       'project-metadata-description'
     ) as HTMLTextAreaElement;
-    const goalSummaryInput = screen.getByTestId('project-metadata-goal-summary') as HTMLInputElement;
+    const goalSummaryInput = screen.getByTestId(
+      'project-metadata-goal-summary'
+    ) as HTMLInputElement;
     const goalDateInput = screen.getByTestId(
       'project-metadata-goal-target-date'
     ) as HTMLInputElement;

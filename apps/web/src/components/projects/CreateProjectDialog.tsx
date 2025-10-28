@@ -69,7 +69,8 @@ export function CreateProjectDialog({
   const dialogTitleId = 'create-project-dialog-title';
   const dialogDescriptionId = 'create-project-dialog-description';
 
-  const handleInputChange = (field: keyof typeof formState) =>
+  const handleInputChange =
+    (field: keyof typeof formState) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const value = event.target.value;
       setFormState(prev => ({ ...prev, [field]: value }));
@@ -187,7 +188,7 @@ export function CreateProjectDialog({
                 value={formState.name}
                 onChange={handleInputChange('name')}
                 disabled={isSubmitting}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
+                className="focus:outline-hidden mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 placeholder="Acme Onboarding"
                 required
               />
@@ -213,7 +214,7 @@ export function CreateProjectDialog({
                 onChange={handleInputChange('description')}
                 disabled={isSubmitting}
                 rows={3}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
+                className="focus:outline-hidden mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 placeholder="Outline the initiative and expected deliverables"
               />
               {fieldErrors.description && (
@@ -237,7 +238,7 @@ export function CreateProjectDialog({
                   value={formState.visibility}
                   onChange={handleInputChange('visibility')}
                   disabled={isSubmitting}
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
+                  className="focus:outline-hidden mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 >
                   <option value="workspace">Workspace</option>
                   <option value="private">Private</option>
@@ -258,7 +259,7 @@ export function CreateProjectDialog({
                   value={formState.goalTargetDate}
                   onChange={handleInputChange('goalTargetDate')}
                   disabled={isSubmitting}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
+                  className="focus:outline-hidden mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 />
                 {fieldErrors.goalTargetDate && (
                   <p className="mt-1 text-xs text-red-600" role="alert">
@@ -283,7 +284,7 @@ export function CreateProjectDialog({
                 onChange={handleInputChange('goalSummary')}
                 disabled={isSubmitting}
                 rows={2}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50"
+                className="focus:outline-hidden mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/50"
                 placeholder="E.g., Ship dashboard lifecycle MVP"
               />
               {fieldErrors.goalSummary && (

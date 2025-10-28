@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 import { selectSimpleAuthUser } from '../support/draft-recovery';
 
 test.describe('Dashboard Project Navigation', () => {
-  test('preserves project list search and scroll state after viewing project details', async ({ page }) => {
+  test('preserves project list search and scroll state after viewing project details', async ({
+    page,
+  }) => {
     test.setTimeout(15000);
     const projects = [
       {
@@ -167,11 +169,9 @@ test.describe('Dashboard Project Navigation', () => {
       page.getByTestId('project-card').filter({ has: page.getByText('Bravo Scale Initiative') })
     ).toBeVisible();
 
-    await page.waitForFunction(
-      value => Math.abs(window.scrollY - value) < 5,
-      savedScroll,
-      { timeout: 10000 }
-    );
+    await page.waitForFunction(value => Math.abs(window.scrollY - value) < 5, savedScroll, {
+      timeout: 10000,
+    });
     const finalScroll = await page.evaluate(() => window.scrollY);
     expect(Math.abs(finalScroll - savedScroll)).toBeLessThan(5);
   });

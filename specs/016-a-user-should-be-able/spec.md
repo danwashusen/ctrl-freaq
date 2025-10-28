@@ -6,7 +6,7 @@
 **Input**: User description: "A user should be able to create, retrieve, update
 and detete projects. Projects should be listed on the dashboard."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Create a new project from the dashboard (Priority: P1)
 
@@ -39,9 +39,8 @@ information, from the dashboard.
 **Why this priority**: Keeping projects front and center on the dashboard keeps
 the workspace actionable and aligns with the product's document-first focus.
 
-**Independent Test**: Populate multiple projects for a user, load the
-dashboard, and verify summaries render in the expected order with accurate
-status data.
+**Independent Test**: Populate multiple projects for a user, load the dashboard,
+and verify summaries render in the expected order with accurate status data.
 
 **Acceptance Scenarios**:
 
@@ -59,8 +58,8 @@ time.
 **Why this priority**: Projects evolve, and stakeholders rely on current
 information to make decisions.
 
-**Independent Test**: Edit an existing project, save the changes, and ensure
-the dashboard and project detail view show the updated values immediately.
+**Independent Test**: Edit an existing project, save the changes, and ensure the
+dashboard and project detail view show the updated values immediately.
 
 **Acceptance Scenarios**:
 
@@ -100,7 +99,7 @@ active dashboard views, and verify it remains discoverable through audit tools.
   communicates the issue and offers a retry without clearing existing projects
   from view.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -115,9 +114,9 @@ active dashboard views, and verify it remains discoverable through audit tools.
   target date formatted as ISO-8601 and not earlier than today.
 - **FR-003**: The system must record who created or updated a project and when,
   preserving an audit trail aligned with constitutional governance.
-- **FR-004**: The dashboard must display all active projects the user can
-  access with key summary fields (name, status, last updated) and refresh the
-  list within 2 seconds of any create, update, archive, or restore confirmation
+- **FR-004**: The dashboard must display all active projects the user can access
+  with key summary fields (name, status, last updated) and refresh the list
+  within 2 seconds of any create, update, archive, or restore confirmation
   (matching SC-002).
 - **FR-005**: Users must be able to open a project from the dashboard to review
   its details without losing dashboard context, preserving filters, search, and
@@ -165,7 +164,7 @@ active dashboard views, and verify it remains discoverable through audit tools.
 - Q: Which lifecycle states should govern project status updates displayed on
   the dashboard? → A: Draft → Active → Paused → Completed → Archived
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

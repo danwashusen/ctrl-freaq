@@ -1,4 +1,9 @@
-import type { Project, ProjectStatus, CreateProjectInput, UpdateProjectInput } from '@ctrl-freaq/shared-data';
+import type {
+  Project,
+  ProjectStatus,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from '@ctrl-freaq/shared-data';
 import {
   ProjectRepositoryImpl,
   ProjectUtils,
@@ -107,7 +112,10 @@ const normalizeTimezoneOffset = (offset: number | null | undefined, fallback: nu
   return rounded;
 };
 
-const parseGoalTargetDate = (value?: string | null, clientTimezoneOffsetMinutes?: number | null): Date | null => {
+const parseGoalTargetDate = (
+  value?: string | null,
+  clientTimezoneOffsetMinutes?: number | null
+): Date | null => {
   if (!value) {
     return null;
   }
@@ -156,7 +164,10 @@ const parseGoalTargetDate = (value?: string | null, clientTimezoneOffsetMinutes?
   return parsedDate;
 };
 
-const isValidStatusTransition = (currentStatus: ProjectStatus, nextStatus: ProjectStatus): boolean => {
+const isValidStatusTransition = (
+  currentStatus: ProjectStatus,
+  nextStatus: ProjectStatus
+): boolean => {
   if (currentStatus === nextStatus) {
     return true;
   }
@@ -642,8 +653,7 @@ projectsRouter.post(
       } catch (parseError) {
         res.status(400).json({
           error: 'VALIDATION_ERROR',
-          message:
-            parseError instanceof Error ? parseError.message : 'Goal target date is invalid',
+          message: parseError instanceof Error ? parseError.message : 'Goal target date is invalid',
           requestId: req.requestId || 'unknown',
           timestamp: new Date().toISOString(),
         });
@@ -764,21 +774,21 @@ projectsRouter.get(
           requestId: req.requestId || 'unknown',
           timestamp: new Date().toISOString(),
         });
-      return;
-    }
+        return;
+      }
 
-    const idValidation = z.string().uuid('Invalid project ID format').safeParse(projectId);
-    if (!idValidation.success) {
+      const idValidation = z.string().uuid('Invalid project ID format').safeParse(projectId);
+      if (!idValidation.success) {
         res.status(404).json({
           error: 'NOT_FOUND',
           message: 'Project not found',
           requestId: req.requestId || 'unknown',
           timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+        });
+        return;
+      }
 
-    const projectRepo = req.services.get('projectRepository') as ProjectRepositoryImpl;
+      const projectRepo = req.services.get('projectRepository') as ProjectRepositoryImpl;
       const project = await projectRepo.findByIdIncludingArchived(projectId);
 
       if (!project) {
@@ -890,38 +900,38 @@ projectsRouter.patch(
           message: 'Project not found',
           requestId: req.requestId || 'unknown',
           timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+        });
+        return;
+      }
 
-    const ifUnmodifiedSinceRaw = req.get('If-Unmodified-Since') ?? req.get(CONCURRENCY_HEADER);
+      const ifUnmodifiedSinceRaw = req.get('If-Unmodified-Since') ?? req.get(CONCURRENCY_HEADER);
 
-    if (!ifUnmodifiedSinceRaw) {
-      res.status(428).json({
-        error: 'PRECONDITION_REQUIRED',
-        message: 'If-Unmodified-Since header is required to update a project',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+      if (!ifUnmodifiedSinceRaw) {
+        res.status(428).json({
+          error: 'PRECONDITION_REQUIRED',
+          message: 'If-Unmodified-Since header is required to update a project',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    const ifUnmodifiedSinceDate = new Date(ifUnmodifiedSinceRaw);
-    if (Number.isNaN(ifUnmodifiedSinceDate.getTime())) {
-      res.status(400).json({
-        error: 'VALIDATION_ERROR',
-        message: 'If-Unmodified-Since header must be a valid HTTP date',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+      const ifUnmodifiedSinceDate = new Date(ifUnmodifiedSinceRaw);
+      if (Number.isNaN(ifUnmodifiedSinceDate.getTime())) {
+        res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          message: 'If-Unmodified-Since header must be a valid HTTP date',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    // Validate request body
-    const parseResult = UpdateProjectRequestSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      res.status(400).json({
-        error: 'VALIDATION_ERROR',
+      // Validate request body
+      const parseResult = UpdateProjectRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'VALIDATION_ERROR',
           message: 'Invalid request parameters',
           requestId: req.requestId || 'unknown',
           timestamp: new Date().toISOString(),
@@ -990,82 +1000,82 @@ projectsRouter.patch(
           error: 'NOT_FOUND',
           message: 'Project not found',
           requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    if (project.status === PROJECT_CONSTANTS.ARCHIVED_STATUS) {
-      res.status(409).json({
-        error: 'PROJECT_ARCHIVED',
-        message: 'Archived projects cannot be updated. Restore the project before editing.',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+      if (project.status === PROJECT_CONSTANTS.ARCHIVED_STATUS) {
+        res.status(409).json({
+          error: 'PROJECT_ARCHIVED',
+          message: 'Archived projects cannot be updated. Restore the project before editing.',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    // Check ownership
-    if (project.ownerUserId !== userId) {
-      res.status(403).json({
-        error: 'FORBIDDEN',
-        message: 'You do not have permission to update this project',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+      // Check ownership
+      if (project.ownerUserId !== userId) {
+        res.status(403).json({
+          error: 'FORBIDDEN',
+          message: 'You do not have permission to update this project',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    const persistedUpdatedAtMs = project.updatedAt.getTime();
-    const headerTimestampMs = ifUnmodifiedSinceDate.getTime();
+      const persistedUpdatedAtMs = project.updatedAt.getTime();
+      const headerTimestampMs = ifUnmodifiedSinceDate.getTime();
 
-    const deltaMs = headerTimestampMs - persistedUpdatedAtMs;
-    if (deltaMs < 0 && Math.abs(deltaMs) > CONCURRENCY_TOLERANCE_MS) {
-      res.status(409).json({
-        error: 'VERSION_CONFLICT',
-        message: 'Project was modified after the version you are editing. Refresh and try again.',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-        details: {
-          expectedLastModified: project.updatedAt.toISOString(),
-          provided: ifUnmodifiedSinceDate.toISOString(),
-          driftMs: Math.abs(deltaMs),
-        },
-      });
-      return;
-    }
+      const deltaMs = headerTimestampMs - persistedUpdatedAtMs;
+      if (deltaMs < 0 && Math.abs(deltaMs) > CONCURRENCY_TOLERANCE_MS) {
+        res.status(409).json({
+          error: 'VERSION_CONFLICT',
+          message: 'Project was modified after the version you are editing. Refresh and try again.',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+          details: {
+            expectedLastModified: project.updatedAt.toISOString(),
+            provided: ifUnmodifiedSinceDate.toISOString(),
+            driftMs: Math.abs(deltaMs),
+          },
+        });
+        return;
+      }
 
-    if (deltaMs > CONCURRENCY_TOLERANCE_MS) {
-      res.status(409).json({
-        error: 'VERSION_CONFLICT',
-        message: 'Version token is ahead of the stored project state. Refresh and try again.',
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-        details: {
-          expectedLastModified: project.updatedAt.toISOString(),
-          provided: ifUnmodifiedSinceDate.toISOString(),
-          driftMs: deltaMs,
-        },
-      });
-      return;
-    }
+      if (deltaMs > CONCURRENCY_TOLERANCE_MS) {
+        res.status(409).json({
+          error: 'VERSION_CONFLICT',
+          message: 'Version token is ahead of the stored project state. Refresh and try again.',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+          details: {
+            expectedLastModified: project.updatedAt.toISOString(),
+            provided: ifUnmodifiedSinceDate.toISOString(),
+            driftMs: deltaMs,
+          },
+        });
+        return;
+      }
 
-    if (
-      Object.prototype.hasOwnProperty.call(updatePayload, 'status') &&
-      updatePayload.status &&
-      !isValidStatusTransition(project.status, updatePayload.status)
-    ) {
-      res.status(400).json({
-        error: 'INVALID_STATUS_TRANSITION',
-        message: `Cannot change project status from "${project.status}" to "${updatePayload.status}"`,
-        requestId: req.requestId || 'unknown',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+      if (
+        Object.prototype.hasOwnProperty.call(updatePayload, 'status') &&
+        updatePayload.status &&
+        !isValidStatusTransition(project.status, updatePayload.status)
+      ) {
+        res.status(400).json({
+          error: 'INVALID_STATUS_TRANSITION',
+          message: `Cannot change project status from "${project.status}" to "${updatePayload.status}"`,
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
-    // If name is being updated, generate new slug
-    const updatedProject = await projectRepo.update(projectId, updatePayload);
+      // If name is being updated, generate new slug
+      const updatedProject = await projectRepo.update(projectId, updatePayload);
       const updatesForLog: Record<string, unknown> = {};
       if (Object.prototype.hasOwnProperty.call(updatePayload, 'name')) {
         updatesForLog.name = updatePayload.name ?? null;
@@ -1088,7 +1098,7 @@ projectsRouter.patch(
       if (Object.prototype.hasOwnProperty.call(updatePayload, 'goalTargetDate')) {
         const rawValue = updatePayload.goalTargetDate;
         updatesForLog.goalTargetDate =
-          rawValue instanceof Date ? toIsoDateOnly(rawValue) : rawValue ?? null;
+          rawValue instanceof Date ? toIsoDateOnly(rawValue) : (rawValue ?? null);
       }
 
       // Log activity

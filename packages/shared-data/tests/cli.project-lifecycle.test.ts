@@ -36,19 +36,15 @@ async function runCli(args: string[], env?: NodeJS.ProcessEnv): Promise<CliResul
   }
 
   try {
-    return await execFileAsync(
-      tsxBinary,
-      [cliEntryPoint, ...args],
-      {
-        cwd: packageRoot,
-        env: {
-          ...process.env,
-          NODE_ENV: 'test',
-          NODE_OPTIONS: appendNodeCondition(process.env.NODE_OPTIONS),
-          ...env,
-        },
-      }
-    );
+    return await execFileAsync(tsxBinary, [cliEntryPoint, ...args], {
+      cwd: packageRoot,
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        NODE_OPTIONS: appendNodeCondition(process.env.NODE_OPTIONS),
+        ...env,
+      },
+    });
   } catch (error) {
     if (error && typeof error === 'object' && 'stdout' in error && 'stderr' in error) {
       return {
@@ -145,13 +141,7 @@ describe.sequential('@ctrl-freaq/shared-data CLI project lifecycle commands', ()
   });
 
   it('lists, archives, and restores projects via CLI commands', async () => {
-    const listBefore = await runCli([
-      'project',
-      'list',
-      '--db-path',
-      databasePath,
-      '--json',
-    ]);
+    const listBefore = await runCli(['project', 'list', '--db-path', databasePath, '--json']);
     expect(listBefore.stderr.trim()).toBe('');
 
     const parsedListBefore = JSON.parse(listBefore.stdout) as {
@@ -216,13 +206,7 @@ describe.sequential('@ctrl-freaq/shared-data CLI project lifecycle commands', ()
     expect(parsedRestore.project.deletedAt).toBeNull();
     expect(parsedRestore.project.deletedBy).toBeNull();
 
-    const listAfter = await runCli([
-      'project',
-      'list',
-      '--db-path',
-      databasePath,
-      '--json',
-    ]);
+    const listAfter = await runCli(['project', 'list', '--db-path', databasePath, '--json']);
     const parsedListAfter = JSON.parse(listAfter.stdout) as {
       projects: Array<{ id: string; status: string }>;
     };
