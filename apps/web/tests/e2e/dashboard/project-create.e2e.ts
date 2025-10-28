@@ -92,8 +92,15 @@ test.describe('Dashboard Project Creation', () => {
       await route.fallback();
     };
 
-    await page.route('**/__fixtures/api/projects**', handleProjectsRoute);
-    await page.route('**/__fixtures/api/v1/projects**', handleProjectsRoute);
+    const projectRouteMatchers = [
+      '**/__fixtures/api/projects**',
+      '**/__fixtures/api/v1/projects**',
+      '**/api/projects**',
+      '**/api/v1/projects**',
+    ];
+    for (const matcher of projectRouteMatchers) {
+      await page.route(matcher, handleProjectsRoute);
+    }
 
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
