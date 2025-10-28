@@ -22,6 +22,7 @@ users:
     org_permissions:
       - view:projects
       - manage:qa
+      - manage:projects
   - id: template_manager
     email: manager@example.com
     first_name: Morgan

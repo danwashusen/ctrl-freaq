@@ -35,15 +35,31 @@ describe('Audit foreign key integrity', () => {
 
     expect(() => {
       db.prepare(
-        `INSERT INTO projects (id, owner_user_id, name, slug, description, created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO projects (
+           id,
+           owner_user_id,
+           name,
+           slug,
+           description,
+           visibility,
+           status,
+           created_at,
+           created_by,
+           updated_at,
+           updated_by
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         'project_fk_violation',
         'user_fk_owner',
         'Audit FK Violation',
         'audit-fk-violation',
         null,
+        'workspace',
+        'draft',
+        '2025-01-01T00:00:00.000Z',
         'ghost_user',
+        '2025-01-01T00:00:00.000Z',
         'ghost_user'
       );
     }).toThrow(/FOREIGN KEY/);

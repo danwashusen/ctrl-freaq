@@ -305,3 +305,101 @@ describe('assumption streaming telemetry events', () => {
     );
   });
 });
+
+describe('project lifecycle telemetry events', () => {
+  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('logs project create success metrics with normalized duration', async () => {
+    const { emitProjectCreateMetric } = await import('./client-events');
+
+    emitProjectCreateMetric({
+      durationMs: 1543.8,
+      projectId: 'project-alpha',
+      visibility: 'workspace',
+      result: 'success',
+      triggeredAt: '2025-10-26T11:00:00.000Z',
+      requestId: 'req-123',
+    });
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith('[projects.telemetry] projects.lifecycle.create', {
+      message: 'Project lifecycle create metric recorded',
+      payload: {
+        durationMs: 1544,
+        projectId: 'project-alpha',
+        visibility: 'workspace',
+        result: 'success',
+        triggeredAt: '2025-10-26T11:00:00.000Z',
+        requestId: 'req-123',
+      },
+    });
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    expect(infoMock).not.toHaveBeenCalled();
+    expect(warnMock).not.toHaveBeenCalled();
+  });
+
+  it('logs project create failures as warnings', async () => {
+    const { emitProjectCreateMetric } = await import('./client-events');
+
+    emitProjectCreateMetric({
+      durationMs: -20,
+      visibility: 'private',
+      result: 'error',
+      triggeredAt: '2025-10-26T11:05:00.000Z',
+      errorMessage: 'CONFLICT',
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[projects.telemetry] projects.lifecycle.create', {
+      message: 'Project lifecycle create metric recorded',
+      payload: {
+        durationMs: 0,
+        projectId: undefined,
+        visibility: 'private',
+        result: 'error',
+        triggeredAt: '2025-10-26T11:05:00.000Z',
+        errorMessage: 'CONFLICT',
+      },
+    });
+  });
+
+  it('logs dashboard hydration timings', async () => {
+    const { emitProjectDashboardHydrationMetric } = await import('./client-events');
+
+    emitProjectDashboardHydrationMetric({
+      durationMs: 812.2,
+      projectCount: 12,
+      includeArchived: false,
+      search: 'alpha rollout',
+      triggeredAt: '2025-10-26T11:10:00.000Z',
+      requestId: 'req-321',
+      fromCache: false,
+    });
+
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[projects.telemetry] projects.dashboard.hydration',
+      {
+        message: 'Project dashboard hydration metric recorded',
+        payload: {
+          durationMs: 812,
+          projectCount: 12,
+          includeArchived: false,
+          search: 'alpha rollout',
+          triggeredAt: '2025-10-26T11:10:00.000Z',
+          requestId: 'req-321',
+          fromCache: false,
+        },
+      }
+    );
+  });
+});

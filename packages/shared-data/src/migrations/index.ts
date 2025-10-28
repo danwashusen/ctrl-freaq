@@ -59,3 +59,10 @@ export function loadSharedDataMigrations(): SharedDataMigration[] {
 export function getSharedDataMigrationsDir(): string {
   return MIGRATIONS_DIR;
 }
+
+export {
+  PROJECT_LIFECYCLE_MIGRATION_VERSION,
+  PROJECT_LIFECYCLE_MIGRATION_NAME,
+  loadProjectLifecycleMigrationSql,
+  getProjectLifecycleMigrationPath,
+} from './20251025_project_lifecycle.js';

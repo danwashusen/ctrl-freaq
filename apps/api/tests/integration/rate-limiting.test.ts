@@ -15,6 +15,7 @@ describe('Authenticated rate limiting', () => {
         rateLimiting: {
           windowMs: 1000,
           max: 2,
+          mode: 'reject',
         },
       },
     });
@@ -35,5 +36,38 @@ describe('Authenticated rate limiting', () => {
     expect(third.headers['retry-after']).toBeDefined();
     expect(third.headers['x-ratelimit-limit']).toBe('2');
     expect(third.headers['x-ratelimit-remaining']).toBeDefined();
+  });
+
+  test('log mode warns but allows requests to proceed', async () => {
+    const logModeApp = await createApp({
+      security: {
+        trustProxy: false,
+        rateLimiting: {
+          windowMs: 1000,
+          max: 2,
+          mode: 'log',
+        },
+      },
+    });
+
+    const authHeader = getManagerAuthHeader();
+
+    const first = await request(logModeApp)
+      .get('/api/v1/templates')
+      .set('Authorization', authHeader);
+    expect(first.status).toBe(200);
+
+    const second = await request(logModeApp)
+      .get('/api/v1/templates')
+      .set('Authorization', authHeader);
+    expect(second.status).toBe(200);
+
+    const third = await request(logModeApp)
+      .get('/api/v1/templates')
+      .set('Authorization', authHeader);
+    expect(third.status).toBe(200);
+    expect(third.headers['x-ratelimit-limit']).toBe('2');
+    expect(third.headers['x-ratelimit-remaining']).toBe('0');
+    expect(third.headers['retry-after']).toBeDefined();
   });
 });

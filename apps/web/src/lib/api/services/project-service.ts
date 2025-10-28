@@ -1,5 +1,5 @@
 import type ApiClient from '../../api';
-import type { ProjectsListResponseDTO } from '../../api';
+import type { ProjectsListQueryParams, ProjectsListResponse } from '../../api';
 
 export type MemberAvatar = {
   userId?: string;
@@ -21,7 +21,7 @@ export type ProjectListItem = {
 
 export async function listProjects(
   apiClient: ApiClient,
-  params?: { limit?: number; offset?: number }
-): Promise<ProjectsListResponseDTO> {
+  params?: ProjectsListQueryParams
+): Promise<ProjectsListResponse> {
   return apiClient.listProjects(params);
 }

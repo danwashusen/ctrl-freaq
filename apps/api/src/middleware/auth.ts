@@ -2,6 +2,11 @@ import { clerkMiddleware } from '@clerk/express';
 import type { Request, Response, NextFunction } from 'express';
 import type { Logger } from 'pino';
 import { setInterval, clearInterval } from 'node:timers';
+import type { AppContext } from '../app.js';
+import {
+  resolveRateLimitEnforcementMode,
+  type RateLimitEnforcementMode,
+} from '../config/rate-limiting.js';
 
 /**
  * Extended Request interface with Clerk authentication
@@ -220,7 +225,11 @@ export const isAuthenticated = (req: AuthenticatedRequest): boolean => {
 /**
  * Rate limiting by user ID for authenticated endpoints
  */
-export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
+export const createUserRateLimit = (
+  windowMs: number,
+  maxRequests: number,
+  mode?: RateLimitEnforcementMode
+) => {
   const userRequestCounts = new Map<string, { count: number; resetTime: number }>();
 
   // Cleanup old entries every 5 minutes to prevent memory leaks
@@ -239,9 +248,25 @@ export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
   // Clean up interval on process exit
   process.on('exit', () => clearInterval(cleanupInterval));
 
+  const resolveEnforcementMode = (req: AuthenticatedRequest): RateLimitEnforcementMode => {
+    if (mode) {
+      return mode;
+    }
+
+    const appContext = req.app?.locals?.appContext as AppContext | undefined;
+    const configuredMode = appContext?.config?.security?.rateLimiting?.mode;
+
+    if (configuredMode) {
+      return resolveRateLimitEnforcementMode(configuredMode);
+    }
+
+    return resolveRateLimitEnforcementMode(process.env.RATE_LIMIT_ENFORCEMENT_MODE);
+  };
+
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     const userId = getUserId(req);
     const logger = req.services?.get('logger') as Logger | undefined;
+    const enforcementMode = resolveEnforcementMode(req);
 
     if (!userId) {
       // If no user ID, skip rate limiting (let other auth middleware handle)
@@ -271,14 +296,22 @@ export const createUserRateLimit = (windowMs: number, maxRequests: number) => {
           rateLimitWindow: windowMs,
           maxRequests,
           currentCount: userInfo.count,
+          enforcementMode,
         },
-        'Rate limit exceeded for user'
+        enforcementMode === 'log'
+          ? 'Rate limit exceeded for user (log mode)'
+          : 'Rate limit exceeded for user'
       );
 
       res.setHeader('Retry-After', retryAfterSeconds.toString());
       res.setHeader('X-RateLimit-Limit', String(maxRequests));
       res.setHeader('X-RateLimit-Remaining', '0');
       res.setHeader('X-RateLimit-Reset', resetEpochSeconds.toString());
+
+      if (enforcementMode === 'log') {
+        next();
+        return;
+      }
 
       const errorResponse: AuthErrorResponse = {
         error: 'RATE_LIMIT_EXCEEDED',

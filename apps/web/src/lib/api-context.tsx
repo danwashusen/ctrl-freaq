@@ -5,6 +5,12 @@ import type { ReactNode } from 'react';
 
 import { createApiClient } from './api';
 import type ApiClient from './api';
+import type {
+  CreateProjectRequest,
+  ProjectsListQueryParams,
+  UpdateProjectRequest,
+  UpdateProjectOptions,
+} from './api';
 import { logger } from './logger';
 import { E2EFixtureProvider, isE2EModeEnabled } from './fixtures/e2e/fixture-provider';
 
@@ -104,12 +110,14 @@ export function useApi() {
   return useMemo(
     () => ({
       projects: {
-        getAll: () => apiClient.getProjects(),
+        getAll: (params?: ProjectsListQueryParams) => apiClient.getProjects(params),
         getById: (id: string) => apiClient.getProject(id),
-        create: (data: { name: string; description: string }) => apiClient.createProject(data),
-        update: (id: string, updates: { name?: string; description?: string }) =>
-          apiClient.updateProject(id, updates),
-        delete: (id: string) => apiClient.deleteProject(id),
+        create: (data: CreateProjectRequest) => apiClient.createProject(data),
+        update: (id: string, updates: UpdateProjectRequest, options: UpdateProjectOptions) =>
+          apiClient.updateProject(id, updates, options),
+        delete: (id: string) => apiClient.archiveProject(id),
+        archive: (id: string) => apiClient.archiveProject(id),
+        restore: (id: string) => apiClient.restoreProject(id),
       },
       configuration: {
         get: () => apiClient.getConfiguration(),

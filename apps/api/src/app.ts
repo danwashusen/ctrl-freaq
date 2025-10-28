@@ -2,6 +2,11 @@ import type { Database } from 'better-sqlite3';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
+import {
+  DEFAULT_RATE_LIMIT_ENFORCEMENT_MODE,
+  resolveRateLimitEnforcementMode,
+  type RateLimitEnforcementMode,
+} from './config/rate-limiting.js';
 
 // Core modules
 import { createDefaultDatabaseConfig, DatabaseManager } from './core/database.js';
@@ -47,6 +52,7 @@ export interface AppConfig {
     rateLimiting: {
       windowMs: number;
       max: number;
+      mode: RateLimitEnforcementMode;
     };
   };
   health: {
@@ -82,6 +88,7 @@ export function createDefaultAppConfig(): AppConfig {
       rateLimiting: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10), // 15 minutes
         max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // 100 requests per window
+        mode: resolveRateLimitEnforcementMode(process.env.RATE_LIMIT_ENFORCEMENT_MODE),
       },
     },
     health: {
@@ -99,7 +106,31 @@ export function createDefaultAppConfig(): AppConfig {
  * Create and configure Express application
  */
 export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
-  const appConfig = { ...createDefaultAppConfig(), ...config };
+  const defaultConfig = createDefaultAppConfig();
+  const appConfig: AppConfig = {
+    ...defaultConfig,
+    ...config,
+    cors: {
+      ...defaultConfig.cors,
+      ...config?.cors,
+    },
+    security: {
+      ...defaultConfig.security,
+      ...config?.security,
+      rateLimiting: {
+        ...defaultConfig.security.rateLimiting,
+        ...config?.security?.rateLimiting,
+      },
+    },
+    health: {
+      ...defaultConfig.health,
+      ...config?.health,
+    },
+    auth: {
+      ...defaultConfig.auth,
+      ...config?.auth,
+    },
+  };
 
   // Create core dependencies
   const loggingConfig = createDefaultLoggingConfig();
@@ -236,6 +267,8 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
         'Authorization',
         'X-Request-ID',
         'X-Correlation-ID',
+        'X-Client-Timezone-Offset',
+        'If-Unmodified-Since',
       ],
     })
   );
@@ -279,7 +312,8 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
 
   const userRateLimiter = createUserRateLimit(
     appConfig.security.rateLimiting.windowMs,
-    appConfig.security.rateLimiting.max
+    appConfig.security.rateLimiting.max,
+    appConfig.security.rateLimiting.mode
   );
 
   if (appConfig.auth.provider === 'simple') {
@@ -473,6 +507,7 @@ export async function createProductionServer(
       rateLimiting: {
         windowMs: 900000, // 15 minutes
         max: 1000, // Higher limit for production
+        mode: DEFAULT_RATE_LIMIT_ENFORCEMENT_MODE,
       },
     },
   });
@@ -503,6 +538,7 @@ export async function createTestServer(): Promise<Express> {
       rateLimiting: {
         windowMs: 60000,
         max: 1000,
+        mode: DEFAULT_RATE_LIMIT_ENFORCEMENT_MODE,
       },
     },
   });

@@ -72,12 +72,17 @@ function createProjectEntity(overrides: Partial<Project> = {}): Project {
     name: 'Demo Project',
     slug: 'project-demo',
     description: null,
+    visibility: 'workspace',
+    status: 'draft',
+    goalTargetDate: null,
+    goalSummary: null,
     createdAt: timestamp,
     createdBy: overrides.createdBy ?? 'system',
     updatedAt: overrides.updatedAt ?? timestamp,
     updatedBy: overrides.updatedBy ?? 'system',
     deletedAt: overrides.deletedAt ?? null,
     deletedBy: overrides.deletedBy ?? null,
+    archivedStatusBefore: overrides.archivedStatusBefore ?? null,
     ...overrides,
   } satisfies Project;
 }

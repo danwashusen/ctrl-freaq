@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
+
+import {
+  evaluateArchivedProjectCorrections,
+  type ArchivedProjectAuditRecord,
+} from './audit/archived-projects.js';
 
 const DEFAULT_API_BASE_URL = process.env.QUALITY_GATES_API_URL ?? 'http://localhost:5001/api/v1';
 const DEFAULT_API_TOKEN = process.env.QUALITY_GATES_TOKEN ?? null;
@@ -341,6 +347,104 @@ export function cli(argv?: string[]): void {
         console.log(`  Source:   ${source}`);
         if (result.message) {
           console.log(`\n${result.message}`);
+        }
+      }
+    });
+
+  const parseThreshold = (value?: string): number | undefined => {
+    if (!value) {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return undefined;
+    }
+    if (trimmed.endsWith('%')) {
+      const numeric = Number.parseFloat(trimmed.slice(0, -1));
+      return Number.isFinite(numeric) ? numeric / 100 : undefined;
+    }
+    const numeric = Number.parseFloat(trimmed);
+    if (!Number.isFinite(numeric)) {
+      return undefined;
+    }
+    return numeric > 1 ? numeric / 100 : numeric;
+  };
+
+  const audit = program
+    .command('audit')
+    .description('Audit utilities for success criteria tracking');
+
+  audit
+    .command('archived-projects')
+    .description('Evaluate archived project audit samples against SC-004 threshold')
+    .option('-i, --input <file>', 'Path to JSON array of archived project audit records')
+    .option('-t, --threshold <value>', 'Correction rate threshold, e.g. 0.05 or 5%')
+    .option('--min-sample <value>', 'Minimum required sample size', value =>
+      Number.parseInt(value, 10)
+    )
+    .option('--json', 'Emit JSON output', false)
+    .action(options => {
+      let records: unknown[] = [];
+      if (options.input) {
+        try {
+          const raw = readFileSync(options.input, 'utf-8');
+          const parsed = JSON.parse(raw);
+          records = Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error('Failed to read archived project audit input', error);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
+      const normalizedRecords = records.map(record => {
+        const data =
+          typeof record === 'object' && record !== null ? (record as Record<string, unknown>) : {};
+        return {
+          projectId: String(data.projectId ?? data.id ?? 'unknown-project'),
+          archivedAt: String(data.archivedAt ?? data.archived_at ?? ''),
+          reviewedAt: String(data.reviewedAt ?? data.reviewed_at ?? ''),
+          correctionRequired: Boolean(
+            data.correctionRequired ?? data.needsCorrection ?? data.requiresCorrection ?? false
+          ),
+          correctionCategory: data.correctionCategory ? String(data.correctionCategory) : undefined,
+          notes: data.notes ? String(data.notes) : undefined,
+        } satisfies ArchivedProjectAuditRecord;
+      });
+
+      const threshold = parseThreshold(options.threshold);
+      const minimumSampleSize =
+        typeof options.minSample === 'number' && Number.isFinite(options.minSample)
+          ? options.minSample
+          : undefined;
+
+      const result = evaluateArchivedProjectCorrections(normalizedRecords, {
+        threshold,
+        minimumSampleSize,
+      });
+
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
+
+      const ratePercent = (result.correctionRate * 100).toFixed(2);
+      const thresholdPercent = (result.threshold * 100).toFixed(2);
+
+      console.log('Archived project audit sampling results');
+      console.log(`  Sample size: ${result.sampleSize}`);
+      console.log(`  Corrections: ${result.corrections}`);
+      console.log(`  Correction rate: ${ratePercent}% (threshold ${thresholdPercent}%)`);
+      console.log(`  Status: ${result.withinThreshold ? 'PASS' : 'FAIL'}`);
+
+      if (result.insufficientSample) {
+        console.log('  Warning: sample size is below the recommended minimum.');
+      }
+
+      if (result.projectsNeedingReview.length > 0) {
+        console.log('  Projects requiring correction:');
+        for (const projectId of result.projectsNeedingReview) {
+          console.log(`    - ${projectId}`);
         }
       }
     });

@@ -11,6 +11,8 @@ import { AIProposalService } from '../services/co-authoring/ai-proposal.service.
 import type { QueueCancellationReason } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 import { SessionRateLimiter } from './co-authoring-rate-limiter.js';
+import type { AppContext } from '../app.js';
+import { resolveRateLimitEnforcementMode } from '../config/rate-limiting.js';
 
 type CoAuthoringRequest<
   P extends Record<string, string> = Record<string, string>,
@@ -60,6 +62,34 @@ const buildAuditMiddleware = (): RequestHandler => {
       const key = buildRateLimitKey(input.userId, input.documentId, input.sectionId, input.intent);
       const now = Date.now();
       const result = rateLimiter.check(key, { now });
+      const appContext = req.app?.locals?.appContext as AppContext | undefined;
+      const enforcementMode = resolveRateLimitEnforcementMode(
+        appContext?.config?.security?.rateLimiting?.mode ?? process.env.RATE_LIMIT_ENFORCEMENT_MODE
+      );
+
+      if (!result.allowed && enforcementMode === 'log') {
+        const requestId = (req as { requestId?: string }).requestId ?? 'unknown';
+
+        logger?.warn(
+          {
+            requestId,
+            userId: input.userId,
+            documentId: input.documentId,
+            sectionId: input.sectionId,
+            intent: input.intent,
+            rateLimitWindow: RATE_WINDOW_MS,
+            maxRequests: MAX_REQUESTS_PER_WINDOW,
+            enforcementMode,
+          },
+          'Co-authoring rate limit exceeded (log mode)'
+        );
+
+        return {
+          allowed: true,
+          remaining: 0,
+          retryAfterMs: result.retryAfterMs,
+        } satisfies RateLimitResult;
+      }
 
       if (!result.allowed) {
         return {

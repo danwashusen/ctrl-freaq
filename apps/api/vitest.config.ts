@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { createConsoleSilencer } from '../../scripts/vitest-console-hook';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,6 +15,7 @@ const aiDist = resolve(rootDir, '..', 'packages', 'ai', 'dist');
 
 export default defineConfig({
   test: {
+    ...createConsoleSilencer(),
     globals: true,
     environment: 'node',
     testTimeout: 30000,

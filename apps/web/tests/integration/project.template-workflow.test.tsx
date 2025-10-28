@@ -51,90 +51,108 @@ describe('Project template workflow', () => {
     globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/projects/project-1')) {
+        const projectPayload = {
+          id: 'project-1',
+          ownerUserId: 'user_123',
+          name: 'Sample Project',
+          slug: 'sample-project',
+          description: 'Demo project',
+          createdAt: '2025-09-16T00:00:00.000Z',
+          updatedAt: '2025-09-16T00:00:00.000Z',
+        };
         return Promise.resolve({
           ok: true,
-          json: () =>
-            Promise.resolve({
-              id: 'project-1',
-              ownerUserId: 'user_123',
-              name: 'Sample Project',
-              slug: 'sample-project',
-              description: 'Demo project',
-              createdAt: '2025-09-16T00:00:00.000Z',
-              updatedAt: '2025-09-16T00:00:00.000Z',
-            }),
+          json: () => Promise.resolve(projectPayload),
+          text: () => Promise.resolve(JSON.stringify(projectPayload)),
         } as Response);
       }
       if (url.endsWith('/documents/project-1')) {
+        const documentPayload = {
+          document: {
+            id: 'project-1',
+            projectId: 'project-1',
+            title: 'Architecture Overview',
+            content: {
+              introduction: 'Intro',
+              system_overview: {
+                tech_stack: 'React',
+              },
+            },
+            templateId: 'architecture',
+            templateVersion: '1.1.0',
+            templateSchemaHash: 'hash-new',
+          },
+          migration: {
+            id: 'migration-1',
+            documentId: 'project-1',
+            fromVersion: '1.0.0',
+            toVersion: '1.1.0',
+            status: 'succeeded',
+            validationErrors: null,
+            initiatedBy: 'user_123',
+            initiatedAt: '2025-09-16T00:01:00.000Z',
+            completedAt: '2025-09-16T00:01:02.000Z',
+          },
+          templateDecision: {
+            action: 'upgrade',
+            reason: 'out_of_date',
+            currentVersion: {
+              templateId: 'architecture',
+              version: '1.0.0',
+              schemaHash: 'hash-old',
+              status: 'deprecated',
+            },
+            targetVersion: {
+              templateId: 'architecture',
+              version: '1.1.0',
+              schemaHash: 'hash-new',
+              status: 'active',
+            },
+          },
+        };
         return Promise.resolve({
           ok: true,
-          json: () =>
-            Promise.resolve({
-              document: {
-                id: 'project-1',
-                projectId: 'project-1',
-                title: 'Architecture Overview',
-                content: {
-                  introduction: 'Intro',
-                  system_overview: {
-                    tech_stack: 'React',
-                  },
-                },
-                templateId: 'architecture',
-                templateVersion: '1.1.0',
-                templateSchemaHash: 'hash-new',
-              },
-              migration: {
-                id: 'migration-1',
-                documentId: 'project-1',
-                fromVersion: '1.0.0',
-                toVersion: '1.1.0',
-                status: 'succeeded',
-                validationErrors: null,
-                initiatedBy: 'user_123',
-                initiatedAt: '2025-09-16T00:01:00.000Z',
-                completedAt: '2025-09-16T00:01:02.000Z',
-              },
-              templateDecision: {
-                action: 'upgrade',
-                reason: 'out_of_date',
-                currentVersion: {
-                  templateId: 'architecture',
-                  version: '1.0.0',
-                  schemaHash: 'hash-old',
-                  status: 'deprecated',
-                },
-                targetVersion: {
-                  templateId: 'architecture',
-                  version: '1.1.0',
-                  schemaHash: 'hash-new',
-                  status: 'active',
-                },
-              },
-            }),
+          json: () => Promise.resolve(documentPayload),
+          text: () => Promise.resolve(JSON.stringify(documentPayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              template: {
-                id: 'architecture',
-                name: 'Architecture',
-                description: 'Architecture doc template',
-                documentType: 'architecture',
-                status: 'active',
-                activeVersion: '1.1.0',
-                activeVersionMetadata: {
-                  version: '1.1.0',
-                  schemaHash: 'hash-new',
-                  status: 'active',
-                  changelog: null,
-                  sections: [
+        const templatePayload = {
+          template: {
+            id: 'architecture',
+            name: 'Architecture',
+            description: 'Architecture doc template',
+            documentType: 'architecture',
+            status: 'active',
+            activeVersion: '1.1.0',
+            activeVersionMetadata: {
+              version: '1.1.0',
+              schemaHash: 'hash-new',
+              status: 'active',
+              changelog: null,
+              sections: [
+                {
+                  id: 'introduction',
+                  title: 'Introduction',
+                  orderIndex: 0,
+                  required: true,
+                  type: 'markdown',
+                  guidance: null,
+                  fields: [],
+                  children: [],
+                },
+                {
+                  id: 'system_overview',
+                  title: 'System Overview',
+                  orderIndex: 1,
+                  required: true,
+                  type: 'object',
+                  guidance: null,
+                  fields: [],
+                  children: [
                     {
-                      id: 'introduction',
-                      title: 'Introduction',
+                      id: 'tech_stack',
+                      title: 'Tech Stack',
                       orderIndex: 0,
                       required: true,
                       type: 'markdown',
@@ -142,62 +160,63 @@ describe('Project template workflow', () => {
                       fields: [],
                       children: [],
                     },
-                    {
-                      id: 'system_overview',
-                      title: 'System Overview',
-                      orderIndex: 1,
-                      required: true,
-                      type: 'object',
-                      guidance: null,
-                      fields: [],
-                      children: [
-                        {
-                          id: 'tech_stack',
-                          title: 'Tech Stack',
-                          orderIndex: 0,
-                          required: true,
-                          type: 'markdown',
-                          guidance: null,
-                          fields: [],
-                          children: [],
-                        },
-                      ],
-                    },
                   ],
                 },
-                createdAt: '2025-09-16T00:00:00.000Z',
-                updatedAt: '2025-09-16T00:00:00.000Z',
-              },
-            }),
+              ],
+            },
+            createdAt: '2025-09-16T00:00:00.000Z',
+            updatedAt: '2025-09-16T00:00:00.000Z',
+          },
+        };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(templatePayload),
+          text: () => Promise.resolve(JSON.stringify(templatePayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture/versions/1.1.0')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              version: {
-                templateId: 'architecture',
-                version: '1.1.0',
-                schemaHash: 'hash-new',
-                schema: {
+        const versionPayload = {
+          version: {
+            templateId: 'architecture',
+            version: '1.1.0',
+            schemaHash: 'hash-new',
+            schema: {
+              type: 'object',
+              properties: {
+                introduction: { type: 'string' },
+                system_overview: {
                   type: 'object',
                   properties: {
-                    introduction: { type: 'string' },
-                    system_overview: {
-                      type: 'object',
-                      properties: {
-                        tech_stack: { type: 'string' },
-                      },
-                      required: ['tech_stack'],
-                    },
+                    tech_stack: { type: 'string' },
                   },
-                  required: ['introduction', 'system_overview'],
+                  required: ['tech_stack'],
                 },
-                sections: [
+              },
+              required: ['introduction', 'system_overview'],
+            },
+            sections: [
+              {
+                id: 'introduction',
+                title: 'Introduction',
+                orderIndex: 0,
+                required: true,
+                type: 'markdown',
+                guidance: null,
+                fields: [],
+                children: [],
+              },
+              {
+                id: 'system_overview',
+                title: 'System Overview',
+                orderIndex: 1,
+                required: true,
+                type: 'object',
+                guidance: null,
+                fields: [],
+                children: [
                   {
-                    id: 'introduction',
-                    title: 'Introduction',
+                    id: 'tech_stack',
+                    title: 'Tech Stack',
                     orderIndex: 0,
                     required: true,
                     type: 'markdown',
@@ -205,30 +224,15 @@ describe('Project template workflow', () => {
                     fields: [],
                     children: [],
                   },
-                  {
-                    id: 'system_overview',
-                    title: 'System Overview',
-                    orderIndex: 1,
-                    required: true,
-                    type: 'object',
-                    guidance: null,
-                    fields: [],
-                    children: [
-                      {
-                        id: 'tech_stack',
-                        title: 'Tech Stack',
-                        orderIndex: 0,
-                        required: true,
-                        type: 'markdown',
-                        guidance: null,
-                        fields: [],
-                        children: [],
-                      },
-                    ],
-                  },
                 ],
               },
-            }),
+            ],
+          },
+        };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(versionPayload),
+          text: () => Promise.resolve(JSON.stringify(versionPayload)),
         } as Response);
       }
       return Promise.resolve({
@@ -236,6 +240,7 @@ describe('Project template workflow', () => {
         status: 404,
         statusText: 'Not Found',
         json: () => Promise.resolve({}),
+        text: () => Promise.resolve(JSON.stringify({})),
       } as Response);
     }) as unknown as typeof fetch;
 
@@ -254,52 +259,55 @@ describe('Project template workflow', () => {
     globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url.endsWith('/projects/project-2')) {
+        const projectPayload = {
+          id: 'project-2',
+          ownerUserId: 'user_123',
+          name: 'Legacy Project',
+          slug: 'legacy-project',
+          description: 'Legacy project',
+          createdAt: '2025-09-16T00:00:00.000Z',
+          updatedAt: '2025-09-16T00:00:00.000Z',
+        };
         return Promise.resolve({
           ok: true,
-          json: () =>
-            Promise.resolve({
-              id: 'project-2',
-              ownerUserId: 'user_123',
-              name: 'Legacy Project',
-              slug: 'legacy-project',
-              description: 'Legacy project',
-              createdAt: '2025-09-16T00:00:00.000Z',
-              updatedAt: '2025-09-16T00:00:00.000Z',
-            }),
+          json: () => Promise.resolve(projectPayload),
+          text: () => Promise.resolve(JSON.stringify(projectPayload)),
         } as Response);
       }
       if (url.endsWith('/documents/project-2')) {
+        const removedPayload = {
+          error: 'TEMPLATE_VERSION_REMOVED',
+          message: 'The referenced template version is no longer available.',
+          templateId: 'architecture',
+          missingVersion: '0.9.0',
+          requestId: 'req_removed',
+        };
         return Promise.resolve({
           ok: false,
           status: 409,
           statusText: 'Conflict',
-          json: () =>
-            Promise.resolve({
-              error: 'TEMPLATE_VERSION_REMOVED',
-              message: 'The referenced template version is no longer available.',
-              templateId: 'architecture',
-              missingVersion: '0.9.0',
-              requestId: 'req_removed',
-            }),
+          json: () => Promise.resolve(removedPayload),
+          text: () => Promise.resolve(JSON.stringify(removedPayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture')) {
+        const templatePayload = {
+          template: {
+            id: 'architecture',
+            name: 'Architecture',
+            description: 'Architecture doc template',
+            documentType: 'architecture',
+            status: 'active',
+            activeVersion: '1.1.0',
+            activeVersionMetadata: null,
+            createdAt: '2025-09-16T00:00:00.000Z',
+            updatedAt: '2025-09-16T00:00:00.000Z',
+          },
+        };
         return Promise.resolve({
           ok: true,
-          json: () =>
-            Promise.resolve({
-              template: {
-                id: 'architecture',
-                name: 'Architecture',
-                description: 'Architecture doc template',
-                documentType: 'architecture',
-                status: 'active',
-                activeVersion: '1.1.0',
-                activeVersionMetadata: null,
-                createdAt: '2025-09-16T00:00:00.000Z',
-                updatedAt: '2025-09-16T00:00:00.000Z',
-              },
-            }),
+          json: () => Promise.resolve(templatePayload),
+          text: () => Promise.resolve(JSON.stringify(templatePayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture/versions/0.9.0')) {
@@ -308,6 +316,7 @@ describe('Project template workflow', () => {
           status: 404,
           statusText: 'Not Found',
           json: () => Promise.resolve({}),
+          text: () => Promise.resolve(JSON.stringify({})),
         } as Response);
       }
       return Promise.resolve({
@@ -315,6 +324,7 @@ describe('Project template workflow', () => {
         status: 404,
         statusText: 'Not Found',
         json: () => Promise.resolve({}),
+        text: () => Promise.resolve(JSON.stringify({})),
       } as Response);
     }) as unknown as typeof fetch;
 
@@ -344,6 +354,18 @@ describe('Project template workflow', () => {
               createdAt: '2025-09-16T00:00:00.000Z',
               updatedAt: '2025-09-16T00:00:00.000Z',
             }),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                id: 'project-3',
+                ownerUserId: 'user_123',
+                name: 'Upgrade Failure Project',
+                slug: 'upgrade-failure-project',
+                description: 'Auto-upgrade failure scenario',
+                createdAt: '2025-09-16T00:00:00.000Z',
+                updatedAt: '2025-09-16T00:00:00.000Z',
+              })
+            ),
         } as Response);
       }
       if (url.endsWith('/documents/project-3')) {
@@ -366,6 +388,23 @@ describe('Project template workflow', () => {
                 ],
               },
             }),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                error: 'TEMPLATE_VALIDATION_FAILED',
+                message: 'Document content does not satisfy the target template schema',
+                requestId: 'req_upgrade_failed',
+                details: {
+                  issues: [
+                    {
+                      path: ['introduction'],
+                      message: 'Executive Summary is required',
+                      code: 'required',
+                    },
+                  ],
+                },
+              })
+            ),
         } as Response);
       }
       return Promise.resolve({
@@ -373,6 +412,7 @@ describe('Project template workflow', () => {
         status: 404,
         statusText: 'Not Found',
         json: () => Promise.resolve({}),
+        text: () => Promise.resolve(JSON.stringify({})),
       } as Response);
     }) as unknown as typeof fetch;
 
