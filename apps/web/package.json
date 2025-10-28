@@ -38,7 +38,7 @@
     "@ctrl-freaq/editor-persistence": "workspace:*",
     "@ctrl-freaq/qa": "workspace:*",
     "@ctrl-freaq/templates": "workspace:*",
-    "@milkdown/core": "7.15.5",
+    "@milkdown/core": "7.17.1",
     "@milkdown/plugin-history": "7.17.1",
     "@milkdown/plugin-listener": "7.15.5",
     "@milkdown/preset-commonmark": "7.17.1",
