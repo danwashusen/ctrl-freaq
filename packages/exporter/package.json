@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "archiver": "^7.0.0",
-    "commander": "^14.0.1",
+    "commander": "^14.0.2",
     "jspdf": "^3.0.3",
     "markdown-it": "^14.0.0",
     "puppeteer": "^24.23.0",
