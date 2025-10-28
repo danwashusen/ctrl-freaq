@@ -76,10 +76,9 @@ export function createBaseConfig(): PlaywrightTestConfig {
     },
     projects: createProjects(),
     expect: {
-      // Give slower CI environments a bit more room to render dashboard UIs.
-      timeout: 12 * 1000,
+      timeout: 2 * 1000,
     },
-    timeout: 30 * 1000,
+    timeout: 5 * 1000,
   } satisfies PlaywrightTestConfig;
 }
 
@@ -95,6 +94,7 @@ export function createFixtureConfig(): PlaywrightTestConfig {
       ...process.env,
       VITE_E2E: 'true',
       VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || 'http://localhost:5173/__fixtures/api',
+      VITE_AUTH_PROVIDER: process.env.VITE_AUTH_PROVIDER || 'simple',
     },
   };
 
