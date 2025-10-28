@@ -135,3 +135,5 @@ export function createQualityGateAuditLogger(logger: Logger): QualityGateAuditLo
     },
   };
 }
+
+export * from './archived-projects.js';

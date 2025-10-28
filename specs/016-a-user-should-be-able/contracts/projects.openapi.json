@@ -91,7 +91,7 @@
           },
           "name": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 120
           },
           "slug": {
             "type": "string",
@@ -127,7 +127,7 @@
           },
           "goalSummary": {
             "type": "string",
-            "maxLength": 140,
+            "maxLength": 280,
             "nullable": true
           },
           "createdAt": {
@@ -202,11 +202,13 @@
         "properties": {
           "name": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 120
           },
           "description": {
             "type": "string",
-            "maxLength": 500
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Optional short description; null or omission leaves it unset."
           },
           "visibility": {
             "type": "string",
@@ -214,15 +216,20 @@
               "private",
               "workspace"
             ],
-            "default": "workspace"
+            "default": "workspace",
+            "description": "Optional on create; defaults to workspace when omitted."
           },
           "goalTargetDate": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "nullable": true,
+            "description": "Optional ISO date (YYYY-MM-DD); omit or null to skip."
           },
           "goalSummary": {
             "type": "string",
-            "maxLength": 140
+            "maxLength": 280,
+            "nullable": true,
+            "description": "Optional short text describing the next milestone."
           }
         }
       },
@@ -231,11 +238,12 @@
         "properties": {
           "name": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 120
           },
           "description": {
             "type": "string",
-            "maxLength": 500
+            "maxLength": 500,
+            "nullable": true
           },
           "visibility": {
             "type": "string",
@@ -255,11 +263,13 @@
           },
           "goalTargetDate": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "goalSummary": {
             "type": "string",
-            "maxLength": 140
+            "maxLength": 280,
+            "nullable": true
           }
         },
         "description": "At least one field must be provided. `status` excludes `archived` because archive uses DELETE."

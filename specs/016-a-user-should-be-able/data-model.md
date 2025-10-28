@@ -12,13 +12,13 @@
 |-------|------|----------|-------|------------------------|
 | `id` | UUID | Yes | Primary key | Auto-generated; format validated via Zod UUID |
 | `ownerUserId` | UUID | Yes | Workspace member that created the project | Must correspond to authenticated user; enforced via auth middleware |
-| `name` | string | Yes | Display name shown on dashboard cards | 1–100 chars; trimmed; unique per owner + visibility scope |
+| `name` | string | Yes | Display name shown on dashboard cards | 1–120 chars; trimmed; unique per owner + visibility scope |
 | `slug` | string | Yes | URL-safe identifier for deep links | Lowercase `[a-z0-9-]`, 1–50 chars, unique with soft-delete filtering |
-| `description` | string \| null | No | Summary shown on dashboard & detail page | ≤500 chars |
+| `description` | string \| null | No | Dashboard/detail summary; optional on create, persisted as null when omitted | ≤500 chars |
 | `visibility` | enum | Yes | Sharing scope | One of `private`, `workspace`; default `workspace` (D003) |
 | `status` | enum | Yes | Lifecycle stage (D001) | One of `draft`, `active`, `paused`, `completed`, `archived`; default `draft` |
 | `goalTargetDate` | date \| null | No | Target completion date (D004) | Optional; must be ≥ creation date |
-| `goalSummary` | string \| null | No | Short text describing upcoming milestone | ≤140 chars; optional |
+| `goalSummary` | string \| null | No | Short text describing upcoming milestone | ≤280 chars; optional |
 | `createdAt` | date | Yes | Audit timestamp | Set automatically; immutable |
 | `createdBy` | UUID | Yes | Actor who created project | Mirrors `ownerUserId` for MVP; future-proof for delegation |
 | `updatedAt` | date | Yes | Last mutation timestamp | Drives concurrency guard (D005); returned to clients |

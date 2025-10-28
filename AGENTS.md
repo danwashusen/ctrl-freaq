@@ -20,7 +20,7 @@ needed). Run unit suites via `pnpm test`; execute contract coverage with
 package-specific flows, e.g.
 `pnpm --filter @ctrl-freaq/templates cli validate sample.yaml`.
 
-### Code Quality Gate Command Crib Sheet
+### Project Command Crib Sheet
 
 - `pnpm build`: Turbo build across all workspaces; obeys build graph/caching.
 - `pnpm clean`: turbo clean plus delete node_modules; resets workspace caches.
@@ -47,8 +47,12 @@ package-specific flows, e.g.
 - `pnpm lint:yaml`: ESLint focused on .yml/.yaml.
 - `pnpm test`: Repository gauntlet (Vitest with
   `--force --cache=local:,remote:r`, then fixture and visual Playwright).
+- `pnpm test:debug`: Gauntlet with `VITEST_DEBUG` and `PLAYWRIGHT_DEBUG`
+  enabled; reserve for diagnosing multi-suite failures that need full logs.
 - `pnpm test:quick`: Vitest-only feedback loop across workspaces.
 - `pnpm test:unit:ci`: Forces Turbo to rerun every Vitest suite without cache.
+- `pnpm test:unit:debug`: Adds `VITEST_DEBUG=1` so Vitest prints all console
+  output; use when investigating noisy or flaky specs locally.
 - `pnpm test:gauntlet`: Explicit alias when CI scripts need the gauntlet
   directly.
 - `pnpm test:ci`: Lint, typecheck, and gauntlet in a single command.
@@ -56,11 +60,15 @@ package-specific flows, e.g.
   fast iteration.
 - `pnpm --filter @ctrl-freaq/web test:e2e:ci`: Fixture Playwright configured for
   CI parity.
+- `pnpm test:e2e:debug`: Fixture Playwright with `PLAYWRIGHT_DEBUG=1`; enables
+  verbose reporters and always-on traces for thorny UI failures.
 - `pnpm --filter @ctrl-freaq/web test:live`: Live Playwright harness (opt-in).
 - `pnpm --filter @ctrl-freaq/web test:visual:quick`: Visual regression quick
   loop.
 - `pnpm --filter @ctrl-freaq/web test:visual:ci`: Visual regression with CI
   reporters.
+- `pnpm test:visual:debug`: Visual regression with `PLAYWRIGHT_DEBUG=1`; pull
+  this out when diffing snapshots and you need extra artifacts.
 - `pnpm typecheck`: Builds the repo first, then runs Turbo typecheck with
   `--force` (no cache).
 - `pnpm typecheck:noemit`: TypeScript `--noEmit` pass assuming build outputs are

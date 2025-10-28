@@ -237,6 +237,8 @@ export const ACTION_TYPES = {
   PROJECT_UPDATE: 'project.update',
   PROJECT_DELETE: 'project.delete',
   PROJECT_VIEW: 'project.view',
+  PROJECT_ARCHIVE: 'project.archive',
+  PROJECT_RESTORE: 'project.restore',
 
   // Configuration
   CONFIG_UPDATE: 'config.update',

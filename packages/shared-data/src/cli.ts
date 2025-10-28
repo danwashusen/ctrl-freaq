@@ -15,7 +15,13 @@
  */
 
 import { Command } from 'commander';
+
+import Database from 'better-sqlite3';
 import { PACKAGE_INFO } from './index.js';
+import {
+  ProjectRepositoryImpl,
+  type Project,
+} from './models/project.js';
 
 // Typed option shapes for CLI commands
 type JsonFlag = { json?: boolean };
@@ -30,6 +36,8 @@ type RepoStatsOptions = JsonFlag & DbPathFlag;
 type GenerateIdOptions = { count: string };
 type SeedDatabaseOptions = { dbPath: string; reset?: boolean };
 type ResetDatabaseOptions = { dbPath: string; confirm?: boolean };
+type ProjectListOptions = JsonFlag & DbPathFlag & { includeArchived?: boolean };
+type ProjectLifecycleOptions = JsonFlag & DbPathFlag & { actor?: string };
 
 // Typed in-file schema representation used by generateSchema
 type FieldType = 'TEXT' | 'DATETIME';
@@ -131,6 +139,38 @@ class SharedDataCLI {
       .option('--json', 'Output in JSON format')
       .action(async options => {
         await this.showStats(options as RepoStatsOptions);
+      });
+
+    const projectCmd = this.program.command('project').description('Project lifecycle management');
+
+    projectCmd
+      .command('list')
+      .description('List projects with lifecycle metadata')
+      .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
+      .option('--include-archived', 'Include archived projects')
+      .option('--json', 'Output in JSON format')
+      .action(async options => {
+        await this.listProjects(options as ProjectListOptions);
+      });
+
+    projectCmd
+      .command('archive <projectId>')
+      .description('Archive a project and hide it from active listings')
+      .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
+      .option('--actor <userId>', 'User ID performing the archive')
+      .option('--json', 'Output in JSON format')
+      .action(async (projectId: string, options) => {
+        await this.archiveProject(projectId, options as ProjectLifecycleOptions);
+      });
+
+    projectCmd
+      .command('restore <projectId>')
+      .description('Restore a previously archived project')
+      .option('--db-path <path>', 'Database file path', './data/ctrl-freaq.db')
+      .option('--actor <userId>', 'User ID performing the restore')
+      .option('--json', 'Output in JSON format')
+      .action(async (projectId: string, options) => {
+        await this.restoreProject(projectId, options as ProjectLifecycleOptions);
       });
 
     // Utility commands
@@ -280,8 +320,16 @@ class SharedDataCLI {
             name: { type: 'TEXT', required: true },
             slug: { type: 'TEXT', required: true, unique: true },
             description: { type: 'TEXT' },
+            visibility: { type: 'TEXT', required: true },
+            status: { type: 'TEXT', required: true },
+            goal_target_date: { type: 'DATETIME' },
+            goal_summary: { type: 'TEXT' },
             created_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+            created_by: { type: 'TEXT', required: true },
             updated_at: { type: 'DATETIME', default: 'CURRENT_TIMESTAMP' },
+            updated_by: { type: 'TEXT', required: true },
+            deleted_at: { type: 'DATETIME' },
+            deleted_by: { type: 'TEXT' },
           },
         },
       },
@@ -464,6 +512,183 @@ class SharedDataCLI {
       Object.entries(stats.entities).forEach(([entity, count]) => {
         console.log(`  ${entity.padEnd(20)} - ${count}`);
       });
+    }
+  }
+
+  /**
+   * List projects with lifecycle metadata
+   */
+  private async listProjects(options: ProjectListOptions): Promise<void> {
+    try {
+      const projects = await this.withProjectRepository(options.dbPath, repository =>
+        repository.findAll({
+          orderBy: 'created_at',
+          orderDirection: 'DESC',
+          ...(options.includeArchived ? { includeDeleted: true } : {}),
+        })
+      );
+      const serialized = projects.map(project => this.serializeProject(project));
+
+      if (options.json) {
+        console.log(JSON.stringify({ projects: serialized }, null, 2));
+        return;
+      }
+
+      if (serialized.length === 0) {
+        console.log('No projects found.');
+        return;
+      }
+
+      console.log('Projects');
+      console.log('========');
+      for (const project of serialized) {
+        const archivedLabel = project.deletedAt ? ' (archived)' : '';
+        console.log(`${project.name} [${project.status}]${archivedLabel}`);
+        console.log(`  id: ${project.id}`);
+        console.log(`  owner: ${project.ownerUserId}`);
+        console.log(`  visibility: ${project.visibility}`);
+        console.log(`  updatedAt: ${project.updatedAt}`);
+        if (project.goalTargetDate) {
+          console.log(`  goalTargetDate: ${project.goalTargetDate}`);
+        }
+        if (project.goalSummary) {
+          console.log(`  goalSummary: ${project.goalSummary}`);
+        }
+        console.log('');
+      }
+    } catch (error) {
+      console.error(
+        'Failed to list projects:',
+        error instanceof Error ? error.message : String(error)
+      );
+      process.exitCode = 1;
+    }
+  }
+
+  /**
+   * Archive a project
+   */
+  private async archiveProject(projectId: string, options: ProjectLifecycleOptions): Promise<void> {
+    if (!options.actor || options.actor.trim().length === 0) {
+      console.error('Actor is required (--actor <userId>) to archive a project.');
+      process.exitCode = 1;
+      return;
+    }
+
+    try {
+      const project = await this.withProjectRepository(options.dbPath, repository =>
+        repository.archiveProject(projectId, options.actor as string)
+      );
+      this.printProjectResult(project, options.json, 'Project archived');
+    } catch (error) {
+      console.error(
+        'Failed to archive project:',
+        error instanceof Error ? error.message : String(error)
+      );
+      process.exitCode = 1;
+    }
+  }
+
+  /**
+   * Restore a project
+   */
+  private async restoreProject(projectId: string, options: ProjectLifecycleOptions): Promise<void> {
+    if (!options.actor || options.actor.trim().length === 0) {
+      console.error('Actor is required (--actor <userId>) to restore a project.');
+      process.exitCode = 1;
+      return;
+    }
+
+    try {
+      const project = await this.withProjectRepository(options.dbPath, repository =>
+        repository.restoreProject(projectId, options.actor as string)
+      );
+      this.printProjectResult(project, options.json, 'Project restored');
+    } catch (error) {
+      console.error(
+        'Failed to restore project:',
+        error instanceof Error ? error.message : String(error)
+      );
+      process.exitCode = 1;
+    }
+  }
+
+  private async withProjectRepository<T>(
+    dbPath: string,
+    callback: (repository: ProjectRepositoryImpl) => Promise<T>
+  ): Promise<T> {
+    const database = new Database(dbPath);
+    try {
+      database.pragma('foreign_keys = ON');
+      const repository = new ProjectRepositoryImpl(database);
+      return await callback(repository);
+    } finally {
+      database.close();
+    }
+  }
+
+  private serializeProject(project: Project): {
+    id: string;
+    name: string;
+    slug: string;
+    ownerUserId: string;
+    visibility: string;
+    status: string;
+    archivedStatusBefore: string | null;
+    goalTargetDate: string | null;
+    goalSummary: string | null;
+    createdAt: string;
+    createdBy: string;
+    updatedAt: string;
+    updatedBy: string;
+    deletedAt: string | null;
+    deletedBy: string | null;
+  } {
+    return {
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      ownerUserId: project.ownerUserId,
+      visibility: project.visibility,
+      status: project.status,
+      archivedStatusBefore: project.archivedStatusBefore ?? null,
+      goalTargetDate: project.goalTargetDate ? project.goalTargetDate.toISOString() : null,
+      goalSummary: project.goalSummary ?? null,
+      createdAt: project.createdAt.toISOString(),
+      createdBy: project.createdBy,
+      updatedAt: project.updatedAt.toISOString(),
+      updatedBy: project.updatedBy,
+      deletedAt: project.deletedAt ? project.deletedAt.toISOString() : null,
+      deletedBy: project.deletedBy ?? null,
+    };
+  }
+
+  private printProjectResult(project: Project, jsonOutput: boolean | undefined, heading: string): void {
+    const serialized = this.serializeProject(project);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ project: serialized }, null, 2));
+      return;
+    }
+
+    console.log(heading);
+    console.log('----------------');
+    console.log(`id: ${serialized.id}`);
+    console.log(`name: ${serialized.name}`);
+    console.log(`status: ${serialized.status}`);
+    if (serialized.archivedStatusBefore) {
+      console.log(`archivedStatusBefore: ${serialized.archivedStatusBefore}`);
+    }
+    console.log(`visibility: ${serialized.visibility}`);
+    console.log(`updatedAt: ${serialized.updatedAt}`);
+    if (serialized.deletedAt) {
+      console.log(`deletedAt: ${serialized.deletedAt}`);
+      console.log(`deletedBy: ${serialized.deletedBy}`);
+    }
+    if (serialized.goalTargetDate) {
+      console.log(`goalTargetDate: ${serialized.goalTargetDate}`);
+    }
+    if (serialized.goalSummary) {
+      console.log(`goalSummary: ${serialized.goalSummary}`);
     }
   }
 

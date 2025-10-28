@@ -1,0 +1,2 @@
+-- Archived status metadata handled in 20251025_project_lifecycle migration.
+-- This file remains as a no-op for compatibility with existing migration order.

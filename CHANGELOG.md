@@ -1,5 +1,48 @@
 # Change Log
 
+## 016-a-user-should-be-able
+
+> Feature scope: Full project lifecycle management across shared-data, API, web UI, telemetry, and QA automation
+
+### Overview
+Implemented lifecycle-aware project CRUD so workspaces can create, inspect, update, archive, and restore projects with concurrency guards and audit trails. Shared-data now models lifecycle metadata with forward/backward safe migrations and CLI parity, while the API and React dashboard coordinate TanStack Query, state persistence, and telemetry to satisfy FR-001–FR-010. QA tooling and documentation refreshes capture SC-001–SC-004 monitoring.
+
+### Highlights
+- Expanded lifecycle schema, migrations, and CLI helpers in `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/src/models/project.ts`, `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/src/cli.ts`, and `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/migrations/20251025_project_lifecycle.sql` to persist status, visibility, goal metadata, and archive snapshots.
+- Rebuilt project API routes with validation, concurrency enforcement, archive/restore handlers, and structured logging in `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`, backed by contract and integration suites under `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests`.
+- Refactored the dashboard and project detail experiences to use TanStack Query, persisted view state, archive dialogs, and conflict messaging across `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Dashboard.tsx`, `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Project.tsx`, and `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/hooks/use-projects-query.ts`.
+- Instrumented lifecycle telemetry and QA sampling with `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/lib/telemetry/client-events.ts` and `/Users/danwas/Development/Projects/ctrl-freaq/packages/qa/src/cli.ts`, enabling SC-001–SC-004 monitoring.
+
+### Requirement Coverage
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| FR-001 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/tests/e2e/dashboard/project-create.e2e.ts` |
+| FR-002 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests/contract/projects-api.test.ts` |
+| FR-003 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests/integration/projects.logging.test.ts` |
+| FR-004 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Dashboard.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Dashboard.test.tsx` |
+| FR-005 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Dashboard.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/tests/e2e/dashboard/project-navigation.e2e.ts` |
+| FR-006 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/pages/Project.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/tests/e2e/dashboard/project-update.e2e.ts` |
+| FR-007 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/components/feedback/ProjectMutationAlerts.tsx` |
+| FR-008 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/src/models/project.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests/integration/projects.test.ts` |
+| FR-009 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/src/models/project.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/tests/e2e/dashboard/project-archive.e2e.ts` |
+| FR-010 | ✅ | `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/routes/projects.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests/contract/projects.list.contract.test.ts` |
+
+### Testing
+- Added shared-data lifecycle schema, migration, and CLI suites under `/Users/danwas/Development/Projects/ctrl-freaq/packages/shared-data/tests`.
+- Expanded API contract/integration coverage for lifecycle flows, including logging and rate limiting, in `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/tests`.
+- Authored component and Playwright dashboards/project scenarios plus QA audit sampling tests in `/Users/danwas/Development/Projects/ctrl-freaq/apps/web/tests` and `/Users/danwas/Development/Projects/ctrl-freaq/packages/qa/src/audit`.
+
+### Risks & Mitigations
+- Update `/Users/danwas/Development/Projects/ctrl-freaq/docs/architecture.md` to reflect multi-project support and archive workflows so system docs stay authoritative.
+- Ensure deployment environments set `RATE_LIMIT_ENFORCEMENT_MODE=reject` now that `/Users/danwas/Development/Projects/ctrl-freaq/apps/api/src/config/rate-limiting.ts` supports log-only mode.
+- Lifecycle telemetry remains console-based (`/Users/danwas/Development/Projects/ctrl-freaq/apps/web/src/lib/telemetry/client-events.ts`); coordinate QA capture to retain SC-001/SC-002 evidence.
+
+### Clarifications
+- 2025-10-25 — Lifecycle states confirmed as Draft → Active → Paused → Completed → Archived.
+
+### Assumption Log
+- No additional assumptions were recorded for Story 016.
+
 ## 014-simple-auth-provider
 
 > Feature scope: Deliver a YAML-driven simple auth provider for local

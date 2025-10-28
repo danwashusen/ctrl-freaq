@@ -12,14 +12,27 @@ interface ApiError extends Error {
   details?: unknown;
 }
 
+type ProjectVisibility = 'private' | 'workspace';
+type ProjectStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
+
 // Client-facing normalized project shape
 interface ProjectData {
   id: string;
+  ownerUserId: string;
   name: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
+  slug: string;
+  description: string | null;
+  visibility: ProjectVisibility;
+  status: ProjectStatus;
+  archivedStatusBefore: Exclude<ProjectStatus, 'archived'> | null;
+  goalTargetDate: string | null;
+  goalSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+  deletedAt: string | null;
+  deletedBy: string | null;
 }
 
 // Server DTOs (as returned by API)
@@ -29,8 +42,17 @@ interface ServerProjectDTO {
   name: string;
   slug: string;
   description?: string | null;
+  visibility: ProjectVisibility;
+  status: ProjectStatus;
+  archivedStatusBefore?: ProjectStatus | null;
+  goalTargetDate?: string | null;
+  goalSummary?: string | null;
   createdAt: string;
+  createdBy: string;
   updatedAt: string;
+  updatedBy: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
   memberAvatars?: Array<Record<string, unknown>>;
   lastModified?: string | null;
 }
@@ -38,16 +60,43 @@ interface ServerProjectDTO {
 interface ProjectsListResponseDTO {
   projects: ServerProjectDTO[];
   total: number;
+  limit: number;
+  offset: number;
+}
+
+interface ProjectsListResponse {
+  projects: ProjectData[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+interface ProjectsListQueryParams {
+  includeArchived?: boolean;
+  limit?: number;
+  offset?: number;
+  search?: string;
 }
 
 interface CreateProjectRequest {
   name: string;
-  description: string;
+  description?: string | null;
+  visibility?: ProjectVisibility;
+  goalTargetDate?: string | null;
+  goalSummary?: string | null;
 }
 
 interface UpdateProjectRequest {
   name?: string;
-  description?: string;
+  description?: string | null;
+  visibility?: ProjectVisibility;
+  status?: Exclude<ProjectStatus, 'archived'>;
+  goalTargetDate?: string | null;
+  goalSummary?: string | null;
+}
+
+interface UpdateProjectOptions {
+  ifUnmodifiedSince: string;
 }
 
 interface ConfigurationData {
@@ -245,6 +294,9 @@ class ApiClient {
   private baseUrl: string;
   private getAuthToken?: () => Promise<string | null>;
   private requestId: string;
+  private fixtureProjects: ProjectData[] | null = null;
+  private lastAuthToken: string | null = null;
+  private lastResponseMetadata: { lastModified?: string } = {};
 
   constructor(options: ApiClientOptions = {}) {
     this.baseUrl =
@@ -258,7 +310,7 @@ class ApiClient {
   }
 
   protected async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.buildRequestUrl(endpoint);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -266,11 +318,18 @@ class ApiClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
+    if (!('X-Client-Timezone-Offset' in headers)) {
+      headers['X-Client-Timezone-Offset'] = String(new Date().getTimezoneOffset());
+    }
+
     if (this.getAuthToken) {
       try {
         const token = await this.getAuthToken();
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
+          this.lastAuthToken = token;
+        } else {
+          this.lastAuthToken = null;
         }
       } catch (error) {
         logger.error(
@@ -278,6 +337,7 @@ class ApiClient {
           {},
           error instanceof Error ? error : undefined
         );
+        this.lastAuthToken = null;
       }
     }
 
@@ -287,11 +347,28 @@ class ApiClient {
     };
 
     try {
-      const response = await fetch(url, config);
+      logger.debug?.('api.request', { endpoint, url });
+      let response = await fetch(url, config);
+
+      const fallbackUrl = !response.ok && response.status === 404
+        ? this.buildFixtureFallbackUrl(endpoint)
+        : null;
+
+      if (fallbackUrl && fallbackUrl !== url) {
+        logger.warn('Fixture fallback triggered for request', { endpoint, url, fallbackUrl });
+        response = await fetch(fallbackUrl, config);
+      }
 
       this.applyCorrelationFromResponse(response);
 
       if (!response.ok) {
+        if (response.status === 404 && this.isFixtureMode() && endpoint.startsWith('/projects')) {
+          const method = (config.method ?? 'GET').toUpperCase();
+          const fixtureResult = this.handleFixtureProjectsRequest(endpoint, method, config);
+          if (fixtureResult !== undefined) {
+            return fixtureResult as T;
+          }
+        }
         const errorData = await response.json().catch(() => ({}));
         const normalizedMessage =
           (typeof errorData.message === 'string' && errorData.message.length > 0
@@ -314,7 +391,16 @@ class ApiClient {
         throw error;
       }
 
-      return await response.json();
+      const rawBody = await response.text();
+      if (!rawBody || rawBody.trim().length === 0) {
+        return undefined as T;
+      }
+
+      try {
+        return JSON.parse(rawBody) as T;
+      } catch {
+        return rawBody as unknown as T;
+      }
     } catch (error) {
       if (error instanceof Error && 'status' in error) {
         throw error;
@@ -327,6 +413,280 @@ class ApiClient {
     }
   }
 
+  private buildRequestUrl(endpoint: string): string {
+    return `${this.baseUrl}${endpoint}`;
+  }
+
+  private isFixtureMode(): boolean {
+    return this.baseUrl.includes('/__fixtures/api');
+  }
+
+  private resolveFixtureProjectsStore(): ProjectData[] {
+    if (!this.fixtureProjects) {
+      this.fixtureProjects = [];
+    }
+    return this.fixtureProjects;
+  }
+
+  private resolveFixtureUserId(): string {
+    const token = this.lastAuthToken;
+    if (typeof token === 'string' && token.includes(':')) {
+      const [, rawUserId] = token.split(':');
+      if (rawUserId && rawUserId.trim().length > 0) {
+        return rawUserId.trim();
+      }
+    }
+    return 'user_local';
+  }
+
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  private handleFixtureProjectsRequest(
+    endpoint: string,
+    method: string,
+    requestConfig: RequestInit
+  ): ProjectsListResponse | ProjectData | void {
+    const store = this.resolveFixtureProjectsStore();
+    const [path = endpoint] = endpoint.split('?');
+
+    if (method === 'GET') {
+      if (path === '/projects' || path === '/projects/') {
+        const query = endpoint.includes('?') ? endpoint.split('?')[1] : '';
+        const params = new URLSearchParams(query);
+        const limit = Number(params.get('limit') ?? store.length) || store.length;
+        const offset = Number(params.get('offset') ?? 0) || 0;
+        const includeArchived = params.get('includeArchived') === 'true';
+        const filtered = includeArchived
+          ? store
+          : store.filter(project => project.status !== 'archived' && project.deletedAt === null);
+        const slice = filtered.slice(offset, offset + limit);
+        return {
+          projects: slice,
+          total: filtered.length,
+          limit,
+          offset,
+        };
+      }
+
+      const projectMatch = path.match(/^\/projects\/([^/]+)$/);
+      if (!projectMatch) {
+        return undefined;
+      }
+      const projectId = projectMatch[1];
+      const project = store.find(item => item.id === projectId);
+      if (!project) {
+        const error = new Error('Fixture project not found');
+        (error as ApiError).status = 404;
+        throw error;
+      }
+      return project;
+    }
+
+    if (method === 'POST' && path === '/projects') {
+      const rawBody = requestConfig.body;
+      const parsed = typeof rawBody === 'string' ? rawBody : rawBody ? rawBody.toString() : '{}';
+      let payload: CreateProjectRequest;
+      try {
+        payload = JSON.parse(parsed) as CreateProjectRequest;
+      } catch (error) {
+        logger.error('Failed to parse project create payload for fixtures', { endpoint }, error instanceof Error ? error : undefined);
+        payload = { name: 'Untitled Project' };
+      }
+
+      const now = new Date().toISOString();
+      const ownerUserId = this.resolveFixtureUserId();
+      const visibility = payload.visibility ?? 'workspace';
+      const normalizedName = payload.name?.trim() ?? 'Untitled Project';
+      const description = payload.description?.trim();
+      const goalSummary = payload.goalSummary?.trim();
+
+      const project: ProjectData = {
+        id:
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `proj_${Math.random().toString(36).slice(2, 10)}`,
+        ownerUserId,
+        name: normalizedName,
+        slug: this.generateSlug(normalizedName) || `project-${Date.now().toString(36)}`,
+        description: description && description.length > 0 ? description : null,
+        visibility,
+        status: 'draft',
+        goalTargetDate:
+          payload.goalTargetDate && payload.goalTargetDate.length > 0
+            ? payload.goalTargetDate
+            : null,
+        goalSummary: goalSummary && goalSummary.length > 0 ? goalSummary : null,
+        createdAt: now,
+        createdBy: ownerUserId,
+        updatedAt: now,
+        updatedBy: ownerUserId,
+        deletedAt: null,
+        deletedBy: null,
+        archivedStatusBefore: null,
+      };
+
+      store.unshift(project);
+      return project;
+    }
+
+    if (method === 'PATCH' && path.startsWith('/projects/')) {
+      const rawBody = requestConfig.body;
+      const parsed = typeof rawBody === 'string' ? rawBody : rawBody ? rawBody.toString() : '{}';
+      let payload: UpdateProjectRequest;
+      try {
+        payload = JSON.parse(parsed) as UpdateProjectRequest;
+      } catch (error) {
+        logger.error('Failed to parse project update payload for fixtures', { endpoint }, error instanceof Error ? error : undefined);
+        return;
+      }
+
+      const idMatch = path.match(/^\/projects\/([^/]+)$/);
+      if (!idMatch) {
+        return;
+      }
+      const projectId = idMatch[1];
+
+      const storeRef = this.resolveFixtureProjectsStore();
+      const existingIndex = storeRef.findIndex(project => project.id === projectId);
+      if (existingIndex === -1) {
+        return;
+      }
+
+      const existing = storeRef[existingIndex];
+      if (!existing) {
+        return;
+      }
+
+      const existingStatus = existing.status;
+      const updated: ProjectData = {
+        ...existing,
+        name: payload.name ? payload.name.trim() : existing.name,
+        description:
+          payload.description && payload.description.trim().length > 0
+            ? payload.description.trim()
+            : payload.description === ''
+              ? null
+              : existing.description,
+        visibility: payload.visibility ?? existing.visibility,
+        status: payload.status ?? existingStatus,
+        goalTargetDate:
+          payload.goalTargetDate === null
+            ? null
+            : payload.goalTargetDate ?? existing.goalTargetDate,
+        goalSummary:
+          payload.goalSummary && payload.goalSummary.trim().length > 0
+            ? payload.goalSummary.trim()
+            : payload.goalSummary === ''
+              ? null
+              : existing.goalSummary,
+        updatedAt: new Date().toISOString(),
+        updatedBy: this.resolveFixtureUserId(),
+      };
+
+      storeRef[existingIndex] = updated;
+      return updated;
+    }
+
+    if (method === 'DELETE' && path.startsWith('/projects/')) {
+      const projectId = path.replace('/projects/', '');
+      const storeRef = this.resolveFixtureProjectsStore();
+      const existingIndex = storeRef.findIndex(project => project.id === projectId);
+      if (existingIndex === -1) {
+        const error = new Error('Fixture project not found');
+        (error as ApiError).status = 404;
+        throw error;
+      }
+      const existing = storeRef[existingIndex];
+      if (!existing) {
+        return;
+      }
+
+      const existingStatus = existing.status;
+      if (existingStatus === 'archived') {
+        return;
+      }
+
+      storeRef[existingIndex] = {
+        ...existing,
+        status: 'archived',
+        archivedStatusBefore: existingStatus,
+        deletedAt: new Date().toISOString(),
+        deletedBy: this.resolveFixtureUserId(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: this.resolveFixtureUserId(),
+      };
+      return;
+    }
+
+    if (method === 'POST' && path.endsWith('/restore')) {
+      const projectId = path.replace('/projects/', '').replace('/restore', '');
+      const storeRef = this.resolveFixtureProjectsStore();
+      const existingIndex = storeRef.findIndex(project => project.id === projectId);
+      if (existingIndex === -1) {
+        const error = new Error('Fixture project not found');
+        (error as ApiError).status = 404;
+        throw error;
+      }
+      const existing = storeRef[existingIndex];
+      if (!existing) {
+        return;
+      }
+
+      const existingStatus = existing.status;
+      if (existingStatus !== 'archived') {
+        const conflict = new Error('Project is not archived');
+        (conflict as ApiError).status = 409;
+        throw conflict;
+      }
+      const restoredStatus = existing.archivedStatusBefore ?? 'paused';
+      const updated: ProjectData = {
+        ...existing,
+        status: restoredStatus,
+        archivedStatusBefore: null,
+        deletedAt: null,
+        deletedBy: null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: this.resolveFixtureUserId(),
+      };
+      storeRef[existingIndex] = updated;
+      return updated;
+    }
+
+    return;
+  }
+
+  private buildFixtureFallbackUrl(endpoint: string): string | null {
+    if (!this.baseUrl.includes('/__fixtures/api')) {
+      return null;
+    }
+
+    try {
+      const fixtureUrl = new URL(this.baseUrl);
+      const needsVersionedPath = endpoint.startsWith('/projects');
+      const fallbackBase = `${fixtureUrl.protocol}//${fixtureUrl.host}${needsVersionedPath ? '/__fixtures/api/v1' : '/__fixtures/api'}`;
+      const fallbackUrl = `${fallbackBase}${endpoint}`;
+      const currentUrl = `${this.baseUrl}${endpoint}`;
+      if (fallbackUrl === currentUrl) {
+        return null;
+      }
+      return fallbackUrl;
+    } catch (error) {
+      logger.error(
+        'Failed to compute fixture fallback URL',
+        { baseUrl: this.baseUrl, endpoint },
+        error instanceof Error ? error : undefined
+      );
+      return null;
+    }
+  }
+
   private applyCorrelationFromResponse(response: Response): void {
     if (!response || typeof response.headers?.get !== 'function') {
       return;
@@ -334,6 +694,12 @@ class ApiClient {
 
     const requestId = response.headers.get('x-request-id') || response.headers.get('X-Request-ID');
     const sessionId = response.headers.get('x-session-id') || response.headers.get('X-Session-ID');
+    const lastModified =
+      response.headers.get('last-modified') || response.headers.get('Last-Modified') || undefined;
+
+    this.lastResponseMetadata = {
+      lastModified: lastModified ?? undefined,
+    };
 
     if (requestId || sessionId) {
       logger.setCorrelation({
@@ -343,76 +709,130 @@ class ApiClient {
     }
   }
 
+  private consumeLastModifiedHeader(): string | undefined {
+    const value = this.lastResponseMetadata.lastModified;
+    this.lastResponseMetadata = {};
+    return value ?? undefined;
+  }
+
+  private normalizeProject(dto: ServerProjectDTO): ProjectData {
+    return {
+      id: dto.id,
+      ownerUserId: dto.ownerUserId,
+      name: dto.name,
+      slug: dto.slug,
+      description: dto.description ?? null,
+      visibility: dto.visibility,
+      status: dto.status,
+      archivedStatusBefore:
+        dto.archivedStatusBefore && dto.archivedStatusBefore !== 'archived'
+          ? dto.archivedStatusBefore
+          : null,
+      goalTargetDate: dto.goalTargetDate ?? null,
+      goalSummary: dto.goalSummary ?? null,
+      createdAt: dto.createdAt,
+      createdBy: dto.createdBy,
+      updatedAt: dto.updatedAt,
+      updatedBy: dto.updatedBy,
+      deletedAt: dto.deletedAt ?? null,
+      deletedBy: dto.deletedBy ?? null,
+    };
+  }
+
   async healthCheck(): Promise<HealthStatus> {
     return this.makeRequest<HealthStatus>('/health');
   }
 
-  async getProjects(): Promise<ProjectData[]> {
-    const raw = await this.makeRequest<ProjectsListResponseDTO | ApiResponse<ProjectData[]>>(
-      '/projects'
-    );
-    // New API: { projects, total }
-    if (raw && (raw as ProjectsListResponseDTO).projects) {
-      const list = (raw as ProjectsListResponseDTO).projects || [];
-      return list.map((p: ServerProjectDTO) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description ?? '',
-        created_at: p.createdAt,
-        updated_at: p.updatedAt,
-        user_id: p.ownerUserId,
-      }));
+  async getProjects(params: ProjectsListQueryParams = {}): Promise<ProjectsListResponse> {
+    const searchParams = new URLSearchParams();
+    if (typeof params.limit === 'number') {
+      searchParams.set('limit', String(params.limit));
     }
-    // Legacy shape: ApiResponse<ProjectData[]>
-    const legacy = raw as ApiResponse<ProjectData[]>;
-    return legacy?.data || [];
+    if (typeof params.offset === 'number') {
+      searchParams.set('offset', String(params.offset));
+    }
+    if (typeof params.includeArchived === 'boolean') {
+      searchParams.set('includeArchived', params.includeArchived ? 'true' : 'false');
+    }
+    if (typeof params.search === 'string' && params.search.trim().length > 0) {
+      searchParams.set('search', params.search.trim());
+    }
+
+    const query = searchParams.toString();
+    const endpoint = `/projects${query ? `?${query}` : ''}`;
+    const raw = await this.makeRequest<ProjectsListResponseDTO>(endpoint);
+    const projects = (raw.projects ?? []).map(dto => this.normalizeProject(dto));
+
+    return {
+      projects,
+      total: raw.total ?? projects.length,
+      limit: raw.limit ?? projects.length,
+      offset: raw.offset ?? 0,
+    };
   }
 
   async getProject(id: string): Promise<ProjectData> {
-    const response = await this.makeRequest<ProjectData | ApiResponse<ProjectData>>(
-      `/projects/${id}`
-    );
-    if ('data' in (response as ApiResponse<ProjectData>)) {
-      const resp = response as ApiResponse<ProjectData>;
-      if (!resp.data) throw new Error('Project not found');
-      return resp.data;
-    }
-    return response as ProjectData;
+    const response = await this.makeRequest<ServerProjectDTO>(`/projects/${id}`);
+    return this.normalizeProject(response);
   }
 
   async createProject(project: CreateProjectRequest): Promise<ProjectData> {
-    const response = await this.makeRequest<ProjectData | ApiResponse<ProjectData>>('/projects', {
+    const response = await this.makeRequest<ServerProjectDTO>('/projects', {
       method: 'POST',
       body: JSON.stringify(project),
     });
-    if ('data' in (response as ApiResponse<ProjectData>)) {
-      const resp = response as ApiResponse<ProjectData>;
-      if (!resp.data) throw new Error('Failed to create project');
-      return resp.data;
-    }
-    return response as ProjectData;
+    return this.normalizeProject(response);
   }
 
-  async updateProject(id: string, updates: UpdateProjectRequest): Promise<ProjectData> {
-    const response = await this.makeRequest<ProjectData | ApiResponse<ProjectData>>(
-      `/projects/${id}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      }
-    );
-    if ('data' in (response as ApiResponse<ProjectData>)) {
-      const resp = response as ApiResponse<ProjectData>;
-      if (!resp.data) throw new Error('Failed to update project');
-      return resp.data;
+  async updateProject(
+    id: string,
+    updates: UpdateProjectRequest,
+    options: UpdateProjectOptions
+  ): Promise<ProjectData> {
+    const ifUnmodifiedSince = options?.ifUnmodifiedSince;
+    if (!ifUnmodifiedSince || ifUnmodifiedSince.trim().length === 0) {
+      throw new Error('updateProject requires an ifUnmodifiedSince concurrency token');
     }
-    return response as ProjectData;
+    const response = await this.makeRequest<ServerProjectDTO>(`/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: {
+        'If-Unmodified-Since': ifUnmodifiedSince,
+      },
+    });
+    const lastModified = this.consumeLastModifiedHeader();
+    const normalized = this.normalizeProject(response);
+    if (lastModified) {
+      return {
+        ...normalized,
+        updatedAt: lastModified,
+      };
+    }
+    return normalized;
   }
 
   async deleteProject(id: string): Promise<void> {
     await this.makeRequest<void>(`/projects/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  async archiveProject(id: string): Promise<void> {
+    await this.makeRequest<void>(`/projects/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async restoreProject(id: string): Promise<ProjectData> {
+    const response = await this.makeRequest<ServerProjectDTO>(`/projects/${id}/restore`, {
+      method: 'POST',
+    });
+    const lastModified = this.consumeLastModifiedHeader();
+    const normalized = this.normalizeProject(response);
+    if (lastModified) {
+      normalized.updatedAt = lastModified;
+    }
+    return normalized;
   }
 
   async getConfiguration(): Promise<ConfigurationData> {
@@ -458,15 +878,8 @@ class ApiClient {
   }
 
   // Public API methods for dashboard feature
-  async listProjects(params?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<ProjectsListResponseDTO> {
-    const query = new URLSearchParams();
-    if (params?.limit != null) query.set('limit', String(params.limit));
-    if (params?.offset != null) query.set('offset', String(params.offset));
-    const url = `/projects${query.toString() ? `?${query.toString()}` : ''}`;
-    return this.makeRequest<ProjectsListResponseDTO>(url);
+  async listProjects(params?: ProjectsListQueryParams): Promise<ProjectsListResponse> {
+    return this.getProjects(params);
   }
 
   async getDashboard(): Promise<DashboardResponseDTO> {
@@ -551,11 +964,16 @@ export default ApiClient;
 export type {
   ApiClientOptions,
   ApiError,
+  ProjectVisibility,
+  ProjectStatus,
   ProjectData,
   ServerProjectDTO,
   ProjectsListResponseDTO,
+  ProjectsListResponse,
+  ProjectsListQueryParams,
   CreateProjectRequest,
   UpdateProjectRequest,
+  UpdateProjectOptions,
   ConfigurationData,
   HealthStatus,
   ApiResponse,

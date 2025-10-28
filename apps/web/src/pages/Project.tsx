@@ -1,15 +1,24 @@
 import { UserButton } from '@/lib/auth-provider';
 import { ArrowLeft, Edit, FileText, Settings, Share } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { TemplateUpgradeBanner } from '../components/editor/TemplateUpgradeBanner';
 import { TemplateValidationGate } from '../components/editor/TemplateValidationGate';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { ProjectMutationAlerts } from '../components/feedback/ProjectMutationAlerts';
+import { PROJECTS_QUERY_KEY } from '@/features/projects/constants';
 import { useApi } from '../lib/api-context';
 import { logger } from '../lib/logger';
+import { formatIsoDateFull } from '../lib/date-only';
 import { useTemplateStore } from '../stores/template-store';
+import type { ApiError, ProjectData, ProjectStatus, UpdateProjectRequest } from '../lib/api';
+
+const PROJECT_NAME_MAX_LENGTH = 120;
+const GOAL_SUMMARY_MAX_LENGTH = 280;
 
 type TemplateSectionOutline = {
   id: string;
@@ -19,14 +28,25 @@ type TemplateSectionOutline = {
   children?: TemplateSectionOutline[];
 };
 
-interface ProjectData {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
+type EditableProjectStatus = Exclude<ProjectStatus, 'archived'>;
+
+type ProjectView = ProjectData & {
   documentsCount?: number;
-}
+};
+
+type ProjectFormField = 'name' | 'description' | 'status' | 'goalSummary' | 'goalTargetDate';
+
+type MutationState =
+  | { type: 'idle'; message?: string }
+  | { type: 'saving'; message?: string }
+  | { type: 'success'; message?: string }
+  | { type: 'conflict'; message?: string }
+  | { type: 'error'; message?: string };
+
+const DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY = 'ctrl-freaq:dashboard:archive-notice';
+
+const isApiError = (error: unknown): error is ApiError =>
+  typeof error === 'object' && error !== null && 'status' in error;
 
 function getNestedValue(source: unknown, path: Array<string | number>): unknown {
   if (!path.length) {
@@ -47,9 +67,228 @@ export default function Project() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { projects, client } = useApi();
-  const [project, setProject] = useState<ProjectData | null>(null);
+  const queryClient = useQueryClient();
+  const [project, setProject] = useState<ProjectView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const archiveRedirectRef = useRef(false);
+  const [viewerArchiveNotice, setViewerArchiveNotice] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [mutationState, setMutationState] = useState<MutationState>({ type: 'idle' });
+  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+  const metadataEditingInitializedRef = useRef(false);
+  const [formState, setFormState] = useState<{
+    name: string;
+    description: string;
+    status: EditableProjectStatus;
+    goalSummary: string;
+    goalTargetDate: string;
+  }>({
+    name: '',
+    description: '',
+    status: 'draft',
+    goalSummary: '',
+    goalTargetDate: '',
+  });
+  const statusOptions: ReadonlyArray<EditableProjectStatus> = ['draft', 'active', 'paused', 'completed'];
+  const toDateInputValue = useCallback((value: string | null | undefined) => {
+    if (!value) {
+      return '';
+    }
+    return value.slice(0, 10);
+  }, []);
+  const syncFormWithProject = useCallback(
+    (incoming: ProjectData) => {
+      const normalizedStatus: EditableProjectStatus =
+        incoming.status === 'archived' ? 'paused' : (incoming.status as EditableProjectStatus);
+      setFormState({
+        name: incoming.name,
+        description: incoming.description ?? '',
+        status: normalizedStatus,
+        goalSummary: incoming.goalSummary ?? '',
+        goalTargetDate: toDateInputValue(incoming.goalTargetDate),
+      });
+    },
+    [toDateInputValue]
+  );
+  const initializeMetadataEditingState = useCallback(
+    (incoming: ProjectData | ProjectView) => {
+      if (metadataEditingInitializedRef.current) {
+        return;
+      }
+      setIsEditingMetadata(incoming.id === 'new');
+      metadataEditingInitializedRef.current = true;
+    },
+    []
+  );
+  const handleMetadataChange = useCallback(
+    (field: ProjectFormField) =>
+      (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const value = event.target.value;
+        setFormState(previous => ({
+          ...previous,
+          [field]: value,
+        }));
+      },
+    []
+  );
+  const handleMetadataSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!project || project.status === 'archived') {
+        return;
+      }
+
+      const normalizedDescription = formState.description.trim();
+      const normalizedGoalSummary = formState.goalSummary.trim();
+      const normalizedGoalTargetDate = formState.goalTargetDate.trim();
+
+      const payload: UpdateProjectRequest = {
+        name: formState.name.trim(),
+        description: normalizedDescription.length === 0 ? null : normalizedDescription,
+        status: formState.status,
+        goalSummary: normalizedGoalSummary.length === 0 ? null : normalizedGoalSummary,
+        goalTargetDate: normalizedGoalTargetDate.length === 0 ? null : normalizedGoalTargetDate,
+      };
+
+      setIsSaving(true);
+      setMutationState({ type: 'saving' });
+
+      try {
+        const updated = await projects.update(project.id, payload, {
+          ifUnmodifiedSince: project.updatedAt,
+        });
+
+        const nextProject: ProjectView = {
+          ...updated,
+          documentsCount: project.documentsCount,
+        };
+
+        setProject(nextProject);
+        syncFormWithProject(updated);
+        setIsEditingMetadata(false);
+
+        setMutationState({
+          type: 'success',
+          message: 'Project updated successfully.',
+        });
+
+        void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+
+        window.setTimeout(() => {
+          setMutationState(current =>
+            current.type === 'success' ? { type: 'idle' } : current
+          );
+        }, 4000);
+      } catch (updateError) {
+        if (isApiError(updateError) && updateError.code === 'VERSION_CONFLICT') {
+          setMutationState({
+            type: 'conflict',
+            message:
+              updateError.message ??
+              'Project has changed since you loaded it. Refresh to continue.',
+          });
+          try {
+            const latest = await projects.getById(project.id);
+            setProject({
+              ...latest,
+              documentsCount: project.documentsCount,
+            });
+            syncFormWithProject(latest);
+          } catch (refreshError) {
+            logger.error(
+              'project.fetch_latest_failed',
+              { projectId: project.id },
+              refreshError instanceof Error ? refreshError : undefined
+            );
+          }
+        } else if (isApiError(updateError)) {
+          setMutationState({
+            type: 'error',
+            message:
+              updateError.message ?? 'Unable to update the project. Please try again later.',
+          });
+        } else {
+          setMutationState({
+            type: 'error',
+            message: 'Unexpected error updating project metadata.',
+          });
+        }
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [formState, project, projects, queryClient, syncFormWithProject]
+  );
+  useEffect(() => {
+    metadataEditingInitializedRef.current = false;
+    setIsEditingMetadata(false);
+  }, [id]);
+
+  const handleArchivedWhileViewing = useCallback(
+    (latest?: ProjectData) => {
+      if (!project || archiveRedirectRef.current) {
+        return;
+      }
+      archiveRedirectRef.current = true;
+      setViewerArchiveNotice('This project was archived while you were viewing it.');
+
+      setProject(prev => {
+        if (!prev) {
+          return prev;
+        }
+        const source = latest ?? prev;
+        return {
+          ...prev,
+          ...source,
+          status: source.status ?? 'archived',
+          deletedAt: source.deletedAt ?? new Date().toISOString(),
+          deletedBy: source.deletedBy ?? prev.deletedBy ?? null,
+          archivedStatusBefore: source.archivedStatusBefore ?? prev.archivedStatusBefore,
+        };
+      });
+
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+
+      try {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY,
+            JSON.stringify({
+              message: `Project "${project.name}" was archived while you were viewing it.`,
+            })
+          );
+        }
+      } catch (storageError) {
+        logger.error(
+          'project.archive_notice.persist_failed',
+          { projectId: project.id },
+          storageError instanceof Error ? storageError : undefined
+        );
+      }
+
+      window.setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+    },
+    [navigate, project, queryClient]
+  );
+  const dismissMutationAlert = useCallback(() => {
+    setMutationState({ type: 'idle' });
+  }, []);
+  const startEditingMetadata = useCallback(() => {
+    if (project?.status === 'archived') {
+      return;
+    }
+    setIsEditingMetadata(true);
+  }, [project?.status]);
+  const cancelEditingMetadata = useCallback(() => {
+    if (project) {
+      syncFormWithProject(project);
+    }
+    setMutationState(current => (current.type === 'success' ? { type: 'idle' } : current));
+    setIsEditingMetadata(false);
+  }, [project, syncFormWithProject]);
 
   const templateStatus = useTemplateStore(state => state.status);
   const templateDocument = useTemplateStore(state => state.document);
@@ -75,13 +314,14 @@ export default function Project() {
         const result = await projects.getById(projectId);
         if (!cancelled) {
           setProject({
-            id: result.id,
-            name: result.name,
-            description: result.description || 'No description provided',
-            createdAt: result.created_at,
-            updatedAt: result.updated_at,
+            ...result,
+            description: result.description ?? null,
+            goalSummary: result.goalSummary ?? null,
+            goalTargetDate: result.goalTargetDate ?? null,
             documentsCount: 0,
           });
+          syncFormWithProject(result);
+          initializeMetadataEditingState(result);
         }
       } catch (fetchError) {
         const message =
@@ -103,17 +343,34 @@ export default function Project() {
     }
 
     if (id && id !== 'new') {
+      archiveRedirectRef.current = false;
+      setViewerArchiveNotice(null);
       void fetchProject(id);
       void loadDocument({ apiClient: client, documentId: id });
     } else if (id === 'new') {
-      setProject({
+      const nowIso = new Date().toISOString();
+      const draftProject: ProjectView = {
         id: 'new',
         name: 'New Project',
+        ownerUserId: 'user_local',
+        slug: 'new-project',
         description: 'Create a new documentation project',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        visibility: 'workspace',
+        status: 'draft',
+        goalTargetDate: null,
+        goalSummary: null,
+        createdAt: nowIso,
+        createdBy: 'user_local',
+        updatedAt: nowIso,
+        updatedBy: 'user_local',
+        deletedAt: null,
+        deletedBy: null,
+        archivedStatusBefore: null,
         documentsCount: 0,
-      });
+      };
+      setProject(draftProject);
+      syncFormWithProject(draftProject);
+      initializeMetadataEditingState(draftProject);
       resetTemplate();
       setLoading(false);
     }
@@ -122,7 +379,41 @@ export default function Project() {
       cancelled = true;
       resetTemplate();
     };
-  }, [client, id, loadDocument, projects, resetTemplate]);
+  }, [client, id, initializeMetadataEditingState, loadDocument, projects, resetTemplate, syncFormWithProject]);
+
+  useEffect(() => {
+    if (!project || project.id === 'new' || archiveRedirectRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const latest = await projects.getById(project.id);
+        if (cancelled) {
+          return;
+        }
+        if (latest.status === 'archived') {
+          handleArchivedWhileViewing(latest);
+        }
+      } catch (pollError) {
+        if (cancelled) {
+          return;
+        }
+        if (isApiError(pollError) && pollError.status === 404) {
+          handleArchivedWhileViewing();
+        }
+      }
+    };
+
+    void poll();
+    const interval = window.setInterval(poll, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [handleArchivedWhileViewing, project, projects]);
 
   const migrationSummary = useMemo(() => {
     if (!templateMigration || !templateDocument) {
@@ -232,6 +523,17 @@ export default function Project() {
     return <div className="flex h-screen items-center justify-center">Project not found</div>;
   }
 
+  const alertStatus: 'idle' | 'success' | 'conflict' | 'error' =
+    mutationState.type === 'saving' ? 'idle' : mutationState.type;
+  const alertMessage = mutationState.type === 'saving' ? undefined : mutationState.message;
+  const isProjectArchived = project.status === 'archived';
+  const isNewProject = project.id === 'new';
+  const isMetadataFormVisible = isEditingMetadata || isNewProject;
+  const goalTargetDateDisplay =
+    project.goalTargetDate && !isMetadataFormVisible
+      ? formatIsoDateFull(project.goalTargetDate)
+      : null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="shadow-xs border-b bg-white">
@@ -262,12 +564,249 @@ export default function Project() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h2 className="mb-2 text-3xl font-bold text-gray-900">{project.name}</h2>
-          <p className="text-gray-600">{project.description}</p>
+          <p className="text-gray-600">{project.description ?? 'No description provided'}</p>
           <div className="mt-4 text-sm text-gray-500">
             Created: {new Date(project.createdAt).toLocaleDateString()} • Last updated:{' '}
-            {new Date(project.updatedAt).toLocaleDateString()}
+            {new Date(project.updatedAt).toLocaleString()}
           </div>
         </div>
+
+        <section className="mb-10 space-y-4">
+          {viewerArchiveNotice && (
+            <div
+              data-testid="project-archived-notification"
+              className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+              role="alert"
+            >
+              {viewerArchiveNotice} Redirecting to dashboard…
+            </div>
+          )}
+          <ProjectMutationAlerts
+            status={alertStatus}
+            message={alertMessage}
+            onDismiss={dismissMutationAlert}
+          />
+          <Card>
+            <CardHeader className="flex flex-col gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between sm:pb-6">
+              <div>
+                <CardTitle className="text-lg">Project Metadata</CardTitle>
+                <CardDescription>
+                  Update lifecycle status, description, and goal summary for this project.
+                </CardDescription>
+              </div>
+              {!isMetadataFormVisible && !isProjectArchived ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid="project-edit-toggle"
+                  onClick={startEditingMetadata}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Project
+                </Button>
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {isMetadataFormVisible ? (
+                <form
+                  data-testid="project-metadata-form"
+                  className="grid grid-cols-1 gap-6 md:grid-cols-2"
+                  onSubmit={handleMetadataSubmit}
+                >
+                  {isProjectArchived ? (
+                    <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      Archived projects are read-only. Restore the project to edit metadata.
+                    </div>
+                  ) : null}
+                  <div className="space-y-2">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="project-name-input"
+                    >
+                      Project name
+                    </label>
+                    <input
+                      id="project-name-input"
+                      data-testid="project-metadata-name"
+                      name="project-name"
+                      autoComplete="off"
+                      className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      value={formState.name}
+                      onChange={handleMetadataChange('name')}
+                      disabled={isSaving || isProjectArchived}
+                      required
+                      maxLength={PROJECT_NAME_MAX_LENGTH}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="project-status-select"
+                    >
+                      Lifecycle status
+                    </label>
+                    <select
+                      id="project-status-select"
+                      data-testid="project-metadata-status"
+                      name="project-status"
+                      autoComplete="off"
+                      className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      value={formState.status}
+                      onChange={handleMetadataChange('status')}
+                      disabled={isSaving || isProjectArchived}
+                    >
+                      {statusOptions.map(status => (
+                        <option key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="project-description-input"
+                    >
+                      Description
+                    </label>
+                    <textarea
+                      id="project-description-input"
+                      data-testid="project-metadata-description"
+                      name="project-description"
+                      autoComplete="off"
+                      className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      rows={3}
+                      value={formState.description}
+                      onChange={handleMetadataChange('description')}
+                      disabled={isSaving || isProjectArchived}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="project-goal-summary-input"
+                    >
+                      Goal summary
+                    </label>
+                    <input
+                      id="project-goal-summary-input"
+                      data-testid="project-metadata-goal-summary"
+                      name="project-goal-summary"
+                      autoComplete="off"
+                      className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      value={formState.goalSummary}
+                      onChange={handleMetadataChange('goalSummary')}
+                      disabled={isSaving || isProjectArchived}
+                      maxLength={GOAL_SUMMARY_MAX_LENGTH}
+                      placeholder="Short description of upcoming milestone"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="project-goal-target-date-input"
+                    >
+                      Goal target date
+                    </label>
+                    <input
+                      id="project-goal-target-date-input"
+                      data-testid="project-metadata-goal-target-date"
+                      name="project-goal-target-date"
+                      autoComplete="off"
+                      type="date"
+                      className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      value={formState.goalTargetDate}
+                      onChange={handleMetadataChange('goalTargetDate')}
+                      disabled={isSaving || isProjectArchived}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 md:col-span-2">
+                    {!isNewProject ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={cancelEditingMetadata}
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      data-testid="project-metadata-submit"
+                      disabled={isSaving || isProjectArchived}
+                    >
+                      {isSaving ? 'Saving…' : 'Save changes'}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div
+                  data-testid="project-metadata-view"
+                  className="grid grid-cols-1 gap-6 md:grid-cols-2"
+                >
+                  {isProjectArchived ? (
+                    <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      Archived projects are read-only. Restore the project to edit metadata.
+                    </div>
+                  ) : (
+                    <p className="md:col-span-2 text-sm text-gray-600">
+                      Review lifecycle details and select “Edit Project” to make changes.
+                    </p>
+                  )}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Project name</h3>
+                    <p data-testid="project-metadata-view-name" className="mt-1 text-sm text-gray-900">
+                      {project.name}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Lifecycle status</h3>
+                    <p
+                      data-testid="project-metadata-view-status"
+                      className="mt-1 inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700"
+                    >
+                      {project.status}
+                    </p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h3 className="text-sm font-medium text-gray-700">Description</h3>
+                    <p
+                      data-testid="project-metadata-view-description"
+                      className="mt-1 text-sm text-gray-900"
+                    >
+                      {project.description ? project.description : 'No description provided'}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Goal summary</h3>
+                    <p
+                      data-testid="project-metadata-view-goal-summary"
+                      className="mt-1 text-sm text-gray-900"
+                    >
+                      {project.goalSummary ? project.goalSummary : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Goal target date</h3>
+                    <p
+                      data-testid="project-metadata-view-goal-target-date"
+                      className="mt-1 text-sm text-gray-900"
+                    >
+                      {goalTargetDateDisplay ?? 'Not set'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
           <Card>

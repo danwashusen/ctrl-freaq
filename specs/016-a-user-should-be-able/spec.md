@@ -22,7 +22,7 @@ new project appears with required defaults and is visible on refresh.
 **Acceptance Scenarios**:
 
 1. **Given** an authenticated user on the dashboard with permission to manage
-   projects, **When** they provide required details and submit the create
+   projects, **When** they provide the mandatory project name (and any optional
    action, **Then** the system confirms creation and displays the project in the
    project list.
 2. **Given** an authenticated user initiates project creation with missing or
@@ -105,8 +105,10 @@ active dashboard views, and verify it remains discoverable through audit tools.
 ### Functional Requirements
 
 - **FR-001**: The system must allow authenticated users with project-manage
-  permission to create a project from the dashboard by providing required
-  attributes (name, short description, visibility).
+  permission to create a project from the dashboard by providing at minimum a
+  project name. Optional fields — short description (≤ 500 chars), visibility
+  (defaults to `workspace` when omitted), goal summary, and goal target date —
+  may be supplied to enrich the project metadata but must not block creation.
 - **FR-002**: The system must validate project creation and update inputs with
   actionable error messages; validation rules include name ≤ 120 characters,
   short description ≤ 500 characters, goal summary ≤ 280 characters, and goal

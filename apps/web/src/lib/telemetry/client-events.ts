@@ -110,6 +110,10 @@ type TelemetryEvent =
   | 'qualityGates.validation.metric'
   | 'qualityGates.dashboard.metric';
 
+type ProjectTelemetryEvent =
+  | 'projects.lifecycle.create'
+  | 'projects.dashboard.hydration';
+
 const logToConsole = <T extends object>(
   level: 'info' | 'warn',
   event: TelemetryEvent,
@@ -124,6 +128,29 @@ const logToConsole = <T extends object>(
   });
   const serialized = JSON.stringify({ message, payload });
   consoleMethod(`[draft.telemetry] ${event}`, serialized);
+};
+
+const logProjectTelemetry = <T extends object>(
+  level: 'info' | 'warn',
+  event: ProjectTelemetryEvent,
+  message: string,
+  payload: T
+) => {
+  const consoleMethod =
+    (console[level] as ((...args: unknown[]) => void) | undefined) ?? console.log;
+  consoleMethod(`[projects.telemetry] ${event}`, {
+    message,
+    payload,
+  });
+  const serialized = JSON.stringify({ message, payload });
+  consoleMethod(`[projects.telemetry] ${event}`, serialized);
+};
+
+const normalizeDurationMs = (value: number): number => {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.round(value);
 };
 
 export const emitDraftSaved = (payload: DraftEventPayload) => {
@@ -239,4 +266,67 @@ export const emitQualityGateDashboardMetric = (payload: QualityGateDashboardMetr
     emittedAt: new Date().toISOString(),
   };
   console.info('qualityGates.dashboard.metric', JSON.stringify(normalized));
+};
+
+interface ProjectCreateMetricPayload {
+  durationMs: number;
+  projectId?: string;
+  visibility: string;
+  result: 'success' | 'error';
+  triggeredAt: string;
+  requestId?: string;
+  errorMessage?: string;
+}
+
+interface ProjectDashboardHydrationMetricPayload {
+  durationMs: number;
+  projectCount: number;
+  includeArchived: boolean;
+  search?: string;
+  triggeredAt: string;
+  requestId?: string;
+  fromCache?: boolean;
+}
+
+export const emitProjectCreateMetric = (payload: ProjectCreateMetricPayload) => {
+  const normalized = {
+    durationMs: normalizeDurationMs(payload.durationMs),
+    projectId: payload.projectId,
+    visibility: payload.visibility,
+    result: payload.result,
+    triggeredAt: payload.triggeredAt,
+    requestId: payload.requestId,
+    errorMessage: payload.errorMessage,
+  };
+  const level: 'info' | 'warn' = payload.result === 'error' ? 'warn' : 'info';
+  logProjectTelemetry(
+    level,
+    'projects.lifecycle.create',
+    'Project lifecycle create metric recorded',
+    normalized
+  );
+};
+
+export const emitProjectDashboardHydrationMetric = (
+  payload: ProjectDashboardHydrationMetricPayload
+) => {
+  const normalized = {
+    durationMs: normalizeDurationMs(payload.durationMs),
+    projectCount: payload.projectCount,
+    includeArchived: payload.includeArchived,
+    search:
+      typeof payload.search === 'string' && payload.search.trim().length > 0
+        ? payload.search.trim()
+        : undefined,
+    triggeredAt: payload.triggeredAt,
+    requestId: payload.requestId,
+    fromCache: Boolean(payload.fromCache),
+  };
+
+  logProjectTelemetry(
+    'info',
+    'projects.dashboard.hydration',
+    'Project dashboard hydration metric recorded',
+    normalized
+  );
 };

@@ -3,15 +3,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const isPlaywrightDebug = process.env.PLAYWRIGHT_DEBUG === '1';
 
 export const DEFAULT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 
 function createReporters(): PlaywrightTestConfig['reporter'] {
-  return [
+  const reporters: PlaywrightTestConfig['reporter'] = [
     ['html', { outputFile: 'test-results.html', open: 'never' }],
     ['json', { outputFile: 'test-results.json' }],
     ['junit', { outputFile: 'junit.xml' }],
   ];
+
+  if (isPlaywrightDebug) {
+    reporters.push(['list']);
+  }
+
+  return reporters;
 }
 
 function createProjects(): PlaywrightTestConfig['projects'] {
@@ -63,9 +70,9 @@ export function createBaseConfig(): PlaywrightTestConfig {
     reporter: createReporters(),
     use: {
       baseURL: DEFAULT_BASE_URL,
-      trace: 'on-first-retry',
-      screenshot: 'only-on-failure',
-      video: 'retain-on-failure',
+      trace: isPlaywrightDebug ? 'on' : 'on-first-retry',
+      screenshot: isPlaywrightDebug ? 'on' : 'only-on-failure',
+      video: isPlaywrightDebug ? 'on' : 'retain-on-failure',
     },
     projects: createProjects(),
     expect: {
