@@ -54,7 +54,11 @@ const setEnvValue = (key: string, value: string) => {
 };
 
 const cwd = process.cwd();
+const profile = (process.env.CTRL_FREAQ_PROFILE ?? '').trim().toLowerCase();
+const isFixtureProfile = profile === 'fixture';
+
 const envPath = path.join(cwd, '.env');
+const envFixturePath = path.join(cwd, '.env.fixture');
 const envLocalPath = path.join(cwd, '.env.local');
 
 // 1) Load .env (only set if not already defined in real env)
@@ -67,14 +71,36 @@ if (baseVars) {
   }
 }
 
-// 2) Load .env.local (override .env but never real env)
-const localVars = loadEnvFile(envLocalPath);
-if (localVars) {
-  for (const [key, value] of Object.entries(localVars)) {
-    if (!originalEnvKeys.has(key)) {
-      setEnvValue(key, value);
+// 2) Load .env.fixture when CTRL_FREAQ_PROFILE=fixture
+if (isFixtureProfile) {
+  const fixtureVars = loadEnvFile(envFixturePath);
+  if (fixtureVars) {
+    for (const [key, value] of Object.entries(fixtureVars)) {
+      if (!originalEnvKeys.has(key)) {
+        setEnvValue(key, value);
+      }
+    }
+  } else if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `CTRL_FREAQ_PROFILE=fixture but ${envFixturePath} was not found or failed to load`
+    );
+  }
+}
+
+// 3) Load .env.local (override .env but never real env) unless fixture profile disables it
+if (!isFixtureProfile) {
+  const localVars = loadEnvFile(envLocalPath);
+  if (localVars) {
+    for (const [key, value] of Object.entries(localVars)) {
+      if (!originalEnvKeys.has(key)) {
+        setEnvValue(key, value);
+      }
     }
   }
+} else if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line no-console
+  console.warn(`CTRL_FREAQ_PROFILE=fixture detected; skipping ${envLocalPath}`);
 }
 
 const authConfig = resolveAuthProviderConfig({ env: process.env, cwd });
