@@ -114,6 +114,17 @@ out follow-up work explicitly.
 - To convert YAML → JSON first try `yq eval -o=json <file>`, if `yq` is not
   available, then fallback to Python 3 with PyYAML.
 
+## MCP Usage Guidance
+
+### Playwright MCP
+
+When using `mcp__playwright__browser_take_screenshot` on the Playwright MCP
+server:
+
+- use the image format `jpeg` for the `type` argument (do **NOT** use `png`)
+- use a value of 70 for the `quality` argument
+- after taking a screenshot using the `resize` command to down-size to 75%
+
 ## Constitutional Compliance
 
 Read and follow the [Constitutional Compliance](CONSTITUTION.md) guidelines.
