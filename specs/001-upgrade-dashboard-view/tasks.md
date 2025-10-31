@@ -38,8 +38,8 @@ implementation and testing.
 - [ ] T003 Capture current dashboard layout notes and spacing tokens directly in
       `/apps/web/src/pages/Dashboard.tsx` comments to guide shell refactor.
 - [ ] T004 Refresh Playwright fixture context for dashboard flows by auditing
-      `/apps/web/tests/e2e/dashboard/fixtures` data usage so upcoming scenarios
-      share consistent seeds.
+      `/apps/web/tests/e2e/fixtures/document-quality.ts` (and related imports)
+      so upcoming scenarios share consistent seeds.
 
 **Checkpoint**: Foundation ready — user story implementation can begin.
 
@@ -100,6 +100,14 @@ selection on return.
 - [ ] T013 [P] [US2] Add Playwright scenario validating sidebar navigation and
       highlight persistence in
       `/apps/web/tests/e2e/dashboard/project-sidebar-navigation.e2e.ts`.
+- [ ] T013a [P] [US2] Add Playwright scenario for long project lists verifying
+      the sidebar scrolls without obscuring header or main content in
+      `/apps/web/tests/e2e/dashboard/project-sidebar-scroll.e2e.ts`, referencing
+      Edge Case coverage from `spec.md:94-99`.
+- [ ] T013b [US2] Add Playwright scenario that signs out and back in, asserting
+      the projects list refetches fresh data in
+      `/apps/web/tests/e2e/dashboard/project-rehydrate.e2e.ts` per
+      `spec.md:101`.
 
 ### Implementation for User Story 2
 
@@ -109,8 +117,15 @@ selection on return.
 - [ ] T015 [US2] Update `/apps/web/src/components/sidebar/ProjectsNav.tsx` to
       consume store state, render lifecycle badges, truncate long names with
       accessible tooltip, and handle selection callbacks.
+- [ ] T015a [US2] Ensure sidebar overflow behavior keeps the header and main
+      landmarks fixed by updating
+      `/apps/web/src/components/dashboard/DashboardShell.tsx` styles consistent
+      with Edge Case requirements in `spec.md:94-99`.
 - [ ] T016 [US2] Wire `/apps/web/src/pages/Dashboard.tsx` to set the active
       project before navigating to the project workspace.
+- [ ] T016a [US2] Update `/apps/web/src/hooks/use-projects-query.ts` (and store
+      listeners if needed) so signing out and back in forces a refetch of the
+      projects data to satisfy `spec.md:101`.
 - [ ] T017 [US2] Ensure the shell toggle state resets appropriately on
       navigation return within
       `/apps/web/src/components/dashboard/DashboardShell.tsx`.
@@ -131,6 +146,9 @@ messaging, CTA behavior, and main dashboard availability.
 
 - [ ] T018 [US3] Add Vitest coverage for sidebar loading/empty/error messaging
       and CTA triggers in `/apps/web/src/pages/Dashboard.test.tsx`.
+- [ ] T018a [US3] Extend Vitest coverage so filtered zero-result scenarios show
+      context-aware empty-state messaging and reset control in
+      `/apps/web/src/pages/Dashboard.test.tsx` per `spec.md:99`.
 - [ ] T019 [P] [US3] Create Playwright scenario covering empty project state CTA
       flow in `/apps/web/tests/e2e/dashboard/project-empty-state.e2e.ts`.
 
@@ -138,6 +156,9 @@ messaging, CTA behavior, and main dashboard availability.
 
 - [ ] T020 [US3] Implement loading spinner, empty-state copy, and error
       messaging in `/apps/web/src/components/sidebar/ProjectsNav.tsx`.
+- [ ] T020a [US3] Add filter-aware empty-state messaging and reset handler in
+      `/apps/web/src/components/sidebar/ProjectsNav.tsx` aligned with
+      Edge Case guidance in `spec.md:99`.
 - [ ] T021 [US3] Connect the sidebar CTA to `CreateProjectDialog` activation
       within `/apps/web/src/pages/Dashboard.tsx`.
 - [ ] T022 [US3] Add retry handling for project fetch failures inside
@@ -161,6 +182,9 @@ messaging, CTA behavior, and main dashboard availability.
 - [ ] T026 Run full gauntlet (`pnpm lint`, `pnpm typecheck`, `pnpm test`,
       `pnpm --filter @ctrl-freaq/web test:e2e`) as listed in `/package.json`
       before handoff.
+- [ ] T026a Capture SC-002 timing by running the Playwright navigation scenario
+      with `performance.mark` instrumentation and recording outcomes in
+      `research.md` prior to sign-off.
 
 ---
 

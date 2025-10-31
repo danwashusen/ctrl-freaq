@@ -6,6 +6,13 @@
 **Input**: User description: "upgrade the dashboard view based on this
 discussion"
 
+## Clarifications
+
+### Session 2025-10-31
+
+- Q: What project volume should the sidebar design target for this release? →
+  A: Fewer than 20 projects (small teams only)
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Stay Oriented in the Dashboard Shell (Priority: P1)
@@ -100,8 +107,9 @@ retains dashboard controls.
 
 - **FR-001**: The dashboard page MUST render within a persistent application
   shell that combines a global header, left-aligned navigation sidebar, and main
-  content area, maintaining visual parity with the mock while relying on real
-  data.
+  content area, maintaining visual parity with the reference shell in
+  `docs/examples/ctrl-freaq-ui/src/components/ui/sidebar.tsx` (and related mock
+  layouts) while relying on real data.
 - **FR-002**: The header MUST communicate product identity (name and short
   descriptor), expose global actions (settings, account menu), and adapt
   responsively so critical actions remain visible on narrow viewports.
@@ -119,9 +127,11 @@ retains dashboard controls.
   filtered), the sidebar MUST present an empty-state message plus a clear call
   to start a new project via the existing creation dialog.
 - **FR-007**: The main dashboard content MUST retain its current metrics grid,
-  filter controls, and project cards while spacing, typography, and
-  responsiveness are harmonized with the new shell so no information becomes
-  obscured, repositioned, or duplicated.
+  filter controls, and project cards, and MUST apply the spacing scale defined
+  in `docs/front-end-spec.md#spacing-layout` (24px vertical rhythm, 32px main
+  padding) together with the existing dashboard typography tokens so no content
+  becomes obscured, repositioned, or duplicated; automated layout assertions in
+  `Dashboard.test.tsx` confirm the required classes remain in place.
 - **FR-008**: The shell MUST implement accessible landmarks (`header`, `nav`,
   `main`), keyboard focus management for the mobile navigation overlay, and
   retain screen-reader visibility of toasts and dialogs triggered from the
@@ -147,6 +157,8 @@ retains dashboard controls.
   without functional changes, only repositioned within the shell.
 - Design tokens, typography scale, and iconography from the active web app
   remain the visual system, with the mock guiding layout and spacing only.
+- Initial sidebar design is optimized for workspaces with up to
+  20 projects; overflow handling remains basic without virtualization.
 
 ## Success Criteria _(mandatory)_
 

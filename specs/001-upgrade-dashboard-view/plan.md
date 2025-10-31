@@ -32,6 +32,10 @@ shadcn/ui, React Router
 Type**: Web application (apps/web) within pnpm monorepo  
 **Performance Goals**: Sidebar project selection opens project workspace within
 2 seconds (SC-002); perceived header/sidebar load without layout jank  
+**Performance Measurement**: Instrument Playwright flow and client
+`performance.mark` calls in the dashboard shell to record
+selection-to-navigation timing; log results during Polish phase before
+sign-off.  
 **Constraints**: Maintain accessible landmarks, focus management, and consistent
 spacing without regressing existing dashboard functionality  
 **Scale/Scope**: Single dashboard view for authenticated users; sidebar handles
@@ -117,61 +121,42 @@ planned.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation                  | Why Needed         | Simpler Alternative Rejected Because |
-| -------------------------- | ------------------ | ------------------------------------ |
-| [e.g., 4th project]        | [current need]     | [why 3 projects insufficient]        |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient]  |
+No constitutional exceptions are anticipated for this feature. If future scope
+introduces a violation, document it here with rationale before proceeding.
 
 ## Phase 0: Outline & Research
 
-1. **Extract unknowns from Technical Context** above:
-   - For each NEEDS CLARIFICATION → research task
-   - For each dependency → best practices task
-   - For each integration → patterns task
+- Audit the current dashboard shell implementation in
+  `/apps/web/src/pages/Dashboard.tsx`, `ProjectsNav.tsx`, and related tests to
+  confirm assumptions recorded in `spec.md`.
+- Capture spacing tokens, accessibility dependencies, and telemetry hooks in
+  `research.md`, citing `docs/front-end-spec.md#spacing-layout` and any mobile
+  focus behaviour that must be preserved.
+- Log unresolved questions (if any) directly in `research.md`; otherwise record
+  that no additional research is required beyond the existing artifacts.
 
-2. **Generate and dispatch research agents**:
+**Output**: `research.md` updated with shell layout notes and open questions (if
+applicable).
 
-   ```
-   For each unknown in Technical Context:
-     Task: "Research {unknown} for {feature context}"
-   For each technology choice:
-     Task: "Find best practices for {tech} in {domain}"
-   ```
+## Phase 1: Design Alignment
 
-3. **Consolidate findings** in `research.md` using format:
-   - Decision: [what was chosen]
-   - Rationale: [why chosen]
-   - Alternatives considered: [what else evaluated]
+_Prerequisites: Phase 0 complete_
 
-**Output**: research.md with all NEEDS CLARIFICATION resolved
+1. Reconcile the `Project Summary` and `Dashboard Shell` entities in
+   `data-model.md` with the existing `/api/projects` response fields, noting any
+   UI-only properties.
+2. Document the intended shell interaction flow (desktop vs. mobile,
+   navigation/focus handling) in `quickstart.md` so implementers have step-by-step
+   guidance.
+3. Confirm that the current `/api/projects` contract remains sufficient; if no
+   changes are needed, annotate the contracts directory with a short note rather
+   than generating new schemas.
+4. Update agent context files only if new tools or patterns are introduced by
+   this feature.
 
-## Phase 1: Design & Contracts
-
-_Prerequisites: research.md complete_
-
-1. **Extract entities from feature spec** → `data-model.md`:
-   - Entity name, fields, relationships
-   - Validation rules from requirements
-   - State transitions if applicable
-
-2. **Generate API contracts** from functional requirements:
-   - For each user action → endpoint
-   - Use standard REST/GraphQL patterns
-   - Output schema to `/contracts/`
-
-3. **Update agent context**:
-   - Run the agent-specific context script to record new technologies introduced
-     in this plan
-   - Append only new information; preserve existing manual notes
-
-4. **Extract test scenarios** from user stories:
-   - Each story → integration test scenario
-   - Quickstart test = story validation steps
-
-**Output**: data-model.md, /contracts/\*, quickstart.md, updated agent context
-file
+**Output**: `data-model.md`, `quickstart.md`, and contracts notes reflecting the
+validated design assumptions; agent context updated only when new information is
+introduced.
 
 ## Agent Context Update
 
