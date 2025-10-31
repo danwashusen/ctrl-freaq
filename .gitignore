@@ -124,3 +124,4 @@ codex-sandbox
 .codex-sandbox/pnpm-store/
 .codex-sandbox/node_modules-linux/
 .codex-sandbox/pnpm-store/
+worktrees/
