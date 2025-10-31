@@ -85,7 +85,7 @@ check_existing_branches() {
     local short_name="$1"
     
     # Fetch all remotes to get latest branch info (suppress errors if no remotes)
-    git fetch --all --prune 2>/dev/null || true
+    git fetch --all --prune >/dev/null 2>&1 || true
     
     # Find all branches matching the pattern using git ls-remote (more reliable)
     local remote_branches=$(git ls-remote --heads origin 2>/dev/null | grep -E "refs/heads/[0-9]+-${short_name}$" | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n)
@@ -142,6 +142,8 @@ generate_branch_name() {
     
     # Convert to lowercase and split into words
     local clean_name=$(echo "$description" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/ /g')
+    local description_upper
+    description_upper=$(printf '%s' "$description" | tr '[:lower:]' '[:upper:]')
     
     # Filter words: remove stop words and words shorter than 3 chars (unless they're uppercase acronyms in original)
     local meaningful_words=()
@@ -153,9 +155,13 @@ generate_branch_name() {
         if ! echo "$word" | grep -qiE "$stop_words"; then
             if [ ${#word} -ge 3 ]; then
                 meaningful_words+=("$word")
-            elif echo "$description" | grep -q "\b${word^^}\b"; then
-                # Keep short words if they appear as uppercase in original (likely acronyms)
-                meaningful_words+=("$word")
+            else
+                local uppercase_word
+                uppercase_word=$(printf '%s' "$word" | tr '[:lower:]' '[:upper:]')
+                if printf '%s\n' "$description_upper" | grep -Eq "(^|[^A-Z0-9])${uppercase_word}([^A-Z0-9]|$)"; then
+                    # Keep short words if they appear as uppercase in original (likely acronyms)
+                    meaningful_words+=("$word")
+                fi
             fi
         fi
     done
