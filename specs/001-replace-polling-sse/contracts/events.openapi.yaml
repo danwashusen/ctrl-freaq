@@ -1,0 +1,367 @@
+openapi: 3.1.0
+info:
+  title: Unified SSE Event Hub
+  version: 0.1.0
+  summary: Authenticated Server-Sent Events stream that replaces polling across CTRL FreaQ clients.
+servers:
+  - url: https://api.ctrl-freaq.test
+paths:
+  /api/v1/events:
+    get:
+      summary: Stream realtime workspace events
+      description: >
+        Opens a long-lived Server-Sent Events (SSE) connection that multiplexes project lifecycle,
+        quality gate, and section draft notifications. The stream is authenticated using the same
+        Clerk/simple middleware as REST endpoints. Clients MAY provide optional scope query parameters
+        to limit the set of topics delivered; when omitted, all topics the caller is authorized to
+        access in the active workspace are streamed.
+      operationId: streamEvents
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/SectionId'
+        - in: header
+          name: Last-Event-ID
+          schema:
+            type: string
+            description: >
+              The last received event sequence identifier. When supplied, the broker attempts to replay
+              missed events from the bounded buffer and delivers a snapshot if the gap exceeds the buffer window.
+        - in: header
+          name: X-Request-ID
+          schema:
+            type: string
+            description: Optional caller-supplied request identifier for log correlation.
+      responses:
+        '200':
+          description: text/event-stream payload containing EventEnvelope objects encoded as SSE events.
+          headers:
+            Retry-After:
+              description: Sent when the server backs off new connections because of load shedding.
+              schema:
+                type: integer
+                format: int32
+                minimum: 1
+                description: Seconds to wait before attempting a new connection.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SSEStream'
+              examples:
+                projectLifecycle:
+                  summary: Project archived event
+                  value: |
+                    id: project.lifecycle:alpha:42
+                    event: project.lifecycle
+                    data: {"topic":"project.lifecycle","resourceId":"proj_123","sequence":42,"emittedAt":"2025-11-03T18:22:11.045Z","kind":"event","payload":{"projectId":"proj_123","status":"archived","previousStatus":"active","archivedBy":"user_9","archivedAt":"2025-11-03T18:22:10.912Z"}}
+                heartbeat:
+                  summary: Heartbeat comment
+                  value: ":hb 2025-11-03T18:22:25.000Z\n"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk JWT bearer token or simple-mode token.
+  parameters:
+    ProjectId:
+      in: query
+      name: projectId
+      schema:
+        type: string
+        description: >
+          Optional project scope. When present, only events related to the specified project are streamed.
+      required: false
+    DocumentId:
+      in: query
+      name: documentId
+      schema:
+        type: string
+        description: >
+          Optional document scope. Narrows quality gate and section notifications to a single document.
+      required: false
+    SectionId:
+      in: query
+      name: sectionId
+      schema:
+        type: string
+        description: >
+          Optional section scope. Narrows events to one section draft/conflict stream.
+      required: false
+  responses:
+    Unauthorized:
+      description: Authentication required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missingToken:
+              value:
+                code: AUTH_REQUIRED
+                message: Authentication required to stream events.
+    Forbidden:
+      description: Caller lacks permissions to requested scopes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notAuthorized:
+              value:
+                code: SCOPE_FORBIDDEN
+                message: Requested scope is not authorized for this user.
+    TooManyRequests:
+      description: Connection rejected due to rate limiting or max connection cap.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+            description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            retryLater:
+              value:
+                code: TOO_MANY_CONNECTIONS
+                message: SSE connection limit reached; retry later.
+    ServiceUnavailable:
+      description: Event stream temporarily unavailable (maintenance/backpressure).
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+            description: Seconds before retry is allowed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            maintenance:
+              value:
+                code: EVENT_STREAM_UNAVAILABLE
+                message: Event stream temporarily unavailable. Falling back to polling.
+  schemas:
+    SSEStream:
+      type: string
+      description: >
+        SSE payload encoded per RFC 6202. Each event uses the EventEnvelope schema serialized as JSON, with
+        `event` set to the envelope topic and `id` combining topic/resource/sequence. Heartbeats are transmitted
+        as comment lines beginning with ':'.
+    EventEnvelope:
+      type: object
+      required:
+        - topic
+        - resourceId
+        - sequence
+        - emittedAt
+        - kind
+        - payload
+      properties:
+        topic:
+          type: string
+          enum:
+            - project.lifecycle
+            - quality-gate.progress
+            - quality-gate.summary
+            - section.diff
+            - section.conflict
+        resourceId:
+          type: string
+        sequence:
+          type: integer
+          format: int64
+        emittedAt:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          enum:
+            - event
+            - snapshot
+            - heartbeat
+        payload:
+          oneOf:
+            - $ref: '#/components/schemas/ProjectLifecyclePayload'
+            - $ref: '#/components/schemas/QualityGateProgressPayload'
+            - $ref: '#/components/schemas/QualityGateSummaryPayload'
+            - $ref: '#/components/schemas/SectionDiffPayload'
+            - $ref: '#/components/schemas/SectionConflictPayload'
+            - $ref: '#/components/schemas/HeartbeatPayload'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional metadata for clients (e.g., runId, snapshot reason).
+    ProjectLifecyclePayload:
+      type: object
+      required:
+        - projectId
+        - status
+      properties:
+        projectId:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, paused, completed, archived]
+        previousStatus:
+          type: string
+          nullable: true
+        updatedBy:
+          type: string
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        archivedBy:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    QualityGateProgressPayload:
+      type: object
+      required:
+        - runId
+        - documentId
+        - sectionId
+        - status
+        - stage
+      properties:
+        runId:
+          type: string
+        documentId:
+          type: string
+        sectionId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, blocked, passed, failed]
+        stage:
+          type: string
+        percentComplete:
+          type: number
+          minimum: 0
+          maximum: 100
+        durationMs:
+          type: integer
+          format: int64
+          nullable: true
+        incidentId:
+          type: string
+          nullable: true
+    QualityGateSummaryPayload:
+      type: object
+      required:
+        - runId
+        - documentId
+        - status
+        - completedAt
+      properties:
+        runId:
+          type: string
+        documentId:
+          type: string
+        status:
+          type: string
+          enum: [passed, failed, cancelled]
+        blockerCount:
+          type: integer
+          minimum: 0
+        warningCount:
+          type: integer
+          minimum: 0
+        completedAt:
+          type: string
+          format: date-time
+        summary:
+          type: string
+          nullable: true
+    SectionDiffPayload:
+      type: object
+      required:
+        - sectionId
+        - documentId
+        - diff
+      properties:
+        sectionId:
+          type: string
+        documentId:
+          type: string
+        diff:
+          type: object
+          description: Rich diff payload compatible with existing diff viewer.
+        draftVersion:
+          type: integer
+          format: int32
+        approvedVersion:
+          type: integer
+          format: int32
+        generatedAt:
+          type: string
+          format: date-time
+    SectionConflictPayload:
+      type: object
+      required:
+        - sectionId
+        - documentId
+        - conflictState
+      properties:
+        sectionId:
+          type: string
+        documentId:
+          type: string
+        conflictState:
+          type: string
+          enum: [clean, rebase_required, blocked]
+        conflictReason:
+          type: string
+          nullable: true
+        detectedAt:
+          type: string
+          format: date-time
+        detectedBy:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              detectedAt:
+                type: string
+                format: date-time
+              resolvedAt:
+                type: string
+                format: date-time
+                nullable: true
+              note:
+                type: string
+                nullable: true
+    HeartbeatPayload:
+      type: object
+      description: Empty object for heartbeat messages (`kind="heartbeat"`).
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
