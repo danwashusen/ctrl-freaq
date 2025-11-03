@@ -124,14 +124,11 @@ describe('Quality gate SSE stream (integration)', () => {
   let app: Express;
   let server: import('http').Server;
   let baseUrl: string;
-  let previousEnableFlag: string | undefined;
-  let previousHeartbeatInterval: string | undefined;
 
   beforeAll(async () => {
-    previousEnableFlag = process.env.ENABLE_EVENT_STREAM;
-    previousHeartbeatInterval = process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS;
-    process.env.ENABLE_EVENT_STREAM = 'true';
-    process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = '1000';
+    vi.stubEnv('ENABLE_EVENT_STREAM', 'true');
+    vi.stubEnv('EVENT_STREAM_HEARTBEAT_INTERVAL_MS', '1000');
+    vi.stubEnv('LOG_LEVEL', 'warn');
     vi.resetModules();
 
     const { createApp } = await import('../../../src/app.js');
@@ -142,21 +139,21 @@ describe('Quality gate SSE stream (integration)', () => {
   });
 
   afterAll(async () => {
-    if (!server) {
-      return;
+    try {
+      if (server) {
+        await new Promise<void>((resolve, reject) => {
+          server.close(error => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve();
+          });
+        });
+      }
+    } finally {
+      vi.unstubAllEnvs();
     }
-
-    await new Promise<void>((resolve, reject) => {
-      server.close(error => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
-    process.env.ENABLE_EVENT_STREAM = previousEnableFlag;
-    process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = previousHeartbeatInterval;
   });
 
   beforeEach(async () => {

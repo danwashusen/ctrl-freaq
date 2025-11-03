@@ -23,6 +23,15 @@ const DEFAULT_CONFIG: EventStreamConfig = {
   maxRetries: 5,
 };
 
+const isTestEnvironment = (env: NodeJS.ProcessEnv): boolean => {
+  const nodeEnv = env.NODE_ENV?.trim().toLowerCase();
+  if (nodeEnv === 'test') {
+    return true;
+  }
+  const vitestFlag = env.VITEST?.trim().toLowerCase();
+  return vitestFlag === 'true';
+};
+
 const normalizeBoolean = (raw: string | undefined, defaultValue: boolean): boolean => {
   if (raw === undefined) {
     return defaultValue;
@@ -87,8 +96,10 @@ export const resolveEventStreamConfig = (
 ): EventStreamConfig => {
   const env = options.env ?? process.env;
 
+  const defaultEnabled = isTestEnvironment(env) ? true : DEFAULT_CONFIG.enabled;
+
   return {
-    enabled: normalizeBoolean(env.ENABLE_EVENT_STREAM, DEFAULT_CONFIG.enabled),
+    enabled: normalizeBoolean(env.ENABLE_EVENT_STREAM, defaultEnabled),
     replayLimit: normalizeInteger(env.EVENT_STREAM_REPLAY_LIMIT, {
       name: 'EVENT_STREAM_REPLAY_LIMIT',
       defaultValue: DEFAULT_CONFIG.replayLimit,
