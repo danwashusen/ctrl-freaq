@@ -146,8 +146,8 @@ _Prerequisites: Phase 0 complete_
    `data-model.md` with the existing `/api/projects` response fields, noting any
    UI-only properties.
 2. Document the intended shell interaction flow (desktop vs. mobile,
-   navigation/focus handling) in `quickstart.md` so implementers have step-by-step
-   guidance.
+   navigation/focus handling) in `quickstart.md` so implementers have
+   step-by-step guidance.
 3. Confirm that the current `/api/projects` contract remains sufficient; if no
    changes are needed, annotate the contracts directory with a short note rather
    than generating new schemas.

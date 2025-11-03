@@ -12,6 +12,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   Archive,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -22,10 +24,12 @@ import {
 
 import { ArchiveProjectDialog } from '@/components/projects/ArchiveProjectDialog';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
+import DashboardShell from '@/components/dashboard/DashboardShell';
 import ProjectsNav from '@/components/sidebar/ProjectsNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUser, UserButton } from '@/lib/auth-provider';
+import { ProjectStatusBadge } from '@/components/status/ProjectStatusBadge';
+import { useAuth, useUser, UserButton } from '@/lib/auth-provider';
 import type { CreateProjectRequest, ProjectData, ProjectsListResponse } from '@/lib/api';
 import { useApi } from '@/lib/api-context';
 import logger from '@/lib/logger';
@@ -148,6 +152,7 @@ const normalizeDescription = (project: ProjectData): string => {
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser();
+  const auth = useAuth();
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -164,7 +169,10 @@ export default function Dashboard() {
   const createStartedAtRef = useRef<number | null>(null);
   const lastCreatePayloadRef = useRef<CreateProjectRequest | null>(null);
   const navigationTriggeredRef = useRef(false);
+  const previousUserIdRef = useRef<string | null>(null);
   const setActiveProject = useProjectStore(state => state.setActiveProject);
+  const sidebarCollapsed = useProjectStore(state => state.sidebarCollapsed);
+  const toggleSidebarCollapsed = useProjectStore(state => state.toggleSidebarCollapsed);
 
   const projectsQuery = useProjectsQuery({
     includeArchived: viewState.includeArchived,
@@ -635,11 +643,55 @@ export default function Dashboard() {
     [applyViewState]
   );
 
+  const handleResetFilters = useCallback(() => {
+    setSearchInput('');
+    applyViewState(prev => ({
+      ...prev,
+      search: '',
+      includeArchived: false,
+      scrollY: 0,
+    }));
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0 });
+    }
+  }, [applyViewState, setSearchInput]);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    const nextUserId = user?.id ?? null;
+    if (previousUserIdRef.current === nextUserId) {
+      return;
+    }
+    const hasPreviousUser = previousUserIdRef.current !== null;
+    previousUserIdRef.current = nextUserId;
+    if (hasPreviousUser) {
+      setActiveProject(null);
+    }
+  }, [isLoaded, setActiveProject, user?.id]);
+
+  const handleSwitchAccount = useCallback(async () => {
+    const signOut = auth?.signOut;
+    if (typeof signOut !== 'function') {
+      return;
+    }
+    try {
+      await signOut();
+    } catch (error) {
+      logger.warn(
+        'dashboard.switch_account_failed',
+        buildLogContext('dashboard.switch_account_failed', error)
+      );
+    }
+  }, [auth]);
+
   if (!isLoaded) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
   const hasProjects = projects.length > 0;
+  const hasFiltersApplied = viewState.search.trim().length > 0 || viewState.includeArchived;
   const isInitialLoading =
     (projectsQuery.isLoading || (projectsQuery.isFetching && isPlaceholderData)) && !hasProjects;
   const loadErrorMessage =
@@ -649,43 +701,111 @@ export default function Dashboard() {
   const navIsLoading =
     (projectsQuery.isLoading || (projectsQuery.isFetching && isPlaceholderData)) && !hasProjects;
   const showFetchSpinner = projectsQuery.isFetching && hasProjects;
+  const computedFullName = typeof user?.fullName === 'string' ? user.fullName.trim() : '';
+  const fallbackName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const displayName =
+    computedFullName || fallbackName || user?.primaryEmailAddress?.emailAddress || undefined;
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? undefined;
+  const userAvatarUrl =
+    typeof user?.imageUrl === 'string' && user.imageUrl.trim().length > 0
+      ? user.imageUrl
+      : undefined;
+  const collapseLabel = sidebarCollapsed
+    ? 'Expand sidebar navigation'
+    : 'Collapse sidebar navigation';
+  const accountName = displayName ?? userEmail ?? user?.id ?? undefined;
+  const sidebarAccount =
+    user && accountName
+      ? {
+          name: accountName,
+          email: userEmail,
+          avatarUrl: userAvatarUrl,
+        }
+      : undefined;
+
+  const headerActions = (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden lg:inline-flex"
+        onClick={() => {
+          toggleSidebarCollapsed();
+        }}
+        aria-pressed={sidebarCollapsed}
+        aria-label={collapseLabel}
+        data-testid="dashboard-shell-collapse-button"
+        data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+      >
+        <span className="sr-only">{collapseLabel}</span>
+        {sidebarCollapsed ? (
+          <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+        ) : (
+          <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
+        )}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+        <Settings className="mr-2 h-4 w-4" />
+        Settings
+      </Button>
+      <div data-testid="user-button">
+        <UserButton />
+      </div>
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="shadow-xs border-b bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">CTRL FreaQ</h1>
-              <div className="hidden text-sm text-gray-500 sm:block">
-                AI-Optimized Documentation System
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Button>
-              <UserButton />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <>
+      <DashboardShell
+        title="CTRL FreaQ"
+        subtitle="AI-Optimized Documentation System"
+        headerActions={headerActions}
+        sidebar={({ closeSidebar, isCollapsed }) => (
+          <ProjectsNav
+            projects={projects}
+            isLoading={navIsLoading}
+            isError={projectsQuery.isError}
+            errorMessage={loadErrorMessage}
+            hasFiltersApplied={hasFiltersApplied}
+            searchTerm={viewState.search}
+            isCollapsed={isCollapsed}
+            onProjectSelect={projectId => {
+              closeSidebar();
+              handleProjectClick(projectId);
+            }}
+            onCreateProject={handleOpenDialog}
+            onResetFilters={hasFiltersApplied ? handleResetFilters : undefined}
+            onRetry={() => {
+              projectsQuery.refetch();
+            }}
+            currentUser={
+              sidebarAccount
+                ? {
+                    name: sidebarAccount.name,
+                    email: sidebarAccount.email,
+                    avatarUrl: sidebarAccount.avatarUrl,
+                    onSwitchAccount: () => {
+                      closeSidebar();
+                      void handleSwitchAccount();
+                    },
+                  }
+                : undefined
+            }
+            onDashboardSelect={() => {
+              closeSidebar();
+            }}
+          />
+        )}
+      >
         <h1 className="sr-only">Dashboard</h1>
-        <div className="mb-8">
+        <section className="mb-8">
           <h2 className="mb-2 text-3xl font-bold text-gray-900">
             Welcome back, {user?.firstName || 'User'}
           </h2>
           <p className="text-gray-600">
             Manage your documentation projects and AI-optimized content.
           </p>
-        </div>
-
-        <aside className="mb-6">
-          <ProjectsNav projects={projects} isLoading={navIsLoading} />
-        </aside>
+        </section>
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
           <Card>
@@ -931,12 +1051,7 @@ export default function Dashboard() {
                   <CardContent className="space-y-3 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-700">Status:</span>
-                      <span
-                        data-testid="project-status-badge"
-                        className="inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700"
-                      >
-                        {project.status}
-                      </span>
+                      <ProjectStatusBadge status={project.status} />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-700">Visibility:</span>
@@ -959,7 +1074,7 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      </main>
+      </DashboardShell>
 
       <CreateProjectDialog
         open={isCreateDialogOpen}
@@ -994,6 +1109,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

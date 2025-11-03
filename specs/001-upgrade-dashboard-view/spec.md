@@ -10,8 +10,8 @@ discussion"
 
 ### Session 2025-10-31
 
-- Q: What project volume should the sidebar design target for this release? →
-  A: Fewer than 20 projects (small teams only)
+- Q: What project volume should the sidebar design target for this release? → A:
+  Fewer than 20 projects (small teams only)
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -109,13 +109,24 @@ retains dashboard controls.
   shell that combines a global header, left-aligned navigation sidebar, and main
   content area, maintaining visual parity with the reference shell in
   `docs/examples/ctrl-freaq-ui/src/components/ui/sidebar.tsx` (and related mock
-  layouts) while relying on real data.
+  layouts) while relying on real data. Visual parity is defined as applying the
+  spacing scale in `docs/front-end-spec.md#spacing-layout` (24px section
+  spacing, 32px document padding), the type weights from
+  `docs/front-end-spec.md#type-scale` (header text at 600 weight, body text at
+  400), and the `Sidebar`/`Dashboard Surface` color tokens outlined in
+  `docs/front-end-spec.md#color-palette`; deviations require an exception noted
+  in `research.md`.
 - **FR-002**: The header MUST communicate product identity (name and short
   descriptor), expose global actions (settings, account menu), and adapt
   responsively so critical actions remain visible on narrow viewports.
 - **FR-003**: The sidebar MUST display the current project list supplied by the
   projects query, sorted alphabetically, include lifecycle badges, and highlight
-  the active project selection.
+  the active project selection. Active project rows MUST render with
+  `Sidebar Primary` text color (`#0f0a19`), a 2px left border using the
+  `AI-Active` token (`#7c3aed`), apply the 600 weight from the type scale
+  (Tailwind `font-semibold`), and preserve the global 2px focus ring described
+  in `docs/front-end-spec.md#accessibility-requirements` when focus is moved via
+  keyboard.
 - **FR-004**: Selecting a project in the sidebar MUST update the active project
   context and route the user to the corresponding project workspace using the
   existing project detail entrypoint, preserving dashboard scroll state for
@@ -124,8 +135,12 @@ retains dashboard controls.
   is in flight, and present an inline error with retry guidance if the request
   fails.
 - **FR-006**: When the projects query returns zero results (initial state or
-  filtered), the sidebar MUST present an empty-state message plus a clear call
-  to start a new project via the existing creation dialog.
+  filtered), the sidebar MUST present an empty-state message plus a primary
+  action button labeled “Start a project” that opens the existing creation
+  dialog. The button MUST use the Primary token (`#cbc8d0`) on the Sidebar
+  background, sit immediately below the empty-state headline with 16px spacing,
+  and include the standard aria-label applied by the current new project flow so
+  prominence and behavior are objectively testable.
 - **FR-007**: The main dashboard content MUST retain its current metrics grid,
   filter controls, and project cards, and MUST apply the spacing scale defined
   in `docs/front-end-spec.md#spacing-layout` (24px vertical rhythm, 32px main
@@ -157,8 +172,8 @@ retains dashboard controls.
   without functional changes, only repositioned within the shell.
 - Design tokens, typography scale, and iconography from the active web app
   remain the visual system, with the mock guiding layout and spacing only.
-- Initial sidebar design is optimized for workspaces with up to
-  20 projects; overflow handling remains basic without virtualization.
+- Initial sidebar design is optimized for workspaces with up to 20 projects;
+  overflow handling remains basic without virtualization.
 
 ## Success Criteria _(mandatory)_
 

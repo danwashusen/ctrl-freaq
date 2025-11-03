@@ -10,93 +10,93 @@ on feature context and requirements.
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are structural layout requirements documented for header, sidebar,
+- [x] CHK001 Are structural layout requirements documented for header, sidebar,
       and main regions across desktop and narrow viewports? [Completeness, Spec
       §FR-001; Spec §User Story 1]
-- [ ] CHK002 Are content requirements for the header (product name, descriptor,
+- [x] CHK002 Are content requirements for the header (product name, descriptor,
       settings, account access) explicitly enumerated for all supported
       viewports? [Completeness, Spec §FR-002; Spec §User Story 1]
-- [ ] CHK003 Are sidebar list composition rules (sorting, lifecycle badges,
+- [x] CHK003 Are sidebar list composition rules (sorting, lifecycle badges,
       active state, live data dependency) fully captured? [Completeness, Spec
       §FR-003; Spec §User Story 2]
-- [ ] CHK004 Are empty, loading, and error state expectations for the sidebar
+- [x] CHK004 Are empty, loading, and error state expectations for the sidebar
       all represented within the requirements? [Completeness, Spec §FR-005; Spec
       §FR-006; Spec §User Story 3]
 
 ## Requirement Clarity
 
-- [ ] CHK005 Is “maintaining visual parity with the mock” defined with explicit
+- [x] CHK005 Is “maintaining visual parity with the mock” defined with explicit
       allowances or constraints (spacing, typography, alignment) to avoid
       subjective interpretation? [Clarity, Spec §FR-001; Spec §Assumptions]
-- [ ] CHK006 Are rules for highlighting the active project (visual treatment,
+- [x] CHK006 Are rules for highlighting the active project (visual treatment,
       focus indication) written so designers and testers can recognize
       compliance? [Clarity, Spec §FR-003; Spec §User Story 2]
-- [ ] CHK007 Is the phrase “clear call-to-action” in empty states described with
+- [x] CHK007 Is the phrase “clear call-to-action” in empty states described with
       measurable prominence (placement, visual weight)? [Clarity, Spec §FR-006;
       Spec §SC-003]
 
 ## Requirement Consistency
 
-- [ ] CHK008 Do header interaction expectations in User Story 1 align with
+- [x] CHK008 Do header interaction expectations in User Story 1 align with
       functional requirements so no conflicting action lists or arrangements
       appear? [Consistency, Spec §User Story 1; Spec §FR-002]
-- [ ] CHK009 Are sidebar behavior descriptions consistent between acceptance
+- [x] CHK009 Are sidebar behavior descriptions consistent between acceptance
       scenarios and FR-004 regarding navigation, scroll retention, and
       active-state persistence? [Consistency, Spec §User Story 2; Spec §FR-004]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK010 Do success criteria quantify perceived clarity and task success in
+- [x] CHK010 Do success criteria quantify perceived clarity and task success in
       ways that map back to the specified UX behaviors (e.g., layout
       comprehension, navigation speed)? [Acceptance Criteria, Spec §SC-001; Spec
       §SC-002; Spec §SC-004]
-- [ ] CHK011 Are acceptance scenarios for each user story sufficient to validate
+- [x] CHK011 Are acceptance scenarios for each user story sufficient to validate
       desktop and mobile shell interactions without implementation assumptions?
       [Acceptance Criteria, Spec §User Story 1; Spec §User Story 2; Spec §User
       Story 3]
 
 ## Scenario Coverage
 
-- [ ] CHK012 Are requirements present for transitional flows such as reopening
+- [x] CHK012 Are requirements present for transitional flows such as reopening
       the dashboard after visiting a project, ensuring the shell state is
       restored? [Coverage, Spec §FR-004; Spec §Edge Cases]
-- [ ] CHK013 Are mobile overlay behaviors (toggle activation, focus trapping,
+- [x] CHK013 Are mobile overlay behaviors (toggle activation, focus trapping,
       dismissal) fully specified for both success and interruption scenarios?
       [Coverage, Spec §User Story 1; Spec §FR-008]
 
 ## Edge Case Coverage
 
-- [ ] CHK014 Do edge cases detail treatment for long project names, overflowing
+- [x] CHK014 Do edge cases detail treatment for long project names, overflowing
       lists, and filter-induced emptiness with explicit UX outcomes? [Edge Case
       Coverage, Spec §Edge Cases; Spec §FR-006]
-- [ ] CHK015 Is rapid sign-out/sign-in recovery, including data refresh
+- [x] CHK015 Is rapid sign-out/sign-in recovery, including data refresh
       expectations, described with enough specificity to guide UX validation?
       [Edge Case Coverage, Spec §Edge Cases; Spec §Assumptions]
 
 ## Non-Functional Requirements
 
-- [ ] CHK016 Are responsiveness and perceived performance expectations (e.g.,
+- [x] CHK016 Are responsiveness and perceived performance expectations (e.g.,
       sidebar population speed, navigation response) translated into UX-facing
       metrics or thresholds? [Non-Functional, Spec §SC-002; Spec §FR-005]
-- [ ] CHK017 Are accessibility expectations (landmarks, focus management,
+- [x] CHK017 Are accessibility expectations (landmarks, focus management,
       assistive messaging) exhaustively captured for both desktop and mobile
       experiences? [Non-Functional, Spec §FR-008; Spec §User Story 1]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK018 Are dependencies on existing dialogs, data sources, and design
+- [x] CHK018 Are dependencies on existing dialogs, data sources, and design
       tokens validated so UX requirements remain accurate if those primitives
       change? [Dependencies, Spec §Assumptions; Spec §FR-006]
-- [ ] CHK019 Is there documentation ensuring the mock is treated as guidance
+- [x] CHK019 Is there documentation ensuring the mock is treated as guidance
       only, with actual data shapes driving UX decisions? [Dependencies, Spec
       §Assumptions; Spec §FR-001]
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK020 Are any subjective descriptors (e.g., “clear,” “harmonized”)
+- [x] CHK020 Are any subjective descriptors (e.g., “clear,” “harmonized”)
       translated into objective UX criteria or referenced design tokens to avoid
       conflicting interpretations? [Ambiguity, Spec §FR-001; Spec §FR-007]
-- [ ] CHK021 Are there conflicts between reusing existing project cards and the
+- [x] CHK021 Are there conflicts between reusing existing project cards and the
       requirement to harmonize spacing/typography that need explicit
       reconciliation? [Conflict, Spec §FR-007; Spec §Edge Cases]
 

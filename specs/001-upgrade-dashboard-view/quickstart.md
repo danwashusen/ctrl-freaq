@@ -44,10 +44,16 @@
 
 1. Simulate empty dataset by running unit test that mocks `projects: []`:  
    `pnpm --filter @ctrl-freaq/web test --run tests matching "Dashboard empty state"`.
-2. In fixture mode, apply search term with no matches; sidebar should show
-   empty-state copy plus CTA opening `CreateProjectDialog`.
-3. Trigger API failure (disconnect backend) to observe inline error copy.
-4. Validate Playwright create flow:  
+2. In fixture mode, apply a search term with no matches; the sidebar should show
+   the filter-aware empty state (`No projects match "<term>"`) with buttons for
+   `Reset filters` and `Start a project`. Clicking the CTA opens the existing
+   `CreateProjectDialog`.
+3. Trigger an API failure (disconnect backend) to observe inline error copy
+   paired with the `Try Again` retry control while the main dashboard remains
+   usable.
+4. Validate the Playwright empty-state CTA:  
+   `pnpm --filter @ctrl-freaq/web test:e2e -- tests/e2e/dashboard/project-empty-state.e2e.ts`
+5. Validate Playwright create flow:  
    `pnpm --filter @ctrl-freaq/web test:e2e --project="dashboard/project-create.e2e.ts"`
 
 ## Verification Hooks

@@ -10,17 +10,21 @@ const {
   mockNavigate,
   mockGetById,
   mockUpdate,
+  mockGetAll,
   mockLoadDocument,
   mockResetTemplate,
   mockSetFormValue,
+  mockSignOut,
   paramsRef,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetById: vi.fn(),
   mockUpdate: vi.fn(),
+  mockGetAll: vi.fn(),
   mockLoadDocument: vi.fn(),
   mockResetTemplate: vi.fn(),
   mockSetFormValue: vi.fn(),
+  mockSignOut: vi.fn(),
   paramsRef: { id: 'project-alpha' } as { id: string },
 }));
 
@@ -35,6 +39,12 @@ vi.mock('react-router-dom', async importOriginal => {
 
 vi.mock('../lib/auth-provider', () => ({
   UserButton: () => <button type="button">Account</button>,
+  useUser: () => ({
+    user: { id: 'user-test', firstName: 'Test' },
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+  useAuth: () => ({ signOut: mockSignOut }),
 }));
 
 vi.mock('../components/editor/TemplateUpgradeBanner', () => ({
@@ -71,7 +81,7 @@ vi.mock('../lib/api-context', () => ({
     projects: {
       getById: mockGetById,
       update: mockUpdate,
-      getAll: vi.fn(),
+      getAll: mockGetAll,
       create: vi.fn(),
       delete: vi.fn(),
       archive: vi.fn(),
@@ -126,9 +136,11 @@ describe('Project page metadata view', () => {
     mockNavigate.mockReset();
     mockGetById.mockReset();
     mockUpdate.mockReset();
+    mockGetAll.mockReset();
     mockLoadDocument.mockReset();
     mockResetTemplate.mockReset();
     mockSetFormValue.mockReset();
+    mockGetAll.mockResolvedValue({ projects: [projectFixture], total: 1, limit: 20, offset: 0 });
     paramsRef.id = 'project-alpha';
   });
 
@@ -139,8 +151,7 @@ describe('Project page metadata view', () => {
 
     await waitFor(() => expect(mockGetById).toHaveBeenCalled());
 
-    const metadataView = await screen.findByTestId('project-metadata-view');
-    expect(metadataView).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('project-metadata-view')).toBeInTheDocument());
     expect(screen.queryByTestId('project-metadata-form')).not.toBeInTheDocument();
 
     expect(screen.getByTestId('project-metadata-view-name')).toHaveTextContent(projectFixture.name);
@@ -275,10 +286,10 @@ describe('Project page metadata view', () => {
 
     await waitFor(() => expect(screen.getByTestId('project-metadata-view')).toBeInTheDocument());
     expect(screen.queryByTestId('project-metadata-form')).not.toBeInTheDocument();
+    const formattedStatus =
+      updatedProject.status.charAt(0).toUpperCase() + updatedProject.status.slice(1);
     await waitFor(() =>
-      expect(screen.getByTestId('project-metadata-view-status')).toHaveTextContent(
-        updatedProject.status
-      )
+      expect(screen.getByTestId('project-metadata-view-status')).toHaveTextContent(formattedStatus)
     );
   });
 

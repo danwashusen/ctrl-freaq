@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { defineConfig, loadEnv } from 'vite';
+import { createLogger, defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -94,6 +94,8 @@ const loadEnvFile = (filePath: string): Record<string, string> | null => {
   }
 };
 
+const configLogger = createLogger('info');
+
 export default defineConfig(({ mode }) => {
   const projectRoot = process.cwd();
   const originalEnv = { ...process.env };
@@ -119,7 +121,7 @@ export default defineConfig(({ mode }) => {
         process.env[key] = value;
       }
     } else {
-      console.warn(
+      configLogger.warn(
         `CTRL_FREAQ_PROFILE=fixture but ${envFixturePath} was not found or failed to load`
       );
     }

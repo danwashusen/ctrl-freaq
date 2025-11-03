@@ -154,7 +154,7 @@ export const DocumentQualityDashboard = ({
       <dl className="grid grid-cols-2 gap-3 text-sm">
         {summaryCounts.map(item => (
           <div key={item.label} className="bg-secondary/40 rounded-md px-3 py-2">
-            <dt className="text-muted-foreground text-xs font-medium">{item.label}</dt>
+            <dt className="text-foreground text-xs font-medium">{item.label}</dt>
             <dd className={cn('text-base font-semibold', item.tone)}>{item.value}</dd>
           </div>
         ))}

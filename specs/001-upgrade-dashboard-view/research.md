@@ -57,6 +57,23 @@
   - _Rely on browser default focus order_: Rejected because overlays without
     focus management cause screen-reader traps.
 
+### D005 – Sidebar Empty & Error Messaging
+
+- **Decision**: Extend `ProjectsNav` to render explicit loading, empty, and
+  error states with accessible affordances. Empty states now expose a
+  `Start a project` CTA that opens the existing creation dialog, while
+  filter-driven empties add a secondary `Reset filters` control. Errors surface
+  inline retry handling without hiding previously loaded projects.
+- **Rationale**: Surfacing contextual messaging in the sidebar prevents user
+  dead-ends, aligns with FR-005/FR-006 requirements, and keeps the shell
+  resilient during network turbulence while preserving focus for screen-reader
+  users.
+- **Alternatives Considered**:
+  - _Leave messaging to main-content cards_: Rejected; the shell must be
+    self-contained per US3 acceptance criteria.
+  - _Use toasts only for failures_: Rejected because transient toasts can be
+    missed and do not provide persistent guidance.
+
 ## Codebase Reconnaissance
 
 ### US1 – Stay Oriented in the Dashboard Shell
@@ -85,3 +102,10 @@
 
 **Open Questions**: None — all Technical Context fields resolved without NEEDS
 CLARIFICATION.
+
+## Success Criteria Evidence
+
+- **SC-002**: Playwright `project-sidebar-navigation.e2e.ts` instrumentation
+  recorded a sidebar selection-to-navigation duration of **81.4 ms**
+  (`performance.measure('sidebar-navigation')`), comfortably within the 2,000 ms
+  target.
