@@ -35,6 +35,8 @@ mkdir -p "$(dirname "${TARGET_DIR}")"
 git -C "${REPO_ROOT}" worktree add "${TARGET_DIR}" "${BRANCH_NAME}"
 
 LOCAL_COPY_PATHS=(
+  ".codex/config.toml"
+  ".codex/auth.json"
   "apps/api/.env.local"
   "apps/web/.env.local"
   "apps/api/local"
