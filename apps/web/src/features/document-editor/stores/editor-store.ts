@@ -75,6 +75,22 @@ interface EditorStoreState {
       contentMarkdown?: string;
     }
   ) => void;
+  applyConflictEvent: (
+    payload: {
+      sectionId: string;
+      conflictState: SectionView['conflictState'];
+      conflictReason?: string | null;
+      latestApprovedVersion?: number | null;
+    }
+  ) => void;
+  applyDiffEvent: (
+    payload: {
+      sectionId: string;
+      draftVersion?: number | null;
+      draftBaseVersion?: number | null;
+      approvedVersion?: number | null;
+    }
+  ) => void;
   reset: () => void;
 }
 
@@ -308,6 +324,39 @@ export const useEditorStore = create<EditorStoreState>()(
           }
           section.conflictState = 'clean';
           section.conflictReason = null;
+        });
+      },
+
+      applyConflictEvent: payload => {
+        set(state => {
+          const section = state.sections[payload.sectionId];
+          if (!section) return;
+
+          section.conflictState = payload.conflictState;
+          section.conflictReason = payload.conflictReason ?? null;
+          if (payload.latestApprovedVersion !== undefined) {
+            section.latestApprovedVersion = payload.latestApprovedVersion;
+          }
+          if (payload.conflictState === 'clean' || payload.conflictState === 'rebased') {
+            section.conflictReason = null;
+          }
+        });
+      },
+
+      applyDiffEvent: payload => {
+        set(state => {
+          const section = state.sections[payload.sectionId];
+          if (!section) return;
+
+          if (payload.draftVersion !== undefined) {
+            section.draftVersion = payload.draftVersion;
+          }
+          if (payload.draftBaseVersion !== undefined) {
+            section.draftBaseVersion = payload.draftBaseVersion;
+          }
+          if (payload.approvedVersion !== undefined) {
+            section.approvedVersion = payload.approvedVersion;
+          }
         });
       },
 

@@ -7,6 +7,7 @@ import type {
   SectionQualityService,
 } from '../services/section-quality.service.js';
 import type { SectionQualityGateResult } from '@ctrl-freaq/shared-data';
+import { resolveEventStream } from '../event-stream-utils.js';
 
 interface RunSectionBody {
   reason?: RunSectionInput['source'];
@@ -52,6 +53,76 @@ export class SectionQualityController {
     private readonly service: SectionQualityService,
     private readonly logger: Logger
   ) {}
+
+  private publishSectionProgress(
+    req: AuthenticatedRequest,
+    documentId: string,
+    sectionId: string,
+    payload: {
+      runId: string;
+      triggeredBy: string;
+      status: 'running' | 'completed' | 'failed';
+      stage: string;
+      percentComplete?: number;
+      incidentId?: string | null;
+      durationMs?: number | null;
+      result?: Partial<ReturnType<typeof serializeSectionResult>>;
+    }
+  ): void {
+    const resolved = resolveEventStream(req, {
+      logger: this.logger,
+      context: { documentId, sectionId, stage: payload.stage },
+    });
+    if (!resolved) {
+      return;
+    }
+
+    const requestId = req.requestId ?? 'unknown';
+
+    try {
+      resolved.broker.publish({
+        workspaceId: resolved.workspaceId,
+        topic: 'quality-gate.progress',
+        resourceId: documentId,
+        payload: {
+          runId: payload.runId,
+          documentId,
+          sectionId,
+          status: payload.status,
+          stage: payload.stage,
+          percentComplete:
+            typeof payload.percentComplete === 'number'
+              ? payload.percentComplete
+              : payload.status === 'completed'
+                ? 100
+                : payload.status === 'running'
+                  ? 0
+                  : 0,
+          incidentId: payload.incidentId ?? null,
+          durationMs: payload.durationMs ?? null,
+          triggeredBy: payload.triggeredBy,
+          result: payload.result ?? null,
+        },
+        metadata: {
+          requestId,
+          sectionId,
+          status: payload.status,
+          stage: payload.stage,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId: req.requestId,
+          documentId,
+          sectionId,
+          stage: payload.stage,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to publish section quality gate progress event'
+      );
+    }
+  }
 
   async runSection(req: AuthenticatedRequest, res: Response): Promise<void> {
     const requestId = req.requestId ?? 'unknown';
@@ -123,6 +194,15 @@ export class SectionQualityController {
         'Section quality gate run failed'
       );
 
+      this.publishSectionProgress(req, documentId, sectionId, {
+        runId: requestId,
+        triggeredBy,
+        status: 'failed',
+        stage: 'section.failed',
+        percentComplete: 0,
+        incidentId: result.incidentId ?? null,
+      });
+
       sendError(res, {
         status: 503,
         code: 'QUALITY_GATE_UNAVAILABLE',
@@ -142,6 +222,44 @@ export class SectionQualityController {
       triggeredBy: result.triggeredBy,
       receivedAt: new Date().toISOString(),
     });
+
+    this.publishSectionProgress(req, documentId, sectionId, {
+      runId: result.runId,
+      triggeredBy: result.triggeredBy,
+      status: 'running',
+      stage: 'section.running',
+      percentComplete: 0,
+    });
+
+    try {
+      const latest = await this.service.getLatestResult(sectionId);
+      if (!latest || latest.documentId !== documentId) {
+        return;
+      }
+
+      this.publishSectionProgress(req, documentId, sectionId, {
+        runId: latest.runId,
+        triggeredBy: latest.triggeredBy,
+        status: 'completed',
+        stage: 'section.completed',
+        percentComplete: 100,
+        incidentId: latest.incidentId ?? null,
+        durationMs: latest.durationMs,
+        result: {
+          ...serializeSectionResult(latest),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId,
+          documentId,
+          sectionId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to publish section quality gate completion event'
+      );
+    }
   }
 
   async getLatestResult(req: AuthenticatedRequest, res: Response): Promise<void> {

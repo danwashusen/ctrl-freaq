@@ -69,6 +69,94 @@ test.describe('Dashboard Project Update', () => {
         return;
       }
 
+      if (request.method() === 'GET' && url.pathname.endsWith(`/documents/${projectId}`)) {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            document: {
+              id: projectId,
+              projectId,
+              title: projectResponse.name,
+              content: {
+                sections: [],
+              },
+              templateId: 'tmpl-lifecycle',
+              templateVersion: '1.0.0',
+              templateSchemaHash: 'hash-lifecycle',
+            },
+            migration: null,
+            templateDecision: {
+              action: 'noop',
+              reason: 'up_to_date',
+              currentVersion: {
+                templateId: 'tmpl-lifecycle',
+                version: '1.0.0',
+                schemaHash: 'hash-lifecycle',
+                status: 'active',
+              },
+            },
+          }),
+        });
+        return;
+      }
+
+      if (request.method() === 'GET' && url.pathname.endsWith('/templates/tmpl-lifecycle')) {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            template: {
+              id: 'tmpl-lifecycle',
+              name: 'Lifecycle Template',
+              description: 'Template backing lifecycle projects',
+              documentType: 'project',
+              status: 'active',
+              activeVersion: '1.0.0',
+              activeVersionMetadata: {
+                version: '1.0.0',
+                schemaHash: 'hash-lifecycle',
+                status: 'active',
+                changelog: null,
+                sections: [],
+              },
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-05-01T00:00:00.000Z',
+            },
+          }),
+        });
+        return;
+      }
+
+      if (
+        request.method() === 'GET' &&
+        url.pathname.endsWith('/templates/tmpl-lifecycle/versions/1.0.0')
+      ) {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            version: {
+              templateId: 'tmpl-lifecycle',
+              version: '1.0.0',
+              schemaHash: 'hash-lifecycle',
+              schema: {
+                type: 'object',
+                properties: {},
+              },
+              sections: [],
+            },
+          }),
+        });
+        return;
+      }
+
       if (request.method() === 'PATCH' && url.pathname.endsWith(`/projects/${projectId}`)) {
         patchCount += 1;
         const headers = request.headers();
@@ -83,7 +171,7 @@ test.describe('Dashboard Project Update', () => {
 
           // Simulate API returning updated last-modified header but body still carries rounded timestamp
           lastModifiedHeader = '2026-05-10T12:05:00.000Z';
-          projectResponse.updatedAt = '2026-05-10T12:00:00.000Z';
+          projectResponse.updatedAt = lastModifiedHeader;
 
           await route.fulfill({
             status: 200,

@@ -33,6 +33,9 @@ import {
   fetchProjectRetentionPolicy,
   type ProjectRetentionPolicy,
 } from '@/features/document-editor/services/project-retention';
+import { useApi } from '@/lib/api-context';
+import type { EventEnvelope } from '@/lib/streaming/event-hub';
+import { useEditorStore } from '@/features/document-editor/stores/editor-store';
 
 export interface FormattingAnnotation {
   id: string;
@@ -83,6 +86,30 @@ interface ConflictLogListPayload {
 }
 
 type ManualDraftPersistence = Pick<ManualDraftStorage, 'saveDraft' | 'loadDraft' | 'deleteDraft'>;
+
+interface SectionConflictEventPayload {
+  sectionId: string;
+  documentId: string;
+  conflictState: SectionDraftHookState['conflictState'];
+  conflictReason?: string | null;
+  latestApprovedVersion?: number | null;
+  detectedAt?: string;
+  detectedBy?: string | null;
+  events?: ConflictLogEntryDTO[];
+  draftId?: string | null;
+  draftVersion?: number | null;
+  draftBaseVersion?: number | null;
+}
+
+interface SectionDiffEventPayload {
+  sectionId: string;
+  documentId: string;
+  diff: DiffResponseDTO;
+  draftVersion?: number | null;
+  draftBaseVersion?: number | null;
+  approvedVersion?: number | null;
+  generatedAt?: string;
+}
 
 export interface UseSectionDraftOptions {
   api: {
@@ -170,6 +197,25 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     loadPersistedDraft = true,
     draftClient,
   } = options;
+
+  const { eventHub, eventHubHealth, eventHubEnabled } = useApi();
+  const [fallbackActive, setFallbackActive] = useState(eventHubHealth.fallbackActive);
+
+  useEffect(() => {
+    setFallbackActive(eventHubHealth.fallbackActive);
+  }, [eventHubHealth.fallbackActive]);
+
+  useEffect(() => {
+    if (!eventHub || !eventHubEnabled) {
+      return;
+    }
+
+    return eventHub.onFallbackChange(active => {
+      setFallbackActive(active);
+    });
+  }, [eventHub, eventHubEnabled]);
+
+  const shouldPoll = !eventHubEnabled || fallbackActive;
 
   const [content, setContent] = useState(initialContent);
   const contentRef = useRef(initialContent);
@@ -394,6 +440,103 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     });
   }, [diff, isDiffRefreshing, lastDiffFetchedAt]);
 
+  useEffect(() => {
+    if (!eventHubEnabled || !eventHub || !sectionId) {
+      return;
+    }
+
+    const conflictListener = (envelope: EventEnvelope<SectionConflictEventPayload>) => {
+      const payload = envelope.payload;
+      if (payload.sectionId !== sectionId) {
+        return;
+      }
+      if (documentId && payload.documentId !== documentId) {
+        return;
+      }
+
+      const conflictStatus: SectionDraftHookState['conflictState'] =
+        payload.conflictState === 'blocked'
+          ? 'blocked'
+          : payload.conflictState === 'rebase_required'
+            ? 'rebase_required'
+            : payload.conflictState === 'rebased'
+              ? 'rebased'
+              : 'clean';
+
+      const draftStore = useSectionDraftStore.getState();
+      const latestApprovedVersion =
+        typeof payload.latestApprovedVersion === 'number'
+          ? payload.latestApprovedVersion
+          : typeof draftStore.latestApprovedVersion === 'number'
+            ? draftStore.latestApprovedVersion
+            : draftStore.draftBaseVersion ?? 0;
+
+      draftStore.applyConflict({
+        status: conflictStatus === 'rebased' ? 'clean' : conflictStatus,
+        conflictReason: payload.conflictReason ?? null,
+        latestApprovedVersion,
+        events: payload.events ?? [],
+      });
+
+      if (payload.events) {
+        draftStore.recordConflictEvents(payload.events);
+      }
+
+      setDerivedState(current => ({
+        ...current,
+        conflictState: conflictStatus,
+      }));
+
+      const editorStore = useEditorStore.getState();
+      editorStore.applyConflictEvent?.({
+        sectionId,
+        conflictState: conflictStatus,
+        conflictReason: payload.conflictReason ?? null,
+        latestApprovedVersion: payload.latestApprovedVersion ?? null,
+      });
+    };
+
+    const diffListener = (envelope: EventEnvelope<SectionDiffEventPayload>) => {
+      const payload = envelope.payload;
+      if (payload.sectionId !== sectionId) {
+        return;
+      }
+      if (documentId && payload.documentId !== documentId) {
+        return;
+      }
+
+      setIsDiffRefreshing(false);
+      setDiff(payload.diff);
+      const timestamp = Date.now();
+      setLastDiffFetchedAt(timestamp);
+      setDerivedState(current => ({
+        ...current,
+        diff: payload.diff,
+        lastDiffFetchedAt: timestamp,
+        isDiffRefreshing: false,
+      }));
+
+      const editorStore = useEditorStore.getState();
+      editorStore.applyDiffEvent?.({
+        sectionId,
+        draftVersion: payload.draftVersion ?? null,
+        draftBaseVersion: payload.draftBaseVersion ?? null,
+        approvedVersion: payload.approvedVersion ?? null,
+      });
+    };
+
+    const subscriptions = [
+      eventHub.subscribe({ topic: 'section.conflict', resourceId: sectionId }, conflictListener),
+      eventHub.subscribe({ topic: 'section.diff', resourceId: sectionId }, diffListener),
+    ];
+
+    return () => {
+      for (const unsubscribe of subscriptions) {
+        unsubscribe();
+      }
+    };
+  }, [documentId, eventHub, eventHubEnabled, sectionId, syncDerivedStateFromStore]);
+
   const updateDraft = useCallback((value: string) => {
     setContent(value);
     contentRef.current = value;
@@ -431,7 +574,12 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   }, [api, sectionId]);
 
   useEffect(() => {
-    if (!enableDiffAutomation || diffPollingIntervalMs <= 0 || typeof window === 'undefined') {
+    if (
+      !enableDiffAutomation ||
+      !shouldPoll ||
+      diffPollingIntervalMs <= 0 ||
+      typeof window === 'undefined'
+    ) {
       return;
     }
 
@@ -442,7 +590,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     return () => {
       window.clearInterval(interval);
     };
-  }, [enableDiffAutomation, diffPollingIntervalMs, refreshDiff]);
+  }, [enableDiffAutomation, diffPollingIntervalMs, refreshDiff, shouldPoll]);
 
   const persistDraftToStore = useCallback(
     async (contentValue: string, status: DraftPersistenceStatus) => {

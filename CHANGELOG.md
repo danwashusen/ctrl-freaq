@@ -1,5 +1,45 @@
 # Change Log
 
+## 001-replace-polling-sse
+
+> Feature scope: Unified SSE Event Hub
+
+### Overview
+Replaced short-interval polling with an authenticated Server-Sent Events hub that multiplexes project lifecycle, quality gate, and section draft topics. Delivered backend authorization, replay, and telemetry support alongside a shared frontend event hub that manages health-aware fallbacks for downstream consumers.
+
+### Highlights
+- Added `/api/v1/events` SSE endpoint backed by the new in-memory broker with scoped authorization, heartbeats, and Last-Event-ID replay (`apps/api/src/routes/events.ts`, `apps/api/src/modules/event-stream/event-broker.ts`).
+- Published lifecycle, quality gate, and section draft envelopes plus telemetry wiring across controllers/services and feature flag gating (`apps/api/src/routes/projects.ts`, `apps/api/src/modules/quality-gates/event-stream-utils.ts`, `apps/api/src/app.ts`).
+- Introduced shared frontend event hub with retry/fallback orchestration and integrated it into consuming hooks, stores, and pages (`apps/web/src/lib/streaming/event-hub.ts`, `apps/web/src/hooks/use-projects-query.ts`, `apps/web/src/features/document-editor/quality-gates/hooks/useQualityGates.ts`).
+- Expanded contract, integration, unit, and React tests to cover authorization failures, replay recovery, and hub consumers (`apps/api/tests/contract/events/event-stream.contract.test.ts`, `apps/api/tests/integration/events/*.test.ts`, `apps/web/src/lib/streaming/event-hub.test.ts`).
+- Authored full SSE dossier—spec, plan, data model, quickstart, audit, and architecture updates—plus added a worktree helper script (`specs/001-replace-polling-sse/*`, `docs/architecture.md`, `scripts/feature-branch-worktree.sh`).
+
+### Requirement Coverage
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| FR-001 | ✅ | `apps/api/src/routes/events.ts`; `apps/api/tests/contract/events/event-stream.contract.test.ts` |
+| FR-002 | ✅ | Scoped authorization guards in `apps/api/src/routes/events.ts`; unauthorized scope tests in `apps/api/tests/contract/events/event-stream.contract.test.ts` |
+| FR-003 | ✅ | Broker implementation in `apps/api/src/modules/event-stream/event-broker.ts`; unit coverage in `apps/api/tests/unit/event-stream/event-broker.test.ts` |
+| FR-004 | ✅ | Event publishers in `apps/api/src/routes/projects.ts`, `apps/api/src/modules/quality-gates/controllers/*.ts`, `apps/api/src/modules/section-editor/services/section-draft.service.ts` |
+| FR-005 | ✅ | Heartbeat cadence managed in `apps/api/src/modules/event-stream/event-broker.ts` and `apps/api/src/routes/events.ts` |
+| FR-006 | ✅ | Last-Event-ID replay and snapshots in `apps/api/src/modules/event-stream/event-broker.ts`; reconnection tests in `apps/api/tests/integration/events/*.test.ts` |
+| FR-007 | ✅ | Shared hub in `apps/web/src/lib/streaming/event-hub.ts`; integration via `apps/web/src/lib/api-context.tsx` |
+| FR-008 | ✅ | Hub consumers in `apps/web/src/hooks/use-projects-query.ts`, `apps/web/src/features/document-editor/quality-gates/hooks/useQualityGates.ts`, `apps/web/src/features/section-editor/hooks/use-section-draft.ts` |
+| FR-009 | ✅ | Telemetry and fallback logging in `apps/api/src/routes/events.ts`; `apps/api/src/modules/quality-gates/event-stream-utils.ts` |
+| FR-010 | ✅ | Rollout feature flags in `apps/api/src/config/event-stream.ts`, `apps/api/src/app.ts`, `apps/web/src/lib/api-context.tsx` |
+
+### Testing
+- Ran full gauntlet `pnpm test` and targeted suites (`pnpm --filter @ctrl-freaq/api test -- --run tests/contract/events/event-stream.contract.test.ts`, `pnpm --filter @ctrl-freaq/api test -- --run tests/integration/events/quality-gate.stream.test.ts`, `pnpm --filter @ctrl-freaq/web test -- --run src/features/section-editor/hooks/use-section-draft.test.ts`, `pnpm --filter @ctrl-freaq/web test -- --run src/lib/streaming/event-hub.test.ts`).
+
+### Risks & Mitigations
+- In-memory broker remains single-process; monitor new telemetry and plan a backplane before horizontal scaling, and ensure deployment images include the new `eventsource` polyfill dependency.
+
+### Clarifications
+- 2025-11-03: When scope parameters are omitted, the server streams all workspace-authorized topics by default.
+
+### Assumption Log
+- None recorded.
+
 ## 016-a-user-should-be-able
 
 > Feature scope: Full project lifecycle management across shared-data, API, web

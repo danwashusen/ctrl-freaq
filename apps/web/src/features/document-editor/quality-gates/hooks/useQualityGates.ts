@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { shallow } from 'zustand/shallow';
 
 import type ApiClient from '@/lib/api';
-import { useApiClient } from '@/lib/api-context';
+import { useApi, useApiClient } from '@/lib/api-context';
 import { emitQualityGateValidationMetric } from '@/lib/telemetry/client-events';
+import type { EventEnvelope } from '@/lib/streaming/event-hub';
 
 import {
   documentQualityStore,
@@ -17,6 +18,7 @@ import {
   useSectionQualityStore,
   type QualityGateRunSource,
   type RemediationCard,
+  type SectionQualitySnapshot,
   type SectionQualityStoreState,
 } from '../stores/section-quality-store';
 import {
@@ -40,6 +42,42 @@ const reportQualityGateWarning = (message: string) => {
     // eslint-disable-next-line no-console
     console.warn(message);
   }
+};
+
+type SectionResultEventPayload = {
+  sectionId: string;
+  documentId: string;
+  runId: string;
+  status: SectionQualitySnapshot['status'];
+  rules: SectionQualitySnapshot['rules'];
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  triggeredBy: string;
+  source: SectionQualitySnapshot['source'];
+  durationMs: number;
+  remediationState: SectionQualitySnapshot['remediationState'];
+  incidentId: string | null;
+  requestId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+interface QualityGateProgressEventPayload {
+  runId: string;
+  requestId: string;
+  documentId: string;
+  sectionId?: string | null;
+  status: 'running' | 'completed' | 'failed';
+  stage: string;
+  percentComplete: number;
+  incidentId: string | null;
+  durationMs?: number | null;
+  triggeredBy?: string | null;
+  result?: SectionResultEventPayload | null;
+}
+
+type QualityGateSummaryEventPayload = DocumentQualitySummary & {
+  status: string;
 };
 
 export interface UseQualityGatesOptions {
@@ -135,6 +173,8 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
     options.serviceOverrides?.fetchDocumentSummary ?? fetchDocumentQualitySummary;
   const runSectionService = options.serviceOverrides?.runSection ?? runSectionQualityGate;
   const runDocumentService = options.serviceOverrides?.runDocument ?? runDocumentQualityGate;
+  const { eventHub, eventHubHealth, eventHubEnabled } = useApi();
+  const shouldPoll = !eventHubEnabled || eventHubHealth.fallbackActive;
 
   const {
     status,
@@ -187,7 +227,185 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
   );
 
   useEffect(() => {
-    if (status !== 'validating' || typeof window === 'undefined') {
+    if (!eventHubEnabled) {
+      return;
+    }
+
+    const handleSectionProgress = (payload: QualityGateProgressEventPayload) => {
+      if (!sectionId || payload.sectionId !== sectionId) {
+        return;
+      }
+
+      const sectionState = sectionQualityStore.getState();
+
+      if (payload.status === 'running') {
+        sectionState.beginValidation({
+          requestId: payload.requestId ?? payload.runId,
+          runId: payload.runId,
+          triggeredBy: payload.triggeredBy ?? 'unknown',
+          startedAt: Date.now(),
+          source: options.reason ?? 'manual',
+        });
+        return;
+      }
+
+      if (payload.status === 'failed') {
+        sectionState.failValidation({
+          incidentId: payload.incidentId ?? null,
+          error: new Error('Quality gate validation failed'),
+          requestId: payload.requestId ?? null,
+          runId: payload.runId,
+          durationMs: payload.durationMs ?? null,
+        });
+        emitQualityGateValidationMetric({
+          requestId: payload.requestId ?? 'failed-request',
+          documentId: payload.documentId,
+          sectionId: payload.sectionId ?? sectionId ?? 'unknown',
+          triggeredBy: payload.triggeredBy ?? null,
+          durationMs: payload.durationMs ?? 0,
+          status: 'failed',
+          scope: 'section',
+          incidentId: payload.incidentId ?? undefined,
+        });
+        return;
+      }
+
+      if (payload.status === 'completed' && payload.result) {
+        const snapshot = payload.result;
+        sectionState.completeValidation({
+          runId: snapshot.runId,
+          status: snapshot.status,
+          durationMs: payload.durationMs ?? snapshot.durationMs ?? 0,
+          rules: snapshot.rules ?? [],
+          triggeredBy: snapshot.triggeredBy ?? null,
+          requestId: snapshot.requestId ?? null,
+          lastRunAt: snapshot.lastRunAt ?? null,
+          lastSuccessAt: snapshot.lastSuccessAt ?? null,
+          remediationState: snapshot.remediationState ?? 'pending',
+          incidentId: snapshot.incidentId ?? null,
+        });
+
+        queryClient.setQueryData(
+          SECTION_RESULT_QUERY_KEY(documentId, sectionId),
+          snapshot
+        );
+
+        emitQualityGateValidationMetric({
+          requestId: snapshot.requestId ?? payload.requestId ?? 'section-complete',
+          documentId: snapshot.documentId,
+          sectionId: snapshot.sectionId,
+          triggeredBy: snapshot.triggeredBy ?? null,
+          durationMs: payload.durationMs ?? snapshot.durationMs,
+          status: 'completed',
+          scope: 'section',
+          incidentId: snapshot.incidentId ?? undefined,
+          outcome: snapshot.status,
+        });
+      }
+    };
+
+    const handleDocumentProgress = (payload: QualityGateProgressEventPayload) => {
+      if (payload.sectionId && payload.sectionId !== sectionId) {
+        return;
+      }
+      if (documentId && payload.documentId !== documentId) {
+        return;
+      }
+
+      const documentState = documentQualityStore.getState();
+
+      if (payload.status === 'running') {
+        documentState.beginBatchRun({
+          documentId: payload.documentId,
+          requestId: payload.requestId ?? payload.runId,
+          triggeredBy: payload.triggeredBy ?? 'unknown',
+          startedAt: Date.now(),
+        });
+        return;
+      }
+
+      if (payload.status === 'failed') {
+        documentState.failBatchRun({
+          requestId: payload.requestId ?? null,
+          error: new Error('Document validation failed'),
+          incidentId: payload.incidentId ?? null,
+        });
+        emitQualityGateValidationMetric({
+          requestId: payload.requestId ?? 'failed-request',
+          documentId: payload.documentId,
+          sectionId: undefined,
+          triggeredBy: payload.triggeredBy ?? null,
+          durationMs: payload.durationMs ?? 0,
+          status: 'failed',
+          scope: 'document',
+          incidentId: payload.incidentId ?? undefined,
+        });
+      }
+    };
+
+    const handleProgress = (envelope: EventEnvelope<QualityGateProgressEventPayload>) => {
+      const payload = envelope.payload;
+      if (payload.sectionId) {
+        handleSectionProgress(payload);
+        return;
+      }
+      handleDocumentProgress(payload);
+    };
+
+    const handleSummary = (envelope: EventEnvelope<QualityGateSummaryEventPayload>) => {
+      const payload = envelope.payload;
+      if (documentId && payload.documentId !== documentId) {
+        return;
+      }
+
+      const summary: DocumentQualitySummary = {
+        documentId: payload.documentId,
+        statusCounts: payload.statusCounts,
+        blockerSections: payload.blockerSections,
+        warningSections: payload.warningSections,
+        lastRunAt: payload.lastRunAt,
+        triggeredBy: payload.triggeredBy,
+        requestId: payload.requestId,
+        publishBlocked: payload.publishBlocked,
+        coverageGaps: payload.coverageGaps ?? [],
+      };
+
+      const documentState = documentQualityStore.getState();
+      if (documentState.status === 'running') {
+        documentState.completeBatchRun(summary);
+      } else {
+        documentState.hydrateSummary(summary);
+      }
+
+      queryClient.setQueryData(DOCUMENT_SUMMARY_QUERY_KEY(documentId), summary);
+
+      const nextDocumentState = documentQualityStore.getState();
+      emitQualityGateValidationMetric({
+        requestId: summary.requestId ?? 'document-summary',
+        documentId: summary.documentId,
+        sectionId: undefined,
+        triggeredBy: summary.triggeredBy ?? null,
+        durationMs: nextDocumentState.durationMs ?? 0,
+        status: 'completed',
+        scope: 'document',
+        incidentId: undefined,
+      });
+    };
+
+    const unsubscribes = [
+      eventHub.subscribe({ topic: 'quality-gate.progress' }, handleProgress),
+      eventHub.subscribe({ topic: 'quality-gate.summary' }, handleSummary),
+    ];
+
+    return () => {
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe();
+      }
+    };
+  }, [documentId, eventHub, eventHubEnabled, options.reason, queryClient, sectionId]);
+
+  useEffect(() => {
+    if (status !== 'validating' || typeof window === 'undefined' || !shouldPoll) {
       return;
     }
 
@@ -207,10 +425,10 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [status]);
+  }, [status, shouldPoll]);
 
   useEffect(() => {
-    if (documentStatus !== 'running' || typeof window === 'undefined') {
+    if (documentStatus !== 'running' || typeof window === 'undefined' || !shouldPoll) {
       return;
     }
 
@@ -229,12 +447,13 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [documentStatus]);
+  }, [documentStatus, shouldPoll]);
 
   const sectionResultQuery = useQuery({
     queryKey: SECTION_RESULT_QUERY_KEY(documentId, sectionId),
     enabled: Boolean(sectionId) && Boolean(documentId),
-    refetchInterval: status === 'validating' ? 500 : false,
+    refetchInterval: shouldPoll && status === 'validating' ? 500 : false,
+    refetchIntervalInBackground: shouldPoll && status === 'validating',
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
@@ -292,6 +511,8 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
   const documentSummaryQuery = useQuery({
     queryKey: DOCUMENT_SUMMARY_QUERY_KEY(documentId),
     enabled: Boolean(documentId),
+    refetchInterval: shouldPoll && documentStatus === 'running' ? 1000 : false,
+    refetchIntervalInBackground: shouldPoll && documentStatus === 'running',
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
