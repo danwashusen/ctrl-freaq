@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 
 import type { Express } from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EventEnvelope } from '../../../src/modules/event-stream/event-broker';
 import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth.js';
@@ -124,10 +124,15 @@ describe('Quality gate SSE stream (integration)', () => {
   let app: Express;
   let server: import('http').Server;
   let baseUrl: string;
+  let previousEnableFlag: string | undefined;
+  let previousHeartbeatInterval: string | undefined;
 
   beforeAll(async () => {
+    previousEnableFlag = process.env.ENABLE_EVENT_STREAM;
+    previousHeartbeatInterval = process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS;
     process.env.ENABLE_EVENT_STREAM = 'true';
     process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = '1000';
+    vi.resetModules();
 
     const { createApp } = await import('../../../src/app.js');
     app = await createApp();
@@ -150,6 +155,8 @@ describe('Quality gate SSE stream (integration)', () => {
         resolve();
       });
     });
+    process.env.ENABLE_EVENT_STREAM = previousEnableFlag;
+    process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = previousHeartbeatInterval;
   });
 
   beforeEach(async () => {
@@ -214,10 +221,7 @@ describe('Quality gate SSE stream (integration)', () => {
       .send()
       .expect(202);
 
-    const {
-      envelope: progressEnvelope,
-      raw: _progressRaw,
-    } = await progressPromise;
+    const { envelope: progressEnvelope, raw: _progressRaw } = await progressPromise;
 
     expect(progressEnvelope.topic).toBe('quality-gate.progress');
     expect(progressEnvelope.resourceId).toBe(DOCUMENT_ID);

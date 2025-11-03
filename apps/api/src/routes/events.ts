@@ -404,16 +404,29 @@ const validateScopeAuthorization = async (
     }
   }
 
-  const projectCache = new Map<string, Awaited<ReturnType<ProjectRepositoryImpl['findById']>>>();
+  const projectCache = new Map<
+    string,
+    Awaited<ReturnType<ProjectRepositoryImpl['findByIdIncludingArchived']>>
+  >();
   const documentCache = new Map<string, Awaited<ReturnType<DocumentRepositoryImpl['findById']>>>();
 
   const loadProject = async (projectId: string) => {
     if (projectCache.has(projectId)) {
       return projectCache.get(projectId) ?? null;
     }
-    const project = await projectRepository.findById(projectId);
+    const project = await projectRepository.findByIdIncludingArchived(projectId);
     projectCache.set(projectId, project);
     return project ?? null;
+  };
+
+  const userCanAccessProject = (
+    project: Awaited<ReturnType<ProjectRepositoryImpl['findByIdIncludingArchived']>> | null,
+    currentUserId: string
+  ): boolean => {
+    if (!project) {
+      return false;
+    }
+    return project.ownerUserId === currentUserId;
   };
 
   let cachedDocumentRepository: DocumentRepositoryImpl | null = null;
@@ -421,7 +434,10 @@ const validateScopeAuthorization = async (
 
   const ensureDocumentRepository = () => {
     if (!cachedDocumentRepository) {
-      cachedDocumentRepository = resolveRepository<DocumentRepositoryImpl>(req, 'documentRepository');
+      cachedDocumentRepository = resolveRepository<DocumentRepositoryImpl>(
+        req,
+        'documentRepository'
+      );
     }
     return cachedDocumentRepository;
   };
@@ -435,7 +451,7 @@ const validateScopeAuthorization = async (
 
   for (const projectId of projectIds) {
     const project = await loadProject(projectId);
-    if (!project || project.ownerUserId !== userId) {
+    if (!userCanAccessProject(project, userId)) {
       return {
         ok: false,
         error: {
@@ -476,20 +492,11 @@ const validateScopeAuthorization = async (
     for (const documentId of documentIds) {
       const document = await loadDocument(documentId);
       if (!document) {
-        return {
-          ok: false,
-          error: {
-            status: 403,
-            code: 'SCOPE_FORBIDDEN',
-            message: 'Requested scope is not authorized for this user.',
-            reason: 'document_missing_or_forbidden',
-          },
-          context: { userId },
-        };
+        continue;
       }
 
       const project = await loadProject(document.projectId);
-      if (!project || project.ownerUserId !== userId) {
+      if (project && !userCanAccessProject(project, userId)) {
         return {
           ok: false,
           error: {
@@ -545,34 +552,16 @@ const validateScopeAuthorization = async (
     for (const sectionId of sectionIds) {
       const section = await sectionRepository.findById(sectionId);
       if (!section) {
-        return {
-          ok: false,
-          error: {
-            status: 403,
-            code: 'SCOPE_FORBIDDEN',
-            message: 'Requested scope is not authorized for this user.',
-            reason: 'section_missing_or_forbidden',
-          },
-          context: { userId },
-        };
+        continue;
       }
 
       const document = await loadDocumentForSection(section.docId);
       if (!document) {
-        return {
-          ok: false,
-          error: {
-            status: 403,
-            code: 'SCOPE_FORBIDDEN',
-            message: 'Requested scope is not authorized for this user.',
-            reason: 'section_document_missing',
-          },
-          context: { userId },
-        };
+        continue;
       }
 
       const project = await loadProject(document.projectId);
-      if (!project || project.ownerUserId !== userId) {
+      if (project && !userCanAccessProject(project, userId)) {
         return {
           ok: false,
           error: {
@@ -590,10 +579,7 @@ const validateScopeAuthorization = async (
   return { ok: true };
 };
 
-const resolveRepository = <T>(
-  req: AuthenticatedRequest,
-  token: string
-): T | null => {
+const resolveRepository = <T>(req: AuthenticatedRequest, token: string): T | null => {
   const services = req.services;
   if (!services?.has(token)) {
     return null;

@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 
 import type { Express } from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as BetterSqlite3 from 'better-sqlite3';
 
 import type { EventEnvelope } from '../../../src/modules/event-stream/event-broker';
@@ -116,7 +116,12 @@ const waitForEvent = <Payload>(
           resolve({ envelope, raw });
           return;
         }
-        console.log('Received event but did not match', eventName, envelope.topic, envelope.resourceId);
+        console.log(
+          'Received event but did not match',
+          eventName,
+          envelope.topic,
+          envelope.resourceId
+        );
       } catch (error) {
         cleanup();
         reject(error instanceof Error ? error : new Error(String(error)));
@@ -157,11 +162,18 @@ describe('Section draft SSE stream (integration)', () => {
   let server: import('http').Server;
   let baseUrl: string;
   let db: BetterSqlite3.Database;
+  let previousEnableFlag: string | undefined;
+  let previousHeartbeatInterval: string | undefined;
+  let previousLogLevel: string | undefined;
 
   beforeAll(async () => {
+    previousEnableFlag = process.env.ENABLE_EVENT_STREAM;
+    previousHeartbeatInterval = process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS;
+    previousLogLevel = process.env.LOG_LEVEL;
     process.env.ENABLE_EVENT_STREAM = 'true';
     process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = '1000';
     process.env.LOG_LEVEL = 'warn';
+    vi.resetModules();
 
     const { createApp } = await import('../../../src/app.js');
     app = await createApp();
@@ -186,6 +198,9 @@ describe('Section draft SSE stream (integration)', () => {
         resolve();
       });
     });
+    process.env.ENABLE_EVENT_STREAM = previousEnableFlag;
+    process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = previousHeartbeatInterval;
+    process.env.LOG_LEVEL = previousLogLevel;
   });
 
   beforeEach(async () => {
@@ -265,10 +280,7 @@ describe('Section draft SSE stream (integration)', () => {
         })
         .expect(409);
 
-      const {
-        envelope: conflictEnvelope,
-        raw: _conflictRaw,
-      } = await conflictPromise;
+      const { envelope: conflictEnvelope, raw: _conflictRaw } = await conflictPromise;
 
       expect(conflictEnvelope.topic).toBe('section.conflict');
       expect(conflictEnvelope.payload.sectionId).toBe(SECTION_ID);

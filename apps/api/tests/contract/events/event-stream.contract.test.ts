@@ -4,7 +4,7 @@ import type { Database } from 'better-sqlite3';
 
 import type { Express } from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { EventBroker } from '../../../src/modules/event-stream/event-broker.js';
 import { ProjectRepositoryImpl, DocumentRepositoryImpl } from '@ctrl-freaq/shared-data';
@@ -23,10 +23,15 @@ describe('GET /api/v1/events', () => {
   let server: import('http').Server;
   let baseUrl: string;
   let db: Database;
+  let previousEnableFlag: string | undefined;
+  let previousHeartbeatInterval: string | undefined;
 
   beforeAll(async () => {
+    previousEnableFlag = process.env.ENABLE_EVENT_STREAM;
+    previousHeartbeatInterval = process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS;
     process.env.ENABLE_EVENT_STREAM = 'true';
     process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = '1000';
+    vi.resetModules();
 
     const { createApp } = await import('../../../src/app.js');
     app = await createApp();
@@ -49,6 +54,8 @@ describe('GET /api/v1/events', () => {
         });
       });
     }
+    process.env.ENABLE_EVENT_STREAM = previousEnableFlag;
+    process.env.EVENT_STREAM_HEARTBEAT_INTERVAL_MS = previousHeartbeatInterval;
   });
 
   it('requires authentication', async () => {
