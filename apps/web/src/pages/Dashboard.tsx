@@ -12,6 +12,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   Archive,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -22,10 +24,12 @@ import {
 
 import { ArchiveProjectDialog } from '@/components/projects/ArchiveProjectDialog';
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog';
+import DashboardShell from '@/components/dashboard/DashboardShell';
 import ProjectsNav from '@/components/sidebar/ProjectsNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUser, UserButton } from '@/lib/auth-provider';
+import { ProjectStatusBadge } from '@/components/status/ProjectStatusBadge';
+import { useAuth, useUser, UserButton } from '@/lib/auth-provider';
 import type { CreateProjectRequest, ProjectData, ProjectsListResponse } from '@/lib/api';
 import { useApi } from '@/lib/api-context';
 import logger from '@/lib/logger';
@@ -148,6 +152,7 @@ const normalizeDescription = (project: ProjectData): string => {
 
 export default function Dashboard() {
   const { user, isLoaded } = useUser();
+  const auth = useAuth();
   const navigate = useNavigate();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -164,7 +169,10 @@ export default function Dashboard() {
   const createStartedAtRef = useRef<number | null>(null);
   const lastCreatePayloadRef = useRef<CreateProjectRequest | null>(null);
   const navigationTriggeredRef = useRef(false);
+  const previousUserIdRef = useRef<string | null>(null);
   const setActiveProject = useProjectStore(state => state.setActiveProject);
+  const sidebarCollapsed = useProjectStore(state => state.sidebarCollapsed);
+  const toggleSidebarCollapsed = useProjectStore(state => state.toggleSidebarCollapsed);
 
   const projectsQuery = useProjectsQuery({
     includeArchived: viewState.includeArchived,
@@ -635,11 +643,55 @@ export default function Dashboard() {
     [applyViewState]
   );
 
+  const handleResetFilters = useCallback(() => {
+    setSearchInput('');
+    applyViewState(prev => ({
+      ...prev,
+      search: '',
+      includeArchived: false,
+      scrollY: 0,
+    }));
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0 });
+    }
+  }, [applyViewState, setSearchInput]);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    const nextUserId = user?.id ?? null;
+    if (previousUserIdRef.current === nextUserId) {
+      return;
+    }
+    const hasPreviousUser = previousUserIdRef.current !== null;
+    previousUserIdRef.current = nextUserId;
+    if (hasPreviousUser) {
+      setActiveProject(null);
+    }
+  }, [isLoaded, setActiveProject, user?.id]);
+
+  const handleSwitchAccount = useCallback(async () => {
+    const signOut = auth?.signOut;
+    if (typeof signOut !== 'function') {
+      return;
+    }
+    try {
+      await signOut();
+    } catch (error) {
+      logger.warn(
+        'dashboard.switch_account_failed',
+        buildLogContext('dashboard.switch_account_failed', error)
+      );
+    }
+  }, [auth]);
+
   if (!isLoaded) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
   const hasProjects = projects.length > 0;
+  const hasFiltersApplied = viewState.search.trim().length > 0 || viewState.includeArchived;
   const isInitialLoading =
     (projectsQuery.isLoading || (projectsQuery.isFetching && isPlaceholderData)) && !hasProjects;
   const loadErrorMessage =
@@ -649,81 +701,151 @@ export default function Dashboard() {
   const navIsLoading =
     (projectsQuery.isLoading || (projectsQuery.isFetching && isPlaceholderData)) && !hasProjects;
   const showFetchSpinner = projectsQuery.isFetching && hasProjects;
+  const computedFullName = typeof user?.fullName === 'string' ? user.fullName.trim() : '';
+  const fallbackName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const displayName =
+    computedFullName || fallbackName || user?.primaryEmailAddress?.emailAddress || undefined;
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? undefined;
+  const userAvatarUrl =
+    typeof user?.imageUrl === 'string' && user.imageUrl.trim().length > 0
+      ? user.imageUrl
+      : undefined;
+  const collapseLabel = sidebarCollapsed
+    ? 'Expand sidebar navigation'
+    : 'Collapse sidebar navigation';
+  const accountName = displayName ?? userEmail ?? user?.id ?? undefined;
+  const sidebarAccount =
+    user && accountName
+      ? {
+          name: accountName,
+          email: userEmail,
+          avatarUrl: userAvatarUrl,
+        }
+      : undefined;
+
+  const headerActions = (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden lg:inline-flex"
+        onClick={() => {
+          toggleSidebarCollapsed();
+        }}
+        aria-pressed={sidebarCollapsed}
+        aria-label={collapseLabel}
+        data-testid="dashboard-shell-collapse-button"
+        data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+      >
+        <span className="sr-only">{collapseLabel}</span>
+        {sidebarCollapsed ? (
+          <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+        ) : (
+          <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
+        )}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+        <Settings className="mr-2 h-4 w-4" />
+        Settings
+      </Button>
+      <div data-testid="user-button">
+        <UserButton />
+      </div>
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="shadow-xs border-b bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">CTRL FreaQ</h1>
-              <div className="hidden text-sm text-gray-500 sm:block">
-                AI-Optimized Documentation System
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Button>
-              <UserButton />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <>
+      <DashboardShell
+        title="CTRL FreaQ"
+        subtitle="AI-Optimized Documentation System"
+        headerActions={headerActions}
+        sidebar={({ closeSidebar, isCollapsed }) => (
+          <ProjectsNav
+            projects={projects}
+            isLoading={navIsLoading}
+            isError={projectsQuery.isError}
+            errorMessage={loadErrorMessage}
+            hasFiltersApplied={hasFiltersApplied}
+            searchTerm={viewState.search}
+            isCollapsed={isCollapsed}
+            onProjectSelect={projectId => {
+              closeSidebar();
+              handleProjectClick(projectId);
+            }}
+            onCreateProject={handleOpenDialog}
+            onResetFilters={hasFiltersApplied ? handleResetFilters : undefined}
+            onRetry={() => {
+              projectsQuery.refetch();
+            }}
+            currentUser={
+              sidebarAccount
+                ? {
+                    name: sidebarAccount.name,
+                    email: sidebarAccount.email,
+                    avatarUrl: sidebarAccount.avatarUrl,
+                    onSwitchAccount: () => {
+                      closeSidebar();
+                      void handleSwitchAccount();
+                    },
+                  }
+                : undefined
+            }
+            onDashboardSelect={() => {
+              closeSidebar();
+            }}
+          />
+        )}
+      >
         <h1 className="sr-only">Dashboard</h1>
-        <div className="mb-8">
-          <h2 className="mb-2 text-3xl font-bold text-gray-900">
+        <section className="mb-8">
+          <h2 className="mb-2 text-3xl font-bold text-[hsl(var(--dashboard-content-foreground))]">
             Welcome back, {user?.firstName || 'User'}
           </h2>
-          <p className="text-gray-600">
+          <p className="text-[hsl(var(--dashboard-content-muted))]">
             Manage your documentation projects and AI-optimized content.
           </p>
-        </div>
-
-        <aside className="mb-6">
-          <ProjectsNav projects={projects} isLoading={navIsLoading} />
-        </aside>
+        </section>
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
-          <Card>
+          <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Total Projects</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{totalProjects}</div>
-              <p className="text-sm text-gray-600">Active projects</p>
+              <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">Active projects</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Documents</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">0</div>
-              <p className="text-sm text-gray-600">Total documents</p>
+              <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">Total documents</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Templates</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">0</div>
-              <p className="text-sm text-gray-600">Available templates</p>
+              <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">
+                Available templates
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-sm text-[hsl(var(--dashboard-content-muted))]">
                 <Activity className="mr-1 h-4 w-4" />
                 No recent activity yet
               </div>
@@ -732,7 +854,9 @@ export default function Dashboard() {
         </div>
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-xl font-semibold text-gray-900">Your Projects</h3>
+          <h3 className="text-xl font-semibold text-[hsl(var(--dashboard-content-foreground))]">
+            Your Projects
+          </h3>
           <Button onClick={handleOpenDialog} data-testid="open-create-project-dialog">
             <Plus className="mr-2 h-4 w-4" />
             New Project
@@ -754,25 +878,36 @@ export default function Dashboard() {
               value={searchInput}
               onChange={handleSearchChange}
               placeholder="Search projects"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] px-3 py-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none placeholder:text-[hsla(var(--dashboard-content-muted)/0.7)] focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
               autoComplete="off"
             />
             <div className="flex items-center gap-2 sm:justify-end">
-              <Button type="submit" variant="outline" size="sm">
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                className="border-[hsl(var(--dashboard-panel-border))] bg-[hsla(var(--dashboard-panel-bg)/0.7)] text-[hsl(var(--dashboard-content-foreground))] hover:bg-[hsla(var(--dashboard-surface-hover)/0.45)]"
+              >
                 Search
               </Button>
               {searchInput.trim().length > 0 && (
-                <Button type="button" variant="ghost" size="sm" onClick={handleClearSearch}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-[hsl(var(--dashboard-content-muted))] hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]"
+                  onClick={handleClearSearch}
+                >
                   Clear
                 </Button>
               )}
             </div>
           </form>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+            <label className="flex items-center gap-2 text-sm text-[hsl(var(--dashboard-content-muted))]">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] text-indigo-300 focus:ring-[hsl(var(--dashboard-panel-border))]"
                 checked={viewState.includeArchived}
                 onChange={handleIncludeArchivedChange}
                 data-testid="dashboard-show-archived-toggle"
@@ -780,7 +915,10 @@ export default function Dashboard() {
               Include archived
             </label>
             {showFetchSpinner && (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-hidden="true" />
+              <Loader2
+                className="h-4 w-4 animate-spin text-[hsl(var(--dashboard-content-subdued))]"
+                aria-hidden="true"
+              />
             )}
           </div>
         </div>
@@ -800,7 +938,7 @@ export default function Dashboard() {
         )}
 
         {isInitialLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-12 text-gray-500">
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-[hsl(var(--dashboard-content-subdued))]">
             <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
             <span>Loading projects…</span>
           </div>
@@ -818,11 +956,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : projects.length === 0 ? (
-          <Card className="py-12 text-center">
+          <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] py-12 text-center text-[hsl(var(--dashboard-content-foreground))] shadow-none">
             <CardContent>
-              <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-              <h3 className="mb-2 text-lg font-medium text-gray-900">No projects yet</h3>
-              <p className="mb-4 text-gray-500">
+              <FileText className="mx-auto mb-4 h-12 w-12 text-[hsl(var(--dashboard-content-subdued))]" />
+              <h3 className="mb-2 text-lg font-medium text-[hsl(var(--dashboard-content-foreground))]">
+                No projects yet
+              </h3>
+              <p className="mb-4 text-[hsl(var(--dashboard-content-muted))]">
                 Get started by creating your first documentation project.
               </p>
               <Button onClick={handleOpenDialog}>
@@ -847,7 +987,7 @@ export default function Dashboard() {
                 <Card
                   key={project.id}
                   data-testid="project-card"
-                  className="relative cursor-pointer transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                  className="relative cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--dashboard-panel-border))]"
                   onClick={() => handleProjectClick(project.id)}
                   onKeyDown={event => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -889,7 +1029,7 @@ export default function Dashboard() {
                             aria-haspopup="menu"
                             aria-expanded={isMenuOpen}
                             aria-label={`Project actions for ${project.name}`}
-                            className="rounded p-1 text-gray-500 transition hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                            className="rounded p-1 text-[hsl(var(--dashboard-content-muted))] transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--dashboard-panel-border))]"
                             onClick={event => {
                               event.stopPropagation();
                               event.preventDefault();
@@ -903,14 +1043,14 @@ export default function Dashboard() {
                           {isMenuOpen ? (
                             <div
                               data-project-card-actions-menu
-                              className="absolute right-0 z-10 mt-2 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                              className="absolute right-0 z-10 mt-2 w-44 rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.95)] py-1 text-[hsl(var(--dashboard-content-foreground))] shadow-[0_16px_32px_rgba(12,9,24,0.45)]"
                               role="menu"
                             >
                               <button
                                 type="button"
                                 role="menuitem"
                                 data-testid="project-card-archive"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[hsl(var(--dashboard-content-foreground))] hover:bg-[hsla(var(--dashboard-surface-hover)/0.45)] disabled:cursor-not-allowed disabled:opacity-70"
                                 onClick={event => {
                                   event.stopPropagation();
                                   event.preventDefault();
@@ -928,29 +1068,30 @@ export default function Dashboard() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3 text-sm text-gray-600">
+                  <CardContent className="space-y-3 text-sm text-[hsl(var(--dashboard-content-muted))]">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-700">Status:</span>
-                      <span
-                        data-testid="project-status-badge"
-                        className="inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700"
-                      >
-                        {project.status}
+                      <span className="font-medium text-[hsl(var(--dashboard-content-foreground))]">
+                        Status:
                       </span>
+                      <ProjectStatusBadge status={project.status} />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-700">Visibility:</span>
+                      <span className="font-medium text-[hsl(var(--dashboard-content-foreground))]">
+                        Visibility:
+                      </span>
                       <span data-testid="project-visibility" className="capitalize">
                         {project.visibility}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-700">Goal date:</span>
+                      <span className="font-medium text-[hsl(var(--dashboard-content-foreground))]">
+                        Goal date:
+                      </span>
                       <span data-testid="project-goal-target-date">
                         {formatGoalTargetDate(project.goalTargetDate)}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-[hsl(var(--dashboard-content-subdued))]">
                       Last updated {new Date(project.updatedAt).toLocaleDateString()}
                     </div>
                   </CardContent>
@@ -959,7 +1100,7 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      </main>
+      </DashboardShell>
 
       <CreateProjectDialog
         open={isCreateDialogOpen}
@@ -994,6 +1135,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

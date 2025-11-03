@@ -10,7 +10,7 @@
     "check:bundle": "node ./scripts/check-bundle.mjs",
     "clean": "rm -rf dist .next tsconfig.tsbuildinfo",
     "dev": "vite",
-    "dev:e2e": "vite --mode e2e",
+    "dev:e2e": "CTRL_FREAQ_PROFILE=fixture VITE_E2E=true vite --mode e2e",
     "dev:live": "vite --mode live",
     "prelint": "pnpm run build:deps",
     "lint": "eslint src/ tests/",

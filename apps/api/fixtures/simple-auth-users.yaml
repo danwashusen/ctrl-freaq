@@ -1,0 +1,15 @@
+users:
+  - id: fixture-admin
+    email: fixture.admin@example.com
+    first_name: Fixture
+    last_name: Admin
+    org_role: admin
+    org_permissions:
+      - manage:all
+  - id: fixture-author
+    email: fixture.author@example.com
+    first_name: Fixture
+    last_name: Author
+    org_role: author
+    org_permissions:
+      - documents:edit

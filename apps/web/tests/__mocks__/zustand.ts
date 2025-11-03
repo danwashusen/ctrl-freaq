@@ -72,6 +72,7 @@ function initializeStore<TState>(initializer: StateInitializer<TState>): UseStor
   useStore.getState = store.getState;
   useStore.setState = partial => store.setState(partial);
   useStore.subscribe = store.subscribe;
+  Object.assign(useStore as unknown as Record<string, unknown>, store);
 
   return useStore;
 }

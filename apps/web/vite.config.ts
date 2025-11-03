@@ -1,7 +1,9 @@
-import { defineConfig, loadEnv } from 'vite';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { createLogger, defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
 
 import { createFixtureRequestHandler } from './src/lib/fixtures/e2e';
 
@@ -53,10 +55,97 @@ const createE2EFixturePlugin = (isE2EEnabled: boolean) => {
   } satisfies import('vite').Plugin;
 };
 
+const parseEnvFile = (content: string): Record<string, string> => {
+  const result = new Map<string, string>();
+  const lines = content.split(/\r?\n/);
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$/);
+    if (!match) continue;
+
+    const key = match[1] ?? '';
+    let value = (match[2] ?? '').trim();
+
+    if (value.length >= 2) {
+      const start = value[0];
+      const end = value[value.length - 1];
+      if ((start === '"' && end === '"') || (start === "'" && end === "'")) {
+        value = value.slice(1, -1);
+      }
+    }
+
+    if (key) {
+      result.set(key, value);
+    }
+  }
+
+  return Object.fromEntries(result.entries());
+};
+
+const loadEnvFile = (filePath: string): Record<string, string> | null => {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const content = fs.readFileSync(filePath, 'utf8');
+    return parseEnvFile(content);
+  } catch {
+    return null;
+  }
+};
+
+const configLogger = createLogger('info');
+
 export default defineConfig(({ mode }) => {
   const projectRoot = process.cwd();
+  const originalEnv = { ...process.env };
   const rawEnv = loadEnv(mode, projectRoot, '');
   const cliMode = resolveCliMode();
+  const profile =
+    process.env.CTRL_FREAQ_PROFILE ??
+    rawEnv.CTRL_FREAQ_PROFILE ??
+    rawEnv.VITE_CTRL_FREAQ_PROFILE ??
+    '';
+  const normalizedProfile = profile?.trim().toLowerCase() ?? '';
+  const isFixtureProfile = normalizedProfile === 'fixture';
+
+  const envFixturePath = path.resolve(projectRoot, '.env.fixture');
+  const envLocalPath = path.resolve(projectRoot, '.env.local');
+
+  let fixtureVars: Record<string, string> | null = null;
+  if (isFixtureProfile) {
+    fixtureVars = loadEnvFile(envFixturePath);
+    if (fixtureVars) {
+      for (const [key, value] of Object.entries(fixtureVars)) {
+        rawEnv[key] = value;
+        process.env[key] = value;
+      }
+    } else {
+      configLogger.warn(
+        `CTRL_FREAQ_PROFILE=fixture but ${envFixturePath} was not found or failed to load`
+      );
+    }
+  }
+
+  if (isFixtureProfile) {
+    const localVars = loadEnvFile(envLocalPath);
+    if (localVars) {
+      const fixtureKeys = new Set(Object.keys(fixtureVars ?? {}));
+      for (const key of Object.keys(localVars)) {
+        if (fixtureKeys.has(key)) {
+          continue;
+        }
+
+        if (originalEnv[key] !== undefined) {
+          process.env[key] = originalEnv[key];
+        } else {
+          Reflect.deleteProperty(process.env, key);
+        }
+        Reflect.deleteProperty(rawEnv, key);
+      }
+    }
+  }
+
   const resolvedE2E =
     process.env.VITE_E2E ??
     rawEnv.VITE_E2E ??

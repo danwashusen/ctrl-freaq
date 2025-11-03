@@ -30,8 +30,10 @@ package-specific flows, e.g.
   does not exit and must be killed manually.
 - `pnpm dev:apps`: Dev mode limited to @ctrl-freaq/web and @ctrl-freaq/api. This
   command does not exit and must be killed manually.
-- `pnpm --filter @ctrl-freaq/web dev:e2e`: Vite dev server in fixture mode
-  (`VITE_E2E=true`). This command does not exit and must be killed manually.
+- `pnpm dev:apps:e2e`: Launches API and web together in fixture profile (exports
+  `CTRL_FREAQ_PROFILE=fixture`, loads `.env.fixture`, ignores `.env.local`). Use
+  this for deterministic dashboard fixture flows. This command does not exit and
+  must be killed manually.
 - `pnpm --filter @ctrl-freaq/web dev:live`: Vite dev server pointed at live
   services (`VITE_E2E` unset). This command does not exit and must be killed
   manually.
@@ -77,6 +79,15 @@ package-specific flows, e.g.
 
 To scope any command to one workspace, add `--filter <package>` (e.g.
 `pnpm --filter @ctrl-freaq/web lint`).
+
+### Fixture Profile Expectations
+
+- `CTRL_FREAQ_PROFILE=fixture` prompts the API and web loaders to apply
+  `.env.fixture` before `.env.local`, ensuring consistent simple-auth settings.
+- Fixture mode relies on committed assets at `apps/api/.env.fixture`,
+  `apps/web/.env.fixture`, and `apps/api/fixtures/simple-auth-users.yaml`. Do
+  not modify these files locally; create overrides in `.env.local` when you are
+  not running fixture mode.
 
 ## Coding Style & Naming Conventions
 

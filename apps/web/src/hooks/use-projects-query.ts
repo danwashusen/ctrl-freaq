@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { PROJECTS_QUERY_KEY } from '@/features/projects/constants';
 import type { ProjectData, ProjectsListQueryParams, ProjectsListResponse } from '@/lib/api';
 import { useApi } from '@/lib/api-context';
+import { useUser } from '@/lib/auth-provider';
 import type { EventEnvelope } from '@/lib/streaming/event-hub';
 
 const DEFAULT_LIMIT = 20;
@@ -61,6 +62,8 @@ export function useProjectsQuery(options?: UseProjectsQueryOptions) {
     eventHubEnabled,
   } = useApi();
   const queryClient = useQueryClient();
+  const { user, isLoaded, isSignedIn } = useUser();
+  const userId = user?.id ?? null;
   const includeArchived = options?.includeArchived;
   const limit = options?.limit;
   const offset = options?.offset;
@@ -70,7 +73,35 @@ export function useProjectsQuery(options?: UseProjectsQueryOptions) {
     () => normalizeOptions({ includeArchived, limit, offset, search }),
     [includeArchived, limit, offset, search]
   );
-  const queryKey = useMemo(() => [...PROJECTS_QUERY_KEY, params] as const, [params]);
+  const keyParams = useMemo(
+    () => ({
+      ...params,
+      userId,
+    }),
+    [params, userId]
+  );
+  const queryKey = useMemo(() => [...PROJECTS_QUERY_KEY, keyParams] as const, [keyParams]);
+
+  const previousUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    if (!userId) {
+      previousUserIdRef.current = null;
+      queryClient.removeQueries({ queryKey: PROJECTS_QUERY_KEY, exact: false });
+      return;
+    }
+    if (previousUserIdRef.current === null) {
+      previousUserIdRef.current = userId;
+      return;
+    }
+    if (previousUserIdRef.current !== userId) {
+      previousUserIdRef.current = userId;
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY, exact: false });
+    }
+  }, [isLoaded, queryClient, userId]);
 
   const shouldPoll = !eventHubEnabled || eventHubHealth.fallbackActive;
   const refetchInterval = shouldPoll ? 1_500 : false;
@@ -79,6 +110,7 @@ export function useProjectsQuery(options?: UseProjectsQueryOptions) {
     queryKey,
     queryFn: () => projectsApi.getAll(params),
     staleTime: 30_000,
+    enabled: isLoaded && isSignedIn,
     placeholderData: previousData =>
       previousData ?? {
         projects: [],

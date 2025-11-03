@@ -14,6 +14,7 @@
     "commitlint": "pnpm exec commitlint",
     "dev": "turbo dev --concurrency=12",
     "dev:apps": "turbo dev --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
+    "dev:apps:e2e": "CTRL_FREAQ_PROFILE=fixture turbo run dev:e2e --filter=@ctrl-freaq/web --filter=@ctrl-freaq/api",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo lint --force && pnpm lint:repo",

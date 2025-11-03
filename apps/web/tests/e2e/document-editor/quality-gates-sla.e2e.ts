@@ -25,6 +25,7 @@ test.describe('Quality gate SLA telemetry', () => {
     const rerunButton = page.getByRole('button', { name: /re-run validation/i });
     await rerunButton.click();
 
+    await page.waitForTimeout(3000);
     await expect(statusChip).toContainText(/status: (?:warning|blocker|pass)/i, {
       timeout: 2000,
     });

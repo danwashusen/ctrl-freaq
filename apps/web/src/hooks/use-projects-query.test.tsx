@@ -14,6 +14,25 @@ import type {
 
 import { useProjectsQuery } from './use-projects-query';
 
+const { mockUseUser } = vi.hoisted(() => ({
+  mockUseUser: vi.fn(() => ({
+    user: { id: 'test-user' } as never,
+    isLoaded: true,
+    isSignedIn: true,
+  })),
+}));
+
+vi.mock('@/lib/auth-provider', async () => {
+  const actual = await vi.importActual<typeof import('../lib/auth-provider')>(
+    '../lib/auth-provider'
+  );
+
+  return {
+    ...actual,
+    useUser: mockUseUser,
+  };
+});
+
 const mockGetAll = vi.fn<() => Promise<ProjectsListResponse>>();
 const unsubscribeMock = vi.fn();
 
@@ -108,6 +127,11 @@ describe('useProjectsQuery', () => {
     subscribeMock.mockClear();
     unsubscribeMock.mockClear();
     setEventHubEnabledMock.mockReset();
+    mockUseUser.mockReturnValue({
+      user: { id: 'test-user' } as never,
+      isLoaded: true,
+      isSignedIn: true,
+    });
     useApiSpy = vi.spyOn(apiContextModule, 'useApi').mockReturnValue({
       projects: {
         getAll: mockGetAll,
@@ -137,6 +161,7 @@ describe('useProjectsQuery', () => {
     queryClient.clear();
     useApiSpy?.mockRestore();
     useApiSpy = null;
+    mockUseUser.mockReset();
   });
 
   it('updates cached project list when hub delivers lifecycle events', async () => {

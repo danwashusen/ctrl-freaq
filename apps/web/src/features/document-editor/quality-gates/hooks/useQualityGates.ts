@@ -198,6 +198,7 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
     }),
     shallow
   );
+  const currentSectionRunId = useSectionQualityStore(store => store.runId);
 
   const {
     status: documentStatus,
@@ -506,7 +507,7 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
     }
 
     state.hydrateFromResult(snapshot);
-  }, [sectionResultQuery.data, status]);
+  }, [sectionResultQuery.data, status, currentSectionRunId]);
 
   const documentSummaryQuery = useQuery({
     queryKey: DOCUMENT_SUMMARY_QUERY_KEY(documentId),

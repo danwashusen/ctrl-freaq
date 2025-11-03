@@ -92,7 +92,7 @@ export const SectionCard = memo<SectionCardProps>(
     return (
       <Card
         className={cn(
-          'transition-all duration-200',
+          'border border-gray-200 bg-white text-gray-900 transition-all duration-200 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100',
           isActive && 'shadow-lg ring-2 ring-blue-500',
           className
         )}

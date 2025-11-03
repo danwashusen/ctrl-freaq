@@ -97,9 +97,9 @@ describe('Sidebar Projects group', () => {
       </ClerkProvider>
     );
 
-    // Expect a nav region labelled "Projects" (to be implemented)
+    // Expect a nav region labelled "Dashboard navigation" (to be implemented)
     await waitFor(() => {
-      expect(screen.getByRole('navigation', { name: /projects/i })).toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: /dashboard navigation/i })).toBeInTheDocument();
     });
 
     expect(fetchMock).toHaveBeenCalled();

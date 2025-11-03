@@ -1,5 +1,93 @@
 # Change Log
 
+## 001-upgrade-dashboard-view
+
+> Feature scope: Align the dashboard shell with Story 2.2 gradients, collapsible
+> navigation, and fixture profile support.
+
+### Overview
+
+Implemented a reusable dashboard shell that applies Story 2.2 palette tokens,
+gradient branding, and focus-managed navigation while keeping the dashboard
+metrics grid and dialogs intact. Project navigation now persists the active
+selection, telemetry, and scroll state across dashboard and project views
+without regressing TanStack Query hydration. Fixture mode gains deterministic
+`.env.fixture` loading across API and web builds to stabilize e2e flows.
+
+### Highlights
+
+- Added Story 2.2 shell layout and mobile focus handling in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/dashboard/DashboardShell.tsx`,
+  rendering gradients and landmarks for header, nav, and main regions.
+- Rethemed the sidebar and lifecycle badges via
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/sidebar/ProjectsNav.tsx`
+  and
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/status/ProjectStatusBadge.tsx`,
+  with token assertions in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/status/ProjectStatusBadge.test.tsx`
+  and
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/index.css.test.ts`.
+- Refactored
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.tsx`
+  and
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Project.tsx`
+  to sync Zustand store state, session storage, and TanStack Query routing for
+  project selection.
+- Introduced fixture profile env loading in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/api/src/load-env.ts`,
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/vite.config.ts`,
+  and workspace `.env.fixture` files to back the new `pnpm dev:apps:e2e` flow.
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-001      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/dashboard/DashboardShell.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/dashboard-shell.e2e.ts`                                                                                                                              |
+| FR-002      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/dashboard/DashboardShell.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.tsx`                                                                                                                                                 |
+| FR-003      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/sidebar/ProjectsNav.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/project-sidebar-navigation.e2e.ts`                                                                                                                        |
+| FR-004      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Project.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/project-sidebar-navigation.e2e.ts`                |
+| FR-005      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/sidebar/ProjectsNav.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.test.tsx`                                                                                                                                                 |
+| FR-006      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/sidebar/ProjectsNav.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/project-empty-state.e2e.ts`                                                                                                                               |
+| FR-007      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/ui/card.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/dashboard-shell.e2e.ts`                      |
+| FR-008      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/dashboard/DashboardShell.tsx`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/stores/project-store.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/dashboard-shell.e2e.ts` |
+
+### Testing
+
+- Added focused unit coverage in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/components/status/ProjectStatusBadge.test.tsx`,
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/index.css.test.ts`,
+  and expanded
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/src/pages/Dashboard.test.tsx`.
+- Authored Playwright coverage across
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/e2e/dashboard/*.e2e.ts`
+  and refreshed integration setup in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/integration/sidebar.projects.test.tsx`
+  with shared hooks in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/001-upgrade-dashboard-view/apps/web/tests/setup.ts`.
+
+### Risks & Mitigations
+
+- Fixture profile relies on committed `.env.fixture` files; run
+  `pnpm dev:apps:e2e` and the full gauntlet (`pnpm lint`, `pnpm typecheck`,
+  `pnpm test`, `pnpm --filter @ctrl-freaq/web test:e2e`) after merge to confirm
+  no environment regressions.
+- Sidebar Story 2.2 active-state tokens still need product design confirmation;
+  coordinate with design before widening rollout to ensure color accessibility
+  sign-off.
+- Document follow-up guidance for teams adopting `CTRL_FREAQ_PROFILE=fixture` so
+  production environments do not accidentally pick up fixture credentials.
+
+### Clarifications
+
+- 2025-10-31 — Q: What project volume should the sidebar target for this
+  release? → A: Fewer than 20 projects (small teams only).
+
+### Assumption Log
+
+- Existing Playwright fixtures seed multiple projects; adjust fixtures if tests
+  surface data gaps (`specs/001-upgrade-dashboard-view/tasks.md`).
+- Work remains frontend-only because the `GET /api/projects` contract is
+  unchanged (`specs/001-upgrade-dashboard-view/tasks.md`).
 ## 001-replace-polling-sse
 
 > Feature scope: Unified SSE Event Hub

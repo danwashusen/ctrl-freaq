@@ -63,6 +63,14 @@ export interface TraceabilityGapFixture {
 
 const baseTimestamp = '2025-01-17T16:45:00.000Z';
 
+export const documentQualityFixtureTimestamps = {
+  base: baseTimestamp,
+  updatedAt: '2025-01-17T17:00:00.000Z',
+  acknowledgementReceivedAt: '2025-01-17T17:01:00.000Z',
+  documentRunReceivedAt: '2025-01-17T17:01:30.000Z',
+  orphanResolutionAt: '2025-01-17T17:02:00.000Z',
+} as const;
+
 export const qualityGateRequestIds = {
   sectionOverview: 'req-sec-overview-quality',
   sectionApiGateway: 'req-sec-api-quality',

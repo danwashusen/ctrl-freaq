@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import {
+  documentQualityFixtureTimestamps,
   documentQualitySummaryFixture,
   qualityGateRequestIds,
   sectionQualityFixtures,
@@ -8,7 +9,9 @@ import {
 } from '../fixtures/document-quality';
 
 export {
+  documentQualityFixtureTimestamps,
   documentQualitySummaryFixture,
+  qualityGateRequestIds,
   sectionQualityFixtures,
   traceabilityGapFixtures,
 } from '../fixtures/document-quality';
@@ -26,8 +29,6 @@ function buildSectionResult(sectionId: string) {
     return null;
   }
 
-  const now = new Date().toISOString();
-
   return {
     sectionId: fixture.sectionId,
     documentId: documentQualitySummaryFixture.documentId,
@@ -41,8 +42,8 @@ function buildSectionResult(sectionId: string) {
     durationMs: fixture.durationMs,
     remediationState: fixture.remediationState,
     incidentId: null,
-    createdAt: fixture.lastRunAt ?? now,
-    updatedAt: now,
+    createdAt: fixture.lastRunAt ?? documentQualityFixtureTimestamps.base,
+    updatedAt: documentQualityFixtureTimestamps.updatedAt,
   };
 }
 
@@ -57,7 +58,7 @@ function buildRunAcknowledgement(sectionId: string) {
     sectionId,
     documentId: documentQualitySummaryFixture.documentId,
     triggeredBy: fixture?.triggeredBy ?? 'user-fixture',
-    receivedAt: new Date().toISOString(),
+    receivedAt: documentQualityFixtureTimestamps.acknowledgementReceivedAt,
   };
 }
 
@@ -154,7 +155,7 @@ export async function registerDocumentQualityFixtures(page: Page): Promise<void>
         runId: `run-${documentId}`,
         documentId,
         triggeredBy: 'user-fixture',
-        receivedAt: new Date().toISOString(),
+        receivedAt: documentQualityFixtureTimestamps.documentRunReceivedAt,
       }),
     });
   };
@@ -214,7 +215,7 @@ export async function registerDocumentQualityFixtures(page: Page): Promise<void>
           sectionId: 'sec-overview',
           coverageStatus: 'orphaned',
           reason: 'no-link',
-          lastValidatedAt: new Date().toISOString(),
+          lastValidatedAt: documentQualityFixtureTimestamps.orphanResolutionAt,
           validatedBy: 'user-morgan',
         }),
       });

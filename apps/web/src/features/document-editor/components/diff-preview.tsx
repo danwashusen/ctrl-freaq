@@ -175,7 +175,13 @@ export const DiffPreview = memo<DiffPreviewProps>(
 
     if (!changes.length) {
       return (
-        <Card className={cn('', className)} data-testid="diff-preview-empty">
+        <Card
+          className={cn(
+            'border border-gray-200 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100',
+            className
+          )}
+          data-testid="diff-preview-empty"
+        >
           <CardContent className="p-6 text-center text-gray-500 dark:text-gray-400">
             <FileText className="mx-auto mb-3 h-12 w-12 opacity-30" />
             <p>No changes to preview</p>
@@ -185,7 +191,13 @@ export const DiffPreview = memo<DiffPreviewProps>(
     }
 
     return (
-      <Card className={cn('', className)} data-testid="diff-preview">
+      <Card
+        className={cn(
+          'border border-gray-200 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100',
+          className
+        )}
+        data-testid="diff-preview"
+      >
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{title}</CardTitle>
