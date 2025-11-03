@@ -23,6 +23,8 @@ import { createFullCorrelationMiddleware } from './middleware/request-id.js';
 import { SimpleAuthService, SimpleAuthServiceError } from './services/simple-auth.service.js';
 import { isSimpleAuthProvider, resolveAuthProviderConfig } from './config/auth-provider.js';
 import type { AuthProviderConfig } from './config/auth-provider.js';
+import { resolveEventStreamConfig } from './config/event-stream.js';
+import { EventBroker } from './modules/event-stream/event-broker.js';
 
 /**
  * Express App Configuration and Middleware Setup
@@ -210,6 +212,15 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
 
   app.locals.appContext = appContext;
 
+  const eventStreamConfig = resolveEventStreamConfig();
+  const eventBroker = new EventBroker({
+    replayLimit: eventStreamConfig.replayLimit,
+    heartbeatIntervalMs: eventStreamConfig.heartbeatIntervalMs,
+  });
+
+  app.locals.eventStreamConfig = eventStreamConfig;
+  app.locals.eventBroker = eventBroker;
+
   // Security middleware
   if (appConfig.security.trustProxy) {
     app.set('trust proxy', 1);
@@ -231,7 +242,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
 
   // Register repository factories in the per-request container
   const { createRepositoryRegistrationMiddleware } = await import('./services/container.js');
-  app.use(createRepositoryRegistrationMiddleware());
+  app.use(createRepositoryRegistrationMiddleware({ eventBroker, eventStreamConfig }));
 
   // CORS middleware with secure origin validation
   app.use(
@@ -302,6 +313,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { coAuthoringRouter } = await import('./routes/co-authoring.js');
   const { documentQaRouter } = await import('./routes/document-qa.js');
   const { qualityGatesRouter } = await import('./routes/quality-gates.js');
+  const { createEventsRouter } = await import('./routes/events.js');
   const { clerkAuthMiddleware, requireAuth, createUserRateLimit } = await import(
     './middleware/auth.js'
   );
@@ -353,6 +365,24 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use('/api/v1', documentQaRouter);
   app.use('/api/v1', coAuthoringRouter);
   app.use('/api/v1', qualityGatesRouter);
+
+  if (eventStreamConfig.enabled) {
+    const eventsRouter = createEventsRouter({
+      broker: eventBroker,
+      config: eventStreamConfig,
+    });
+    app.use('/api/v1', eventsRouter);
+    logger.info(
+      {
+        heartbeatIntervalMs: eventStreamConfig.heartbeatIntervalMs,
+        replayLimit: eventStreamConfig.replayLimit,
+      },
+      'Event stream route registered'
+    );
+  } else {
+    logger.info('Event stream disabled via ENABLE_EVENT_STREAM; SSE route not registered');
+  }
+
   const shouldRegisterTestRoutes =
     isTestEnv || (process.env.NODE_ENV ?? 'development') !== 'production';
   if (shouldRegisterTestRoutes) {

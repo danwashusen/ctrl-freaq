@@ -10,8 +10,18 @@ import type {
 
 import { SectionDraftConflictError, SectionDraftService } from './section-draft.service';
 import type { SectionConflictService } from './section-conflict.service';
+import type { SectionDiffService } from './section-diff.service';
 
 const createLogger = (): Logger => pino({ level: 'silent' });
+const createDiffService = (): SectionDiffService =>
+  ({
+    buildDiff: vi.fn().mockResolvedValue({
+      segments: [],
+      metadata: {
+        generatedAt: new Date().toISOString(),
+      },
+    }),
+  }) as unknown as SectionDiffService;
 
 const baseSection = {
   id: 'section-1',
@@ -91,7 +101,14 @@ describe('SectionDraftService', () => {
       check: vi.fn().mockResolvedValue(conflictResponse),
     } as unknown as SectionConflictService;
 
-    const service = new SectionDraftService(sections, drafts, conflictService, createLogger());
+    const diffService = createDiffService();
+    const service = new SectionDraftService(
+      sections,
+      drafts,
+      conflictService,
+      diffService,
+      createLogger()
+    );
 
     await expect(
       service.saveDraft({
@@ -126,7 +143,14 @@ describe('SectionDraftService', () => {
       check: vi.fn(),
     } as unknown as SectionConflictService;
 
-    const service = new SectionDraftService(sections, drafts, conflictService, createLogger());
+    const diffService = createDiffService();
+    const service = new SectionDraftService(
+      sections,
+      drafts,
+      conflictService,
+      diffService,
+      createLogger()
+    );
 
     const response = await service.saveDraft({
       sectionId: baseSection.id,
@@ -193,7 +217,14 @@ describe('SectionDraftService', () => {
     } as unknown as SectionConflictService;
 
     const savedAt = '2025-09-25T15:30:00.000Z';
-    const service = new SectionDraftService(sections, drafts, conflictService, createLogger());
+    const diffService = createDiffService();
+    const service = new SectionDraftService(
+      sections,
+      drafts,
+      conflictService,
+      diffService,
+      createLogger()
+    );
 
     const response = await service.saveDraft({
       sectionId: baseSection.id,
@@ -253,7 +284,14 @@ describe('SectionDraftService', () => {
       check: vi.fn(),
     } as unknown as SectionConflictService;
 
-    const service = new SectionDraftService(sections, drafts, conflictService, createLogger());
+    const diffService = createDiffService();
+    const service = new SectionDraftService(
+      sections,
+      drafts,
+      conflictService,
+      diffService,
+      createLogger()
+    );
 
     const response = await service.saveDraft({
       sectionId: baseSection.id,
@@ -290,7 +328,14 @@ describe('SectionDraftService', () => {
       check: vi.fn(),
     } as unknown as SectionConflictService;
 
-    const service = new SectionDraftService(sections, drafts, conflictService, createLogger());
+    const diffService = createDiffService();
+    const service = new SectionDraftService(
+      sections,
+      drafts,
+      conflictService,
+      diffService,
+      createLogger()
+    );
 
     await expect(
       service.saveDraft({

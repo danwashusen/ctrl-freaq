@@ -31,30 +31,39 @@ function initializeStore<TState>(initializer: StateInitializer<TState>): UseStor
     return () => listeners.delete(listener);
   };
 
-  const store: StoreApi<TState> = {
-    setState: (partial, replace = false) => {
-      const nextValue =
-        typeof partial === 'function'
-          ? (partial as (value: TState) => TState | Partial<TState>)(state)
-          : partial;
+  const baseSetState = (partial: StateUpdater<TState>, replace = false) => {
+    const nextValue =
+      typeof partial === 'function'
+        ? (partial as (value: TState) => TState | Partial<TState>)(state)
+        : partial;
 
-      state = replace
+    const computed =
+      replace || typeof nextValue !== 'object' || nextValue === null
         ? (nextValue as TState)
         : {
             ...state,
             ...(nextValue as Partial<TState>),
           };
 
-      listeners.forEach(listener => listener(state));
-    },
+    if (computed === state) {
+      return;
+    }
+
+    state = computed;
+    listeners.forEach(listener => listener(state));
+  };
+
+  const store: StoreApi<TState> = {
+    setState: baseSetState,
     getState: () => state,
     subscribe,
   };
 
-  const set = (partial: StateUpdater<TState>, replace?: boolean) =>
-    store.setState(partial, replace);
-
-  state = initializer(set, store.getState, store);
+  state = initializer(
+    (partial, replace) => baseSetState(partial, replace),
+    store.getState,
+    store
+  );
 
   const useStore = (<TSelected = TState>(
     selector: (value: TState) => TSelected = value => value as unknown as TSelected

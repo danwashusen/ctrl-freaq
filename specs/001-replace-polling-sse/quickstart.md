@@ -74,6 +74,17 @@
    - Frontend store test:
      `pnpm --filter @ctrl-freaq/web test -- editor-store-conflict`.
 
+### Validation Notes (2025-11-03)
+
+- `pnpm --filter @ctrl-freaq/api test -- --run
+  tests/integration/events/section-draft.stream.test.ts` — pass (1 test).
+  Confirms `section.conflict` and `section.diff` envelopes replay after
+  reconnect once `stream.open` fires.
+- `pnpm --filter @ctrl-freaq/web test -- --run
+  src/features/section-editor/hooks/use-section-draft.test.ts` — pass (11
+  tests). Verifies hook listeners hydrate state, toggle fallback polling, and
+  avoid recursion with the mocked Zustand hub.
+
 ## Telemetry & Observability (D006)
 
 - Tail backend logs to confirm structured SSE events:

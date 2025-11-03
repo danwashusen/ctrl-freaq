@@ -21,6 +21,8 @@ import { Router } from 'express';
 import type { Request, Response, Router as ExpressRouter } from 'express';
 import type { Logger } from 'pino';
 import { z } from 'zod';
+import type { EventBroker } from '../modules/event-stream/event-broker.js';
+import type { EventStreamConfig } from '../config/event-stream.js';
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MUTABLE_PROJECT_STATUS_VALUES = ['draft', 'active', 'paused', 'completed'] as const;
@@ -78,6 +80,134 @@ interface SerializedProject {
   deletedAt: string | null;
   deletedBy: string | null | undefined;
 }
+
+const PROJECT_LIFECYCLE_TOPIC = 'project.lifecycle';
+const WORKSPACE_HEADER = 'x-workspace-id';
+const DEFAULT_WORKSPACE_ID = 'workspace-default';
+
+type LifecycleReason = 'create' | 'update' | 'archive' | 'restore';
+
+interface PublishLifecycleOptions {
+  previousStatus?: ProjectStatus | null;
+  actorUserId: string;
+  reason: LifecycleReason;
+  metadata?: Record<string, string>;
+}
+
+const toIsoStringOrNull = (value: Date | string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  return null;
+};
+
+const resolveWorkspaceId = (req: AuthenticatedRequest): string => {
+  const headerValue = req.get(WORKSPACE_HEADER);
+  if (typeof headerValue === 'string') {
+    const trimmed = headerValue.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return req.auth?.orgId ?? DEFAULT_WORKSPACE_ID;
+};
+
+const publishProjectLifecycleEvent = (
+  req: AuthenticatedRequest,
+  logger: Logger | undefined,
+  project: Project,
+  options: PublishLifecycleOptions
+): void => {
+  const container = req.services;
+  if (!container?.has('eventStreamConfig') || !container.has('eventBroker')) {
+    return;
+  }
+
+  let config: EventStreamConfig;
+  let broker: EventBroker;
+
+  try {
+    config = container.get<EventStreamConfig>('eventStreamConfig');
+    broker = container.get<EventBroker>('eventBroker');
+  } catch (error) {
+    logger?.warn(
+      {
+        requestId: req.requestId,
+        projectId: project.id,
+        reason: options.reason,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to resolve event stream dependencies for project lifecycle publish'
+    );
+    return;
+  }
+
+  if (!config.enabled) {
+    return;
+  }
+
+  const payload = {
+    projectId: project.id,
+    status: project.status,
+    previousStatus: options.previousStatus ?? null,
+    updatedBy: options.actorUserId,
+    archivedAt: toIsoStringOrNull(project.deletedAt ?? null),
+    archivedBy: project.deletedBy ?? null,
+    notes: null as string | null,
+  };
+
+  if (options.reason === 'restore') {
+    payload.archivedAt = null;
+    payload.archivedBy = null;
+  }
+
+  const metadata: Record<string, string> = {
+    updatedAt: project.updatedAt.toISOString(),
+    reason: options.reason,
+  };
+
+  if (project.archivedStatusBefore) {
+    metadata.archivedStatusBefore = project.archivedStatusBefore;
+  }
+
+  if (options.metadata) {
+    Object.assign(metadata, options.metadata);
+  }
+
+  try {
+    broker.publish({
+      workspaceId: resolveWorkspaceId(req),
+      topic: PROJECT_LIFECYCLE_TOPIC,
+      resourceId: project.id,
+      payload,
+      metadata,
+    });
+  } catch (error) {
+    logger?.warn(
+      {
+        requestId: req.requestId,
+        projectId: project.id,
+        reason: options.reason,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      'Failed to publish project lifecycle event'
+    );
+  }
+};
 
 const serializeProject = (project: Project): SerializedProject => ({
   id: project.id,
@@ -711,6 +841,12 @@ projectsRouter.post(
         'Project created'
       );
 
+      publishProjectLifecycleEvent(req, logger, project, {
+        actorUserId: userId,
+        reason: 'create',
+        previousStatus: null,
+      });
+
       res.setHeader('Last-Modified', serializedProject.updatedAt);
       res.status(201).json(serializedProject);
     } catch (error) {
@@ -1137,6 +1273,14 @@ projectsRouter.patch(
         'Project updated'
       );
 
+      const previousStatus = project.status !== updatedProject.status ? project.status : null;
+
+      publishProjectLifecycleEvent(req, logger, updatedProject, {
+        actorUserId: userId,
+        reason: 'update',
+        previousStatus,
+      });
+
       const serializedProject = serializeProject(updatedProject);
       res.setHeader('Last-Modified', serializedProject.updatedAt);
       res.status(200).json(serializedProject);
@@ -1270,6 +1414,12 @@ projectsRouter.delete(
         'Project archived'
       );
 
+      publishProjectLifecycleEvent(req, logger, archived, {
+        actorUserId: userId,
+        reason: 'archive',
+        previousStatus: project.status,
+      });
+
       res.status(204).send();
     } catch (error) {
       logger?.error(
@@ -1397,6 +1547,12 @@ projectsRouter.post(
         'Project restored'
       );
 
+      publishProjectLifecycleEvent(req, logger, restored, {
+        actorUserId: userId,
+        reason: 'restore',
+        previousStatus: project.status,
+      });
+
       const serializedProject = serializeProject(restored);
       res.setHeader('Last-Modified', serializedProject.updatedAt);
       res.status(200).json(serializedProject);
@@ -1433,6 +1589,13 @@ interface AuthenticatedRequest extends Request {
     name?: string;
   };
   requestId?: string;
+  auth?: {
+    userId?: string;
+    sessionId?: string;
+    orgId?: string;
+    orgRole?: string;
+    orgPermissions?: string[];
+  };
 }
 
 export default projectsRouter;

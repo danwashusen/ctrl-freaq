@@ -1,5 +1,5 @@
 import { useAuth } from '@/lib/auth-provider';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -13,10 +13,24 @@ import type {
 } from './api';
 import { logger } from './logger';
 import { E2EFixtureProvider, isE2EModeEnabled } from './fixtures/e2e/fixture-provider';
+import { createEventHub } from './streaming/event-hub';
+import type { EventHub, HubHealthState } from './streaming/event-hub';
 
 interface ApiContextValue {
   apiClient: ApiClient;
+  eventHub: EventHub;
+  eventHubHealth: HubHealthState;
+  eventHubEnabled: boolean;
+  setEventHubEnabled: (enabled: boolean) => void;
 }
+
+const parseBooleanEnv = (value: string | undefined): boolean => {
+  if (!value) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+};
 
 const ApiContext = createContext<ApiContextValue | null>(null);
 
@@ -53,6 +67,33 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     return async () => null;
   }, [auth]);
 
+  const tokenFetcherRef = useRef(tokenFetcher);
+  useEffect(() => {
+    tokenFetcherRef.current = tokenFetcher;
+  }, [tokenFetcher]);
+
+  const eventHubRef = useRef<EventHub | null>(null);
+  if (!eventHubRef.current) {
+    eventHubRef.current = createEventHub({
+      getAuthToken: () => tokenFetcherRef.current(),
+      streamPath: import.meta.env?.VITE_EVENT_STREAM_PATH as string | undefined,
+    });
+  }
+  const eventHub = eventHubRef.current;
+
+  const [eventHubHealth, setEventHubHealth] = useState<HubHealthState>(() =>
+    eventHub.getHealthState()
+  );
+
+  useEffect(() => {
+    const dispose = eventHub.onHealthChange(setEventHubHealth);
+    return () => dispose();
+  }, [eventHub]);
+
+  const [eventHubEnabled, setEventHubEnabled] = useState<boolean>(
+    () => !isE2E && parseBooleanEnv(import.meta.env?.VITE_ENABLE_SSE_HUB as string | undefined)
+  );
+
   const apiClient = useMemo(
     () =>
       createApiClient({
@@ -73,11 +114,46 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     [baseUrl, tokenFetcher]
   );
 
+  const authState = auth as { isSignedIn?: boolean; userId?: string | null };
+  const isSignedIn = Boolean(authState?.isSignedIn);
+  const authUserId = authState?.userId ?? null;
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      eventHub.shutdown();
+      setEventHubHealth(eventHub.getHealthState());
+      return;
+    }
+
+    eventHub.setEnabled(eventHubEnabled);
+    if (eventHubEnabled) {
+      eventHub.forceReconnect();
+    }
+  }, [eventHub, eventHubEnabled, isSignedIn, authUserId]);
+
+  useEffect(() => {
+    if (isE2E) {
+      setEventHubEnabled(false);
+      eventHub.shutdown();
+      setEventHubHealth(eventHub.getHealthState());
+    }
+  }, [eventHub, isE2E]);
+
+  useEffect(() => {
+    return () => {
+      eventHub.shutdown();
+    };
+  }, [eventHub]);
+
   const value = useMemo(
     () => ({
       apiClient,
+      eventHub,
+      eventHubHealth,
+      eventHubEnabled,
+      setEventHubEnabled,
     }),
-    [apiClient]
+    [apiClient, eventHub, eventHubHealth, eventHubEnabled, setEventHubEnabled]
   );
 
   const [queryClient] = useState(() => new QueryClient());
@@ -104,7 +180,12 @@ export function useApiClient(): ApiClient {
 }
 
 export function useApi() {
-  const apiClient = useApiClient();
+  const context = useContext(ApiContext);
+  if (!context) {
+    throw new Error('useApi must be used within an ApiProvider');
+  }
+
+  const { apiClient, eventHub, eventHubHealth, eventHubEnabled, setEventHubEnabled } = context;
 
   // Memoize API facade so its identity is stable across renders
   return useMemo(
@@ -132,7 +213,11 @@ export function useApi() {
         check: () => apiClient.healthCheck(),
       },
       client: apiClient,
+      eventHub,
+      eventHubHealth,
+      eventHubEnabled,
+      setEventHubEnabled,
     }),
-    [apiClient]
+    [apiClient, eventHub, eventHubHealth, eventHubEnabled, setEventHubEnabled]
   );
 }

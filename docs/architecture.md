@@ -463,6 +463,43 @@ middleware
   (`assumption_session.completed`, `assumption_session.latency_ms`,
   `assumption_override.recorded`) with request-scoped context for dashboards.
 
+#### Event Stream Broker {#event-stream-broker}
+
+The API exposes a unified SSE hub at `/api/v1/events`, guarded by the
+`ENABLE_EVENT_STREAM` feature flag. When enabled, requests resolve a scoped
+`EventBroker` singleton responsible for:
+
+- Authenticating the caller (Clerk JWT or simple auth headers) and coercing the
+  active workspace ID from `X-Workspace-Id` headers.
+- Multiplexing domain topics (`project.lifecycle`, `quality-gate.progress`,
+  `quality-gate.summary`, `section.conflict`, `section.diff`) and scoping each
+  subscription to an optional `projectId`, `documentId`, or `sectionId`
+  provided in query params.
+- Maintaining a bounded replay buffer per topic/resource (default depth 100) so
+  reconnecting clients with `Last-Event-ID` headers receive missed envelopes or
+  snapshots before live delivery resumes.
+- Emitting heartbeat comments on the configured interval
+  (`EVENT_STREAM_HEARTBEAT_INTERVAL_MS`) to keep intermediaries alive and allow
+  clients to detect idle disconnects.
+- Publishing structured telemetry for stream lifecycle events (connection open,
+  close reason, authorization failures, fallback activations) that flows into
+  existing Pino logging and the operations dashboards referenced in D006.
+
+Controllers publish envelopes through the broker when domain actions occur:
+
+- Project routes emit `project.lifecycle` events whenever lifecycle mutations
+  complete.
+- Quality gate controllers push `quality-gate.progress` and
+  `quality-gate.summary` updates for document and section runs.
+- Section editor services emit `section.conflict` and `section.diff` whenever
+  conflict checks or draft saves detect mismatches.
+
+The broker deduplicates subscribers per topic/resource, fans out events to all
+authorized listeners, and enforces the replay limit to cap memory growth. When
+clients reconnect while the stream is healthy, the broker defers replay
+delivery until after the `stream.open` handshake so frontend listeners can
+register before envelopes flush.
+
 ### packages/shared-data - Data Access Layer {#shared-data}
 
 **Responsibility:** Repository pattern implementation for all data models,

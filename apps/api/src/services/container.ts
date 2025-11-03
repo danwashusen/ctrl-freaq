@@ -88,12 +88,21 @@ import type {
   ProposalProviderEvent,
 } from '@ctrl-freaq/ai/session/proposal-runner.js';
 import { SharedSectionStreamQueueCoordinator } from './streaming/shared-section-stream-queue.js';
+import type { EventBroker } from '../modules/event-stream/event-broker.js';
+import type { EventStreamConfig } from '../config/event-stream.js';
+
+export interface RepositoryRegistrationOptions {
+  eventBroker?: EventBroker;
+  eventStreamConfig?: EventStreamConfig;
+}
 
 /**
  * Registers repository factories into the per-request service container.
  * Routes can then resolve via `req.services.get('<name>')` instead of `new`.
  */
-export function createRepositoryRegistrationMiddleware() {
+export function createRepositoryRegistrationMiddleware(
+  options: RepositoryRegistrationOptions = {}
+) {
   return (req: Request, _res: Response, next: NextFunction) => {
     const container = req.services;
     if (!container) return next();
@@ -163,6 +172,14 @@ export function createRepositoryRegistrationMiddleware() {
       'sectionStreamQueueCoordinator',
       () => new SharedSectionStreamQueueCoordinator()
     );
+
+    if (options.eventBroker && !container.has('eventBroker')) {
+      container.register('eventBroker', options.eventBroker);
+    }
+
+    if (options.eventStreamConfig && !container.has('eventStreamConfig')) {
+      container.register('eventStreamConfig', options.eventStreamConfig);
+    }
 
     container.register('draftBundleRepository', currentContainer => {
       const sectionRepository = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
@@ -703,8 +720,9 @@ export function createRepositoryRegistrationMiddleware() {
       const conflictService = currentContainer.get(
         'sectionConflictService'
       ) as SectionConflictService;
+      const diffService = currentContainer.get('sectionDiffService') as SectionDiffService;
       const scopedLogger = currentContainer.get('logger') as Logger;
-      return new SectionDraftService(sections, drafts, conflictService, scopedLogger);
+      return new SectionDraftService(sections, drafts, conflictService, diffService, scopedLogger);
     });
 
     container.register('sectionDiffService', currentContainer => {

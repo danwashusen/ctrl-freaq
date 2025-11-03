@@ -16,6 +16,7 @@ import { logger } from '../lib/logger';
 import { formatIsoDateFull } from '../lib/date-only';
 import { useTemplateStore } from '../stores/template-store';
 import type { ApiError, ProjectData, ProjectStatus, UpdateProjectRequest } from '../lib/api';
+import type { EventEnvelope } from '@/lib/streaming/event-hub';
 
 const PROJECT_NAME_MAX_LENGTH = 120;
 const GOAL_SUMMARY_MAX_LENGTH = 280;
@@ -43,6 +44,15 @@ type MutationState =
   | { type: 'conflict'; message?: string }
   | { type: 'error'; message?: string };
 
+interface ProjectLifecycleEventPayload {
+  projectId: string;
+  status: ProjectStatus;
+  previousStatus?: ProjectStatus | null;
+  updatedBy?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+}
+
 const DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY = 'ctrl-freaq:dashboard:archive-notice';
 
 const isApiError = (error: unknown): error is ApiError =>
@@ -66,7 +76,8 @@ function getNestedValue(source: unknown, path: Array<string | number>): unknown 
 export default function Project() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { projects, client } = useApi();
+  const { projects, client, eventHub, eventHubHealth, eventHubEnabled } = useApi();
+  const fallbackPollingActive = !eventHubEnabled || eventHubHealth.fallbackActive;
   const queryClient = useQueryClient();
   const [project, setProject] = useState<ProjectView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,6 +313,7 @@ export default function Project() {
   const setFormValue = useTemplateStore(state => state.setFormValue);
   const loadDocument = useTemplateStore(state => state.loadDocument);
   const resetTemplate = useTemplateStore(state => state.reset);
+  const projectId = project?.id ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -389,7 +401,88 @@ export default function Project() {
   ]);
 
   useEffect(() => {
-    if (!project || project.id === 'new' || archiveRedirectRef.current) {
+    if (!eventHubEnabled || !projectId || projectId === 'new' || archiveRedirectRef.current) {
+      return;
+    }
+
+    const unsubscribe = eventHub.subscribe(
+      { topic: 'project.lifecycle', resourceId: projectId },
+      (envelope: EventEnvelope<ProjectLifecycleEventPayload>) => {
+        if (envelope.kind === 'heartbeat') {
+          return;
+        }
+
+        const payload = envelope.payload;
+        if (!payload || payload.projectId !== projectId) {
+          return;
+        }
+
+        let nextProject: ProjectView | null = null;
+
+        setProject(prev => {
+          if (!prev || prev.id !== payload.projectId) {
+            return prev;
+          }
+
+          const nextStatus = payload.status ?? prev.status;
+          const isArchived = nextStatus === 'archived';
+          const archivedStatusBefore =
+            isArchived && payload.previousStatus && payload.previousStatus !== 'archived'
+              ? (payload.previousStatus as Exclude<ProjectStatus, 'archived'>)
+              : isArchived
+                ? prev.archivedStatusBefore
+                : null;
+
+          const updatedProject: ProjectView = {
+            ...prev,
+            status: nextStatus,
+            archivedStatusBefore,
+            updatedBy: payload.updatedBy ?? prev.updatedBy,
+            updatedAt: envelope.emittedAt ?? prev.updatedAt,
+            deletedAt: isArchived ? payload.archivedAt ?? prev.deletedAt : null,
+            deletedBy: isArchived ? payload.archivedBy ?? prev.deletedBy : null,
+          };
+
+          nextProject = updatedProject;
+          return updatedProject;
+        });
+
+        if (!nextProject) {
+          return;
+        }
+
+        const projectForSync = nextProject as ProjectView;
+
+        if (projectForSync.status === 'archived') {
+          handleArchivedWhileViewing(projectForSync);
+          return;
+        }
+
+        if (!isEditingMetadata) {
+          syncFormWithProject(projectForSync);
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [
+    eventHub,
+    eventHubEnabled,
+    handleArchivedWhileViewing,
+    isEditingMetadata,
+    projectId,
+    syncFormWithProject,
+  ]);
+
+  useEffect(() => {
+    if (
+      !fallbackPollingActive ||
+      !projectId ||
+      projectId === 'new' ||
+      archiveRedirectRef.current
+    ) {
       return;
     }
 
@@ -397,12 +490,25 @@ export default function Project() {
 
     const poll = async () => {
       try {
-        const latest = await projects.getById(project.id);
+        const latest = await projects.getById(projectId);
         if (cancelled) {
           return;
         }
         if (latest.status === 'archived') {
           handleArchivedWhileViewing(latest);
+        } else {
+          setProject(prev =>
+            prev
+              ? {
+                  ...prev,
+                  ...latest,
+                  documentsCount: prev.documentsCount,
+                }
+              : prev
+          );
+          if (!isEditingMetadata) {
+            syncFormWithProject(latest);
+          }
         }
       } catch (pollError) {
         if (cancelled) {
@@ -420,7 +526,14 @@ export default function Project() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [handleArchivedWhileViewing, project, projects]);
+  }, [
+    fallbackPollingActive,
+    handleArchivedWhileViewing,
+    isEditingMetadata,
+    projectId,
+    projects,
+    syncFormWithProject,
+  ]);
 
   const migrationSummary = useMemo(() => {
     if (!templateMigration || !templateDocument) {
