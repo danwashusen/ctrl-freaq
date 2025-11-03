@@ -95,28 +95,35 @@ export const DocumentQualityDashboard = ({
       neutral: 0,
     };
     return [
-      { label: 'Blockers', value: counts.blocker, tone: 'text-rose-900 dark:text-rose-200' },
-      { label: 'Warnings', value: counts.warning, tone: 'text-amber-600 dark:text-amber-400' },
-      { label: 'Pass', value: counts.pass, tone: 'text-emerald-600 dark:text-emerald-400' },
-      { label: 'Not Run', value: counts.neutral, tone: 'text-muted-foreground' },
+      { label: 'Blockers', value: counts.blocker, tone: 'text-rose-600 dark:text-rose-300' },
+      { label: 'Warnings', value: counts.warning, tone: 'text-amber-600 dark:text-amber-300' },
+      { label: 'Pass', value: counts.pass, tone: 'text-emerald-600 dark:text-emerald-300' },
+      {
+        label: 'Not Run',
+        value: counts.neutral,
+        tone: 'text-gray-600 dark:text-gray-300',
+      },
     ];
   }, [documentSummary?.statusCounts]);
 
   return (
     <section
       data-testid="document-quality-dashboard"
-      className={cn('border-border bg-card shadow-xs space-y-4 rounded-lg border p-4', className)}
+      className={cn(
+        'space-y-4 rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-none dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100',
+        className
+      )}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-foreground text-base font-semibold">Document Quality</h2>
+          <h2 className="text-base font-semibold">Document Quality</h2>
           {documentPublishCopy && (
             <p
               className={cn(
                 'text-sm',
                 isDocumentPublishBlocked
-                  ? 'text-rose-900 dark:text-rose-200'
-                  : 'text-muted-foreground'
+                  ? 'text-rose-600 dark:text-rose-300'
+                  : 'text-gray-600 dark:text-gray-300'
               )}
             >
               {documentPublishCopy}
@@ -141,44 +148,47 @@ export const DocumentQualityDashboard = ({
       </header>
 
       <div
-        className="bg-muted text-foreground rounded-md px-3 py-2 text-sm"
+        className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
         data-testid="document-quality-dashboard-status"
         aria-live="polite"
       >
         <p>{documentStatusMessage}</p>
         {documentSlaWarningCopy && (
-          <p className="text-muted-foreground">{documentSlaWarningCopy}</p>
+          <p className="text-gray-600 dark:text-gray-300">{documentSlaWarningCopy}</p>
         )}
       </div>
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
         {summaryCounts.map(item => (
-          <div key={item.label} className="bg-secondary/40 rounded-md px-3 py-2">
-            <dt className="text-foreground text-xs font-medium">{item.label}</dt>
+          <div
+            key={item.label}
+            className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900"
+          >
+            <dt className="text-xs font-medium text-gray-600 dark:text-gray-300">{item.label}</dt>
             <dd className={cn('text-base font-semibold', item.tone)}>{item.value}</dd>
           </div>
         ))}
       </dl>
 
-      <dl className="text-muted-foreground grid grid-cols-2 gap-3 text-xs">
+      <dl className="grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
         <div>
-          <dt className="text-foreground font-semibold">Last run</dt>
+          <dt className="font-semibold text-gray-900 dark:text-gray-100">Last run</dt>
           <dd>{formatTimestamp(documentLastRunAt)}</dd>
         </div>
         <div>
-          <dt className="text-foreground font-semibold">Triggered by</dt>
+          <dt className="font-semibold text-gray-900 dark:text-gray-100">Triggered by</dt>
           <dd>{documentTriggeredBy ?? 'Unknown'}</dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-foreground font-semibold">Request ID</dt>
+          <dt className="font-semibold text-gray-900 dark:text-gray-100">Request ID</dt>
           <dd className="truncate">{documentRequestId ?? '—'}</dd>
         </div>
         <div>
-          <dt className="text-foreground font-semibold">Coverage gaps</dt>
+          <dt className="font-semibold text-gray-900 dark:text-gray-100">Coverage gaps</dt>
           <dd>{documentSummary?.coverageGaps.length ?? 0}</dd>
         </div>
         <div>
-          <dt className="text-foreground font-semibold">Duration</dt>
+          <dt className="font-semibold text-gray-900 dark:text-gray-100">Duration</dt>
           <dd>{documentDurationMs != null ? `${documentDurationMs}ms` : '—'}</dd>
         </div>
       </dl>

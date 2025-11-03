@@ -122,26 +122,34 @@ export const TraceabilityMatrix: FC<TraceabilityMatrixProps> = ({
   const isBusy = isRemote && isLoading;
 
   return (
-    <Card aria-live="polite" aria-busy={isBusy} className="border-border bg-card">
+    <Card
+      aria-live="polite"
+      aria-busy={isBusy}
+      className="border border-gray-200 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
+    >
       <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle className="text-lg font-semibold">Traceability matrix</CardTitle>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             Review requirement coverage and validation status across this document.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {FILTER_SEQUENCE.map(filterValue => (
-            <Button
-              key={filterValue}
-              size="sm"
-              variant={activeFilter === filterValue ? 'secondary' : 'outline'}
-              onClick={() => handleFilterChange(filterValue)}
-              aria-pressed={activeFilter === filterValue}
-            >
-              {filterLabels[filterValue]}
-            </Button>
-          ))}
+          {FILTER_SEQUENCE.map(filterValue => {
+            const isActive = activeFilter === filterValue;
+            return (
+              <Button
+                key={filterValue}
+                size="sm"
+                variant={isActive ? 'secondary' : 'outline'}
+                className={cn(!isActive && 'text-gray-900')}
+                onClick={() => handleFilterChange(filterValue)}
+                aria-pressed={isActive}
+              >
+                {filterLabels[filterValue]}
+              </Button>
+            );
+          })}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -152,11 +160,11 @@ export const TraceabilityMatrix: FC<TraceabilityMatrixProps> = ({
         ) : null}
 
         {isLoading && !requirements ? (
-          <p className="text-muted-foreground text-sm">Loading traceability data…</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Loading traceability data…</p>
         ) : null}
 
         {!isLoading && filteredRequirements.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             No traceability entries match the selected filter.
           </p>
         ) : null}
@@ -165,12 +173,12 @@ export const TraceabilityMatrix: FC<TraceabilityMatrixProps> = ({
           {filteredRequirements.map(requirement => (
             <li
               key={`${requirement.requirementId}-${requirement.sectionId}`}
-              className="border-border/70 bg-background shadow-xs rounded-md border p-4"
+              className="rounded-md border border-gray-200 bg-white p-4 text-gray-900 shadow-none dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100"
             >
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-foreground text-base font-medium">{requirement.title}</h3>
-                  <p className="text-muted-foreground line-clamp-3 text-sm">
+                  <h3 className="text-base font-medium">{requirement.title}</h3>
+                  <p className="line-clamp-3 text-sm text-gray-600 dark:text-gray-300">
                     {requirement.preview}
                   </p>
                 </div>
@@ -184,17 +192,17 @@ export const TraceabilityMatrix: FC<TraceabilityMatrixProps> = ({
                 </span>
               </div>
 
-              <dl className="text-muted-foreground mt-3 grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
+              <dl className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-600 md:grid-cols-3 dark:text-gray-300">
                 <div>
-                  <dt className="text-foreground font-medium">Gate status</dt>
+                  <dt className="font-medium text-gray-900 dark:text-gray-100">Gate status</dt>
                   <dd>{requirement.gateStatus}</dd>
                 </div>
                 <div>
-                  <dt className="text-foreground font-medium">Last validated</dt>
+                  <dt className="font-medium text-gray-900 dark:text-gray-100">Last validated</dt>
                   <dd>{formatTimestamp(requirement.lastValidatedAt)}</dd>
                 </div>
                 <div>
-                  <dt className="text-foreground font-medium">Validated by</dt>
+                  <dt className="font-medium text-gray-900 dark:text-gray-100">Validated by</dt>
                   <dd>{requirement.validatedBy ?? 'Unknown'}</dd>
                 </div>
               </dl>

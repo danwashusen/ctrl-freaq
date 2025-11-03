@@ -64,6 +64,9 @@ const statusTokenClasses: Record<ProjectStatus, string> = {
     'bg-[hsl(var(--dashboard-status-archived-bg))] text-[hsl(var(--dashboard-status-archived-text))]',
 };
 
+const isProjectStatus = (value: ProjectStatusBadgeProps['status']): value is ProjectStatus =>
+  value != null;
+
 export function ProjectStatusBadge({
   status,
   icon = true,
@@ -73,7 +76,8 @@ export function ProjectStatusBadge({
   'aria-label': ariaLabelProp,
   ...rest
 }: ProjectStatusBadgeProps) {
-  const meta = status ? statusMeta[status] : undefined;
+  const hasKnownStatus = isProjectStatus(status);
+  const meta = hasKnownStatus ? statusMeta[status] : undefined;
   const resolvedMeta = meta ?? fallbackMeta;
   const spanLabel = resolvedMeta.label;
   const showIcon = icon !== false;
@@ -83,8 +87,8 @@ export function ProjectStatusBadge({
 
   const { 'data-testid': dataTestId, ...restProps } = rest as { 'data-testid'?: string };
   const IconComponent = resolvedMeta.icon;
-  const badgeStatus = meta ? status : 'unknown';
-  const statusClasses = meta ? statusTokenClasses[status] : statusTokenClasses.draft;
+  const badgeStatus = hasKnownStatus ? status : 'unknown';
+  const statusClasses = hasKnownStatus ? statusTokenClasses[status] : statusTokenClasses.draft;
 
   return (
     <span

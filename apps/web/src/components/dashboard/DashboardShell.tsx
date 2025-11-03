@@ -316,7 +316,7 @@ export default function DashboardShell({
 
         <main
           role="main"
-          className="dashboard-shell__main relative flex-1 bg-[hsl(var(--dashboard-content-bg))]"
+          className="dashboard-shell__main relative flex-1 bg-[hsl(var(--dashboard-content-bg))] text-[hsl(var(--dashboard-content-foreground))]"
         >
           <div
             data-testid="dashboard-shell-main-inner"

@@ -610,8 +610,11 @@ export default function Project() {
 
         if (section.children && section.children.length > 0) {
           return (
-            <fieldset key={key} className="space-y-4 rounded-md border border-gray-200 p-4">
-              <legend className="px-1 text-sm font-semibold text-gray-700">
+            <fieldset
+              key={key}
+              className="space-y-4 rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.85)] p-4"
+            >
+              <legend className="px-1 text-sm font-semibold text-[hsl(var(--dashboard-content-muted))]">
                 {section.title ?? section.id}
               </legend>
               {renderSections(section.children, setFieldValue, path)}
@@ -623,13 +626,16 @@ export default function Project() {
 
         return (
           <div key={key} className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor={key}>
+            <label
+              className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
+              htmlFor={key}
+            >
               {section.title ?? section.id}
             </label>
             {isLongText ? (
               <textarea
                 id={key}
-                className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                 rows={section.type === 'markdown' ? 6 : 3}
                 value={String(fieldValue ?? '')}
                 onChange={event => handleFieldChange(setFieldValue, path, event.target.value)}
@@ -637,7 +643,7 @@ export default function Project() {
             ) : (
               <input
                 id={key}
-                className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                 value={String(fieldValue ?? '')}
                 onChange={event => handleFieldChange(setFieldValue, path, event.target.value)}
               />
@@ -770,7 +776,7 @@ export default function Project() {
 
   if (loading) {
     return renderShell(
-      <div className="flex min-h-[60vh] items-center justify-center text-sm text-gray-500">
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-[hsl(var(--dashboard-content-subdued))]">
         Loading project…
       </div>
     );
@@ -789,7 +795,7 @@ export default function Project() {
 
   if (!project) {
     return renderShell(
-      <div className="flex min-h-[60vh] items-center justify-center text-sm text-gray-500">
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-[hsl(var(--dashboard-content-subdued))]">
         Project not found
       </div>
     );
@@ -809,9 +815,13 @@ export default function Project() {
   return renderShell(
     <>
       <div className="mb-8">
-        <h2 className="mb-2 text-3xl font-bold text-gray-900">{project.name}</h2>
-        <p className="text-gray-600">{project.description ?? 'No description provided'}</p>
-        <div className="mt-4 text-sm text-gray-500">
+        <h2 className="mb-2 text-3xl font-bold text-[hsl(var(--dashboard-content-foreground))]">
+          {project.name}
+        </h2>
+        <p className="text-[hsl(var(--dashboard-content-muted))]">
+          {project.description ?? 'No description provided'}
+        </p>
+        <div className="mt-4 text-sm text-[hsl(var(--dashboard-content-subdued))]">
           Created: {new Date(project.createdAt).toLocaleDateString()} • Last updated:{' '}
           {new Date(project.updatedAt).toLocaleString()}
         </div>
@@ -832,11 +842,11 @@ export default function Project() {
           message={alertMessage}
           onDismiss={dismissMutationAlert}
         />
-        <Card>
-          <CardHeader className="flex flex-col gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between sm:pb-6">
+        <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
+          <CardHeader className="flex flex-col gap-4 border-b border-[hsla(var(--dashboard-panel-border)/0.4)] pb-4 sm:flex-row sm:items-start sm:justify-between sm:pb-6">
             <div>
               <CardTitle className="text-lg">Project Metadata</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
                 Update lifecycle status, description, and goal summary for this project.
               </CardDescription>
             </div>
@@ -846,6 +856,7 @@ export default function Project() {
                 size="sm"
                 variant="outline"
                 data-testid="project-edit-toggle"
+                className="border-[hsl(var(--dashboard-panel-border))] bg-[hsla(var(--dashboard-panel-bg)/0.7)] text-[hsl(var(--dashboard-content-foreground))] hover:bg-[hsla(var(--dashboard-surface-hover)/0.45)]"
                 onClick={startEditingMetadata}
               >
                 <Edit className="mr-2 h-4 w-4" />
@@ -867,7 +878,7 @@ export default function Project() {
                 ) : null}
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
                     htmlFor="project-name-input"
                   >
                     Project name
@@ -877,7 +888,7 @@ export default function Project() {
                     data-testid="project-metadata-name"
                     name="project-name"
                     autoComplete="off"
-                    className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                     value={formState.name}
                     onChange={handleMetadataChange('name')}
                     disabled={isSaving || isProjectArchived}
@@ -888,7 +899,7 @@ export default function Project() {
 
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
                     htmlFor="project-status-select"
                   >
                     Lifecycle status
@@ -898,7 +909,7 @@ export default function Project() {
                     data-testid="project-metadata-status"
                     name="project-status"
                     autoComplete="off"
-                    className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                     value={formState.status}
                     onChange={handleMetadataChange('status')}
                     disabled={isSaving || isProjectArchived}
@@ -913,7 +924,7 @@ export default function Project() {
 
                 <div className="space-y-2 md:col-span-2">
                   <label
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
                     htmlFor="project-description-input"
                   >
                     Description
@@ -923,7 +934,7 @@ export default function Project() {
                     data-testid="project-metadata-description"
                     name="project-description"
                     autoComplete="off"
-                    className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                     rows={3}
                     value={formState.description}
                     onChange={handleMetadataChange('description')}
@@ -933,7 +944,7 @@ export default function Project() {
 
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
                     htmlFor="project-goal-summary-input"
                   >
                     Goal summary
@@ -943,7 +954,7 @@ export default function Project() {
                     data-testid="project-metadata-goal-summary"
                     name="project-goal-summary"
                     autoComplete="off"
-                    className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                     value={formState.goalSummary}
                     onChange={handleMetadataChange('goalSummary')}
                     disabled={isSaving || isProjectArchived}
@@ -954,7 +965,7 @@ export default function Project() {
 
                 <div className="space-y-2">
                   <label
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-[hsl(var(--dashboard-content-muted))]"
                     htmlFor="project-goal-target-date-input"
                   >
                     Goal target date
@@ -965,7 +976,7 @@ export default function Project() {
                     name="project-goal-target-date"
                     autoComplete="off"
                     type="date"
-                    className="shadow-xs focus:outline-hidden w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-[hsl(var(--dashboard-input-border))] bg-[hsla(var(--dashboard-input-bg)/0.85)] p-2 text-sm text-[hsl(var(--dashboard-content-foreground))] shadow-none focus:border-[hsl(var(--dashboard-panel-border))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--dashboard-panel-border))]"
                     value={formState.goalTargetDate}
                     onChange={handleMetadataChange('goalTargetDate')}
                     disabled={isSaving || isProjectArchived}
@@ -1002,21 +1013,25 @@ export default function Project() {
                     Archived projects are read-only. Restore the project to edit metadata.
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600 md:col-span-2">
+                  <p className="text-sm text-[hsl(var(--dashboard-content-muted))] md:col-span-2">
                     Review lifecycle details and select “Edit Project” to make changes.
                   </p>
                 )}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Project name</h3>
+                  <h3 className="text-sm font-medium text-[hsl(var(--dashboard-content-muted))]">
+                    Project name
+                  </h3>
                   <p
                     data-testid="project-metadata-view-name"
-                    className="mt-1 text-sm text-gray-900"
+                    className="mt-1 text-sm text-[hsl(var(--dashboard-content-foreground))]"
                   >
                     {project.name}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Lifecycle status</h3>
+                  <h3 className="text-sm font-medium text-[hsl(var(--dashboard-content-muted))]">
+                    Lifecycle status
+                  </h3>
                   <ProjectStatusBadge
                     status={project.status}
                     className="mt-1"
@@ -1024,28 +1039,34 @@ export default function Project() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <h3 className="text-sm font-medium text-gray-700">Description</h3>
+                  <h3 className="text-sm font-medium text-[hsl(var(--dashboard-content-muted))]">
+                    Description
+                  </h3>
                   <p
                     data-testid="project-metadata-view-description"
-                    className="mt-1 text-sm text-gray-900"
+                    className="mt-1 text-sm text-[hsl(var(--dashboard-content-foreground))]"
                   >
                     {project.description ? project.description : 'No description provided'}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Goal summary</h3>
+                  <h3 className="text-sm font-medium text-[hsl(var(--dashboard-content-muted))]">
+                    Goal summary
+                  </h3>
                   <p
                     data-testid="project-metadata-view-goal-summary"
-                    className="mt-1 text-sm text-gray-900"
+                    className="mt-1 text-sm text-[hsl(var(--dashboard-content-foreground))]"
                   >
                     {project.goalSummary ? project.goalSummary : 'Not set'}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Goal target date</h3>
+                  <h3 className="text-sm font-medium text-[hsl(var(--dashboard-content-muted))]">
+                    Goal target date
+                  </h3>
                   <p
                     data-testid="project-metadata-view-goal-target-date"
-                    className="mt-1 text-sm text-gray-900"
+                    className="mt-1 text-sm text-[hsl(var(--dashboard-content-foreground))]"
                   >
                     {goalTargetDateDisplay ?? 'Not set'}
                   </p>
@@ -1057,47 +1078,49 @@ export default function Project() {
       </section>
 
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-        <Card>
+        <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Documents</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{project.documentsCount ?? 0}</div>
-            <p className="text-sm text-gray-600">Total documents</p>
+            <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">Total documents</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Templates Used</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{templateDocument ? 1 : 0}</div>
-            <p className="text-sm text-gray-600">Active templates</p>
+            <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">Active templates</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Export Ready</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">85%</div>
-            <p className="text-sm text-gray-600">Completion status</p>
+            <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">Completion status</p>
           </CardContent>
         </Card>
       </div>
 
       {id !== 'new' && (
         <section className="space-y-4">
-          <h3 className="text-xl font-semibold text-gray-900">Document Template</h3>
+          <h3 className="text-xl font-semibold text-[hsl(var(--dashboard-content-foreground))]">
+            Document Template
+          </h3>
           <TemplateUpgradeBanner
             migration={migrationSummary}
             removedVersion={removedVersionInfo}
             upgradeFailure={upgradeFailure}
           >
             {templateStatus === 'loading' && (
-              <div className="rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-700">
+              <div className="rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.85)] p-4 text-sm text-[hsl(var(--dashboard-content-muted))]">
                 Loading template details…
               </div>
             )}
@@ -1163,7 +1186,7 @@ export default function Project() {
                     }}
                   >
                     {sections.length === 0 ? (
-                      <p className="rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                      <p className="rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.85)] p-4 text-sm text-[hsl(var(--dashboard-content-muted))]">
                         No template sections available for editing.
                       </p>
                     ) : (
@@ -1171,14 +1194,16 @@ export default function Project() {
                     )}
 
                     <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-gray-700">Validation Issues</h4>
+                      <h4 className="text-sm font-semibold text-[hsl(var(--dashboard-content-muted))]">
+                        Validation Issues
+                      </h4>
                       <ul data-testid="template-errors" className="space-y-1 text-sm text-red-700">
                         {errors.map(issue => (
                           <li key={issue.path.join('.') || issue.message}>{issue.message}</li>
                         ))}
                       </ul>
                       {errors.length === 0 ? (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-[hsl(var(--dashboard-content-subdued))]">
                           All template fields satisfy the schema.
                         </p>
                       ) : null}
@@ -1199,33 +1224,39 @@ export default function Project() {
       )}
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="cursor-pointer transition-shadow hover:shadow-md">
+        <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
           <CardHeader>
             <CardTitle className="flex items-center">
               <FileText className="mr-2 h-5 w-5" />
               Create Document
             </CardTitle>
-            <CardDescription>Start writing a new document for this project</CardDescription>
+            <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
+              Start writing a new document for this project
+            </CardDescription>
           </CardHeader>
         </Card>
 
-        <Card className="cursor-pointer transition-shadow hover:shadow-md">
+        <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Edit className="mr-2 h-5 w-5" />
               Edit Templates
             </CardTitle>
-            <CardDescription>Customize templates for this project</CardDescription>
+            <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
+              Customize templates for this project
+            </CardDescription>
           </CardHeader>
         </Card>
 
-        <Card className="cursor-pointer transition-shadow hover:shadow-md">
+        <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Share className="mr-2 h-5 w-5" />
               Export Project
             </CardTitle>
-            <CardDescription>Export documents in various formats</CardDescription>
+            <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
+              Export documents in various formats
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>

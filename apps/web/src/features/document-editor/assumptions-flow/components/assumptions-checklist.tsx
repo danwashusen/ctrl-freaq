@@ -159,7 +159,9 @@ const AssumptionPromptCard = ({ prompt, onRespond, disabled }: AssumptionPromptC
               />
               <span>{option.label}</span>
               {option.description ? (
-                <span className="text-muted-foreground text-xs">{option.description}</span>
+                <span className="text-xs text-[hsl(var(--dashboard-content-muted))]">
+                  {option.description}
+                </span>
               ) : null}
             </label>
           ))}
@@ -188,7 +190,9 @@ const AssumptionPromptCard = ({ prompt, onRespond, disabled }: AssumptionPromptC
             />
             <span>{option.label}</span>
             {option.description ? (
-              <span className="text-muted-foreground text-xs">{option.description}</span>
+              <span className="text-xs text-[hsl(var(--dashboard-content-muted))]">
+                {option.description}
+              </span>
             ) : null}
           </label>
         ))}
@@ -197,17 +201,20 @@ const AssumptionPromptCard = ({ prompt, onRespond, disabled }: AssumptionPromptC
   };
 
   return (
-    <article className="border-border bg-card shadow-xs rounded-md border px-4 py-3">
+    <article className="rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] px-4 py-3 text-[hsl(var(--dashboard-content-foreground))] shadow-none">
       <div className="flex items-start justify-between gap-2">
         <div>
           <label
             id={`${prompt.id}-label`}
             htmlFor={inputId}
-            className="text-foreground text-sm font-medium"
+            className="text-sm font-medium text-[hsl(var(--dashboard-content-foreground))]"
           >
             {prompt.heading}
           </label>
-          <p id={`${prompt.id}-helper`} className="text-muted-foreground mt-1 text-sm">
+          <p
+            id={`${prompt.id}-helper`}
+            className="mt-1 text-sm text-[hsl(var(--dashboard-content-muted))]"
+          >
             {prompt.body}
           </p>
         </div>
@@ -312,7 +319,7 @@ export const AssumptionsChecklist = ({
     return (
       <div
         role="status"
-        className="border-border bg-card text-muted-foreground rounded-md border px-4 py-6 text-sm"
+        className="rounded-md border border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] px-4 py-6 text-sm text-[hsl(var(--dashboard-content-muted))]"
       >
         Loading assumption prompts…
       </div>
@@ -322,10 +329,13 @@ export const AssumptionsChecklist = ({
   return (
     <section className="space-y-4" aria-labelledby="assumptions-checklist-heading">
       <header className="space-y-1">
-        <h2 id="assumptions-checklist-heading" className="text-foreground text-lg font-semibold">
+        <h2
+          id="assumptions-checklist-heading"
+          className="text-lg font-semibold text-[hsl(var(--dashboard-content-foreground))]"
+        >
           Resolve assumptions ({remaining} remaining)
         </h2>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">
           Work through each prompt before drafting new content. Overrides block submission until
           resolved.
         </p>
@@ -365,10 +375,12 @@ export const AssumptionsChecklist = ({
           ) : null}
 
           {streamingBullets.length > 0 ? (
-            <ul className="border-border/60 bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+            <ul className="rounded-md border border-[hsla(var(--dashboard-panel-border)/0.4)] bg-[hsla(var(--dashboard-panel-bg)/0.7)] px-3 py-2 text-sm text-[hsl(var(--dashboard-content-muted))]">
               {streamingBullets.map(bullet => (
                 <li key={bullet.sequence} className="flex items-start gap-2">
-                  <span className="text-foreground text-xs font-semibold">{bullet.stageLabel}</span>
+                  <span className="text-xs font-semibold text-[hsl(var(--dashboard-content-foreground))]">
+                    {bullet.stageLabel}
+                  </span>
                   <span>{bullet.content ?? 'Processing…'}</span>
                 </li>
               ))}
@@ -386,7 +398,7 @@ export const AssumptionsChecklist = ({
       </ul>
 
       {prompts.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-[hsl(var(--dashboard-content-muted))]">
           No assumption prompts available for this section.
         </p>
       ) : null}
