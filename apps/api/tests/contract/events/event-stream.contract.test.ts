@@ -66,13 +66,10 @@ describe('GET /api/v1/events', () => {
       description: null,
       visibility: 'workspace',
       status: 'active',
-      archivedStatusBefore: null,
       goalTargetDate: null,
       goalSummary: null,
       createdBy: 'system',
       updatedBy: 'system',
-      deletedAt: null,
-      deletedBy: null,
     });
 
     const response = await request(app)
@@ -100,13 +97,10 @@ describe('GET /api/v1/events', () => {
       description: null,
       visibility: 'workspace',
       status: 'active',
-      archivedStatusBefore: null,
       goalTargetDate: null,
       goalSummary: null,
       createdBy: 'system',
       updatedBy: 'system',
-      deletedAt: null,
-      deletedBy: null,
     });
 
     const forbiddenDocumentId = `doc-${randomUUID().slice(0, 8)}`;
@@ -133,83 +127,80 @@ describe('GET /api/v1/events', () => {
     });
   });
 
-  it(
-    'streams workspace events and emits heartbeats when no payloads are published',
-    async () => {
-      const broker = (app.locals as { eventBroker: EventBroker | undefined }).eventBroker;
-      expect(broker).toBeDefined();
+  it('streams workspace events and emits heartbeats when no payloads are published', async () => {
+    const broker = (app.locals as { eventBroker: EventBroker | undefined }).eventBroker;
+    expect(broker).toBeDefined();
 
-      const url = `${baseUrl}/api/v1/events`;
-      const receivedTopics: string[] = [];
-      let heartbeatCount = 0;
+    const url = `${baseUrl}/api/v1/events`;
+    const receivedTopics: string[] = [];
+    let heartbeatCount = 0;
 
-      await new Promise<void>((resolve, reject) => {
-        const options: EventSourceInitWithFetch = {
-          fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-            const headers = new Headers(init?.headers ?? {});
-            headers.set('Authorization', AUTH_HEADER.Authorization);
-            headers.set('X-Workspace-Id', WORKSPACE_HEADER['X-Workspace-Id']);
-            return fetch(input, { ...init, headers });
-          },
-        };
+    await new Promise<void>((resolve, reject) => {
+      const options: EventSourceInitWithFetch = {
+        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+          const headers = new Headers(init?.headers ?? {});
+          headers.set('Authorization', AUTH_HEADER.Authorization);
+          headers.set('X-Workspace-Id', WORKSPACE_HEADER['X-Workspace-Id']);
+          return fetch(input, { ...init, headers });
+        },
+      };
 
-        const source = new EventSource(url, options);
+      const source = new EventSource(url, options);
 
-        const timeout = setTimeout(() => {
-          source.close();
-          reject(new Error('Timed out waiting for stream events'));
-        }, 1_500);
+      const timeout = setTimeout(() => {
+        source.close();
+        reject(new Error('Timed out waiting for stream events'));
+      }, 1_500);
 
-        source.addEventListener('project.lifecycle', event => {
-          receivedTopics.push(event.type);
-          try {
-            const parsed = JSON.parse(event.data);
-            expect(parsed.topic).toBe('project.lifecycle');
-            expect(parsed.resourceId).toBe('proj-123');
-            expect(parsed.sequence).toBeGreaterThan(0);
-            expect(parsed.kind).toBe('event');
-            expect(parsed.payload).toEqual({ status: 'archived' });
-          } catch (error) {
-            clearTimeout(timeout);
-            source.close();
-            reject(error instanceof Error ? error : new Error(String(error)));
-            return;
-          }
-
-          if (receivedTopics.length >= 1 && heartbeatCount >= 1) {
-            clearTimeout(timeout);
-            source.close();
-            resolve();
-          }
-        });
-
-        source.addEventListener('heartbeat', () => {
-          heartbeatCount += 1;
-          if (receivedTopics.length >= 1 && heartbeatCount >= 1) {
-            clearTimeout(timeout);
-            source.close();
-            resolve();
-          }
-        });
-
-        source.onerror = event => {
+      source.addEventListener('project.lifecycle', event => {
+        receivedTopics.push(event.type);
+        try {
+          const parsed = JSON.parse(event.data);
+          expect(parsed.topic).toBe('project.lifecycle');
+          expect(parsed.resourceId).toBe('proj-123');
+          expect(parsed.sequence).toBeGreaterThan(0);
+          expect(parsed.kind).toBe('event');
+          expect(parsed.payload).toEqual({ status: 'archived' });
+        } catch (error) {
           clearTimeout(timeout);
           source.close();
-          reject(event instanceof Error ? event : new Error('EventSource reported an error'));
-        };
+          reject(error instanceof Error ? error : new Error(String(error)));
+          return;
+        }
 
-        setTimeout(() => {
-          broker?.publish({
-            workspaceId: 'workspace-default',
-            topic: 'project.lifecycle',
-            resourceId: 'proj-123',
-            payload: { status: 'archived' },
-          });
-        }, 25);
+        if (receivedTopics.length >= 1 && heartbeatCount >= 1) {
+          clearTimeout(timeout);
+          source.close();
+          resolve();
+        }
       });
 
-      expect(receivedTopics).toContain('project.lifecycle');
-      expect(heartbeatCount).toBeGreaterThanOrEqual(1);
-    }
-  );
+      source.addEventListener('heartbeat', () => {
+        heartbeatCount += 1;
+        if (receivedTopics.length >= 1 && heartbeatCount >= 1) {
+          clearTimeout(timeout);
+          source.close();
+          resolve();
+        }
+      });
+
+      source.onerror = event => {
+        clearTimeout(timeout);
+        source.close();
+        reject(event instanceof Error ? event : new Error('EventSource reported an error'));
+      };
+
+      setTimeout(() => {
+        broker?.publish({
+          workspaceId: 'workspace-default',
+          topic: 'project.lifecycle',
+          resourceId: 'proj-123',
+          payload: { status: 'archived' },
+        });
+      }, 25);
+    });
+
+    expect(receivedTopics).toContain('project.lifecycle');
+    expect(heartbeatCount).toBeGreaterThanOrEqual(1);
+  });
 });
