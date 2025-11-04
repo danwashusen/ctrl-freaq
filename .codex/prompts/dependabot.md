@@ -2,13 +2,7 @@
 
 This playbook describes a process to resolve open Dependabot PRs using the Dependabot comment commands
 (e.g. `@dependabot rebase`) to trigger Dependabot actions. After ingesting the entire playbook, follow the steps in the
-"Process" section to handle each open Dependabot PR one at a time.
-
-## Notes
-
-- Use the Dependabot comment commands (e.g. `@dependabot rebase`) to trigger Dependabot actions, prefer those over
-  GitHub CLI commands.
-- When adding comments to the PR with the GitHub CLI use the `--body-file <FILE_PATH>` argument to ensure formatting is preserved.
+'Process' section to handle each open Dependabot PR one at a time **until you have attempted to resolve all open Dependabot PRs**.
 
 ## Process
 
@@ -21,8 +15,7 @@ This playbook describes a process to resolve open Dependabot PRs using the Depen
       - Skim the timeline for prior attempts or manual edits.
       - When you need more detail on the dependency update, query the context7 MCP server.
    2. Sync with the base branch:
-      - If the branch is behind, trigger `@dependabot rebase`. If that fails, run `gh pr update-branch --rebase`.
-      - Wait for Dependabot to finish any in-flight updates before continuing.
+      - If the branch is behind run `gh pr update-branch --rebase` and make sure it succeeds.
    3. Ensure CI is green:
       - Watch `gh pr checks` until all required checks complete.
       - If CI fails, address the failure (rerun, apply fixes, or leave guidance) and document each action in a PR comment using `gh pr comment --body-file <note>`.
@@ -31,7 +24,7 @@ This playbook describes a process to resolve open Dependabot PRs using the Depen
       - Record the review as a PR comment that covers scope (packages bumped, files touched, change size) and risk factors (security patches, breaking changes, runtime impact).
    5. Decide on the outcome:
       - If the change is low risk and fully understood, remove the `awaiting-review` label, then squash-merge with `gh pr merge --squash --delete-branch`.
-      - If risk is unclear or high, note the blockers in a comment, keep the PR open, and tag the appropriate owner for human follow-up.
+      - If the risk is unclear or high, note the blockers in a comment, keep the PR open, and tag the appropriate owner for human follow-up.
 
 ## Dependabot Comment Command Crib Sheet
 
@@ -68,3 +61,7 @@ You can trigger Dependabot actions by commenting on this PR:
 - gh pr lock / gh pr unlock: restrict conversation; optionally provide reason (--reason off_topic|resolved|spam|too_heated).
 - gh pr checks, gh pr list, gh pr status, gh pr view share formatting helpers (--json, --template, --jq); see gh help formatting.
 - Any PR identifier can be number, URL, or head branch (some commands require explicit number/URL); specify other repo with -R/--repo HOST/OWNER/REPO.
+
+### Notes
+ 
+- Make sure the intended formatting is preserved, prefer arguments that allow you to provide a file over inline (e.g., when adding comments use the `--body-file <FILE_PATH>` argument instead of `--body <BODY>` arg to ensure formatting is preserved).
