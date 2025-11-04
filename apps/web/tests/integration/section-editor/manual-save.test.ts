@@ -1,4 +1,13 @@
-import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  it,
+  expect,
+  vi,
+  type MockInstance,
+} from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 import type { ManualDraftStorage } from '@ctrl-freaq/editor-persistence';
@@ -44,7 +53,7 @@ vi.mock('@ctrl-freaq/editor-persistence', async () => {
 });
 
 let apiContextModule: typeof import('@/lib/api-context');
-let useApiSpy: ReturnType<typeof vi.spyOn> | null = null;
+let useApiSpy: MockInstance<(typeof apiContextModule)['useApi']> | null = null;
 
 beforeAll(async () => {
   apiContextModule = await import('@/lib/api-context');

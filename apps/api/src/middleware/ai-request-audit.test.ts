@@ -1,7 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
+import { mockAsyncFn, mockFn, type MockedFnWithArgs } from '@ctrl-freaq/test-support';
 
-import { createAIRequestAuditMiddleware } from './ai-request-audit';
+import { createAIRequestAuditMiddleware, type AIRequestAuditOptions } from './ai-request-audit';
+
+type ResponseMock = Response & {
+  status: MockedFnWithArgs<[number], Response>;
+  json: MockedFnWithArgs<[unknown], Response>;
+  locals: Record<string, unknown>;
+};
+
+type LimiterFn = AIRequestAuditOptions['limiter'];
 
 describe('createAIRequestAuditMiddleware', () => {
   const buildRequest = (
@@ -33,35 +42,32 @@ describe('createAIRequestAuditMiddleware', () => {
       ...overrides,
     }) as Request & { requestId: string; auth?: { userId: string } };
 
-  const buildResponse = (): Response & {
-    status: ReturnType<typeof vi.fn>;
-    json: ReturnType<typeof vi.fn>;
-    locals: Record<string, unknown>;
-  } =>
-    ({
-      locals: {},
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-    }) as unknown as Response & {
-      status: ReturnType<typeof vi.fn>;
-      json: ReturnType<typeof vi.fn>;
-      locals: Record<string, unknown>;
-    };
+  const buildResponse = (): ResponseMock => {
+    const status = mockFn<(code: number) => Response>();
+    const json = mockFn<(payload: unknown) => Response>();
+    const res = { locals: {}, status, json } as unknown as ResponseMock;
+    status.mockReturnValue(res);
+    json.mockReturnValue(res);
+    return res;
+  };
 
-  const buildNext = (): NextFunction => vi.fn();
+  const buildNext = (): NextFunction => mockFn<(err?: any) => void>() as unknown as NextFunction;
 
   it('enforces per-section intent rate limiting', async () => {
-    const limiter = vi
-      .fn()
-      .mockResolvedValueOnce({ allowed: true, remaining: 4 })
-      .mockResolvedValueOnce({ allowed: false, retryAfterMs: 30000 });
+    const limiter = mockAsyncFn<LimiterFn>();
+    limiter.mockResolvedValueOnce({ allowed: true, remaining: 4 });
+    limiter.mockResolvedValueOnce({ allowed: false, remaining: 0, retryAfterMs: 30000 });
 
-    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const logger: AIRequestAuditOptions['logger'] = {
+      info: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      warn: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      error: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+    };
 
     const middleware = createAIRequestAuditMiddleware({
       limiter,
       logger,
-      emitTelemetry: vi.fn(),
+      emitTelemetry: mockFn<(event: string, payload: Record<string, unknown>) => void>(),
     });
 
     const req = buildRequest();
@@ -86,9 +92,14 @@ describe('createAIRequestAuditMiddleware', () => {
   });
 
   it('redacts prompt content and emits telemetry events', async () => {
-    const limiter = vi.fn().mockResolvedValue({ allowed: true, remaining: 4 });
-    const emitTelemetry = vi.fn();
-    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const limiter = mockAsyncFn<LimiterFn>();
+    limiter.mockResolvedValue({ allowed: true, remaining: 4 });
+    const emitTelemetry = mockFn<(event: string, payload: Record<string, unknown>) => void>();
+    const logger: AIRequestAuditOptions['logger'] = {
+      info: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      warn: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      error: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+    };
 
     const middleware = createAIRequestAuditMiddleware({ limiter, emitTelemetry, logger });
 

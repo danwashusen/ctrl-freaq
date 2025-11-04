@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createConsoleSilencer } from '../../scripts/vitest-console-hook';
@@ -12,6 +12,7 @@ const templateResolverDist = resolve(rootDir, '..', 'packages', 'template-resolv
 const editorCoreDist = resolve(rootDir, '..', 'packages', 'editor-core', 'dist');
 const qaDist = resolve(rootDir, '..', 'packages', 'qa', 'dist');
 const aiDist = resolve(rootDir, '..', 'packages', 'ai', 'dist');
+const testSupportSrc = resolve(rootDir, '..', 'tests', 'support');
 
 export default defineConfig({
   test: {
@@ -21,6 +22,14 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     teardownTimeout: 10000,
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
+    exclude: [...configDefaults.exclude, 'dist/**'],
+    poolOptions: {
+      threads: {
+        maxThreads: 1,
+        minThreads: 1,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -42,6 +51,7 @@ export default defineConfig({
       '@ctrl-freaq/template-resolver': templateResolverDist,
       '@ctrl-freaq/editor-core': editorCoreDist,
       '@ctrl-freaq/qa': qaDist,
+      '@ctrl-freaq/test-support': testSupportSrc,
       '@ctrl-freaq/qa/traceability': resolve(
         rootDir,
         '..',

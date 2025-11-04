@@ -16,10 +16,13 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "paths": {
-      "@/*": ["apps/web/src/*"]
-    }
+      "@/*": ["apps/web/src/*"],
+      "@ctrl-freaq/test-support": ["./tests/support/index.ts"],
+      "@ctrl-freaq/test-support/*": ["./tests/support/*"]
+    },
+    "rootDir": "../../"
   },
-  "include": ["src", "tests", "src/**/*.json"],
+  "include": ["src", "tests", "src/**/*.json", "../../tests/support/**/*"],
   "references": [
     { "path": "../../packages/editor-core" },
     { "path": "../../packages/editor-persistence" },

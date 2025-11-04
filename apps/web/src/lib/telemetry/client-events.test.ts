@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 const infoMock = vi.hoisted(() => vi.fn());
 const warnMock = vi.hoisted(() => vi.fn());
@@ -23,8 +23,8 @@ const payload = {
 };
 
 describe('client draft telemetry events', () => {
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleInfoSpy: MockInstance<(typeof console)['info']>;
+  let consoleWarnSpy: MockInstance<(typeof console)['warn']>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -95,8 +95,8 @@ describe('client draft telemetry events', () => {
 });
 
 describe('document QA streaming telemetry events', () => {
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleInfoSpy: MockInstance<(typeof console)['info']>;
+  let consoleWarnSpy: MockInstance<(typeof console)['warn']>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -210,8 +210,8 @@ describe('document QA streaming telemetry events', () => {
 });
 
 describe('assumption streaming telemetry events', () => {
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleInfoSpy: MockInstance<(typeof console)['info']>;
+  let consoleWarnSpy: MockInstance<(typeof console)['warn']>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -307,8 +307,8 @@ describe('assumption streaming telemetry events', () => {
 });
 
 describe('project lifecycle telemetry events', () => {
-  let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleInfoSpy: MockInstance<(typeof console)['info']>;
+  let consoleWarnSpy: MockInstance<(typeof console)['warn']>;
 
   beforeEach(() => {
     vi.clearAllMocks();

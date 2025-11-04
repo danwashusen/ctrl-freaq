@@ -255,7 +255,7 @@ process.on('exit', () => clearInterval(interval));
 | **DB Access**         | better-sqlite3                   | 12.x            | SQLite driver                | Fast synchronous API, type-safe                          |
 | **Authentication**    | Clerk (default) / Simple (local) | latest          | Configurable auth providers  | Clerk handles production; simple mode enables local auth |
 | **LLM SDK**           | Vercel AI SDK                    | 3.x             | AI model integration         | Provider abstraction, streaming support                  |
-| **Testing**           | Vitest                           | 3.x             | Unit and integration testing | Fast, TypeScript-native                                  |
+| **Testing**           | Vitest                           | 4.x             | Unit and integration testing | Fast, TypeScript-native                                  |
 | **Monorepo**          | pnpm + Turborepo                 | 9.x/2.x         | Workspace management         | Efficient dependency management, caching                 |
 | **Logging**           | Pino                             | 9.12.0          | Structured logging           | High-performance JSON logging                            |
 | **UI Framework**      | React                            | 19.x            | Frontend framework           | Component model, ecosystem, team expertise               |
@@ -1292,10 +1292,13 @@ Local Dev → Git Push → CI Tests → Merge to Main
 
 #### Unit Tests {#unit-tests}
 
-- **Framework:** Vitest 3.x
+- **Framework:** Vitest 4.x
 - **File Convention:** `*.test.ts` or `*.spec.ts`
 - **Location:** Colocated with source files
 - **Mocking Library:** Vitest built-in mocks
+- **Typed Mock Helpers:** `@ctrl-freaq/test-support` exports shared helpers
+  (`mockFn`, `mockAsyncFn`, typed mock aliases) to keep Vitest 4 mocks
+  consistent across packages. Always prefer these over ad-hoc `vi.fn` casting.
 - **Coverage Requirement:** 100% for public methods
 
 **AI Agent Requirements:**

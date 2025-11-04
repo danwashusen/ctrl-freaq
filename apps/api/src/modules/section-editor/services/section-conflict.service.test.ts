@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from 'pino';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestLogger, mockAsyncFn, type MockedAsyncFn } from '@ctrl-freaq/test-support';
 
 import type {
   DraftConflictLogRepositoryImpl,
@@ -11,15 +12,18 @@ import type {
 
 import { SectionConflictService } from './section-conflict.service';
 
-const createLogger = () => {
-  const logger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    child: vi.fn().mockReturnThis(),
-  } satisfies Record<string, unknown>;
+type SectionRepositoryMock = {
+  findById: MockedAsyncFn<SectionRepositoryImpl['findById']>;
+};
 
-  return logger as unknown as Logger;
+type SectionDraftRepositoryMock = {
+  findById: MockedAsyncFn<SectionDraftRepositoryImpl['findById']>;
+  updateDraft: MockedAsyncFn<SectionDraftRepositoryImpl['updateDraft']>;
+};
+
+type DraftConflictLogRepositoryMock = {
+  createLogEntry: MockedAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>;
+  listByDraft: MockedAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>;
 };
 
 describe('SectionConflictService', () => {
@@ -46,21 +50,30 @@ describe('SectionConflictService', () => {
   });
 
   it('returns clean status when base version matches approved', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue({ ...section, approvedVersion: 2 }),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+    };
+    sections.findById.mockResolvedValue({ ...section, approvedVersion: 2 });
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue(draft),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue(draft);
 
-    const logs = {
-      createLogEntry: vi.fn(),
-      listByDraft: vi.fn().mockResolvedValue([]),
-    } as unknown as DraftConflictLogRepositoryImpl;
+    const logs: DraftConflictLogRepositoryMock = {
+      createLogEntry: mockAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>(),
+      listByDraft: mockAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>(),
+    };
+    logs.listByDraft.mockResolvedValue([]);
 
-    const service = new SectionConflictService(sections, drafts, logs, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionConflictService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      logs as unknown as DraftConflictLogRepositoryImpl,
+      logger
+    );
 
     const response = await service.check({
       sectionId: section.id,
@@ -75,9 +88,10 @@ describe('SectionConflictService', () => {
   });
 
   it('marks conflict when base version is stale', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(section),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+    };
+    sections.findById.mockResolvedValue(section);
 
     const draftRecord = {
       ...draft,
@@ -93,29 +107,50 @@ describe('SectionConflictService', () => {
       ],
     } as unknown as SectionDraft;
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue(draftRecord),
-      updateDraft: vi.fn().mockResolvedValue({ ...draftRecord, conflictState: 'rebase_required' }),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue(draftRecord);
+    drafts.updateDraft.mockResolvedValue({
+      ...draftRecord,
+      conflictState: 'rebase_required',
+    });
 
     const detectedAt = new Date('2025-09-25T15:30:00Z');
 
-    const logs = {
-      createLogEntry: vi.fn().mockResolvedValue(undefined),
-      listByDraft: vi.fn().mockResolvedValue([
-        {
-          detectedAt,
-          detectedDuring: 'entry',
-          previousApprovedVersion: 4,
-          latestApprovedVersion: 5,
-          resolvedBy: null,
-          resolutionNote: null,
-        },
-      ]),
-    } as unknown as DraftConflictLogRepositoryImpl;
+    const logs: DraftConflictLogRepositoryMock = {
+      createLogEntry: mockAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>(),
+      listByDraft: mockAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>(),
+    };
+    const conflictLog = {
+      id: 'log-1',
+      sectionId: section.id,
+      draftId: draft.id,
+      detectedAt,
+      detectedDuring: 'entry' as const,
+      previousApprovedVersion: 4,
+      latestApprovedVersion: 5,
+      resolvedBy: null,
+      resolutionNote: null,
+      createdAt: detectedAt,
+      createdBy: 'system',
+      updatedAt: detectedAt,
+      updatedBy: 'system',
+      deletedAt: null,
+      deletedBy: null,
+    };
 
-    const logger = createLogger();
-    const service = new SectionConflictService(sections, drafts, logs, logger);
+    logs.createLogEntry.mockResolvedValue(conflictLog);
+    logs.listByDraft.mockResolvedValue([conflictLog]);
+
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionConflictService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      logs as unknown as DraftConflictLogRepositoryImpl,
+      logger
+    );
 
     const response = await service.check({
       sectionId: section.id,
@@ -166,21 +201,30 @@ describe('SectionConflictService', () => {
   });
 
   it('returns blocked status when draft is already blocked', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(section),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+    };
+    sections.findById.mockResolvedValue(section);
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue({ ...draft, conflictState: 'blocked' }),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue({ ...draft, conflictState: 'blocked' });
 
-    const logs = {
-      createLogEntry: vi.fn(),
-      listByDraft: vi.fn().mockResolvedValue([]),
-    } as unknown as DraftConflictLogRepositoryImpl;
+    const logs: DraftConflictLogRepositoryMock = {
+      createLogEntry: mockAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>(),
+      listByDraft: mockAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>(),
+    };
+    logs.listByDraft.mockResolvedValue([]);
 
-    const service = new SectionConflictService(sections, drafts, logs, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionConflictService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      logs as unknown as DraftConflictLogRepositoryImpl,
+      logger
+    );
 
     const response = await service.check({
       sectionId: section.id,
@@ -198,22 +242,30 @@ describe('SectionConflictService', () => {
   });
 
   it('warns when draft is missing but conflict is detected', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(section),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+    };
+    sections.findById.mockResolvedValue(section);
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue(null),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue(null);
 
-    const logs = {
-      createLogEntry: vi.fn(),
-      listByDraft: vi.fn().mockResolvedValue([]),
-    } as unknown as DraftConflictLogRepositoryImpl;
+    const logs: DraftConflictLogRepositoryMock = {
+      createLogEntry: mockAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>(),
+      listByDraft: mockAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>(),
+    };
+    logs.listByDraft.mockResolvedValue([]);
 
-    const logger = createLogger();
-    const service = new SectionConflictService(sections, drafts, logs, logger);
+    const { logger, warn } = createTestLogger<Logger>();
+    const service = new SectionConflictService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      logs as unknown as DraftConflictLogRepositoryImpl,
+      logger
+    );
 
     await service.check({
       sectionId: section.id,
@@ -225,7 +277,7 @@ describe('SectionConflictService', () => {
       requestId: 'trace-456',
     });
 
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
         sectionId: section.id,
         draftId: 'missing-draft',
@@ -236,21 +288,28 @@ describe('SectionConflictService', () => {
   });
 
   it('throws when section cannot be found', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(null),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+    };
+    sections.findById.mockResolvedValue(null);
 
-    const drafts = {
-      findById: vi.fn(),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
 
-    const logs = {
-      createLogEntry: vi.fn(),
-      listByDraft: vi.fn(),
-    } as unknown as DraftConflictLogRepositoryImpl;
+    const logs: DraftConflictLogRepositoryMock = {
+      createLogEntry: mockAsyncFn<DraftConflictLogRepositoryImpl['createLogEntry']>(),
+      listByDraft: mockAsyncFn<DraftConflictLogRepositoryImpl['listByDraft']>(),
+    };
 
-    const service = new SectionConflictService(sections, drafts, logs, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionConflictService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      logs as unknown as DraftConflictLogRepositoryImpl,
+      logger
+    );
 
     await expect(
       service.check({

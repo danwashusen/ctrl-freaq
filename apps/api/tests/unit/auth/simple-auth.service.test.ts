@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import type { MockedAsyncFn } from '@ctrl-freaq/test-support';
 
 type ReadFileFn = (typeof import('node:fs/promises'))['readFile'];
-
-const { readFileMock } = vi.hoisted(() => ({
-  readFileMock: vi.fn<ReadFileFn>(),
-}));
+const { readFileMock } = vi.hoisted<{ readFileMock: MockedAsyncFn<ReadFileFn> }>(() => {
+  const mock = vi.fn<ReadFileFn>() as MockedAsyncFn<ReadFileFn>;
+  return { readFileMock: mock };
+});
 
 vi.mock('node:fs/promises', () => ({
   readFile: readFileMock,

@@ -1,6 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from 'vitest';
+import { mockAsyncFn } from '@ctrl-freaq/test-support';
 import type { ReactNode } from 'react';
 
 import type { ProjectsListResponse } from '@/lib/api';
@@ -32,7 +42,7 @@ vi.mock('@/lib/auth-provider', async () => {
   };
 });
 
-const mockGetAll = vi.fn<() => Promise<ProjectsListResponse>>();
+const mockGetAll = mockAsyncFn<() => Promise<ProjectsListResponse>>();
 const unsubscribeMock = vi.fn();
 
 let currentHealth: HubHealthState = {
@@ -74,7 +84,7 @@ const setEventHubHealth = (next: HubHealthState) => {
 const setEventHubEnabledMock = vi.fn();
 
 let apiContextModule: typeof import('@/lib/api-context');
-let useApiSpy: ReturnType<typeof vi.spyOn> | null = null;
+let useApiSpy: MockInstance<(typeof apiContextModule)['useApi']> | null = null;
 
 beforeAll(async () => {
   apiContextModule = await import('@/lib/api-context');

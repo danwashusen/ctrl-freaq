@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { mockAsyncFn, type MockedAsyncFn } from '@ctrl-freaq/test-support';
 
 import {
   SectionEditorClient,
@@ -20,10 +21,10 @@ const buildResponse = (body: unknown, init: ResponseInit): Response => {
 };
 
 describe('SectionEditorClient', () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: MockedAsyncFn<typeof fetch>;
 
   beforeEach(() => {
-    fetchMock = vi.fn();
+    fetchMock = mockAsyncFn<typeof fetch>();
   });
 
   it('sends conflict check requests with auth headers and parses response', async () => {

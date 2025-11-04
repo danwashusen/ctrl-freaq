@@ -98,6 +98,8 @@
         "./packages/template-resolver/src/*",
         "./packages/template-resolver/dist/*.d.ts"
       ],
+      "@ctrl-freaq/test-support": ["./tests/support/index.ts"],
+      "@ctrl-freaq/test-support/*": ["./tests/support/*"],
       "@/*": ["./apps/web/src/*"]
     }
   },
