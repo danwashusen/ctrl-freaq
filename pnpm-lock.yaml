@@ -201,8 +201,8 @@ importers:
         specifier: 7.17.1
         version: 7.17.1
       '@milkdown/plugin-listener':
-        specifier: 7.15.5
-        version: 7.15.5
+        specifier: 7.17.1
+        version: 7.17.1
       '@milkdown/preset-commonmark':
         specifier: 7.17.1
         version: 7.17.1
@@ -344,8 +344,8 @@ importers:
         specifier: 7.17.1
         version: 7.17.1
       '@milkdown/plugin-listener':
-        specifier: 7.15.5
-        version: 7.15.5
+        specifier: 7.17.1
+        version: 7.17.1
       '@milkdown/preset-commonmark':
         specifier: 7.17.1
         version: 7.17.1
@@ -1513,9 +1513,6 @@ packages:
   '@milkdown/plugin-indent@7.17.1':
     resolution: {integrity: sha512-JySQd60JHcfUcV58JxG02gLX+COf/7Adx06+ugwaG5cw9A5iM9MjvUGbMieCP8mZ+6DENrhNoViRrVu3ydYC4g==}
 
-  '@milkdown/plugin-listener@7.15.5':
-    resolution: {integrity: sha512-ZGohvWL9zCKKnlgJEeiM6vBVlVvns4tEoCvM9R4IhAgD3ku/c24hK1ZRUMjtPz5yIiBW6EX6fhV+fdwjLvmIwg==}
-
   '@milkdown/plugin-listener@7.17.1':
     resolution: {integrity: sha512-v0ga+efth4D2Cr+ffCvM7BHSoqOQX+ySy/gzRH2yiBH0dLnLHgJP5V5O6U4Z4r8UH/Wx0BgZ0FIRngUEhh/Aqw==}
 
@@ -1563,9 +1560,6 @@ packages:
 
   '@milkdown/transformer@7.17.1':
     resolution: {integrity: sha512-RfKo+v1R0UWlLgpbKSFSTtKc3Hd7RAd0vRLR/d5ku4/5IpOGYplGEUsxF77qVgik6/yiox79R3HqkQNJ5e4/3Q==}
-
-  '@milkdown/utils@7.15.5':
-    resolution: {integrity: sha512-/B5DBD9H8lPkY7jCiUEEJJUaTSrLKzLsjK5so+JxgmPJZ1E4gJjOUGnQtgzMhYZxd1Az7+vFc3XKgLY/WAzqKg==}
 
   '@milkdown/utils@7.17.1':
     resolution: {integrity: sha512-QTjbaxv+ZOB4a1BaQULkeJExyIvMnQw69UKf9QoM/E8iY2q1c8kppnN6i6ZeN9ZkCh4lXu+r7w/LH6zSFXrsdA==}
@@ -7028,18 +7022,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@milkdown/plugin-listener@7.15.5':
-    dependencies:
-      '@milkdown/core': 7.15.5
-      '@milkdown/ctx': 7.15.5
-      '@milkdown/prose': 7.15.5
-      '@milkdown/utils': 7.15.5
-      '@types/lodash-es': 4.17.12
-      lodash-es: 4.17.21
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-
   '@milkdown/plugin-listener@7.17.1':
     dependencies:
       '@milkdown/core': 7.17.1
@@ -7222,18 +7204,6 @@ snapshots:
       '@milkdown/prose': 7.17.1
       remark: 15.0.1
       unified: 11.0.5
-    transitivePeerDependencies:
-      - supports-color
-
-  '@milkdown/utils@7.15.5':
-    dependencies:
-      '@milkdown/core': 7.15.5
-      '@milkdown/ctx': 7.15.5
-      '@milkdown/exception': 7.15.5
-      '@milkdown/prose': 7.15.5
-      '@milkdown/transformer': 7.15.5
-      nanoid: 3.3.11
-      tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
 
