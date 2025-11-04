@@ -9,6 +9,7 @@ This playbook describes a process to resolve open Dependabot PRs using the Depen
 1. Queue the Dependabot work:
    - `gh pr list --author app/dependabot --state open --sort created --json number,title` to confirm the backlog.
    - Tackle the PRs oldest first so upgrades land deterministically.
+   - Exclude PRs that have a 'needs-manual-review' or 'help wanted' label.
 2. For each PR, work through the following loop before moving on:
    1. Understand the change:
       - Read the current PR description and the first Dependabot comment (they update together when metadata changes).
