@@ -473,8 +473,8 @@ The API exposes a unified SSE hub at `/api/v1/events`, guarded by the
   active workspace ID from `X-Workspace-Id` headers.
 - Multiplexing domain topics (`project.lifecycle`, `quality-gate.progress`,
   `quality-gate.summary`, `section.conflict`, `section.diff`) and scoping each
-  subscription to an optional `projectId`, `documentId`, or `sectionId`
-  provided in query params.
+  subscription to an optional `projectId`, `documentId`, or `sectionId` provided
+  in query params.
 - Maintaining a bounded replay buffer per topic/resource (default depth 100) so
   reconnecting clients with `Last-Event-ID` headers receive missed envelopes or
   snapshots before live delivery resumes.
@@ -496,9 +496,9 @@ Controllers publish envelopes through the broker when domain actions occur:
 
 The broker deduplicates subscribers per topic/resource, fans out events to all
 authorized listeners, and enforces the replay limit to cap memory growth. When
-clients reconnect while the stream is healthy, the broker defers replay
-delivery until after the `stream.open` handshake so frontend listeners can
-register before envelopes flush.
+clients reconnect while the stream is healthy, the broker defers replay delivery
+until after the `stream.open` handshake so frontend listeners can register
+before envelopes flush.
 
 ### packages/shared-data - Data Access Layer {#shared-data}
 

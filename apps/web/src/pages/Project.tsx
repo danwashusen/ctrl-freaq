@@ -464,8 +464,8 @@ export default function Project() {
             archivedStatusBefore,
             updatedBy: payload.updatedBy ?? prev.updatedBy,
             updatedAt: envelope.emittedAt ?? prev.updatedAt,
-            deletedAt: isArchived ? payload.archivedAt ?? prev.deletedAt : null,
-            deletedBy: isArchived ? payload.archivedBy ?? prev.deletedBy : null,
+            deletedAt: isArchived ? (payload.archivedAt ?? prev.deletedAt) : null,
+            deletedBy: isArchived ? (payload.archivedBy ?? prev.deletedBy) : null,
           };
 
           nextProject = updatedProject;
@@ -502,12 +502,7 @@ export default function Project() {
   ]);
 
   useEffect(() => {
-    if (
-      !fallbackPollingActive ||
-      !projectId ||
-      projectId === 'new' ||
-      archiveRedirectRef.current
-    ) {
+    if (!fallbackPollingActive || !projectId || projectId === 'new' || archiveRedirectRef.current) {
       return;
     }
 

@@ -286,10 +286,7 @@ export const useQualityGates = (options: UseQualityGatesOptions = {}): QualityGa
           incidentId: snapshot.incidentId ?? null,
         });
 
-        queryClient.setQueryData(
-          SECTION_RESULT_QUERY_KEY(documentId, sectionId),
-          snapshot
-        );
+        queryClient.setQueryData(SECTION_RESULT_QUERY_KEY(documentId, sectionId), snapshot);
 
         emitQualityGateValidationMetric({
           requestId: snapshot.requestId ?? payload.requestId ?? 'section-complete',

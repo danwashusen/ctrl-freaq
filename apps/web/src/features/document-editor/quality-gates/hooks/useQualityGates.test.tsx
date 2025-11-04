@@ -9,14 +9,8 @@ vi.mock('zustand/shallow', async () => {
 });
 
 import type ApiClient from '@/lib/api';
-import {
-  documentQualityStore,
-  sectionQualityStore,
-} from '../stores';
-import type {
-  DocumentQualitySummary,
-  SectionQualitySnapshot,
-} from '../stores';
+import { documentQualityStore, sectionQualityStore } from '../stores';
+import type { DocumentQualitySummary, SectionQualitySnapshot } from '../stores';
 import type {
   EventEnvelope,
   EventHub,
@@ -48,15 +42,13 @@ let currentHealth: HubHealthState = {
   fallbackActive: false,
 };
 
-const subscribeMock = vi.fn(
-  (scope: HubSubscriptionScope, listener: HubListener): (() => void) => {
-    listeners.set(scope.topic, listener);
-    return () => {
-      listeners.delete(scope.topic);
-      unsubscribeMock(scope);
-    };
-  }
-);
+const subscribeMock = vi.fn((scope: HubSubscriptionScope, listener: HubListener): (() => void) => {
+  listeners.set(scope.topic, listener);
+  return () => {
+    listeners.delete(scope.topic);
+    unsubscribeMock(scope);
+  };
+});
 
 const mockEventHub: EventHub = {
   subscribe: subscribeMock,

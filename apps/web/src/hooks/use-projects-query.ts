@@ -55,12 +55,7 @@ const normalizeOptions = (options?: UseProjectsQueryOptions) => {
 };
 
 export function useProjectsQuery(options?: UseProjectsQueryOptions) {
-  const {
-    projects: projectsApi,
-    eventHub,
-    eventHubHealth,
-    eventHubEnabled,
-  } = useApi();
+  const { projects: projectsApi, eventHub, eventHubHealth, eventHubEnabled } = useApi();
   const queryClient = useQueryClient();
   const { user, isLoaded, isSignedIn } = useUser();
   const userId = user?.id ?? null;
@@ -155,19 +150,13 @@ export function useProjectsQuery(options?: UseProjectsQueryOptions) {
 
               updated = true;
 
-              const nextStatus = isProjectStatus(payload.status)
-                ? payload.status
-                : project.status;
+              const nextStatus = isProjectStatus(payload.status) ? payload.status : project.status;
               const isArchived = nextStatus === 'archived';
               const nextArchivedStatusBefore = isArchived
-                ? toArchivedStatusBefore(payload.previousStatus) ?? project.archivedStatusBefore
+                ? (toArchivedStatusBefore(payload.previousStatus) ?? project.archivedStatusBefore)
                 : null;
-              const nextDeletedAt = isArchived
-                ? payload.archivedAt ?? project.deletedAt
-                : null;
-              const nextDeletedBy = isArchived
-                ? payload.archivedBy ?? project.deletedBy
-                : null;
+              const nextDeletedAt = isArchived ? (payload.archivedAt ?? project.deletedAt) : null;
+              const nextDeletedBy = isArchived ? (payload.archivedBy ?? project.deletedBy) : null;
 
               return {
                 ...project,

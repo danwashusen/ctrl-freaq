@@ -469,7 +469,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
           ? payload.latestApprovedVersion
           : typeof draftStore.latestApprovedVersion === 'number'
             ? draftStore.latestApprovedVersion
-            : draftStore.draftBaseVersion ?? 0;
+            : (draftStore.draftBaseVersion ?? 0);
 
       draftStore.applyConflict({
         status: conflictStatus === 'rebased' ? 'clean' : conflictStatus,

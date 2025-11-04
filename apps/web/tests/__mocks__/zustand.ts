@@ -59,11 +59,7 @@ function initializeStore<TState>(initializer: StateInitializer<TState>): UseStor
     subscribe,
   };
 
-  state = initializer(
-    (partial, replace) => baseSetState(partial, replace),
-    store.getState,
-    store
-  );
+  state = initializer((partial, replace) => baseSetState(partial, replace), store.getState, store);
 
   const useStore = (<TSelected = TState>(
     selector: (value: TState) => TSelected = value => value as unknown as TSelected

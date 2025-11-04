@@ -89,11 +89,8 @@ const bufferKey = (workspaceId: string, topic: string, resourceId: string): stri
 
 const topicIndexKey = (workspaceId: string, topic: string): string => `${workspaceId}:${topic}`;
 
-const subscriptionKey = (
-  workspaceId: string,
-  topic: string,
-  resourceId?: string
-): string => `${workspaceId}:${topic}:${resourceId ?? '*'}`;
+const subscriptionKey = (workspaceId: string, topic: string, resourceId?: string): string =>
+  `${workspaceId}:${topic}:${resourceId ?? '*'}`;
 
 type HeartbeatTimer = ReturnType<typeof setTimeout>;
 
@@ -269,11 +266,7 @@ export class EventBroker {
     this.subscribers.delete(subscriber.connectionId);
   }
 
-  private getOrCreateBuffer(
-    workspaceId: string,
-    topic: string,
-    resourceId: string
-  ): ReplayBuffer {
+  private getOrCreateBuffer(workspaceId: string, topic: string, resourceId: string): ReplayBuffer {
     const key = bufferKey(workspaceId, topic, resourceId);
     let buffer = this.buffers.get(key);
     if (!buffer) {

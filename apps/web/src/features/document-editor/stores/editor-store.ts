@@ -75,22 +75,18 @@ interface EditorStoreState {
       contentMarkdown?: string;
     }
   ) => void;
-  applyConflictEvent: (
-    payload: {
-      sectionId: string;
-      conflictState: SectionView['conflictState'];
-      conflictReason?: string | null;
-      latestApprovedVersion?: number | null;
-    }
-  ) => void;
-  applyDiffEvent: (
-    payload: {
-      sectionId: string;
-      draftVersion?: number | null;
-      draftBaseVersion?: number | null;
-      approvedVersion?: number | null;
-    }
-  ) => void;
+  applyConflictEvent: (payload: {
+    sectionId: string;
+    conflictState: SectionView['conflictState'];
+    conflictReason?: string | null;
+    latestApprovedVersion?: number | null;
+  }) => void;
+  applyDiffEvent: (payload: {
+    sectionId: string;
+    draftVersion?: number | null;
+    draftBaseVersion?: number | null;
+    approvedVersion?: number | null;
+  }) => void;
   reset: () => void;
 }
 

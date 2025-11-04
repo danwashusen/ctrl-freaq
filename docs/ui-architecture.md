@@ -1140,11 +1140,10 @@ Content-Type: application/json
 
 ### Realtime Event Delivery {#realtime-event-delivery}
 
-The frontend consumes the unified SSE hub via
-`src/lib/streaming/event-hub.ts`, a library-first module that maintains a
-single `EventSource` connection per tab. `ApiProvider` surfaces the hub through
-`eventHub`, `eventHubHealth`, and `eventHubEnabled` so feature hooks can react
-to stream status.
+The frontend consumes the unified SSE hub via `src/lib/streaming/event-hub.ts`,
+a library-first module that maintains a single `EventSource` connection per tab.
+`ApiProvider` surfaces the hub through `eventHub`, `eventHubHealth`, and
+`eventHubEnabled` so feature hooks can react to stream status.
 
 - **Feature flag control** – `VITE_ENABLE_SSE_HUB` toggles the hub. When the
   flag is disabled the existing polling timers stay active.
@@ -1164,9 +1163,9 @@ Current hub consumers:
 
 - `useProjectsQuery` – Applies `project.lifecycle` events to TanStack Query
   caches and disables refetch intervals while the hub is healthy.
-- `useQualityGates` – Streams `quality-gate.progress` and
-  `quality-gate.summary` envelopes directly into the editor panels, restarting
-  the 200 ms timers only when fallback activates.
+- `useQualityGates` – Streams `quality-gate.progress` and `quality-gate.summary`
+  envelopes directly into the editor panels, restarting the 200 ms timers only
+  when fallback activates.
 - `useSectionDraft` – Ingests `section.conflict` and `section.diff` envelopes,
   synchronizing the section draft store and editor store reducers so watchers
   see conflict banners immediately.

@@ -23,9 +23,8 @@ const { mockUseUser } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth-provider', async () => {
-  const actual = await vi.importActual<typeof import('../lib/auth-provider')>(
-    '../lib/auth-provider'
-  );
+  const actual =
+    await vi.importActual<typeof import('../lib/auth-provider')>('../lib/auth-provider');
 
   return {
     ...actual,
@@ -46,14 +45,12 @@ let currentHealth: HubHealthState = {
 
 let eventListener: HubListener | null = null;
 
-const subscribeMock = vi.fn(
-  (scope: HubSubscriptionScope, listener: HubListener): (() => void) => {
-    eventListener = listener;
-    return () => {
-      unsubscribeMock(scope);
-    };
-  }
-);
+const subscribeMock = vi.fn((scope: HubSubscriptionScope, listener: HubListener): (() => void) => {
+  eventListener = listener;
+  return () => {
+    unsubscribeMock(scope);
+  };
+});
 
 const mockEventHub: EventHub = {
   subscribe: subscribeMock,
@@ -177,7 +174,10 @@ describe('useProjectsQuery', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(subscribeMock).toHaveBeenCalledTimes(1);
-    expect(subscribeMock).toHaveBeenCalledWith({ topic: 'project.lifecycle' }, expect.any(Function));
+    expect(subscribeMock).toHaveBeenCalledWith(
+      { topic: 'project.lifecycle' },
+      expect.any(Function)
+    );
     expect(eventListener).not.toBeNull();
     expect(mockGetAll).toHaveBeenCalledTimes(1);
 

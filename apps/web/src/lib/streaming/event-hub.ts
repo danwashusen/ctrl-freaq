@@ -53,7 +53,10 @@ export interface EventHubOptions {
 }
 
 export interface EventHub {
-  subscribe<Payload = unknown>(scope: HubSubscriptionScope, listener: HubListener<Payload>): () => void;
+  subscribe<Payload = unknown>(
+    scope: HubSubscriptionScope,
+    listener: HubListener<Payload>
+  ): () => void;
   onHealthChange(listener: (state: HubHealthState) => void): () => void;
   onFallbackChange(listener: (active: boolean) => void): () => void;
   getHealthState(): HubHealthState;
@@ -154,7 +157,8 @@ export function createEventHub(options: EventHubOptions): EventHub {
   };
 
   const eventSourceFactory =
-    options.eventSourceFactory ?? ((url: string, init?: EventSourceInitWithHeaders) => new EventSource(url, init));
+    options.eventSourceFactory ??
+    ((url: string, init?: EventSourceInitWithHeaders) => new EventSource(url, init));
 
   const resolveStreamUrl = (): string => {
     let envPath: string | undefined;
