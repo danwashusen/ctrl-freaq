@@ -43,6 +43,19 @@
     },
     "format:check": {
       "outputs": []
+    },
+    "dev:e2e": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NODE_ENV",
+        "PORT",
+        "CLERK_PUBLISHABLE_KEY",
+        "CLERK_SECRET_KEY",
+        "DATABASE_URL",
+        "VITE_E2E",
+        "CTRL_FREAQ_PROFILE"
+      ]
     }
   },
   "remoteCache": {

@@ -5,6 +5,7 @@ import {
   SectionRepositoryImpl,
   type CreateSectionDraftInput,
   type SectionDraft,
+  type SectionView,
 } from '@ctrl-freaq/shared-data';
 
 import {
@@ -17,6 +18,8 @@ import {
 } from '../validation/section-editor.schema';
 import { SectionEditorServiceError } from './section-editor.errors';
 import { SectionConflictService } from './section-conflict.service';
+import { SectionDiffService } from './section-diff.service';
+import type { ResolvedEventStream } from '../../quality-gates/event-stream-utils.js';
 
 export interface SaveDraftOptions extends SaveDraftRequest {
   sectionId: string;
@@ -25,6 +28,7 @@ export interface SaveDraftOptions extends SaveDraftRequest {
   draftId?: string;
   requestId?: string;
   triggeredBy?: ConflictTrigger;
+  eventStream?: ResolvedEventStream | null;
 }
 
 export class SectionDraftConflictError extends SectionEditorServiceError {
@@ -39,6 +43,7 @@ export class SectionDraftService {
     private readonly sections: SectionRepositoryImpl,
     private readonly drafts: SectionDraftRepositoryImpl,
     private readonly conflictService: SectionConflictService,
+    private readonly diffService: SectionDiffService,
     private readonly logger: Logger
   ) {}
 
@@ -67,6 +72,7 @@ export class SectionDraftService {
         approvedVersion: section.approvedVersion,
         requestId: options.requestId,
         triggeredBy: options.triggeredBy ?? 'save',
+        eventStream: options.eventStream ?? null,
       });
       throw new SectionDraftConflictError(conflict);
     }
@@ -110,6 +116,14 @@ export class SectionDraftService {
         formattingAnnotations,
       });
     }
+
+    await this.publishDiffEvent({
+      eventStream: options.eventStream ?? null,
+      section,
+      draft,
+      requestId: options.requestId,
+      userId: options.userId,
+    });
 
     this.logger.info(
       {
@@ -235,5 +249,72 @@ export class SectionDraftService {
       savedBy: draft.savedBy,
       summaryNote: draft.summaryNote || undefined,
     };
+  }
+
+  private async publishDiffEvent(options: {
+    eventStream: ResolvedEventStream | null;
+    section: SectionView;
+    draft: SectionDraft;
+    requestId?: string;
+    userId: string;
+  }): Promise<void> {
+    if (!options.eventStream) {
+      this.logger.info(
+        {
+          sectionId: options.section.id,
+          draftId: options.draft.id,
+        },
+        'Skipping section diff event publish; event stream unavailable'
+      );
+      return;
+    }
+
+    try {
+      const diff = await this.diffService.buildDiff({
+        sectionId: options.section.id,
+        userId: options.userId,
+        draftId: options.draft.id,
+        draftContent: options.draft.contentMarkdown,
+        draftVersion: options.draft.draftVersion,
+        requestId: options.requestId,
+      });
+
+      options.eventStream.broker.publish({
+        workspaceId: options.eventStream.workspaceId,
+        topic: 'section.diff',
+        resourceId: options.section.id,
+        payload: {
+          sectionId: options.section.id,
+          documentId: options.section.docId,
+          diff,
+          draftVersion: options.draft.draftVersion,
+          draftBaseVersion: options.draft.draftBaseVersion,
+          approvedVersion: options.section.approvedVersion ?? null,
+          generatedAt: diff.metadata?.generatedAt ?? new Date().toISOString(),
+        },
+        metadata: {
+          requestId: options.requestId ?? 'unknown',
+          draftId: options.draft.id,
+        },
+      });
+      this.logger.warn(
+        {
+          requestId: options.requestId ?? 'unknown',
+          sectionId: options.section.id,
+          draftId: options.draft.id,
+        },
+        'Published section diff event'
+      );
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId: options.requestId ?? 'unknown',
+          sectionId: options.section.id,
+          draftId: options.draft.id,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to publish section diff event'
+      );
+    }
   }
 }

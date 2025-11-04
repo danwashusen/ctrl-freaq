@@ -7,6 +7,7 @@ import type {
   RunDocumentInput,
 } from '../services/document-quality.service.js';
 import type { DocumentQualityGateSummary } from '@ctrl-freaq/shared-data';
+import { resolveEventStream } from '../event-stream-utils.js';
 
 interface RunDocumentBody {
   reason?: RunDocumentInput['source'];
@@ -49,6 +50,112 @@ export class DocumentQualityController {
     private readonly service: DocumentQualityService,
     private readonly logger: Logger
   ) {}
+
+  private publishDocumentProgress(
+    req: AuthenticatedRequest,
+    documentId: string,
+    payload: {
+      runId: string;
+      requestId: string;
+      triggeredBy: string;
+      stage: string;
+      status: 'running' | 'failed';
+      percentComplete?: number;
+      incidentId?: string | null;
+    }
+  ): void {
+    const resolved = resolveEventStream(req, {
+      logger: this.logger,
+      context: { documentId, stage: payload.stage },
+    });
+    if (!resolved) {
+      return;
+    }
+
+    try {
+      resolved.broker.publish({
+        workspaceId: resolved.workspaceId,
+        topic: 'quality-gate.progress',
+        resourceId: documentId,
+        payload: {
+          runId: payload.runId,
+          documentId,
+          sectionId: null,
+          status: payload.status,
+          stage: payload.stage,
+          percentComplete:
+            typeof payload.percentComplete === 'number'
+              ? payload.percentComplete
+              : payload.status === 'running'
+                ? 0
+                : 100,
+          incidentId: payload.incidentId ?? null,
+          triggeredBy: payload.triggeredBy,
+          requestId: payload.requestId,
+        },
+        metadata: {
+          requestId: payload.requestId,
+          stage: payload.stage,
+          status: payload.status,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId: req.requestId,
+          documentId,
+          stage: payload.stage,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to publish document quality gate progress event'
+      );
+    }
+  }
+
+  private async publishDocumentSummary(
+    req: AuthenticatedRequest,
+    documentId: string,
+    triggeredBy: string
+  ): Promise<void> {
+    const resolved = resolveEventStream(req, {
+      logger: this.logger,
+      context: { documentId, stage: 'document.summary' },
+    });
+    if (!resolved) {
+      return;
+    }
+
+    try {
+      const summary = await this.service.getSummary(documentId);
+      if (!summary) {
+        return;
+      }
+
+      const serialized = serializeSummary(summary);
+      resolved.broker.publish({
+        workspaceId: resolved.workspaceId,
+        topic: 'quality-gate.summary',
+        resourceId: documentId,
+        payload: {
+          ...serialized,
+          status: 'completed' as const,
+        },
+        metadata: {
+          requestId: serialized.requestId ?? 'unknown',
+          triggeredBy,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId: req.requestId,
+          documentId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        'Failed to publish document quality gate summary event'
+      );
+    }
+  }
 
   async runDocument(req: AuthenticatedRequest, res: Response): Promise<void> {
     const requestId = req.requestId ?? 'unknown';
@@ -104,6 +211,16 @@ export class DocumentQualityController {
         'Document quality gate run failed'
       );
 
+      this.publishDocumentProgress(req, documentId, {
+        runId: result.requestId,
+        requestId: result.requestId,
+        triggeredBy,
+        stage: 'document.failed',
+        status: 'failed',
+        percentComplete: 0,
+        incidentId: result.incidentId ?? null,
+      });
+
       sendError(res, {
         status: 503,
         code: 'QUALITY_GATE_UNAVAILABLE',
@@ -122,6 +239,16 @@ export class DocumentQualityController {
       queuedAt: result.queuedAt,
       estimatedCompletionSeconds: result.estimatedCompletionSeconds,
     });
+
+    this.publishDocumentProgress(req, documentId, {
+      runId: result.requestId,
+      requestId: result.requestId,
+      triggeredBy: result.triggeredBy,
+      stage: 'document.running',
+      status: 'running',
+    });
+
+    await this.publishDocumentSummary(req, documentId, result.triggeredBy);
   }
 
   async getSummary(req: AuthenticatedRequest, res: Response): Promise<void> {

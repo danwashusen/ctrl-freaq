@@ -10,6 +10,7 @@ import type {
 } from '../api/section-editor.mappers';
 import { useSectionDraft } from './use-section-draft';
 import { useSectionDraftStore } from '../stores/section-draft-store';
+import type { EventEnvelope, HubHealthState } from '@/lib/streaming/event-hub';
 
 const applyDraftBundleMock = vi.fn();
 
@@ -100,6 +101,66 @@ const createManualDraftStorageMock = () => ({
   deleteDraft: vi.fn().mockResolvedValue(undefined),
 });
 
+interface SectionConflictEventPayload {
+  sectionId: string;
+  documentId: string;
+  conflictState: 'clean' | 'rebase_required' | 'blocked';
+  conflictReason?: string | null;
+  latestApprovedVersion?: number | null;
+  detectedAt?: string;
+  detectedBy?: string | null;
+  events?: Array<{
+    detectedAt: string;
+    detectedDuring?: string;
+    previousApprovedVersion?: number;
+    latestApprovedVersion?: number;
+    resolutionNote?: string | null;
+    resolvedBy?: string | null;
+  }>;
+  draftId?: string | null;
+}
+
+interface SectionDiffEventPayload {
+  sectionId: string;
+  documentId: string;
+  diff: unknown;
+  draftVersion?: number | null;
+  draftBaseVersion?: number | null;
+  approvedVersion?: number | null;
+  generatedAt?: string;
+}
+
+const eventHubMock = {
+  subscribe: vi.fn(),
+  onHealthChange: vi.fn(),
+  onFallbackChange: vi.fn(),
+  getHealthState: vi.fn(),
+  isEnabled: vi.fn(),
+  setEnabled: vi.fn(),
+  forceReconnect: vi.fn(),
+  shutdown: vi.fn(),
+};
+
+let mockEventHubEnabled = true;
+let mockEventHubHealth: HubHealthState = {
+  status: 'healthy',
+  lastEventAt: null,
+  lastHeartbeatAt: null,
+  retryAttempt: 0,
+  fallbackActive: false,
+};
+
+let eventHubListeners: Record<string, Array<(envelope: EventEnvelope) => void>> = {};
+let fallbackHandlers: Array<(active: boolean) => void> = [];
+
+vi.mock('@/lib/api-context', () => ({
+  useApi: vi.fn(() => ({
+    eventHub: eventHubMock,
+    eventHubEnabled: mockEventHubEnabled,
+    eventHubHealth: mockEventHubHealth,
+  })),
+}));
+
 describe('useSectionDraft', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -112,6 +173,53 @@ describe('useSectionDraft', () => {
       appliedSections: ['section-1'],
     });
     fetchProjectRetentionPolicyMock.mockResolvedValue(null);
+    mockEventHubEnabled = true;
+    mockEventHubHealth = {
+      status: 'healthy',
+      lastEventAt: null,
+      lastHeartbeatAt: null,
+      retryAttempt: 0,
+      fallbackActive: false,
+    };
+    eventHubListeners = {};
+    fallbackHandlers = [];
+    eventHubMock.subscribe.mockReset();
+    eventHubMock.onFallbackChange.mockReset();
+    eventHubMock.onHealthChange.mockReset();
+    eventHubMock.getHealthState.mockReset();
+    eventHubMock.isEnabled.mockReset();
+    eventHubMock.setEnabled.mockReset();
+    eventHubMock.forceReconnect.mockReset();
+    eventHubMock.shutdown.mockReset();
+    eventHubMock.getHealthState.mockImplementation(() => mockEventHubHealth);
+    eventHubMock.isEnabled.mockImplementation(() => true);
+    eventHubMock.subscribe.mockImplementation((scope, listener) => {
+      const key = `${scope.topic}:${scope.resourceId ?? '*'}`;
+      let listeners = eventHubListeners[key];
+      if (!listeners) {
+        listeners = [];
+        eventHubListeners[key] = listeners;
+      }
+      listeners.push(listener as (envelope: EventEnvelope) => void);
+      return () => {
+        const bucket = eventHubListeners[key];
+        if (!bucket) {
+          return;
+        }
+        eventHubListeners[key] = bucket.filter(registered => registered !== listener);
+      };
+    });
+    eventHubMock.onFallbackChange.mockImplementation(handler => {
+      fallbackHandlers.push(handler);
+      handler(mockEventHubHealth.fallbackActive);
+      return () => {
+        fallbackHandlers = fallbackHandlers.filter(current => current !== handler);
+      };
+    });
+    eventHubMock.onHealthChange.mockImplementation(handler => {
+      handler(mockEventHubHealth);
+      return () => undefined;
+    });
   });
 
   afterEach(() => {
@@ -813,5 +921,169 @@ describe('useSectionDraft', () => {
     );
 
     expect(draftStoreMock.saveDraft).toHaveBeenCalled();
+  });
+
+  describe('event hub integration', () => {
+    it('subscribes to section events and hydrates local state from envelopes', async () => {
+      const setIntervalSpy = vi.spyOn(window, 'setInterval');
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+      const now = new Date().toISOString();
+
+      const { result } = renderHook(() =>
+        useSectionDraft({
+          api: {
+            saveDraft: vi.fn(),
+            fetchDiff: vi.fn(),
+          },
+          sectionId: 'section-1',
+          initialContent: '# Intro',
+          approvedVersion: 5,
+          documentId: 'doc-1',
+          userId: 'user-1',
+          projectSlug: 'demo-project',
+          documentSlug: 'doc-1',
+          sectionTitle: 'Section Title',
+          sectionPath: 'section-1',
+          loadPersistedDraft: false,
+          autoStartDiffPolling: true,
+        })
+      );
+
+      expect(eventHubMock.subscribe).toHaveBeenCalledWith(
+        { topic: 'section.conflict', resourceId: 'section-1' },
+        expect.any(Function)
+      );
+      expect(eventHubMock.subscribe).toHaveBeenCalledWith(
+        { topic: 'section.diff', resourceId: 'section-1' },
+        expect.any(Function)
+      );
+      expect(setIntervalSpy).not.toHaveBeenCalled();
+
+      const conflictKey = 'section.conflict:section-1';
+      const diffKey = 'section.diff:section-1';
+      const conflictListeners = eventHubListeners[conflictKey] ?? [];
+      const diffListeners = eventHubListeners[diffKey] ?? [];
+      expect(conflictListeners).toHaveLength(1);
+      expect(diffListeners).toHaveLength(1);
+
+      const conflictPayload: SectionConflictEventPayload = {
+        sectionId: 'section-1',
+        documentId: 'doc-1',
+        conflictState: 'rebase_required',
+        conflictReason: 'Latest approved version exceeded draft base',
+        latestApprovedVersion: 7,
+        detectedAt: now,
+        detectedBy: 'user-reviewer',
+        events: [
+          {
+            detectedAt: now,
+            detectedDuring: 'save',
+            previousApprovedVersion: 5,
+            latestApprovedVersion: 7,
+            resolutionNote: null,
+            resolvedBy: null,
+          },
+        ],
+      };
+
+      const conflictEnvelope: EventEnvelope<SectionConflictEventPayload> = {
+        id: 'section.conflict:section-1:1',
+        topic: 'section.conflict',
+        resourceId: 'section-1',
+        workspaceId: 'workspace-default',
+        sequence: 1,
+        kind: 'event',
+        emittedAt: now,
+        payload: conflictPayload,
+      };
+
+      await act(async () => {
+        conflictListeners[0]?.(conflictEnvelope);
+        await Promise.resolve();
+      });
+
+      expect(result.current.state.conflictState).toBe('rebase_required');
+      expect(result.current.state.conflictState).toBe(conflictPayload.conflictState);
+      expect(useSectionDraftStore.getState().conflictEvents).toHaveLength(
+        conflictPayload.events?.length ?? 0
+      );
+
+      const diffPayload: SectionDiffEventPayload = {
+        sectionId: 'section-1',
+        documentId: 'doc-1',
+        diff: { segments: [{ type: 'added', content: 'New architecture update' }] },
+        draftVersion: 8,
+        draftBaseVersion: 6,
+        approvedVersion: 7,
+        generatedAt: now,
+      };
+
+      const diffEnvelope: EventEnvelope<SectionDiffEventPayload> = {
+        id: 'section.diff:section-1:2',
+        topic: 'section.diff',
+        resourceId: 'section-1',
+        workspaceId: 'workspace-default',
+        sequence: 2,
+        kind: 'event',
+        emittedAt: now,
+        payload: diffPayload,
+      };
+
+      await act(async () => {
+        diffListeners[0]?.(diffEnvelope);
+        await Promise.resolve();
+      });
+
+      expect(result.current.state.diff).toEqual(diffPayload.diff);
+      expect(result.current.state.lastDiffFetchedAt).not.toBeNull();
+
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    });
+
+    it('resumes diff polling when the hub enters fallback mode', async () => {
+      const setIntervalSpy = vi.spyOn(window, 'setInterval');
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+
+      renderHook(() =>
+        useSectionDraft({
+          api: {
+            saveDraft: vi.fn(),
+            fetchDiff: vi.fn().mockResolvedValue({ segments: [] }),
+          },
+          sectionId: 'section-1',
+          initialContent: '# Intro',
+          approvedVersion: 5,
+          documentId: 'doc-1',
+          userId: 'user-1',
+          projectSlug: 'demo-project',
+          documentSlug: 'doc-1',
+          sectionTitle: 'Section Title',
+          sectionPath: 'section-1',
+          loadPersistedDraft: false,
+          autoStartDiffPolling: true,
+          diffPollingIntervalMs: 5_000,
+        })
+      );
+
+      expect(setIntervalSpy).not.toHaveBeenCalled();
+
+      await act(async () => {
+        fallbackHandlers.forEach(handler => handler(true));
+        await Promise.resolve();
+      });
+
+      expect(setIntervalSpy).toHaveBeenCalled();
+
+      await act(async () => {
+        fallbackHandlers.forEach(handler => handler(false));
+        await Promise.resolve();
+      });
+
+      expect(clearIntervalSpy).toHaveBeenCalled();
+
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    });
   });
 });

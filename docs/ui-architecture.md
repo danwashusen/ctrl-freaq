@@ -151,8 +151,9 @@ src/
 │   │   ├── SimpleAuthProvider.tsx
 │   │   └── SimpleAuthProvider.test.tsx
 │   ├── streaming/          # SSE/WebStream utilities
-│   │   ├── sse-client.ts
-│   │   └── stream-parser.ts
+│   │   ├── event-hub.ts
+│   │   ├── fallback-messages.ts
+│   │   └── progress-tracker.ts
 │   ├── utils/              # Utility functions
 │   │   ├── cn.ts
 │   │   └── format.ts
@@ -1136,6 +1137,43 @@ Content-Type: application/json
 - **Merge Conflicts**: Present diff view with manual resolution options
 - **Server Errors**: Rollback optimistic updates, preserve user changes
 - **Data Corruption**: Automatic backup creation before major operations
+
+### Realtime Event Delivery {#realtime-event-delivery}
+
+The frontend consumes the unified SSE hub via
+`src/lib/streaming/event-hub.ts`, a library-first module that maintains a
+single `EventSource` connection per tab. `ApiProvider` surfaces the hub through
+`eventHub`, `eventHubHealth`, and `eventHubEnabled` so feature hooks can react
+to stream status.
+
+- **Feature flag control** – `VITE_ENABLE_SSE_HUB` toggles the hub. When the
+  flag is disabled the existing polling timers stay active.
+- **Health-aware fallback** – The hub flips `fallbackActive` when retries exceed
+  thresholds. Hooks toggle their polling loops accordingly so users continue
+  receiving updates even while the stream recovers.
+- **Scoped subscriptions** – Consumers register listeners with
+  `eventHub.subscribe({ topic, resourceId }, handler)`. The hub deduplicates
+  listeners per scope and cleans them up automatically on unmount.
+- **Replay buffering** – The hub tracks the last delivered envelope ID and sends
+  it as `Last-Event-ID` during reconnect so the backend broker can flush the
+  bounded replay window before live events resume.
+- **Telemetry hooks** – Connection lifecycle changes bubble into the shared
+  logger, enabling dashboards to capture fallback intervals mandated by D006.
+
+Current hub consumers:
+
+- `useProjectsQuery` – Applies `project.lifecycle` events to TanStack Query
+  caches and disables refetch intervals while the hub is healthy.
+- `useQualityGates` – Streams `quality-gate.progress` and
+  `quality-gate.summary` envelopes directly into the editor panels, restarting
+  the 200 ms timers only when fallback activates.
+- `useSectionDraft` – Ingests `section.conflict` and `section.diff` envelopes,
+  synchronizing the section draft store and editor store reducers so watchers
+  see conflict banners immediately.
+
+The hub defers replay flush until after the backend emits the `stream.open`
+handshake, ensuring listeners registered within `useEffect` blocks receive
+buffered events after reconnect scenarios.
 
 ### Template Resolution & Content Generation {#template-resolution-content-generation}
 

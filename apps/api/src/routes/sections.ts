@@ -21,6 +21,7 @@ import {
   SectionDraftConflictError,
   SectionEditorServiceError,
 } from '../modules/section-editor/services/index.js';
+import { resolveEventStream } from '../modules/quality-gates/event-stream-utils.js';
 import type {
   SectionApprovalService,
   SectionConflictLogService,
@@ -261,6 +262,22 @@ sectionsRouter.post(
       });
 
       const conflictService = getSectionConflictService(req);
+      const eventStream = resolveEventStream(req, {
+        logger,
+        context: {
+          sectionId,
+          route: 'conflict-check',
+        },
+      });
+      if (!eventStream) {
+        logger.info(
+          {
+            requestId,
+            sectionId,
+          },
+          'Event stream disabled during conflict check'
+        );
+      }
 
       const conflictOptions: ConflictCheckOptions = {
         sectionId,
@@ -271,6 +288,7 @@ sectionsRouter.post(
         approvedVersion: conflictInput.approvedVersion,
         requestId,
         triggeredBy: conflictInput.triggeredBy,
+        eventStream,
       };
 
       const result = await conflictService.check(conflictOptions);
@@ -362,6 +380,13 @@ sectionsRouter.post(
 
       const draftService = getSectionDraftService(req);
       const drafts = getDraftRepository(req);
+      const eventStream = resolveEventStream(req, {
+        logger,
+        context: {
+          sectionId,
+          route: 'save-draft',
+        },
+      });
 
       const draftOptions: SaveDraftOptions = {
         sectionId,
@@ -376,6 +401,7 @@ sectionsRouter.post(
         clientTimestamp: draftInput.clientTimestamp,
         requestId,
         triggeredBy: 'save',
+        eventStream,
       };
 
       const draftResponse = await draftService.saveDraft(draftOptions);
@@ -487,6 +513,22 @@ sectionsRouter.get(
       }
 
       const diffService = getSectionDiffService(req);
+      const eventStream = resolveEventStream(req, {
+        logger,
+        context: {
+          sectionId,
+          route: 'diff-get',
+        },
+      });
+      if (!eventStream) {
+        logger.info(
+          {
+            requestId,
+            sectionId,
+          },
+          'Event stream disabled during diff fetch'
+        );
+      }
       const diffPayload = await diffService.buildDiff({
         sectionId,
         userId,
@@ -495,6 +537,47 @@ sectionsRouter.get(
         draftVersion: draft.draftVersion,
         requestId,
       });
+
+      if (eventStream) {
+        try {
+          eventStream.broker.publish({
+            workspaceId: eventStream.workspaceId,
+            topic: 'section.diff',
+            resourceId: sectionId,
+            payload: {
+              sectionId,
+              documentId: section.docId,
+              diff: diffPayload,
+              draftVersion: draft.draftVersion,
+              draftBaseVersion: draft.draftBaseVersion,
+              approvedVersion: section.approvedVersion ?? null,
+              generatedAt: diffPayload.metadata?.generatedAt ?? new Date().toISOString(),
+            },
+            metadata: {
+              requestId,
+              draftId: draft.id,
+            },
+          });
+          logger.warn(
+            {
+              requestId,
+              sectionId,
+              draftId: draft.id,
+            },
+            'Published section diff event from diff endpoint'
+          );
+        } catch (publishError) {
+          logger.warn(
+            {
+              requestId,
+              sectionId,
+              draftId: draft.id,
+              error: publishError instanceof Error ? publishError.message : String(publishError),
+            },
+            'Failed to publish section diff event from diff endpoint'
+          );
+        }
+      }
 
       res.status(200).json(diffPayload);
     } catch (error) {

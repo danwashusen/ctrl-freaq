@@ -113,7 +113,7 @@ export const ApprovalControls: FC<ApprovalControlsProps> = ({
   return (
     <Card
       className={cn(
-        'shadow-xs flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5',
+        'shadow-xs flex w-full flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100',
         className
       )}
       data-testid="approval-panel"

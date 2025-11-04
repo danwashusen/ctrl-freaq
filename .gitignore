@@ -53,6 +53,7 @@ test-results.xml
 # Environment config
 .env*
 !.env.example
+!**/.env.fixture
 
 local/
 

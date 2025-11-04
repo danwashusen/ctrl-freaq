@@ -46,6 +46,25 @@ const baseSection: SectionView = {
   lastManualSaveAt: Date.now(),
 };
 
+interface ConflictEventPayload {
+  sectionId: string;
+  conflictState: SectionView['conflictState'];
+  conflictReason?: string | null;
+  latestApprovedVersion?: number | null;
+}
+
+interface DiffEventPayload {
+  sectionId: string;
+  draftVersion?: number | null;
+  draftBaseVersion?: number | null;
+  approvedVersion?: number | null;
+}
+
+interface EditorStoreRealtimeActions {
+  applyConflictEvent: (payload: ConflictEventPayload) => void;
+  applyDiffEvent: (payload: DiffEventPayload) => void;
+}
+
 beforeEach(() => {
   useEditorStore.getState().reset();
   useEditorStore.getState().loadSection(baseSection);
@@ -99,5 +118,47 @@ describe('editor-store metadata helpers', () => {
     expect(section?.contentMarkdown).toBe('## Approved content');
     expect(section?.status).toBe('ready');
     expect(section?.conflictState).toBe('clean');
+  });
+});
+
+describe('editor-store realtime reducers', () => {
+  it('applies conflict events idempotently', () => {
+    const store = useEditorStore.getState() as unknown as EditorStoreRealtimeActions;
+    expect(typeof store.applyConflictEvent).toBe('function');
+
+    const payload: ConflictEventPayload = {
+      sectionId: 'section-1',
+      conflictState: 'rebase_required',
+      conflictReason: 'Server detected newer approved content.',
+      latestApprovedVersion: 9,
+    };
+
+    store.applyConflictEvent(payload);
+    store.applyConflictEvent(payload);
+
+    const section = useEditorStore.getState().sections['section-1'];
+    expect(section?.conflictState).toBe('rebase_required');
+    expect(section?.conflictReason).toBe('Server detected newer approved content.');
+    expect(section?.latestApprovedVersion).toBe(9);
+  });
+
+  it('applies diff events and maintains draft metadata consistency', () => {
+    const store = useEditorStore.getState() as unknown as EditorStoreRealtimeActions;
+    expect(typeof store.applyDiffEvent).toBe('function');
+
+    const payload: DiffEventPayload = {
+      sectionId: 'section-1',
+      draftVersion: 8,
+      draftBaseVersion: 6,
+      approvedVersion: 7,
+    };
+
+    store.applyDiffEvent(payload);
+    store.applyDiffEvent(payload);
+
+    const section = useEditorStore.getState().sections['section-1'];
+    expect(section?.draftVersion).toBe(8);
+    expect(section?.draftBaseVersion).toBe(6);
+    expect(section?.approvedVersion).toBe(7);
   });
 });

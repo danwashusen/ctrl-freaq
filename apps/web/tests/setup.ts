@@ -5,6 +5,17 @@ import { beforeAll, afterAll, afterEach, vi } from 'vitest';
 import * as zustandMock from './__mocks__/zustand';
 
 const useShallowMock = <State, StateSlice>(selector: (state: State) => StateSlice) => selector;
+const createMatchMediaMock = () =>
+  vi.fn().mockImplementation((query: string) => ({
+    matches: query === '(min-width: 1024px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
 
 // Global test setup
 beforeAll(() => {
@@ -14,11 +25,24 @@ beforeAll(() => {
   vi.mock('zustand/shallow', () => ({
     useShallow: useShallowMock,
   }));
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: createMatchMediaMock(),
+  });
+  Object.defineProperty(window, 'scrollTo', {
+    writable: true,
+    value: vi.fn(),
+  });
 });
 
 afterEach(() => {
   // Cleanup after each test
   cleanup();
+  window.sessionStorage.clear();
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: createMatchMediaMock(),
+  });
 });
 
 afterAll(() => {

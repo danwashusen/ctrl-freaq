@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 import type { ManualDraftStorage } from '@ctrl-freaq/editor-persistence';
@@ -7,6 +7,7 @@ import { useSectionDraft } from '@/features/section-editor/hooks/use-section-dra
 import { useSectionDraftStore } from '@/features/section-editor/stores/section-draft-store';
 import { SectionEditorClientError } from '@/features/section-editor/api/section-editor.client';
 import type { DraftPersistenceClient } from '@/features/document-editor/services/draft-client';
+import type { EventHub, HubHealthState } from '@/lib/streaming/event-hub';
 
 const createMockDraftStore = () => ({
   saveDraft: vi.fn().mockResolvedValue({
@@ -42,8 +43,62 @@ vi.mock('@ctrl-freaq/editor-persistence', async () => {
   };
 });
 
+let apiContextModule: typeof import('@/lib/api-context');
+let useApiSpy: ReturnType<typeof vi.spyOn> | null = null;
+
+beforeAll(async () => {
+  apiContextModule = await import('@/lib/api-context');
+});
+
+afterEach(() => {
+  useApiSpy?.mockRestore();
+  useApiSpy = null;
+});
+
 describe('useSectionDraft manual save workflow', () => {
   beforeEach(() => {
+    const noop = () => {};
+    const mockHealth: HubHealthState = {
+      status: 'healthy',
+      lastEventAt: null,
+      lastHeartbeatAt: null,
+      retryAttempt: 0,
+      fallbackActive: false,
+    };
+    const mockEventHub: EventHub = {
+      subscribe: vi.fn(() => noop),
+      onHealthChange: vi.fn(() => noop),
+      onFallbackChange: vi.fn(() => noop),
+      getHealthState: vi.fn(() => mockHealth),
+      isEnabled: vi.fn(() => false),
+      setEnabled: vi.fn(),
+      forceReconnect: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    useApiSpy = vi.spyOn(apiContextModule, 'useApi').mockReturnValue({
+      projects: {
+        getAll: vi.fn(),
+        getById: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        archive: vi.fn(),
+        restore: vi.fn(),
+      },
+      configuration: {
+        get: vi.fn(),
+        update: vi.fn(),
+      },
+      health: {
+        check: vi.fn(),
+      },
+      client: {} as never,
+      eventHub: mockEventHub,
+      eventHubHealth: mockHealth,
+      eventHubEnabled: false,
+      setEventHubEnabled: vi.fn(),
+    });
     vi.clearAllMocks();
     mockDraftStore = createMockDraftStore();
     useSectionDraftStore.getState().reset();

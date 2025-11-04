@@ -19,12 +19,14 @@ import {
   type ConflictTrigger,
 } from '../validation/section-editor.schema';
 import { SectionEditorServiceError } from './section-editor.errors';
+import type { ResolvedEventStream } from '../../quality-gates/event-stream-utils.js';
 
 export interface ConflictCheckOptions extends ConflictCheckRequest {
   sectionId: string;
   userId: string;
   draftId?: string;
   requestId?: string;
+  eventStream?: ResolvedEventStream | null;
 }
 
 export class SectionConflictService {
@@ -53,8 +55,9 @@ export class SectionConflictService {
     const draft = options.draftId ? await this.drafts.findById(options.draftId) : null;
     const status = this.resolveStatus(params, latestApprovedVersion, draft ?? undefined);
 
+    let detectedAt: Date | null = null;
     if (status === 'rebase_required' && options.draftId) {
-      await this.logConflict(options, section, draft ?? undefined);
+      detectedAt = await this.logConflict(options, section, draft ?? undefined);
     }
 
     const response = ConflictCheckResponseSchema.parse({
@@ -67,6 +70,18 @@ export class SectionConflictService {
       rebasedDraft:
         status === 'rebase_required' ? this.buildRebasedDraft(section, draft, params) : undefined,
       events: options.draftId ? await this.fetchConflictLog(options.draftId) : undefined,
+    });
+
+    this.publishConflictEvent({
+      eventStream: options.eventStream ?? null,
+      section,
+      draft,
+      conflict: response,
+      detectedAt,
+      requestId: options.requestId,
+      userId: options.userId,
+      draftId: options.draftId,
+      triggeredBy: options.triggeredBy ?? null,
     });
 
     this.logger.info(
@@ -103,7 +118,7 @@ export class SectionConflictService {
     options: ConflictCheckOptions,
     section: SectionView,
     draft?: SectionDraft
-  ): Promise<void> {
+  ): Promise<Date | null> {
     const detectedAt = new Date();
     const detectionPoint: ConflictTrigger = options.triggeredBy ?? 'entry';
 
@@ -130,7 +145,7 @@ export class SectionConflictService {
         },
         { actorId: options.userId, savedAt: draft.savedAt, savedBy: options.userId }
       );
-      return;
+      return detectedAt;
     }
 
     this.logger.warn(
@@ -141,6 +156,7 @@ export class SectionConflictService {
       },
       'Conflict detected but draft record was not found'
     );
+    return null;
   }
 
   private buildRebasedDraft(
@@ -182,5 +198,72 @@ export class SectionConflictService {
       resolvedBy: entry.resolvedBy,
       resolutionNote: entry.resolutionNote,
     };
+  }
+
+  private publishConflictEvent(options: {
+    eventStream: ResolvedEventStream | null;
+    section: SectionView;
+    draft: SectionDraft | null;
+    conflict: ConflictCheckResponse;
+    detectedAt: Date | null;
+    requestId?: string;
+    userId: string;
+    draftId?: string;
+    triggeredBy?: string | null;
+  }): void {
+    if (!options.eventStream) {
+      this.logger.info(
+        {
+          sectionId: options.section.id,
+          draftId: options.draft?.id ?? options.draftId ?? null,
+        },
+        'Skipping section conflict event publish; event stream unavailable'
+      );
+      return;
+    }
+
+    try {
+      options.eventStream.broker.publish({
+        workspaceId: options.eventStream.workspaceId,
+        topic: 'section.conflict',
+        resourceId: options.section.id,
+        payload: {
+          sectionId: options.section.id,
+          documentId: options.section.docId,
+          conflictState: options.conflict.status,
+          conflictReason: options.conflict.conflictReason ?? null,
+          latestApprovedVersion: options.conflict.latestApprovedVersion ?? null,
+          detectedAt: (options.detectedAt ?? new Date()).toISOString(),
+          detectedBy: options.userId,
+          events: options.conflict.events ?? [],
+          draftId: options.draft?.id ?? options.draftId ?? null,
+          draftVersion: options.draft?.draftVersion ?? null,
+          draftBaseVersion: options.draft?.draftBaseVersion ?? null,
+        },
+        metadata: {
+          requestId: options.requestId ?? 'unknown',
+          triggeredBy: options.triggeredBy ?? 'unknown',
+          conflictState: options.conflict.status,
+        },
+      });
+      this.logger.info(
+        {
+          requestId: options.requestId ?? 'unknown',
+          sectionId: options.section.id,
+          draftId: options.draft?.id ?? options.draftId ?? null,
+        },
+        'Published section conflict event'
+      );
+    } catch (error) {
+      this.logger.warn(
+        {
+          requestId: options.requestId ?? 'unknown',
+          sectionId: options.section.id,
+          draftId: options.draft?.id ?? options.draftId ?? null,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to publish section conflict event'
+      );
+    }
   }
 }
