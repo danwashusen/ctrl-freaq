@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from 'pino';
+import { describe, expect, it } from 'vitest';
+import { createTestLogger, mockAsyncFn, type MockedAsyncFn } from '@ctrl-freaq/test-support';
 
 import type {
   SectionDraft,
@@ -12,13 +13,20 @@ import type {
 
 import { SectionApprovalService } from './section-approval.service';
 
-const createLogger = () =>
-  ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    child: vi.fn().mockReturnThis(),
-  }) as unknown as Logger;
+type SectionRepositoryMock = {
+  findById: MockedAsyncFn<SectionRepositoryImpl['findById']>;
+  finalizeApproval: MockedAsyncFn<SectionRepositoryImpl['finalizeApproval']>;
+};
+
+type SectionDraftRepositoryMock = {
+  findById: MockedAsyncFn<SectionDraftRepositoryImpl['findById']>;
+  updateDraft: MockedAsyncFn<SectionDraftRepositoryImpl['updateDraft']>;
+};
+
+type SectionReviewRepositoryMock = {
+  listBySection: MockedAsyncFn<SectionReviewRepositoryImpl['listBySection']>;
+  updateReviewStatus: MockedAsyncFn<SectionReviewRepositoryImpl['updateReviewStatus']>;
+};
 
 const baseSection = {
   id: 'section-1',
@@ -53,19 +61,23 @@ const baseDraft = {
 
 describe('SectionApprovalService', () => {
   it('finalizes approval and updates related records', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(baseSection),
-      finalizeApproval: vi.fn().mockResolvedValue({
-        ...baseSection,
-        approvedVersion: baseDraft.draftVersion,
-        approvedContent: baseDraft.contentMarkdown,
-      }),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+      finalizeApproval: mockAsyncFn<SectionRepositoryImpl['finalizeApproval']>(),
+    };
+    sections.findById.mockResolvedValue(baseSection);
+    sections.finalizeApproval.mockResolvedValue({
+      ...baseSection,
+      approvedVersion: baseDraft.draftVersion,
+      approvedContent: baseDraft.contentMarkdown,
+    });
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue(baseDraft),
-      updateDraft: vi.fn().mockResolvedValue({ ...baseDraft, rebasedAt: new Date() }),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue(baseDraft);
+    drafts.updateDraft.mockResolvedValue({ ...baseDraft, rebasedAt: new Date() });
 
     const pendingReview: SectionReviewSummary = {
       id: 'review-1',
@@ -91,13 +103,20 @@ describe('SectionApprovalService', () => {
       reviewStatus: 'approved',
     };
 
-    const reviews = {
-      listBySection: vi.fn().mockResolvedValue([pendingReview, completedReview]),
-      updateReviewStatus: vi.fn().mockResolvedValue({ ...pendingReview, reviewStatus: 'approved' }),
-    } as unknown as SectionReviewRepositoryImpl;
+    const reviews: SectionReviewRepositoryMock = {
+      listBySection: mockAsyncFn<SectionReviewRepositoryImpl['listBySection']>(),
+      updateReviewStatus: mockAsyncFn<SectionReviewRepositoryImpl['updateReviewStatus']>(),
+    };
+    reviews.listBySection.mockResolvedValue([pendingReview, completedReview]);
+    reviews.updateReviewStatus.mockResolvedValue({ ...pendingReview, reviewStatus: 'approved' });
 
-    const logger = createLogger();
-    const service = new SectionApprovalService(sections, drafts, reviews, logger);
+    const { logger, info } = createTestLogger<Logger>();
+    const service = new SectionApprovalService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      reviews as unknown as SectionReviewRepositoryImpl,
+      logger
+    );
 
     const response = await service.approve({
       sectionId: baseSection.id,
@@ -144,7 +163,7 @@ describe('SectionApprovalService', () => {
       })
     );
 
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(info).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'req-123',
         sectionId: baseSection.id,
@@ -155,21 +174,29 @@ describe('SectionApprovalService', () => {
   });
 
   it('throws when section does not exist', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(null),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+      finalizeApproval: mockAsyncFn<SectionRepositoryImpl['finalizeApproval']>(),
+    };
+    sections.findById.mockResolvedValue(null);
 
-    const drafts = {
-      findById: vi.fn(),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
 
-    const reviews = {
-      listBySection: vi.fn(),
-      updateReviewStatus: vi.fn(),
-    } as unknown as SectionReviewRepositoryImpl;
+    const reviews: SectionReviewRepositoryMock = {
+      listBySection: mockAsyncFn<SectionReviewRepositoryImpl['listBySection']>(),
+      updateReviewStatus: mockAsyncFn<SectionReviewRepositoryImpl['updateReviewStatus']>(),
+    };
 
-    const service = new SectionApprovalService(sections, drafts, reviews, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionApprovalService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      reviews as unknown as SectionReviewRepositoryImpl,
+      logger
+    );
 
     await expect(
       service.approve({
@@ -181,21 +208,30 @@ describe('SectionApprovalService', () => {
   });
 
   it('throws when draft is not found', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(baseSection),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+      finalizeApproval: mockAsyncFn<SectionRepositoryImpl['finalizeApproval']>(),
+    };
+    sections.findById.mockResolvedValue(baseSection);
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue(null),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue(null);
 
-    const reviews = {
-      listBySection: vi.fn(),
-      updateReviewStatus: vi.fn(),
-    } as unknown as SectionReviewRepositoryImpl;
+    const reviews: SectionReviewRepositoryMock = {
+      listBySection: mockAsyncFn<SectionReviewRepositoryImpl['listBySection']>(),
+      updateReviewStatus: mockAsyncFn<SectionReviewRepositoryImpl['updateReviewStatus']>(),
+    };
 
-    const service = new SectionApprovalService(sections, drafts, reviews, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionApprovalService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      reviews as unknown as SectionReviewRepositoryImpl,
+      logger
+    );
 
     await expect(
       service.approve({
@@ -207,21 +243,30 @@ describe('SectionApprovalService', () => {
   });
 
   it('rejects approving draft tied to different section', async () => {
-    const sections = {
-      findById: vi.fn().mockResolvedValue(baseSection),
-    } as unknown as SectionRepositoryImpl;
+    const sections: SectionRepositoryMock = {
+      findById: mockAsyncFn<SectionRepositoryImpl['findById']>(),
+      finalizeApproval: mockAsyncFn<SectionRepositoryImpl['finalizeApproval']>(),
+    };
+    sections.findById.mockResolvedValue(baseSection);
 
-    const drafts = {
-      findById: vi.fn().mockResolvedValue({ ...baseDraft, sectionId: 'other-section' }),
-      updateDraft: vi.fn(),
-    } as unknown as SectionDraftRepositoryImpl;
+    const drafts: SectionDraftRepositoryMock = {
+      findById: mockAsyncFn<SectionDraftRepositoryImpl['findById']>(),
+      updateDraft: mockAsyncFn<SectionDraftRepositoryImpl['updateDraft']>(),
+    };
+    drafts.findById.mockResolvedValue({ ...baseDraft, sectionId: 'other-section' });
 
-    const reviews = {
-      listBySection: vi.fn(),
-      updateReviewStatus: vi.fn(),
-    } as unknown as SectionReviewRepositoryImpl;
+    const reviews: SectionReviewRepositoryMock = {
+      listBySection: mockAsyncFn<SectionReviewRepositoryImpl['listBySection']>(),
+      updateReviewStatus: mockAsyncFn<SectionReviewRepositoryImpl['updateReviewStatus']>(),
+    };
 
-    const service = new SectionApprovalService(sections, drafts, reviews, createLogger());
+    const { logger } = createTestLogger<Logger>();
+    const service = new SectionApprovalService(
+      sections as unknown as SectionRepositoryImpl,
+      drafts as unknown as SectionDraftRepositoryImpl,
+      reviews as unknown as SectionReviewRepositoryImpl,
+      logger
+    );
 
     await expect(
       service.approve({

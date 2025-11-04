@@ -63,7 +63,7 @@ generated code
 | Routing          | React Router                   | 7.9.x          | Client-side routing                       | Industry standard, existing implementation           |
 | Build Tool       | Vite                           | 5.x            | Build and dev server                      | Fast HMR, ESM native, excellent DX                   |
 | Styling          | Tailwind CSS                   | 3.4.x          | Utility-first CSS                         | Rapid development, consistent design system          |
-| Testing          | Vitest + React Testing Library | 3.x / 16.x     | Unit and integration testing              | Vite native, excellent React support                 |
+| Testing          | Vitest + React Testing Library | 4.x / 16.x     | Unit and integration testing              | Vite native, excellent React support                 |
 | Form Handling    | React Hook Form + Zod          | 7.x / 4.x      | Form state and validation                 | Performance, TypeScript integration                  |
 | Animation        | Framer Motion                  | 11.x           | Animations and transitions                | Declarative API, gesture support                     |
 | Logging          | Pino                           | 9.12.0         | Browser logging with backend transmission | High-performance JSON logging, browser-optimized     |
@@ -1471,6 +1471,9 @@ describe('DocumentEditor', () => {
 4. **Coverage Goals**: Use thresholds defined in CI Quality Gates (per-package)
 5. **Test Structure**: Arrange-Act-Assert pattern
 6. **Mock External Dependencies**: API calls, routing, state management
+7. **Typed Mocks**: Reuse helpers from `@ctrl-freaq/test-support` (`mockFn`,
+   `mockAsyncFn`, typed aliases) to keep Vitest 4 mocks consistent and avoid
+   manual casting.
 
 ## E2E and Visual Testing with Playwright {#e2e-visual-testing-playwright}
 

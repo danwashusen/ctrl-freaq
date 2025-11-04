@@ -2,13 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mockAsyncFn } from '@ctrl-freaq/test-support';
 
 import ProjectsNav from '@/components/sidebar/ProjectsNav';
 import { PROJECTS_QUERY_KEY } from '@/features/projects/constants';
 import type { ProjectData, ProjectsListResponse } from '@/lib/api';
 import { useProjectStore } from '@/stores/project-store';
 const mockNavigate = vi.fn();
-const mockGetAll = vi.fn<() => Promise<ProjectsListResponse>>();
+const mockGetAll = mockAsyncFn<() => Promise<ProjectsListResponse>>();
 const mockCreate = vi.fn();
 const mockSignOut = vi.fn();
 const emitProjectDashboardHydrationMetric = vi.hoisted(() => vi.fn());

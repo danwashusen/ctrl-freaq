@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi, type MockedFunction } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mockAsyncFn, mockFn, type MockedAsyncFn, type MockedFn } from '@ctrl-freaq/test-support';
 
 import type { CoAuthoringStreamEvent } from '../api/co-authoring.client';
 import { useDocumentQaSession } from './useDocumentQaSession';
@@ -63,10 +64,10 @@ type SubscribeFn = (
 interface TestApis {
   callbacks: Map<string, (event: CoAuthoringStreamEvent) => void>;
   streamPaths: Map<string, string | undefined>;
-  startReview: MockedFunction<StartReviewFn>;
-  cancelReview: MockedFunction<CancelReviewFn>;
-  retryReview: MockedFunction<RetryReviewFn>;
-  subscribeToSession: MockedFunction<SubscribeFn>;
+  startReview: MockedAsyncFn<StartReviewFn>;
+  cancelReview: MockedAsyncFn<CancelReviewFn>;
+  retryReview: MockedAsyncFn<RetryReviewFn>;
+  subscribeToSession: MockedFn<SubscribeFn>;
 }
 
 const createWrapper =
@@ -127,10 +128,10 @@ const setupApis = (
     };
   };
 
-  const startReview = vi.fn<StartReviewFn>(overrides?.startReview ?? fallbackStart);
-  const cancelReview = vi.fn<CancelReviewFn>(overrides?.cancelReview ?? fallbackCancel);
-  const retryReview = vi.fn<RetryReviewFn>(overrides?.retryReview ?? fallbackRetry);
-  const subscribeToSession = vi.fn<SubscribeFn>(
+  const startReview = mockAsyncFn<StartReviewFn>(overrides?.startReview ?? fallbackStart);
+  const cancelReview = mockAsyncFn<CancelReviewFn>(overrides?.cancelReview ?? fallbackCancel);
+  const retryReview = mockAsyncFn<RetryReviewFn>(overrides?.retryReview ?? fallbackRetry);
+  const subscribeToSession = mockFn<SubscribeFn>(
     (
       sessionId: string,
       handler: (event: CoAuthoringStreamEvent) => void,
@@ -138,7 +139,7 @@ const setupApis = (
     ) => {
       callbacks.set(sessionId, handler);
       streamPaths.set(sessionId, options?.streamPath);
-      return { close: vi.fn() };
+      return { close: mockFn<() => void>() };
     }
   );
 

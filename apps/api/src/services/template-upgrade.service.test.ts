@@ -1,5 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { Logger } from 'pino';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  createTestLogger,
+  mockAsyncFn,
+  mockFn,
+  type MockedAsyncFn,
+  type MockedFn,
+  type TestLogger,
+} from '@ctrl-freaq/test-support';
 
 import {
   DocumentTemplateMigrationStatus,
@@ -21,6 +29,36 @@ import {
   TemplateUpgradeNotFoundError,
   TemplateValidationFailedError,
 } from './template-upgrade.service.js';
+
+type DocumentRepositoryMock = {
+  findById: MockedAsyncFn<DocumentRepositoryImpl['findById']>;
+  updateTemplateBinding: MockedAsyncFn<DocumentRepositoryImpl['updateTemplateBinding']>;
+};
+
+type TemplateRepositoryMock = {
+  findById: MockedAsyncFn<DocumentTemplateRepositoryImpl['findById']>;
+};
+
+type VersionRepositoryMock = {
+  listByTemplate: MockedAsyncFn<TemplateVersionRepositoryImpl['listByTemplate']>;
+  findById: MockedAsyncFn<TemplateVersionRepositoryImpl['findById']>;
+  findByTemplateAndVersion: MockedAsyncFn<
+    TemplateVersionRepositoryImpl['findByTemplateAndVersion']
+  >;
+};
+
+type MigrationRepositoryMock = {
+  logPending: MockedAsyncFn<DocumentTemplateMigrationRepositoryImpl['logPending']>;
+  markSucceeded: MockedAsyncFn<DocumentTemplateMigrationRepositoryImpl['markSucceeded']>;
+  markFailed: MockedAsyncFn<DocumentTemplateMigrationRepositoryImpl['markFailed']>;
+};
+
+type TemplateResolverMock = {
+  resolve: MockedAsyncFn<TemplateResolver['resolve']>;
+  resolveActiveVersion: MockedAsyncFn<TemplateResolver['resolveActiveVersion']>;
+  clearCache: MockedFn<TemplateResolver['clearCache']>;
+  getCacheStats: MockedFn<TemplateResolver['getCacheStats']>;
+};
 
 describe('TemplateUpgradeService', () => {
   const createdAt = new Date('2025-01-01T00:00:00Z');
@@ -112,91 +150,97 @@ describe('TemplateUpgradeService', () => {
     completedAt: new Date('2025-01-02T00:05:01Z'),
   };
 
-  let documentRepository: Pick<DocumentRepositoryImpl, 'findById' | 'updateTemplateBinding'>;
-  let templateRepository: Pick<DocumentTemplateRepositoryImpl, 'findById'>;
-  let versionRepository: Pick<
-    TemplateVersionRepositoryImpl,
-    'listByTemplate' | 'findById' | 'findByTemplateAndVersion'
-  >;
-  let migrationRepository: Pick<
-    DocumentTemplateMigrationRepositoryImpl,
-    'logPending' | 'markSucceeded' | 'markFailed'
-  >;
-  let resolver: TemplateResolver;
-  let logger: Pick<Logger, 'child' | 'info' | 'warn' | 'error'>;
+  let documentRepository: DocumentRepositoryMock;
+  let templateRepository: TemplateRepositoryMock;
+  let versionRepository: VersionRepositoryMock;
+  let migrationRepository: MigrationRepositoryMock;
+  let resolver: TemplateResolverMock;
+  let logger: TestLogger<Logger>;
   let service: TemplateUpgradeService;
 
   beforeEach(() => {
     documentRepository = {
-      findById: vi.fn().mockResolvedValue(baseDocument),
-      updateTemplateBinding: vi.fn().mockImplementation(async () => ({
-        ...baseDocument,
-        templateVersion: '10.1.0',
-        templateSchemaHash: 'hash-v11',
-        updatedAt: new Date('2025-01-02T00:05:02Z'),
-        updatedBy: 'user_editor_1',
-      })),
-    } as unknown as DocumentRepositoryImpl;
+      findById: mockAsyncFn<DocumentRepositoryImpl['findById']>(),
+      updateTemplateBinding: mockAsyncFn<DocumentRepositoryImpl['updateTemplateBinding']>(),
+    };
+    documentRepository.findById.mockResolvedValue(baseDocument);
+    documentRepository.updateTemplateBinding.mockImplementation(async () => ({
+      ...baseDocument,
+      templateVersion: '10.1.0',
+      templateSchemaHash: 'hash-v11',
+      updatedAt: new Date('2025-01-02T00:05:02Z'),
+      updatedBy: 'user_editor_1',
+    }));
 
     templateRepository = {
-      findById: vi.fn().mockResolvedValue(template),
-    } as unknown as DocumentTemplateRepositoryImpl;
+      findById: mockAsyncFn<DocumentTemplateRepositoryImpl['findById']>(),
+    };
+    templateRepository.findById.mockResolvedValue(template);
 
     versionRepository = {
-      listByTemplate: vi.fn().mockResolvedValue([activeVersion, baseVersion]),
-      findById: vi.fn().mockImplementation(async (id: string) => {
-        if (id === activeVersion.id) return activeVersion;
-        if (id === baseVersion.id) return baseVersion;
-        return null;
-      }),
-      findByTemplateAndVersion: vi
-        .fn()
-        .mockImplementation(async (_templateId: string, version: string) => {
-          if (version === '10.1.0') return activeVersion;
-          if (version === '10.0.0') return baseVersion;
-          return null;
-        }),
-    } as unknown as TemplateVersionRepositoryImpl;
+      listByTemplate: mockAsyncFn<TemplateVersionRepositoryImpl['listByTemplate']>(),
+      findById: mockAsyncFn<TemplateVersionRepositoryImpl['findById']>(),
+      findByTemplateAndVersion:
+        mockAsyncFn<TemplateVersionRepositoryImpl['findByTemplateAndVersion']>(),
+    };
+    versionRepository.listByTemplate.mockResolvedValue([activeVersion, baseVersion]);
+    versionRepository.findById.mockImplementation(async id => {
+      if (id === activeVersion.id) return activeVersion;
+      if (id === baseVersion.id) return baseVersion;
+      return null;
+    });
+    versionRepository.findByTemplateAndVersion.mockImplementation(async (_templateId, version) => {
+      if (version === '10.1.0') return activeVersion;
+      if (version === '10.0.0') return baseVersion;
+      return null;
+    });
 
     migrationRepository = {
-      logPending: vi.fn().mockResolvedValue(pendingMigration),
-      markSucceeded: vi.fn().mockResolvedValue(succeededMigration),
-      markFailed: vi.fn(),
-    } as unknown as DocumentTemplateMigrationRepositoryImpl;
+      logPending: mockAsyncFn<DocumentTemplateMigrationRepositoryImpl['logPending']>(),
+      markSucceeded: mockAsyncFn<DocumentTemplateMigrationRepositoryImpl['markSucceeded']>(),
+      markFailed: mockAsyncFn<DocumentTemplateMigrationRepositoryImpl['markFailed']>(),
+    };
+    migrationRepository.logPending.mockResolvedValue(pendingMigration);
+    migrationRepository.markSucceeded.mockResolvedValue(succeededMigration);
+    migrationRepository.markFailed.mockResolvedValue(pendingMigration);
+
+    const schemaValidator = {
+      parse: mockFn<(input: unknown) => unknown>(),
+      safeParse:
+        mockFn<(input: unknown) => { success: boolean; data?: unknown; error?: unknown }>(),
+    };
+    schemaValidator.parse.mockImplementation(input => input);
+    schemaValidator.safeParse.mockReturnValue({ success: true, data: baseDocument.content });
 
     resolver = {
-      resolve: vi.fn().mockResolvedValue({
-        cacheHit: false,
-        template: {
-          templateId: activeVersion.templateId,
-          version: activeVersion.version,
-          schemaHash: activeVersion.schemaHash,
-          sections: activeVersion.sectionsJson,
-          schema: activeVersion.schemaJson,
-          validator: {
-            safeParse: vi.fn().mockReturnValue({ success: true, data: baseDocument.content }),
-          },
-        },
-      }),
-      resolveActiveVersion: vi.fn(),
-      clearCache: vi.fn(),
-      getCacheStats: vi.fn().mockReturnValue({ hits: 0, misses: 1 }),
-    } as unknown as TemplateResolver;
-
-    logger = {
-      child: vi.fn().mockReturnThis(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
+      resolve: mockAsyncFn<TemplateResolver['resolve']>(),
+      resolveActiveVersion: mockAsyncFn<TemplateResolver['resolveActiveVersion']>(),
+      clearCache: mockFn<TemplateResolver['clearCache']>(),
+      getCacheStats: mockFn<TemplateResolver['getCacheStats']>(),
     };
+    resolver.resolve.mockResolvedValue({
+      cacheHit: false,
+      template: {
+        templateId: activeVersion.templateId,
+        version: activeVersion.version,
+        schemaHash: activeVersion.schemaHash,
+        sections: activeVersion.sectionsJson,
+        schema: activeVersion.schemaJson,
+        validator: schemaValidator,
+      },
+    });
+    resolver.resolveActiveVersion.mockResolvedValue(null);
+    resolver.getCacheStats.mockReturnValue({ hits: 0, misses: 1, entries: 0 });
+
+    logger = createTestLogger<Logger>();
 
     service = new TemplateUpgradeService(
-      documentRepository as DocumentRepositoryImpl,
-      templateRepository as DocumentTemplateRepositoryImpl,
-      versionRepository as TemplateVersionRepositoryImpl,
-      migrationRepository as DocumentTemplateMigrationRepositoryImpl,
-      resolver,
-      logger as Logger
+      documentRepository as unknown as DocumentRepositoryImpl,
+      templateRepository as unknown as DocumentTemplateRepositoryImpl,
+      versionRepository as unknown as TemplateVersionRepositoryImpl,
+      migrationRepository as unknown as DocumentTemplateMigrationRepositoryImpl,
+      resolver as unknown as TemplateResolver,
+      logger.logger
     );
   });
 
@@ -237,15 +281,9 @@ describe('TemplateUpgradeService', () => {
   });
 
   it('returns blocked decision when referenced template version has been removed', async () => {
-    (versionRepository.listByTemplate as ReturnType<typeof vi.fn>).mockResolvedValue([
-      activeVersion,
-    ]);
-    (versionRepository.findByTemplateAndVersion as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      activeVersion
-    );
-    (versionRepository.findByTemplateAndVersion as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      null
-    );
+    versionRepository.listByTemplate.mockResolvedValue([activeVersion]);
+    versionRepository.findByTemplateAndVersion.mockResolvedValueOnce(activeVersion);
+    versionRepository.findByTemplateAndVersion.mockResolvedValueOnce(null);
 
     const outcome = await service.evaluate({
       documentId: baseDocument.id,
@@ -259,7 +297,7 @@ describe('TemplateUpgradeService', () => {
   });
 
   it('marks migration failed and throws when validation fails', async () => {
-    (resolver.resolve as ReturnType<typeof vi.fn>).mockResolvedValue({
+    resolver.resolve.mockResolvedValue({
       cacheHit: false,
       template: {
         templateId: activeVersion.templateId,
@@ -268,7 +306,15 @@ describe('TemplateUpgradeService', () => {
         sections: activeVersion.sectionsJson,
         schema: activeVersion.schemaJson,
         validator: {
-          safeParse: vi.fn().mockReturnValue({
+          parse: mockFn<(input: unknown) => unknown>(input => input),
+          safeParse: mockFn<
+            (input: unknown) => {
+              success: boolean;
+              error?: {
+                issues: Array<{ path: string[]; message: string; code: string }>;
+              };
+            }
+          >().mockReturnValue({
             success: false,
             error: {
               issues: [
@@ -299,7 +345,7 @@ describe('TemplateUpgradeService', () => {
   });
 
   it('throws not found error when document is missing', async () => {
-    (documentRepository.findById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    documentRepository.findById.mockResolvedValueOnce(null);
 
     await expect(
       service.evaluate({

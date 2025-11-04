@@ -1,6 +1,7 @@
 import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
+import { mockFn } from '@ctrl-freaq/test-support';
 
 import {
   AssumptionsApiService,
@@ -106,7 +107,7 @@ describe('AssumptionsApiService', () => {
     );
 
     const service = new AssumptionsApiService({ queryClient, baseUrl: 'https://example.test' });
-    const chunkSpy = vi.fn<(payload: { type: 'chunk'; content: string }) => void>();
+    const chunkSpy = mockFn<(payload: { type: 'chunk'; content: string }) => void>();
 
     const proposal = await service.streamProposal(
       SECTION_ID,

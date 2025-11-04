@@ -8,11 +8,13 @@ import type { Logger } from 'pino';
 
 import { AssumptionSessionRepository } from '@ctrl-freaq/shared-data';
 import type { SectionStreamQueue } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
+import { mockAsyncFn, type MockedAsyncFn } from '@ctrl-freaq/test-support';
 
 import {
   AssumptionSessionService,
   type AssumptionPromptTemplate,
   type AssumptionStreamingProvider,
+  type DocumentDecisionProvider,
 } from './assumption-session.service';
 
 describe('AssumptionSessionService', () => {
@@ -20,7 +22,7 @@ describe('AssumptionSessionService', () => {
   let service: AssumptionSessionService;
   let repository: AssumptionSessionRepository;
   let decisionProvider: {
-    getDecisionSnapshot: ReturnType<typeof vi.fn>;
+    getDecisionSnapshot: MockedAsyncFn<DocumentDecisionProvider['getDecisionSnapshot']>;
   };
   const fixedNow = new Date('2025-09-29T05:00:00.000Z');
   const logger = {
@@ -122,8 +124,9 @@ describe('AssumptionSessionService', () => {
     db = bootstrapDatabase();
     repository = new AssumptionSessionRepository(db);
     decisionProvider = {
-      getDecisionSnapshot: vi.fn().mockResolvedValue(null),
+      getDecisionSnapshot: mockAsyncFn<DocumentDecisionProvider['getDecisionSnapshot']>(),
     };
+    decisionProvider.getDecisionSnapshot.mockResolvedValue(null);
     service = new AssumptionSessionService({
       repository,
       logger,

@@ -19,12 +19,18 @@ vi.mock('@/features/document-editor/services/project-retention', () => ({
   fetchProjectRetentionPolicy: fetchProjectRetentionPolicyMock,
 }));
 
-vi.mock('@/features/document-editor/services/draft-client', () => ({
-  DraftPersistenceClient: vi.fn().mockImplementation(() => ({
-    applyDraftBundle: vi.fn(),
-    logComplianceWarning: logComplianceWarningMock,
-  })),
-}));
+vi.mock('@/features/document-editor/services/draft-client', () => {
+  function DraftPersistenceClientMock(this: Record<string, unknown>) {
+    Object.assign(this, {
+      applyDraftBundle: vi.fn(),
+      logComplianceWarning: logComplianceWarningMock,
+    });
+  }
+
+  return {
+    DraftPersistenceClient: DraftPersistenceClientMock,
+  };
+});
 
 vi.mock('@ctrl-freaq/editor-core', () => ({
   createPatchEngine: () => ({

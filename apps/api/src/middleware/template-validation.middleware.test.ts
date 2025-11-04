@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Response, NextFunction } from 'express';
+import { mockAsyncFn, mockFn, type MockedFnWithArgs } from '@ctrl-freaq/test-support';
+import type { Logger } from 'pino';
 
 import type { AuthenticatedRequest } from './auth.js';
 import { createTemplateValidationMiddleware } from './template-validation.js';
@@ -11,15 +13,26 @@ import {
   type DocumentTemplateMigration,
 } from '@ctrl-freaq/shared-data';
 import type { TemplateUpgradeDecision } from '@ctrl-freaq/template-resolver';
-import { TemplateValidationFailedError } from '../services/template-upgrade.service.js';
+import {
+  TemplateUpgradeService,
+  TemplateValidationFailedError,
+} from '../services/template-upgrade.service.js';
+
+type EvaluateFn = OmitThisParameter<TemplateUpgradeService['evaluate']>;
+
+type ResponseMock = Response & {
+  status: MockedFnWithArgs<[number], Response>;
+  json: MockedFnWithArgs<[unknown], Response>;
+  locals: Record<string, unknown>;
+};
 
 describe('templateValidationMiddleware', () => {
-  function createResponseMock() {
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-      locals: {} as Record<string, unknown>,
-    } as unknown as Response;
+  function createResponseMock(): ResponseMock {
+    const status = mockFn<(code: number) => Response>();
+    const json = mockFn<(payload: unknown) => Response>();
+    const res = { status, json, locals: {} as Record<string, unknown> } as unknown as ResponseMock;
+    status.mockReturnValue(res);
+    json.mockReturnValue(res);
     return res;
   }
 
@@ -115,30 +128,31 @@ describe('templateValidationMiddleware', () => {
     };
 
     const service = {
-      evaluate: vi.fn().mockResolvedValue({
-        document: {
-          ...document,
-          templateVersion: '10.1.0',
-          templateSchemaHash: 'hash-v11',
-        },
-        template,
-        migration: succeededMigration,
-        decision: upgradeDecision,
-      }),
+      evaluate: mockAsyncFn<EvaluateFn>(),
     };
+    service.evaluate.mockResolvedValue({
+      document: {
+        ...document,
+        templateVersion: '10.1.0',
+        templateSchemaHash: 'hash-v11',
+      },
+      template,
+      migration: succeededMigration,
+      decision: upgradeDecision,
+    });
 
     const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+      info: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      warn: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      error: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+    } satisfies Pick<Logger, 'info' | 'warn' | 'error'>;
 
     const { req, services } = createRequestMock();
     services.set('templateUpgradeService', service);
     services.set('logger', logger);
 
     const res = createResponseMock();
-    const next = vi.fn();
+    const next = mockFn<(err?: any) => void>();
 
     const middleware = createTemplateValidationMiddleware();
     await middleware(req, res, next as unknown as NextFunction);
@@ -167,26 +181,27 @@ describe('templateValidationMiddleware', () => {
     };
 
     const service = {
-      evaluate: vi.fn().mockResolvedValue({
-        document,
-        template,
-        migration: null,
-        decision: blockedDecision,
-      }),
+      evaluate: mockAsyncFn<EvaluateFn>(),
     };
+    service.evaluate.mockResolvedValue({
+      document,
+      template,
+      migration: null,
+      decision: blockedDecision,
+    });
 
     const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+      info: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      warn: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      error: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+    } satisfies Pick<Logger, 'info' | 'warn' | 'error'>;
 
     const { req, services } = createRequestMock();
     services.set('templateUpgradeService', service);
     services.set('logger', logger);
 
     const res = createResponseMock();
-    const next = vi.fn();
+    const next = mockFn<(err?: any) => void>();
 
     const middleware = createTemplateValidationMiddleware();
     await middleware(req, res, next as unknown as NextFunction);
@@ -194,10 +209,7 @@ describe('templateValidationMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalled();
-    const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
+    const payload = res.json.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(payload).toMatchObject({
       error: 'TEMPLATE_VERSION_REMOVED',
       templateId: 'architecture',
@@ -207,40 +219,38 @@ describe('templateValidationMiddleware', () => {
 
   it('returns validation failure response when service throws TemplateValidationFailedError', async () => {
     const service = {
-      evaluate: vi.fn().mockRejectedValue(
-        new TemplateValidationFailedError('Validation failed', {
-          issues: [
-            {
-              path: ['introduction'],
-              message: 'Executive Summary is required',
-            },
-          ],
-        })
-      ),
+      evaluate: mockAsyncFn<EvaluateFn>(),
     };
+    service.evaluate.mockRejectedValue(
+      new TemplateValidationFailedError('Validation failed', {
+        issues: [
+          {
+            path: ['introduction'],
+            message: 'Executive Summary is required',
+          },
+        ],
+      })
+    );
 
     const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+      info: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      warn: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+      error: mockFn<(payload: Record<string, unknown>, message?: string) => void>(),
+    } satisfies Pick<Logger, 'info' | 'warn' | 'error'>;
 
     const { req, services } = createRequestMock();
     services.set('templateUpgradeService', service);
     services.set('logger', logger);
 
     const res = createResponseMock();
-    const next = vi.fn();
+    const next = mockFn<(err?: any) => void>();
 
     const middleware = createTemplateValidationMiddleware();
     await middleware(req, res, next as unknown as NextFunction);
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(422);
-    const payload = (res.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
+    const payload = res.json.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(payload).toMatchObject({
       error: 'TEMPLATE_VALIDATION_FAILED',
       details: expect.anything(),

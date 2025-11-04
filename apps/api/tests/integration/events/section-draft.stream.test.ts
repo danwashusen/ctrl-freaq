@@ -308,7 +308,7 @@ describe('Section draft SSE stream (integration)', () => {
           'section.diff',
           envelope =>
             envelope.resourceId === SECTION_ID && envelope.payload.sectionId === SECTION_ID,
-          5_000
+          10_000
         );
 
         expect(replayedDiff.envelope.payload.sectionId).toBe(SECTION_ID);

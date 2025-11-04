@@ -1,5 +1,11 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import type { NextFunction, Response } from 'express';
+import {
+  mockAsyncFn,
+  mockFn,
+  type MockedFn,
+  type MockedFnWithArgs,
+} from '@ctrl-freaq/test-support';
 
 import type { AuthenticatedRequest } from '../../../src/middleware/auth.js';
 import { simpleAuthMiddleware } from '../../../src/middleware/simple-auth.middleware.js';
@@ -7,20 +13,25 @@ import type { SimpleAuthUser } from '../../../src/services/simple-auth.service.j
 import type { ServiceContainer } from '../../../src/core/service-locator.js';
 import { MOCK_JWT_TOKEN, TEMPLATE_MANAGER_JWT_TOKEN } from '../../../src/middleware/test-auth.js';
 
-const createResponse = () => {
-  const res = {
-    status: vi.fn().mockReturnThis(),
-    json: vi.fn().mockReturnThis(),
-  };
-  return res as unknown as Response;
+type ResponseMock = Response & {
+  status: MockedFnWithArgs<[number], Response>;
+  json: MockedFnWithArgs<[unknown], Response>;
+};
+
+const createResponse = (): ResponseMock => {
+  const status = mockFn<(code: number) => Response>();
+  const json = mockFn<(payload: unknown) => Response>();
+  const res = { status, json } as unknown as ResponseMock;
+
+  status.mockReturnValue(res);
+  json.mockReturnValue(res);
+
+  return res;
 };
 
 const createNext = () => {
-  const nextMock = vi.fn();
-  const next: NextFunction = (...args) => {
-    nextMock(...args);
-  };
-  return { next, nextMock };
+  const nextMock = mockFn<(err?: any) => void>();
+  return { next: nextMock as unknown as NextFunction, nextMock };
 };
 
 const createRequest = (
@@ -58,11 +69,18 @@ describe('simpleAuthMiddleware', () => {
   const getServiceMocks = (options: { users?: SimpleAuthUser[] } = {}) => {
     const users = options.users ?? [user];
     const simpleAuthService = {
-      getUserById: vi.fn<(id: string) => Promise<SimpleAuthUser | undefined>>(),
-      listUsers: vi.fn<() => Promise<SimpleAuthUser[]>>().mockResolvedValue(users),
+      getUserById: mockAsyncFn<(id: string) => Promise<SimpleAuthUser | undefined>>(),
+      listUsers: mockAsyncFn<() => Promise<SimpleAuthUser[]>>(),
     };
+    simpleAuthService.listUsers.mockResolvedValue(users);
 
-    const services: ServiceContainer = {
+    const dispose = mockAsyncFn<OmitThisParameter<ServiceContainer['dispose']>>();
+    dispose.mockResolvedValue(undefined);
+
+    const services: ServiceContainer & {
+      register: MockedFn<ServiceContainer['register']>;
+      dispose: typeof dispose;
+    } = {
       get<T>(name: string) {
         if (name !== 'simpleAuthService') {
           throw new Error(`Unknown service requested: ${name}`);
@@ -72,8 +90,8 @@ describe('simpleAuthMiddleware', () => {
       has(name: string) {
         return name === 'simpleAuthService';
       },
-      register: vi.fn(),
-      dispose: vi.fn().mockResolvedValue(undefined),
+      register: mockFn<ServiceContainer['register']>(),
+      dispose,
     };
 
     return {
@@ -195,9 +213,7 @@ describe('simpleAuthMiddleware', () => {
     await simpleAuthMiddleware(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    const payload = (res.json as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
+    const payload = res.json.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
     expect(payload).toMatchObject({
       error: 'UNAUTHORIZED',
     });
@@ -223,9 +239,7 @@ describe('simpleAuthMiddleware', () => {
 
     expect(simpleAuthService.getUserById).toHaveBeenCalledWith('missing_user');
     expect(res.status).toHaveBeenCalledWith(401);
-    const payload = (res.json as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
+    const payload = res.json.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
     expect(payload).toMatchObject({
       error: 'UNAUTHORIZED',
     });
@@ -248,9 +262,7 @@ describe('simpleAuthMiddleware', () => {
     await simpleAuthMiddleware(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    const payload = (res.json as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
+    const payload = res.json.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
     expect(payload).toMatchObject({
       error: 'UNAUTHORIZED',
     });

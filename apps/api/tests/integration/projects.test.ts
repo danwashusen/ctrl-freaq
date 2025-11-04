@@ -610,12 +610,15 @@ describe('Project CRUD Integration Tests', () => {
         .send({ name: 'Archive Integration Target' })
         .expect(201);
 
+      const projectId: string = created.body.id;
+      expect(typeof projectId).toBe('string');
+
       const lastModified =
         (created.headers['last-modified'] as string | undefined) ??
         (created.body.updatedAt as string);
 
       await request(app)
-        .patch(`/api/v1/projects/${created.body.id}`)
+        .patch(`/api/v1/projects/${projectId}`)
         .set(authHeader)
         .set('If-Unmodified-Since', lastModified)
         .send({ status: 'active' })
@@ -677,12 +680,15 @@ describe('Project CRUD Integration Tests', () => {
         .send({ name: 'Restore Integration Target' })
         .expect(201);
 
+      const projectId: string = created.body.id;
+      expect(typeof projectId).toBe('string');
+
       const lastModified =
         (created.headers['last-modified'] as string | undefined) ??
         (created.body.updatedAt as string);
 
       const activated = await request(app)
-        .patch(`/api/v1/projects/${created.body.id}`)
+        .patch(`/api/v1/projects/${projectId}`)
         .set(authHeader)
         .set('If-Unmodified-Since', lastModified)
         .send({ status: 'active' })
@@ -693,16 +699,16 @@ describe('Project CRUD Integration Tests', () => {
         (activated.body.updatedAt as string);
 
       await request(app)
-        .patch(`/api/v1/projects/${created.body.id}`)
+        .patch(`/api/v1/projects/${projectId}`)
         .set(authHeader)
         .set('If-Unmodified-Since', activatedLastModified)
         .send({ status: 'completed' })
         .expect(200);
 
-      await request(app).delete(`/api/v1/projects/${created.body.id}`).set(authHeader).expect(204);
+      await request(app).delete(`/api/v1/projects/${projectId}`).set(authHeader).expect(204);
 
       const restoreResponse = await request(app)
-        .post(`/api/v1/projects/${created.body.id}/restore`)
+        .post(`/api/v1/projects/${projectId}/restore`)
         .set(authHeader)
         .expect(200);
 
@@ -716,7 +722,7 @@ describe('Project CRUD Integration Tests', () => {
         .prepare(
           `SELECT status, archived_status_before as archivedStatusBefore, deleted_at as deletedAt, deleted_by as deletedBy FROM projects WHERE id = ?`
         )
-        .get(created.body.id) as
+        .get(projectId) as
         | {
             status?: string;
             archivedStatusBefore?: string | null;
