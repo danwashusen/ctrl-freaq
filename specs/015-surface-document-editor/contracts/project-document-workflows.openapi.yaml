@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: CTRL FreaQ Project Document Workflows
+  version: 0.1.0
+  description: >
+    Endpoints that enable the Project view to discover, create, and export
+    architecture documents while surfacing template validation guidance.
+servers:
+  - url: /api/v1
+paths:
+  /projects/{projectId}/documents/primary:
+    get:
+      summary: Retrieve the project’s primary document snapshot
+      description: >
+        Returns the identifiers and metadata needed to open the document editor
+        from the Project view. When a primary document has not been provisioned,
+        the response still returns workflow status so the UI can trigger
+        creation.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Snapshot returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrimaryDocumentSnapshot'
+        '404':
+          description: Project not found or caller lacks access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Downstream dependency unavailable (e.g., templates repository)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/documents:
+    post:
+      summary: Provision the project’s primary document
+      description: >
+        Creates a primary document using the current template baseline and
+        returns identifiers so the caller can navigate directly to the first
+        section. The operation is idempotent—repeated calls while a document
+        exists return the existing document details with status `already_exists`.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+      responses:
+        '201':
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+        '200':
+          description: Document already existed; payload mirrors creation response with status flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+        '400':
+          description: Invalid request payload or template override
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Document creation blocked by template validation failure
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      templateDecision:
+                        $ref: '#/components/schemas/TemplateValidationDecision'
+        '503':
+          description: Template resolver or persistence unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/export:
+    post:
+      summary: Trigger an export of the project’s documentation
+      description: >
+        Starts an export job that generates the requested artifact (e.g., Markdown bundle).
+        Returns job metadata immediately so the caller can show progress or poll for completion.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Export job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '400':
+          description: Invalid export options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Export already in progress
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      job:
+                        $ref: '#/components/schemas/ExportJob'
+        '503':
+          description: Exporter service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Unique identifier for the project
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    PrimaryDocumentSnapshot:
+      type: object
+      required:
+        - projectId
+        - status
+        - lastUpdatedAt
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [missing, loading, ready, archived]
+          description: Workflow status used by the Project view cards.
+        document:
+          type: object
+          nullable: true
+          required:
+            - documentId
+            - firstSectionId
+            - title
+            - lifecycleStatus
+            - lastModifiedAt
+          properties:
+            documentId:
+              type: string
+              format: uuid
+            firstSectionId:
+              type: string
+              format: uuid
+            title:
+              type: string
+            lifecycleStatus:
+              type: string
+              enum: [draft, review, published]
+            lastModifiedAt:
+              type: string
+              format: date-time
+        templateDecision:
+          $ref: '#/components/schemas/TemplateValidationDecision'
+        lastUpdatedAt:
+          type: string
+          format: date-time
+
+    CreateDocumentRequest:
+      type: object
+      description: Optional overrides when provisioning the primary document.
+      properties:
+        title:
+          type: string
+          description: Custom title for the new architecture document.
+        templateId:
+          type: string
+          description: Override template identifier (defaults to project baseline).
+        templateVersion:
+          type: string
+          description: Override template version.
+        seedStrategy:
+          type: string
+          enum: [authoritative, empty, fixture]
+          description: Strategy for seeding initial sections/content.
+
+    CreateDocumentResponse:
+      type: object
+      required:
+        - status
+        - documentId
+        - projectId
+        - firstSectionId
+        - lifecycleStatus
+        - template
+      properties:
+        status:
+          type: string
+          enum: [created, already_exists]
+        documentId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        firstSectionId:
+          type: string
+          format: uuid
+        lifecycleStatus:
+          type: string
+          enum: [draft, review, published]
+        title:
+          type: string
+        template:
+          type: object
+          required:
+            - templateId
+            - templateVersion
+            - templateSchemaHash
+          properties:
+            templateId:
+              type: string
+            templateVersion:
+              type: string
+            templateSchemaHash:
+              type: string
+        lastModifiedAt:
+          type: string
+          format: date-time
+
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [markdown, zip, pdf, bundle]
+        scope:
+          type: string
+          enum: [primary_document, all_documents]
+          default: primary_document
+          description: Whether to export just the primary document or the full project set.
+        includeDrafts:
+          type: boolean
+          default: false
+        notifyEmail:
+          type: string
+          format: email
+          nullable: true
+
+    ExportJob:
+      type: object
+      required:
+        - jobId
+        - projectId
+        - status
+        - requestedAt
+        - format
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        format:
+          type: string
+          enum: [markdown, zip, pdf, bundle]
+        scope:
+          type: string
+          enum: [primary_document, all_documents]
+        requestedBy:
+          type: string
+          description: User identifier of the requester.
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        artifactUrl:
+          type: string
+          format: uri
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+
+    TemplateValidationDecision:
+      type: object
+      nullable: true
+      required:
+        - decisionId
+        - action
+        - templateId
+        - currentVersion
+        - requestedVersion
+        - submittedAt
+      properties:
+        decisionId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [approved, pending, blocked]
+        templateId:
+          type: string
+        currentVersion:
+          type: string
+        requestedVersion:
+          type: string
+        submittedBy:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - requestId
+        - timestamp
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
