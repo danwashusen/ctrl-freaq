@@ -379,7 +379,9 @@ describe('Project page metadata view', () => {
 
     await screen.findByTestId('project-metadata-view');
     expect(screen.queryByTestId('project-edit-toggle')).not.toBeInTheDocument();
-    expect(screen.getByText(/archived projects are read-only/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('project-metadata-view-status')).toHaveTextContent('Archived')
+    );
   });
 
   it('enqueues a project export and surfaces queued status feedback', async () => {

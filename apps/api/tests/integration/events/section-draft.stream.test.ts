@@ -248,9 +248,9 @@ describe('Section draft SSE stream (integration)', () => {
 
   it('streams conflict and diff events with replay support', async () => {
     const stream = connectToStream({ documentId: DOCUMENT_ID, sectionId: SECTION_ID });
-    await waitForStreamOpen(stream);
-
     try {
+      // Register event listeners before the stream opens so replay events emitted immediately
+      // after connection (flush happens on the next tick server-side) are not missed.
       const conflictPromise = waitForEvent<SectionConflictPayload>(
         stream,
         'section.conflict',
@@ -259,6 +259,7 @@ describe('Section draft SSE stream (integration)', () => {
           envelope.payload.sectionId === SECTION_ID &&
           envelope.payload.conflictState === 'rebase_required'
       );
+      await waitForStreamOpen(stream);
 
       await request(app)
         .post(`/api/v1/sections/${SECTION_ID}/conflicts/check`)
@@ -300,16 +301,18 @@ describe('Section draft SSE stream (integration)', () => {
         sectionId: SECTION_ID,
         lastEventId: `section.diff:${SECTION_ID}:0`,
       });
-      await waitForStreamOpen(replayStream);
-
       try {
-        const replayedDiff = await waitForEvent<SectionDiffPayload>(
+        // Replay buffers are flushed immediately after subscription; capture the promise now.
+        const diffReplayPromise = waitForEvent<SectionDiffPayload>(
           replayStream,
           'section.diff',
           envelope =>
             envelope.resourceId === SECTION_ID && envelope.payload.sectionId === SECTION_ID,
           10_000
         );
+        await waitForStreamOpen(replayStream);
+
+        const replayedDiff = await diffReplayPromise;
 
         expect(replayedDiff.envelope.payload.sectionId).toBe(SECTION_ID);
         expect(replayedDiff.envelope.payload.diff).toBeTruthy();

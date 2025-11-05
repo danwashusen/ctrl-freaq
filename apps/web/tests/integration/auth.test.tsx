@@ -16,12 +16,12 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
  *
  * These tests MUST fail before implementation to follow TDD principles.
  *
- * Uses Clerk authentication provider for JWT-based auth.
+ * Uses simple authentication provider for local JWT-based auth.
  */
 
 // Mock Clerk hook
 vi.mock('@/lib/auth-provider', () => ({
-  AUTH_PROVIDER: 'clerk' as const,
+  AUTH_PROVIDER: 'simple' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),
