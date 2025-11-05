@@ -1,5 +1,7 @@
 import type { EventSource as NodeEventSource } from 'eventsource';
-import { beforeEach } from 'vitest';
+import { afterAll, beforeEach } from 'vitest';
+
+import { restoreSimpleAuthEnv, setSimpleAuthEnv } from '../src/testing/auth.js';
 
 type EventSourceConstructor = typeof EventSource;
 
@@ -22,9 +24,15 @@ if (typeof globalThis.EventSource === 'undefined') {
   globalThis.EventSource = polyfill as unknown as EventSourceConstructor;
 }
 
+const simpleAuthSnapshot = setSimpleAuthEnv();
+
 process.env.API_TEST_AUTO_RESET = process.env.API_TEST_AUTO_RESET || 'true';
 
 beforeEach(async () => {
   const { resetAllRegisteredApps } = await import('../src/testing/reset');
   resetAllRegisteredApps();
+});
+
+afterAll(() => {
+  restoreSimpleAuthEnv(simpleAuthSnapshot);
 });

@@ -13,7 +13,7 @@ test.describe('Dashboard Project Update', () => {
     let lastModifiedHeader = '2026-05-10T12:00:00.000Z';
     const projectResponse: Record<string, unknown> = {
       id: projectId,
-      ownerUserId: 'user_2abc123def456',
+      ownerUserId: 'user-local-author',
       name: 'Lifecycle Update Pilot',
       slug: 'lifecycle-update-pilot',
       description: 'Original description from fixture',
@@ -22,9 +22,9 @@ test.describe('Dashboard Project Update', () => {
       goalTargetDate: '2026-06-01',
       goalSummary: 'Prepare update flow demo',
       createdAt: '2026-05-01T10:00:00.000Z',
-      createdBy: 'user_2abc123def456',
+      createdBy: 'user-local-author',
       updatedAt: lastModifiedHeader,
-      updatedBy: 'user_2abc123def456',
+      updatedBy: 'user-local-author',
       deletedAt: null,
       deletedBy: null,
       archivedStatusBefore: null,

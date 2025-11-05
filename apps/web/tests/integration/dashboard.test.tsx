@@ -21,8 +21,11 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
  */
 
 // Mock Clerk hooks
+const SIMPLE_USER_ID = 'user-local-author';
+const SIMPLE_AUTH_TOKEN = `simple:${SIMPLE_USER_ID}`;
+
 vi.mock('@/lib/auth-provider', () => ({
-  AUTH_PROVIDER: 'clerk' as const,
+  AUTH_PROVIDER: 'simple' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),
@@ -33,7 +36,7 @@ vi.mock('@/lib/auth-provider', () => ({
 global.fetch = vi.fn();
 
 const mockUser = {
-  id: 'user_2abc123def456',
+  id: SIMPLE_USER_ID,
   emailAddresses: [{ emailAddress: 'test@example.com' }],
   firstName: 'Test',
   lastName: 'User',
@@ -41,7 +44,7 @@ const mockUser = {
 
 const mockProject = {
   id: '123e4567-e89b-12d3-a456-426614174000',
-  ownerUserId: 'user_2abc123def456',
+  ownerUserId: SIMPLE_USER_ID,
   name: 'My Project',
   slug: 'my-project',
   description: 'A test project',
@@ -202,7 +205,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -249,7 +252,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -286,7 +289,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -367,7 +370,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -428,7 +431,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -465,7 +468,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -502,7 +505,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -542,7 +545,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -588,7 +591,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({
@@ -627,7 +630,7 @@ describe('Dashboard Integration Tests', () => {
       vi.mocked(useAuth).mockReturnValue({
         isSignedIn: true,
         isLoaded: true,
-        getToken: vi.fn().mockResolvedValue('mock-jwt-token'),
+        getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
       } as any);
 
       vi.mocked(useUser).mockReturnValue({

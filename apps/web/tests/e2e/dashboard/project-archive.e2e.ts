@@ -14,7 +14,7 @@ test.describe('Dashboard Project Archive and Restore', () => {
     const projectId = 'proj-archive-flow';
     const baseProject: ProjectData = {
       id: projectId,
-      ownerUserId: 'user_2abc123def456',
+      ownerUserId: 'user-local-author',
       name: 'Lifecycle Archive Candidate',
       slug: 'lifecycle-archive-candidate',
       description: 'Project slated for archive tests',
@@ -23,9 +23,9 @@ test.describe('Dashboard Project Archive and Restore', () => {
       goalTargetDate: null,
       goalSummary: null,
       createdAt: '2026-06-01T10:00:00.000Z',
-      createdBy: 'user_2abc123def456',
+      createdBy: 'user-local-author',
       updatedAt: '2026-06-01T10:00:00.000Z',
-      updatedBy: 'user_2abc123def456',
+      updatedBy: 'user-local-author',
       deletedAt: null,
       deletedBy: null,
       archivedStatusBefore: null,
@@ -183,9 +183,9 @@ test.describe('Dashboard Project Archive and Restore', () => {
           ...currentProject,
           status: 'archived',
           deletedAt: '2026-06-02T09:00:00.000Z',
-          deletedBy: 'user_2abc123def456',
+          deletedBy: 'user-local-author',
           updatedAt: '2026-06-02T09:00:00.000Z',
-          updatedBy: 'user_2abc123def456',
+          updatedBy: 'user-local-author',
           archivedStatusBefore,
         };
         await route.fulfill({ status: 204 });
@@ -199,7 +199,7 @@ test.describe('Dashboard Project Archive and Restore', () => {
           deletedAt: null,
           deletedBy: null,
           updatedAt: '2026-06-02T09:05:00.000Z',
-          updatedBy: 'user_2abc123def456',
+          updatedBy: 'user-local-author',
           archivedStatusBefore: null,
         };
         await route.fulfill({
@@ -274,7 +274,7 @@ test.describe('Dashboard Project Archive and Restore', () => {
     let isArchived = false;
     const baseProject: Record<string, unknown> = {
       id: projectId,
-      ownerUserId: 'user_2abc123def456',
+      ownerUserId: 'user-local-author',
       name: 'Lifecycle Notify Project',
       slug: 'lifecycle-notify-project',
       description: 'Project used to exercise archive notifications',
@@ -283,9 +283,9 @@ test.describe('Dashboard Project Archive and Restore', () => {
       goalTargetDate: null,
       goalSummary: null,
       createdAt: '2026-07-01T09:00:00.000Z',
-      createdBy: 'user_2abc123def456',
+      createdBy: 'user-local-author',
       updatedAt: '2026-07-01T09:00:00.000Z',
-      updatedBy: 'user_2abc123def456',
+      updatedBy: 'user-local-author',
       deletedAt: null,
       deletedBy: null,
       archivedStatusBefore: null,

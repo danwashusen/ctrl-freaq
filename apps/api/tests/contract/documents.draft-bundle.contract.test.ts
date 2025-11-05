@@ -6,13 +6,13 @@ import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../src/app';
 import { seedSectionFixture, seedDraftFixture } from '../../src/testing/fixtures/section-editor';
-import { MOCK_JWT_TOKEN } from '../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 const PROJECT_SLUG = 'project-test';
 const DOCUMENT_ID = 'doc-architecture-demo';
 const SECTION_ALPHA = 'architecture-overview';
-const AUTHOR_ID = 'user_2abc123def456';
+const AUTHOR_ID = DEFAULT_TEST_USER_ID;
 
 const DraftBundleResponseSchema = z.object({
   documentId: z.string(),
@@ -66,7 +66,7 @@ describe('Draft bundle API contract', () => {
         submittedBy: AUTHOR_ID,
         sections: [
           {
-            draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user_2abc123def456',
+            draftKey: `project-test/doc-architecture-demo/Architecture Overview/${AUTHOR_ID}`,
             sectionPath: SECTION_ALPHA,
             patch: '## Updated architecture overview content',
             baselineVersion: 'rev-7',
@@ -99,7 +99,7 @@ describe('Draft bundle API contract', () => {
         submittedBy: AUTHOR_ID,
         sections: [
           {
-            draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user_2abc123def456',
+            draftKey: `project-test/doc-architecture-demo/Architecture Overview/${AUTHOR_ID}`,
             sectionPath: SECTION_ALPHA,
             patch: '## Updated architecture overview content',
             baselineVersion: 'rev-7',
@@ -174,7 +174,7 @@ describe('Draft bundle API contract', () => {
         submittedBy: AUTHOR_ID,
         sections: [
           {
-            draftKey: `project-test/${rogueDocumentId}/Deployment Strategy/user_2abc123def456`,
+            draftKey: `project-test/${rogueDocumentId}/Deployment Strategy/${AUTHOR_ID}`,
             sectionPath: rogueSectionId,
             patch: '## Rogue deployment strategy update',
             baselineVersion: 'rev-3',

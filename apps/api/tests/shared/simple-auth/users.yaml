@@ -1,0 +1,39 @@
+users:
+  - id: user-local-author
+    email: user-local-author@example.com
+    first_name: Local
+    last_name: Author
+    org_role: editor
+    org_permissions:
+      - documents:edit
+      - view:projects
+  - id: template_manager
+    email: template.manager@example.com
+    first_name: Template
+    last_name: Manager
+    org_role: template_manager
+    org_permissions:
+      - templates:manage
+  - id: user_staff_eng
+    email: staff.eng@example.com
+    first_name: Staff
+    last_name: Engineer
+    org_role: staff_engineer
+    org_permissions:
+      - documents:edit
+      - documents:review
+  - id: user_alpha
+    email: alpha@example.com
+    first_name: Alpha
+    last_name: Tester
+    org_role: qa_lead
+    org_permissions:
+      - view:projects
+      - manage:qa
+  - id: user_beta
+    email: beta@example.com
+    first_name: Beta
+    last_name: Reviewer
+    org_role: reviewer
+    org_permissions:
+      - documents:review

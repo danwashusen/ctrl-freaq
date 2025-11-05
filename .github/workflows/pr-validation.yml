@@ -24,6 +24,11 @@ permissions:
   checks: write
   issues: read
 
+env:
+  AUTH_PROVIDER: simple
+  SIMPLE_AUTH_USER_FILE: ${{ github.workspace }}/apps/api/tests/shared/simple-auth/users.yaml
+  VITE_AUTH_PROVIDER: simple
+
 jobs:
   # ==============================================================================
   # T015: Create PR validation workflow with concurrency control

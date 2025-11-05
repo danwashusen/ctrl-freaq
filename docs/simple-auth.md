@@ -6,8 +6,8 @@ existing Clerk integration.
 
 ## Overview
 
-- Introduce an `AUTH_PROVIDER` setting with allowed values `clerk` (default) and
-  `simple`.
+- Introduce an `AUTH_PROVIDER` setting with allowed values `simple` (test/local
+  default) and `clerk` (production).
 - Introduce `SIMPLE_AUTH_USER_FILE` for the path to a YAML file that enumerates
   local users.
 - Preserve current Clerk behaviour while enabling a frictionless local login
@@ -75,8 +75,9 @@ existing Clerk integration.
 ## Configuration & Documentation
 
 - Update `.env.example` and README to surface `AUTH_PROVIDER` and
-  `SIMPLE_AUTH_USER_FILE`. Document how to switch providers, describe the login
-  flow, and note local-only security expectations.
+  `SIMPLE_AUTH_USER_FILE`, defaulting both apps to simple auth for tests.
+  Document how to switch providers, describe the login flow, and note local-only
+  security expectations.
 - Add `templates/simple-auth-user.yaml` as a reference YAML file.
 - Create or update developer docs to explain running the stack in simple mode
   and the semantics of the `simple:<userId>` bearer token.
@@ -84,8 +85,8 @@ existing Clerk integration.
 ## Configuration Steps
 
 1. Copy `.env.example` to `.env.local` (or `.env`) if you have not already.
-2. Set `AUTH_PROVIDER=clerk` for production parity or `AUTH_PROVIDER=simple` for
-   local YAML-driven authentication.
+2. Set `AUTH_PROVIDER=simple` for local development and automated tests. Switch
+   to `AUTH_PROVIDER=clerk` only when validating production parity.
 3. When using simple mode, define `SIMPLE_AUTH_USER_FILE` with an absolute or
    workspace-relative path to your YAML file. The API refuses to start if the
    file cannot be read or the schema validation fails.
@@ -104,6 +105,8 @@ Follow these steps whenever you swap authentication modes:
    - API: `AUTH_PROVIDER=clerk` or `simple`
    - Web: `VITE_AUTH_PROVIDER=clerk` or `simple`
    - When using simple mode, also set `SIMPLE_AUTH_USER_FILE` in the API env.
+     The canonical fixture lives at
+     `apps/api/tests/shared/simple-auth/users.yaml`.
 3. Run `pnpm install` if new environment files introduce dependency changes.
 4. Restart the stack (`pnpm dev`) and confirm the startup warning matches the
    chosen provider.
@@ -161,3 +164,11 @@ Follow these steps whenever you swap authentication modes:
   interactions.
 - E2E smoke tests that launch with `AUTH_PROVIDER=simple` to ensure the login
   screen appears and selecting a user unlocks the app.
+
+## Migration Notes
+
+- Repository tests now run with `AUTH_PROVIDER=simple` by default. Shared CI
+  workflows export the canonical fixture path
+  (`apps/api/tests/shared/simple-auth/users.yaml`) to guarantee deterministic
+  personas across suites. Update any downstream automation to mirror those env
+  variables before invoking `pnpm` commands.

@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { describe, test, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 import { resetDatabaseForApp } from '../../src/testing/reset';
 
 /**
@@ -19,8 +20,8 @@ import { resetDatabaseForApp } from '../../src/testing/reset';
 
 describe('Project CRUD Integration Tests', () => {
   let app: Express;
-  const mockJwtToken = 'mock-jwt-token';
-  const mockUserId = 'user_2abc123def456';
+  const mockJwtToken = MOCK_JWT_TOKEN;
+  const mockUserId = DEFAULT_TEST_USER_ID;
   let testProjectId: string;
 
   beforeAll(async () => {
