@@ -66,6 +66,9 @@ describe('load-env', () => {
   });
 
   it('defaults the auth provider to clerk when not specified', async () => {
+    delete process.env.AUTH_PROVIDER;
+    delete process.env.SIMPLE_AUTH_USER_FILE;
+
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     await import('./load-env.js');
 
@@ -73,6 +76,8 @@ describe('load-env', () => {
   });
 
   it('requires SIMPLE_AUTH_USER_FILE when simple auth is configured', async () => {
+    delete process.env.SIMPLE_AUTH_USER_FILE;
+
     writeFileSync(path.join(tempDir, '.env'), 'AUTH_PROVIDER=simple\n');
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
 
@@ -88,6 +93,8 @@ describe('load-env', () => {
       path.join(tempDir, '.env'),
       `AUTH_PROVIDER=simple\nSIMPLE_AUTH_USER_FILE=${yamlPath}\n`
     );
+
+    delete process.env.SIMPLE_AUTH_USER_FILE;
 
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
     await import('./load-env.js');

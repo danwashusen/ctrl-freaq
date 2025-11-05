@@ -59,7 +59,7 @@ test.describe('Dashboard Project Creation', () => {
 
         const createdProject: ProjectData = {
           id: 'proj_dashboard_flow',
-          ownerUserId: 'user_2abc123def456',
+          ownerUserId: 'user-local-author',
           name: payload.name,
           slug: 'dashboard-flow-project',
           description: payload.description,
@@ -69,9 +69,9 @@ test.describe('Dashboard Project Creation', () => {
           goalTargetDate: payload.goalTargetDate,
           goalSummary: payload.goalSummary,
           createdAt: '2026-04-15T18:45:00.000Z',
-          createdBy: 'user_2abc123def456',
+          createdBy: 'user-local-author',
           updatedAt: '2026-04-15T18:45:00.000Z',
-          updatedBy: 'user_2abc123def456',
+          updatedBy: 'user-local-author',
           deletedAt: null,
           deletedBy: null,
         };

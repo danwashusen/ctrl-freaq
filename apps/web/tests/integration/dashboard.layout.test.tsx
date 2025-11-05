@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from 'vitest';
 import App from '../../src/App';
 
 vi.mock('@/lib/auth-provider', () => ({
-  AUTH_PROVIDER: 'clerk' as const,
+  AUTH_PROVIDER: 'simple' as const,
   ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: vi.fn(),
   useUser: vi.fn(),
@@ -64,7 +64,7 @@ describe('Dashboard layout and empty activity', () => {
     vi.mocked(useAuth).mockReturnValue({ isSignedIn: true, isLoaded: true } as any);
     vi.mocked(useUser).mockReturnValue({
       isLoaded: true,
-      user: { id: 'user_123', firstName: 'Test' },
+      user: { id: 'user-local-author', firstName: 'Test' },
     } as any);
 
     render(

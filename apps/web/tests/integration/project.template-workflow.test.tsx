@@ -8,13 +8,16 @@ import { ApiProvider } from '../../src/lib/api-context';
 
 type ClerkModule = typeof import('@/lib/auth-provider');
 
+const SIMPLE_USER_ID = 'user-local-author';
+const SIMPLE_AUTH_TOKEN = `simple:${SIMPLE_USER_ID}`;
+
 vi.mock('@/lib/auth-provider', () => {
   const UserButtonMock = (() => (
     <div data-testid="user-button">User</div>
   )) as unknown as ClerkModule['UserButton'];
   (UserButtonMock as { displayName?: string }).displayName = 'UserButton';
   return {
-    AUTH_PROVIDER: 'clerk' as const,
+    AUTH_PROVIDER: 'simple' as const,
     useAuth: vi.fn(),
     useUser: vi.fn(),
     UserButton: UserButtonMock,
@@ -25,11 +28,11 @@ describe('Project template workflow', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(useAuth).mockReturnValue({
-      getToken: vi.fn().mockResolvedValue('mock-token'),
+      getToken: vi.fn().mockResolvedValue(SIMPLE_AUTH_TOKEN),
     } as any);
     vi.mocked(useUser).mockReturnValue({
       user: {
-        id: 'user_123',
+        id: SIMPLE_USER_ID,
         primaryEmailAddress: { emailAddress: 'user@example.com' },
       },
     } as any);
@@ -53,7 +56,7 @@ describe('Project template workflow', () => {
       if (url.endsWith('/projects/project-1')) {
         const projectPayload = {
           id: 'project-1',
-          ownerUserId: 'user_123',
+          ownerUserId: SIMPLE_USER_ID,
           name: 'Sample Project',
           slug: 'sample-project',
           description: 'Demo project',
@@ -89,7 +92,7 @@ describe('Project template workflow', () => {
             toVersion: '1.1.0',
             status: 'succeeded',
             validationErrors: null,
-            initiatedBy: 'user_123',
+            initiatedBy: SIMPLE_USER_ID,
             initiatedAt: '2025-09-16T00:01:00.000Z',
             completedAt: '2025-09-16T00:01:02.000Z',
           },
@@ -250,8 +253,9 @@ describe('Project template workflow', () => {
       expect(screen.getAllByText('Sample Project')[0]).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId('template-upgraded-banner')).toBeInTheDocument();
-    const errorsList = screen.getByTestId('template-errors');
+    const upgradedBanner = await screen.findByTestId('template-upgraded-banner');
+    expect(upgradedBanner).toBeInTheDocument();
+    const errorsList = await screen.findByTestId('template-errors');
     expect(within(errorsList).queryAllByRole('listitem')).toHaveLength(0);
   });
 
@@ -261,7 +265,7 @@ describe('Project template workflow', () => {
       if (url.endsWith('/projects/project-2')) {
         const projectPayload = {
           id: 'project-2',
-          ownerUserId: 'user_123',
+          ownerUserId: SIMPLE_USER_ID,
           name: 'Legacy Project',
           slug: 'legacy-project',
           description: 'Legacy project',
@@ -347,7 +351,7 @@ describe('Project template workflow', () => {
           json: () =>
             Promise.resolve({
               id: 'project-3',
-              ownerUserId: 'user_123',
+              ownerUserId: SIMPLE_USER_ID,
               name: 'Upgrade Failure Project',
               slug: 'upgrade-failure-project',
               description: 'Auto-upgrade failure scenario',
@@ -358,7 +362,7 @@ describe('Project template workflow', () => {
             Promise.resolve(
               JSON.stringify({
                 id: 'project-3',
-                ownerUserId: 'user_123',
+                ownerUserId: SIMPLE_USER_ID,
                 name: 'Upgrade Failure Project',
                 slug: 'upgrade-failure-project',
                 description: 'Auto-upgrade failure scenario',

@@ -1,5 +1,7 @@
 import type { Express } from 'express';
 
+import { seedSimpleAuthUsers } from './auth.js';
+
 export function resetDatabaseForApp(app: Express) {
   try {
     const ctx = app.locals.appContext as {
@@ -28,6 +30,8 @@ export function resetDatabaseForApp(app: Express) {
         'system'
       );
     `);
+
+    seedSimpleAuthUsers(db);
   } catch {
     // ignore
   }

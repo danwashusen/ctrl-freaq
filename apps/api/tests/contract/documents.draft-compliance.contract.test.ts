@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../src/app';
-import { MOCK_JWT_TOKEN } from '../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 import { demoProjectRetention } from './fixtures/project-retention';
 
 const PROJECT_SLUG = demoProjectRetention.projectSlug;
@@ -54,7 +54,7 @@ describe('Draft compliance logging API contract', () => {
       .post(`/api/v1/projects/${PROJECT_SLUG}/documents/${DOCUMENT_ID}/draft-compliance`)
       .set(AuthorizationHeader)
       .send({
-        authorId: 'user_2abc123def456',
+        authorId: DEFAULT_TEST_USER_ID,
         policyId: demoProjectRetention.policyId,
         detectedAt,
         context: {
@@ -77,7 +77,7 @@ describe('Draft compliance logging API contract', () => {
       .post(`/api/v1/projects/${PROJECT_SLUG}/documents/${DOCUMENT_ID}/draft-compliance`)
       .set(AuthorizationHeader)
       .send({
-        authorId: 'user_2abc123def456',
+        authorId: DEFAULT_TEST_USER_ID,
         detectedAt: new Date().toISOString(),
       });
 
