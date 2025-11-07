@@ -6,6 +6,7 @@ import request from 'supertest';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
+import { TemplateValidationDecisionRepository } from '@ctrl-freaq/shared-data';
 import { createApp, type AppContext } from '../../../src/app';
 import { MOCK_JWT_TOKEN, TEMPLATE_MANAGER_JWT_TOKEN } from '../../../src/middleware/test-auth';
 import { seedSectionFixture, seedUserFixture } from '../../../src/testing/fixtures/section-editor';
@@ -182,5 +183,72 @@ describe('GET /api/v1/projects/:projectId/documents/primary', () => {
     expect(response.body).toMatchObject({
       code: 'PROJECT_NOT_FOUND',
     });
+  });
+
+  test('does not leak template decisions from previous documents when a new document is active', async () => {
+    const templateDecisions = new TemplateValidationDecisionRepository(db);
+    const createResponse = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: 'Template Decision Reset',
+        visibility: 'workspace',
+      })
+      .expect(201);
+
+    const projectId = createResponse.body.id as string;
+    const firstDocumentId = randomUUID();
+    const firstSectionId = randomUUID();
+    const authorId = 'user_template_reset';
+
+    seedUserFixture(db, authorId);
+    seedSectionFixture(db, {
+      sectionId: firstSectionId,
+      documentId: firstDocumentId,
+      userId: authorId,
+      templateId: 'architecture-reference',
+      templateVersion: '1.0.0',
+      templateSchemaHash: 'tmpl-architecture-100',
+    });
+
+    db.prepare('UPDATE documents SET project_id = ? WHERE id = ?').run(projectId, firstDocumentId);
+
+    await templateDecisions.recordDecision({
+      projectId,
+      documentId: firstDocumentId,
+      templateId: 'architecture-reference',
+      currentVersion: '1.0.0',
+      requestedVersion: '2.0.0',
+      action: 'pending',
+      notes: 'Upgrade required',
+      submittedBy: 'auditor-1',
+    });
+
+    const secondDocumentId = randomUUID();
+    const secondSectionId = randomUUID();
+    seedSectionFixture(db, {
+      sectionId: secondSectionId,
+      documentId: secondDocumentId,
+      userId: authorId,
+      templateId: 'architecture-reference',
+      templateVersion: '2.0.0',
+      templateSchemaHash: 'tmpl-architecture-200',
+    });
+
+    db.prepare('UPDATE documents SET project_id = ? WHERE id = ?').run(projectId, secondDocumentId);
+
+    const response = await request(app)
+      .get(`/api/v1/projects/${projectId}/documents/primary`)
+      .set(AuthorizationHeader)
+      .expect(200);
+
+    const payload = PrimaryDocumentSnapshotSchema.safeParse(response.body);
+    expect(payload.success).toBe(true);
+    if (!payload.success) {
+      return;
+    }
+
+    expect(payload.data.document?.documentId).toBe(secondDocumentId);
+    expect(payload.data.templateDecision).toBeNull();
   });
 });

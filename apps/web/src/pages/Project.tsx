@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { TemplateUpgradeBanner } from '../components/editor/TemplateUpgradeBanner';
@@ -97,6 +97,7 @@ function getNestedValue(source: unknown, path: Array<string | number>): unknown 
 export default function Project() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { projects, client, eventHub, eventHubHealth, eventHubEnabled } = useApi();
   const getProjectById = projects.getById;
   const updateProject = projects.update;
@@ -115,6 +116,15 @@ export default function Project() {
   const navIsLoading = !hasNavProjects && (projectsQuery.isLoading || projectsQuery.isFetching);
   const [project, setProject] = useState<ProjectView | null>(null);
   const projectRef = useRef<ProjectView | null>(null);
+  const projectId = project?.id ?? null;
+  const documentRouteQuery = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+  const workflowAction = useMemo(() => {
+    if (!location.search || location.search.length === 0) {
+      return null;
+    }
+    const params = new URLSearchParams(location.search);
+    return params.get('workflow');
+  }, [location.search]);
   const [primarySnapshot, setPrimarySnapshot] = useState<PrimaryDocumentSnapshotResponse | null>(
     null
   );
@@ -123,6 +133,7 @@ export default function Project() {
   const [createDocumentSuccess, setCreateDocumentSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const archiveRedirectRef = useRef(false);
+  const autoProvisionTriggerRef = useRef(false);
   const [viewerArchiveNotice, setViewerArchiveNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [mutationState, setMutationState] = useState<MutationState>({ type: 'idle' });
@@ -188,7 +199,8 @@ export default function Project() {
       });
       void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY, exact: false });
       resetProvisioningMutation();
-      navigate(`/documents/${result.documentId}/sections/${result.firstSectionId}`);
+      const targetUrl = `/documents/${result.documentId}/sections/${result.firstSectionId}${documentRouteQuery}`;
+      navigate(targetUrl);
     },
     onError: error => {
       setCreateDocumentInFlight(false);
@@ -222,8 +234,8 @@ export default function Project() {
       return null;
     }
 
-    return `/documents/${primarySnapshot.document.documentId}/sections/${primarySnapshot.document.firstSectionId}`;
-  }, [primaryDocumentReady, primarySnapshot]);
+    return `/documents/${primarySnapshot.document.documentId}/sections/${primarySnapshot.document.firstSectionId}${documentRouteQuery}`;
+  }, [documentRouteQuery, primaryDocumentReady, primarySnapshot]);
   const openDocumentDisabled = !openDocumentHref || isProvisioning;
   const openDocumentDescription = useMemo(() => {
     if (isProvisioning) {
@@ -292,6 +304,60 @@ export default function Project() {
     setShowProvisioningHint(true);
     createDocument(project.id);
   }, [createDocument, createDocumentInFlight, isProvisioning, project, provisioningState]);
+  const clearWorkflowAction = useCallback(() => {
+    if (!location.search || location.search.length === 0) {
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    if (!params.has('workflow')) {
+      return;
+    }
+    params.delete('workflow');
+    const nextSearch = params.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch.length > 0 ? `?${nextSearch}` : '',
+      },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, navigate]);
+  useEffect(() => {
+    if (workflowAction !== 'create-document') {
+      return;
+    }
+    if (!projectId || projectId === 'new') {
+      return;
+    }
+    if (
+      isProvisioning ||
+      provisioningState === 'pending' ||
+      createDocumentInFlight ||
+      primarySnapshot?.status === 'ready'
+    ) {
+      return;
+    }
+    if (autoProvisionTriggerRef.current) {
+      return;
+    }
+    autoProvisionTriggerRef.current = true;
+    handleCreateDocument();
+    clearWorkflowAction();
+  }, [
+    clearWorkflowAction,
+    createDocumentInFlight,
+    handleCreateDocument,
+    isProvisioning,
+    primarySnapshot?.status,
+    projectId,
+    provisioningState,
+    workflowAction,
+  ]);
+  useEffect(() => {
+    if (workflowAction !== 'create-document' && autoProvisionTriggerRef.current) {
+      autoProvisionTriggerRef.current = false;
+    }
+  }, [workflowAction]);
   const handleExportProject = useCallback(async () => {
     if (!project || project.id === 'new' || exportInFlight || project.status === 'archived') {
       return;
@@ -417,13 +483,15 @@ export default function Project() {
         return 'Idle';
     }
   }, [exportState]);
+  const exportDownloadUrl =
+    exportState === 'completed' && exportJob?.artifactUrl ? exportJob.artifactUrl : null;
   const exportDescription = useMemo(() => {
     if (exportState === 'failed') {
       return exportError ?? 'Export failed. Try again later.';
     }
     if (exportState === 'completed') {
-      if (exportJob?.artifactUrl) {
-        return 'Export completed. Download link delivered to your inbox.';
+      if (exportDownloadUrl) {
+        return 'Export ready. Use the download link below to retrieve the artifact.';
       }
       return 'Export completed successfully.';
     }
@@ -434,7 +502,7 @@ export default function Project() {
       return 'Generating export package…';
     }
     return 'Export documents in the latest format for sharing.';
-  }, [exportError, exportJob?.artifactUrl, exportState]);
+  }, [exportDownloadUrl, exportError, exportState]);
 
   useEffect(() => {
     if (!project || !apiClientRef.current || !exportJob) {
@@ -708,7 +776,6 @@ export default function Project() {
   const setFormValue = useTemplateStore(state => state.setFormValue);
   const loadDocument = useTemplateStore(state => state.loadDocument);
   const resetTemplate = useTemplateStore(state => state.reset);
-  const projectId = project?.id ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -1816,6 +1883,19 @@ export default function Project() {
           >
             {exportDescription}
           </span>
+          {exportDownloadUrl ? (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="mt-3 w-fit"
+              data-testid="project-workflow-export-download"
+            >
+              <a href={exportDownloadUrl} download target="_blank" rel="noreferrer">
+                Download artifact
+              </a>
+            </Button>
+          ) : null}
         </Card>
       </div>
     </>

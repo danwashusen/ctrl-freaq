@@ -23,8 +23,11 @@ export class ProjectDocumentDiscoveryService {
   async fetchPrimaryDocumentSnapshot(projectId: string): Promise<ProjectDocumentSnapshot> {
     try {
       const snapshot = await this.dependencies.documents.fetchProjectDocumentSnapshot(projectId);
+      const documentId = snapshot.document?.documentId;
       const decisionRecord =
-        await this.dependencies.templateDecisions.findLatestByProject(projectId);
+        documentId != null
+          ? await this.dependencies.templateDecisions.findLatestByDocument(documentId)
+          : null;
       let templateDecision = null;
       if (decisionRecord) {
         try {

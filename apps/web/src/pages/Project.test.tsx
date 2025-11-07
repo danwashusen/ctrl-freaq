@@ -16,8 +16,10 @@ const {
   mockSetFormValue,
   mockEnqueueExport,
   mockGetExportJob,
+  mockCreateProjectDocument,
   mockSignOut,
   paramsRef,
+  locationRef,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetById: vi.fn(),
@@ -28,8 +30,15 @@ const {
   mockSetFormValue: vi.fn(),
   mockEnqueueExport: vi.fn(),
   mockGetExportJob: vi.fn(),
+  mockCreateProjectDocument: vi.fn(),
   mockSignOut: vi.fn(),
   paramsRef: { id: 'project-alpha' } as { id: string },
+  locationRef: {
+    pathname: '/projects/project-alpha',
+    search: '',
+    state: undefined as unknown,
+    hash: '',
+  },
 }));
 
 vi.mock('react-router-dom', async importOriginal => {
@@ -37,6 +46,7 @@ vi.mock('react-router-dom', async importOriginal => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useLocation: () => locationRef,
     useParams: () => paramsRef,
     Link: ({ to, children, ...rest }: any) => {
       const href =
@@ -105,6 +115,7 @@ vi.mock('../lib/api-context', () => ({
       restore: vi.fn(),
     },
     client: {
+      createProjectDocument: mockCreateProjectDocument,
       enqueueProjectExport: mockEnqueueExport,
       getProjectExportJob: mockGetExportJob,
     },
@@ -163,6 +174,7 @@ describe('Project page metadata view', () => {
     mockSetFormValue.mockReset();
     mockEnqueueExport.mockReset();
     mockGetExportJob.mockReset();
+    mockCreateProjectDocument.mockReset();
     mockGetAll.mockResolvedValue({ projects: [projectFixture], total: 1, limit: 20, offset: 0 });
     mockEnqueueExport.mockResolvedValue({
       jobId: 'job-export-1',
@@ -189,6 +201,23 @@ describe('Project page metadata view', () => {
       completedAt: '2026-05-02T16:01:00.000Z',
     });
     paramsRef.id = 'project-alpha';
+    locationRef.pathname = '/projects/project-alpha';
+    locationRef.search = '';
+    locationRef.state = undefined;
+    mockCreateProjectDocument.mockResolvedValue({
+      status: 'created',
+      projectId: projectFixture.id,
+      documentId: 'doc-auto',
+      firstSectionId: 'sec-auto',
+      lifecycleStatus: 'draft',
+      title: 'Architecture Auto',
+      template: {
+        templateId: 'architecture-reference',
+        templateVersion: '2.1.0',
+        templateSchemaHash: 'tmpl-architecture-210',
+      },
+      lastModifiedAt: '2026-05-02T16:05:00.000Z',
+    });
   });
 
   it('renders project metadata in view mode by default with edit toggle', async () => {
@@ -371,10 +400,12 @@ describe('Project page metadata view', () => {
       expect(mockEnqueueExport).toHaveBeenCalledWith(projectFixture.id, expect.any(Object))
     );
     await waitFor(() => expect(mockGetExportJob).toHaveBeenCalled());
-    await waitFor(() => expect(within(exportCard).getByText(/ready/i)).toBeInTheDocument());
+    await waitFor(() => expect(within(exportCard).getByText(/^ready$/i)).toBeInTheDocument());
     expect(within(exportCard).getByTestId('project-workflow-export-description')).toHaveTextContent(
-      /Download link delivered/i
+      /download link below/i
     );
+    const downloadCta = within(exportCard).getByTestId('project-workflow-export-download');
+    expect(downloadCta).toHaveAttribute('href', 'data:text/markdown;base64,ZW5jb2RlZA==');
   });
 
   it('displays export failure details when the job ends with an error', async () => {
@@ -403,5 +434,17 @@ describe('Project page metadata view', () => {
     expect(within(exportCard).getByTestId('project-workflow-export-description')).toHaveTextContent(
       /Exporter offline/i
     );
+    expect(
+      within(exportCard).queryByTestId('project-workflow-export-download')
+    ).not.toBeInTheDocument();
+  });
+
+  it('auto provisions a document when workflow=create-document is present in the query string', async () => {
+    mockGetById.mockResolvedValue(projectFixture);
+    locationRef.search = '?workflow=create-document';
+
+    renderWithProviders();
+
+    await waitFor(() => expect(mockCreateProjectDocument).toHaveBeenCalledWith(projectFixture.id));
   });
 });

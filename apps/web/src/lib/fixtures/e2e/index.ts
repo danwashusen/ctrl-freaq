@@ -315,7 +315,10 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
         return { kind: 'unknown' };
       }
 
-      if (segments[5] === 'co-author') {
+      const tailStart = 5;
+      const tailLength = segments.length - tailStart;
+
+      if (segments[tailStart] === 'co-author') {
         if (segments.length === 7) {
           const action = segments[6];
           switch (action) {
@@ -334,6 +337,13 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
 
         if (segments.length === 8 && segments[6] === 'proposal' && segments[7] === 'reject') {
           return { kind: 'apiCoAuthorReject', documentId, sectionId };
+        }
+      }
+
+      if (segments[tailStart] === 'assumptions' && tailLength >= 2) {
+        const remainder = segments.slice(tailStart + 1);
+        if (remainder.length === 1 && remainder[0] === 'session') {
+          return { kind: 'apiAssumptionsStart', sectionId };
         }
       }
     }

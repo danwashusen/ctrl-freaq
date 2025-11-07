@@ -13,6 +13,7 @@ const {
   mockSetFormValue,
   mockSubmitTemplateDecision,
   paramsRef,
+  locationRef,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetProject: vi.fn(),
@@ -20,6 +21,13 @@ const {
   mockSetFormValue: vi.fn(),
   mockSubmitTemplateDecision: vi.fn(),
   paramsRef: { id: 'project-template' } as { id: string },
+  locationRef: {
+    pathname: '/projects/project-template',
+    search: '',
+    hash: '',
+    state: undefined as unknown,
+    key: 'default',
+  },
 }));
 
 vi.mock('react-router-dom', async importOriginal => {
@@ -32,6 +40,7 @@ vi.mock('react-router-dom', async importOriginal => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => paramsRef,
+    useLocation: () => locationRef,
     Link: MockLink,
     NavLink: MockLink,
   };

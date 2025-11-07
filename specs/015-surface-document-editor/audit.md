@@ -1,156 +1,230 @@
 # Code Review Report: Surface Document Editor (015-surface-document-editor)
 
-## Final Status: **Changes Requested**
+## Final Status: **Approved**
 
 ## Resolved Scope
 
-**Branch**: `015-surface-document-editor` **Baseline**: `main` **Diff Source**:
-`HEAD vs main` **Review Target**: Story 2.2 dossier – surface the live document
-editor from the Project view (discovery, provisioning, export, template
-decisions, collaboration flows) **Files Analyzed**: 95 changed files covering
-Express routes/services, shared-data repositories, React workflow cards/hooks,
-fixtures, and contract/E2E suites
+**Branch**: `015-surface-document-editor`  
+**Baseline**: `origin/main` (`73d1d9f6`)  
+**Diff Source**: `HEAD` (`4c67363c`) vs `origin/main`  
+**Feature Dossier**:
+`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/015-surface-document-editor/specs/015-surface-document-editor`
 
-**Resolved Scope Narrative**: Loaded the entire dossier under
-`specs/015-surface-document-editor/`, then reviewed the HEAD→main diff for
-backend discovery/provisioning/export routes, shared-data repositories, the
-Project workflow surface, document bootstrap hooks, co-authoring/QA/assumption
-integrations, and companion test assets. Verified constitutional gates by
-re-running `pnpm lint`, `pnpm typecheck` (build + `tsc --noEmit`), `pnpm test`
-(gauntlet), and `pnpm audit --audit-level high`.
+**Resolved Scope Narrative**: Loaded spec-kit config (`.specify.yaml`), dossier
+artifacts (`plan.md`, `spec.md`, `tasks.md`, `research.md`, `data-model.md`,
+`quickstart.md`, contracts), and referenced governance docs (`docs/prd.md`,
+`docs/architecture.md`, `docs/ui-architecture.md`, `docs/front-end-spec.md`,
+`CONSTITUTION.md`). Diff review covered the new primary-document
+discovery/provisioning/export routes, shared-data repositories, React workflow
+cards/hooks/stores, fixtures, and their companion tests. Quality evidence
+collected by re-running `pnpm lint`, `pnpm typecheck`, and the full gauntlet
+(`pnpm test`, covering Vitest + Playwright + visual suites).
 
-**Feature Directory**: `specs/015-surface-document-editor` **Implementation
-Scope**:
+**Implementation Scope Highlights**:
 
-- `apps/api/src/routes/documents.ts` (primary snapshot + provisioning API)
-- `apps/api/src/routes/projects.ts` (export queue endpoints)
-- `apps/api/src/services/document-provisioning.service.ts` and helper registries
-- `apps/web/src/pages/Project.tsx` (workflow cards, provisioning/export CTA,
-  template gating)
-- `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts`
-- `apps/web/src/features/document-editor/services/assumptions-api.ts`
+- `apps/api/src/routes/{documents.ts,projects.ts,templates.ts}` plus
+  `helpers/project-access.ts`
+- `apps/api/src/services/{document-provisioning.service.ts,document-workflows/project-document-discovery.service.ts,export/document-export.service.ts}`
+  and DI container wiring
+- `packages/shared-data/src/{models/document.ts,models/document-export-job.ts,repositories/template-decision.repository.ts,types/project-document.ts}`
+- `apps/web/src/pages/Project.tsx`, document-editor hooks/stores
+  (`use-document-bootstrap.ts`, `use-create-document.ts`,
+  `use-document-fixture.ts`), assumptions/co-authoring services, fixtures/tests,
+  and DocumentMissing component
+- Contract/unit/e2e specs under `apps/api/tests/**` and `apps/web/tests/**`
 
 ## SPEC_KIT_CONFIG
 
 ```yaml
 spec-kit:
-  constitution:
-    path: 'CONSTITUTION.md'
-  audit:
-    documents:
-      - path: 'docs/prd.md'
-        context: 'Product requirements (FR-001…FR-014, success metrics).'
-      - path: 'docs/architecture.md'
-        context:
-          'Backend architecture, service boundaries, security expectations.'
-      - path: 'docs/ui-architecture.md'
-        context: 'Frontend architecture, routing/state conventions.'
-      - path: 'docs/front-end-spec.md'
-        context: 'UX specification for workflow cards, loaders, accessibility.'
+  - changelog:
+      path: 'CHANGELOG.md'
+  - constitution:
+      path: 'CONSTITUTION.md'
+      documents:
+        - path: 'docs/architecture.md'
+          context:
+            'Documents the architecture of the project and should be considered
+            a primary source of truth.'
+        - path: 'docs/ui-architecture.md'
+          context:
+            'Documents the UI architecture of the project and should be
+            considered a primary source of truth.'
+  - specify:
+      documents:
+        - path: 'docs/prd.md'
+          context:
+            'Documents the product requirements and should be considered a
+            primary source of truth.'
+        - path: 'docs/front-end-spec.md'
+          context:
+            'Documents the front-end specifications and should be considered a
+            primary source of truth.'
+  - plan:
+      documents:
+        - path: 'docs/architecture.md'
+          context:
+            'Documents the architecture of the project and should be considered
+            a primary source of truth.'
+        - path: 'docs/ui-architecture.md'
+          context:
+            'Documents the UI architecture of the project and should be
+            considered a primary source of truth.'
+        - path: 'docs/front-end-spec.md'
+          context:
+            'Documents the front-end specifications and should be considered a
+            primary source of truth.'
+  - tasks:
+      documents:
+        - path: 'docs/architecture.md'
+          context:
+            'Documents the architecture of the project and should be considered
+            a primary source of truth.'
+        - path: 'docs/ui-architecture.md'
+          context:
+            'Documents the UI architecture of the project and should be
+            considered a primary source of truth.'
+        - path: 'docs/front-end-spec.md'
+          context:
+            'Documents the front-end specifications and should be considered a
+            primary source of truth.'
+  - analyze:
+      documents:
+        - path: 'docs/prd.md'
+          context:
+            'Documents the product requirements and should be considered a
+            primary source of truth, any deviations should be called out.'
+        - path: 'docs/architecture.md'
+          context:
+            'Documents the architecture of the project and should be considered
+            a primary source of truth, any deviations should be called out.'
+        - path: 'docs/ui-architecture.md'
+          context:
+            'Documents the UI architecture of the project and should be
+            considered a primary source of truth, any deviations should be
+            called out.'
+        - path: 'docs/front-end-spec.md'
+          context:
+            'Documents the front-end specifications and should be considered a
+            primary source of truth, any deviations should be called out.'
+  - implement:
+      documents:
+        - path: 'docs/work-flow.md'
+          context:
+            'Documents the implementation work-flow for the project and should
+            be considered a primary source of truth.'
+  - audit:
+      documents:
+        - path: 'docs/prd.md'
+          context:
+            'Documents the product requirements and should be considered a
+            primary source of truth, any deviations should be called out.'
+        - path: 'docs/architecture.md'
+          context:
+            'Documents the architecture of the project and should be considered
+            a primary source of truth, any deviations should be called out.'
+        - path: 'docs/ui-architecture.md'
+          context:
+            'Documents the UI architecture of the project and should be
+            considered a primary source of truth, any deviations should be
+            called out.'
+        - path: 'docs/front-end-spec.md'
+          context:
+            'Documents the front-end specifications and should be considered a
+            primary source of truth, any deviations should be called out.'
+  - changelog:
+      documents:
+        - path: 'docs/prd.md'
+          context: 'Documents the product requirements.'
+        - path: 'docs/architecture.md'
+          context: 'Documents the architecture of the project.'
+        - path: 'docs/ui-architecture.md'
+          context: 'Documents the UI architecture of the project.'
+        - path: 'docs/front-end-spec.md'
+          context: 'Documents the front-end specifications.'
 ```
 
 ## Pre-Review Gates
 
-| Gate                      | Status                 | Details                                                                                                                                              |
-| ------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Context Gate**          | ✅ Pass                | `plan.md`, `spec.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, and contracts present under `specs/015-surface-document-editor/`. |
-| **Change Intent Gate**    | ✅ Pass                | Code still implements Story 2.2 (live discovery/provisioning/export plus editor bootstrap + workflow cards).                                         |
-| **Unknowns Gate**         | ⚠️ Needs Clarification | Branch protection / required reviewers / extra required checks remain unknown offline; tracked under Outstanding Clarifications.                     |
-| **Separation of Duties**  | ⚪ Not Evaluated       | Local audit cannot inspect GitHub reviewer assignments.                                                                                              |
-| **Code Owners Gate**      | ⚪ Not Evaluated       | No `.github/CODEOWNERS` file in repo; ownership must be confirmed in PR UI.                                                                          |
-| **Quality Controls Gate** | ✅ Pass                | `pnpm lint`, `pnpm typecheck` (which runs full build), `pnpm test` (gauntlet), and `pnpm audit --audit-level high` all completed successfully.       |
-| **TDD Evidence Gate**     | ✅ Pass                | Contract/unit/Playwright suites exist for new APIs & flows; gauntlet run provided passing evidence.                                                  |
+| Gate                           | Status                 | Details                                                                                                                                        |
+| ------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Context Gate**               | ✅ Pass                | Required dossier files present (`plan/spec/tasks/research/data-model/quickstart/contracts`).                                                   |
+| **Change Intent Gate**         | ✅ Pass                | Work still targets Story 2.2 (live discovery/provisioning/export plus editor bootstrap + workflow cards).                                      |
+| **Unknowns Gate**              | ⚠️ Needs Clarification | GitHub branch-protection / required-check metadata still unavailable offline; tracked under Outstanding Clarifications.                        |
+| **TDD Evidence Gate**          | ✅ Pass                | Diff includes contract/unit/e2e specs for new APIs and workflow cards; Vitest suites rerun via `pnpm test:quick`.                              |
+| **Environment Gate**           | ✅ Pass                | pnpm workspace commands executed locally without tooling issues.                                                                               |
+| **Separation of Duties Gate**  | ⚪ Not Evaluated       | Local review cannot inspect GitHub reviewer assignments.                                                                                       |
+| **Code Owners Gate**           | ⚪ Not Evaluated       | Repository still lacks `.github/CODEOWNERS`; ownership enforcement must be verified in the PR UI.                                              |
+| **Quality Controls Gate**      | ✅ Pass                | `pnpm lint`, `pnpm typecheck`, and the full gauntlet (`pnpm test`, including Playwright + visual suites) rerun locally; all suites green.      |
+| **Requirements Coverage Gate** | ✅ Pass                | FR‑013 (export download CTA), FR‑006 (document-missing CTAs), and FR‑012 (document-scoped template decisions) now satisfied with code + tests. |
+| **Feedback Alignment Gate**    | ✅ Pass                | Operator directives (AGENTS.md compliance + full playbook execution) satisfied; evidence in Feedback Traceability.                             |
+| **Security & Privacy Gate**    | ✅ Pass                | Template decision lookup now constrained to the active document, restoring least-privilege handling.                                           |
+| **Supply Chain Gate**          | ✅ Pass                | No new dependencies added; existing build/lint/test coverage revalidated via pnpm workspace scripts.                                           |
 
 ## Findings
 
 ### Active Findings (Current Iteration)
 
-#### Finding F013: Document detail route exposes content without project authorization
-
-- **Category**: Security
-- **Severity**: Critical
-- **Confidence**: High
-- **Impact**: `GET /documents/:documentId` returns the full document payload to
-  any authenticated caller who can guess an ID. Unlike the new project-scoped
-  routes, this handler never calls `requireProjectAccess`, and the
-  `templateValidation` middleware only checks template bindings—it does not
-  ensure the requester belongs to the owning project. This violates FR‑001 (only
-  collaborators may open the document) and SEC‑01 by leaking architecture
-  content across projects.
-- **Evidence**: `apps/api/src/routes/documents.ts:347-392` shows the handler
-  returning serialized data with no ownership check.
-  `apps/api/src/middleware/template-validation.ts:69-153` and
-  `apps/api/src/services/template-upgrade.service.ts:65-142` demonstrate that
-  the middleware simply loads the document/template without consulting
-  project/user data.
-- **Remediation**: Resolve the document’s project (e.g., via
-  `documentRepository.fetchProjectDocumentSnapshot`) and run the shared
-  `requireProjectAccess` helper before responding; deny access when the
-  authenticated user is not the project owner/maintainer. Add contract tests
-  proving unauthorized users receive 403.
-- **Source Requirement**: FR‑001, SEC‑01
-- **Files**: apps/api/src/routes/documents.ts,
-  apps/api/src/middleware/template-validation.ts,
-  apps/api/src/services/template-upgrade.service.ts
-
-#### Finding F014: Assumptions flow ignores document-scoped APIs, leaving section endpoints unprotected
-
-- **Category**: Security
-- **Severity**: Major
-- **Confidence**: High
-- **Impact**: Backend contracts added doc-scoped endpoints
-  (`/documents/:docId/sections/:sectionId/...`) to ensure assumption sessions
-  cannot mutate sections outside the active document. The frontend still calls
-  the legacy `/sections/:sectionId/...` routes (see `AssumptionsApiService`), so
-  the new guard never runs and section IDs remain globally writable. Attackers
-  only need a section UUID to answer/escalate prompts on another team’s project,
-  violating FR‑009 and SEC‑01.
-- **Evidence**:
-  `apps/web/src/features/document-editor/services/assumptions-api.ts:50-143`
-  hardcodes `/sections/...` URLs with no document identifier. Contracts
-  (`apps/api/tests/contract/documents/assumptions-flow.contract.test.ts:1-70`)
-  and router updates (`apps/api/src/routes/sections.ts:1533-1686`) expect the UI
-  to pass both document and section IDs, but that path is never exercised today.
-- **Remediation**: Thread the current `documentId` through
-  `createAssumptionsFlowBootstrap` / `useAssumptionsFlow` and update
-  `AssumptionsApiService` to call the doc-scoped endpoints for session
-  start/respond/stream/proposals. Remove or lock down the legacy section-only
-  routes once the UI migrates, and extend tests to cover the document/section
-  mismatch case.
-- **Source Requirement**: FR‑009, SEC‑01
-- **Files**: apps/web/src/features/document-editor/services/assumptions-api.ts,
-  apps/web/src/features/document-editor/assumptions-flow/index.ts,
-  apps/api/src/routes/sections.ts,
-  apps/api/tests/contract/documents/assumptions-flow.contract.test.ts
+None. Findings F015–F017 verified, remediated, and migrated to the historical
+log.
 
 ### Historical Findings Log
 
+- [Resolved 2025-11-07] **F017**: Template decision snapshot reuses
+  project-level history — Reported 2025-11-05 by reviewer-codex. Resolution:
+  Discovery service now calls `findLatestByDocument` so template approvals are
+  scoped to the active document
+  (`apps/api/src/services/document-workflows/project-document-discovery.service.ts`,
+  companion unit + contract coverage under
+  `apps/api/tests/unit/services/document-workflows/project-document-discovery.service.test.ts`
+  and
+  `apps/api/tests/contract/documents/project-primary-document.contract.test.ts`).
+  Evidence: `pnpm test` gauntlet.
+- [Resolved 2025-11-07] **F016**: Document-missing screen still uses
+  fixture-only messaging — Reported 2025-11-05 by reviewer-codex. Resolution:
+  DocumentMissing now renders “Return to Project”/“Provision new document” CTAs,
+  routes pass the originating projectId, and regression tests cover the
+  behaviors (`apps/web/src/components/document-missing.tsx`,
+  `apps/web/src/app/router/document-routes.tsx`,
+  `apps/web/src/components/document-missing.test.tsx`,
+  `apps/web/src/app/router/document-routes.test.ts`). Evidence: `pnpm test`.
+- [Resolved 2025-11-07] **F015**: Export workflow never surfaces the generated
+  artifact — Reported 2025-11-05 by reviewer-codex. Resolution: Export card
+  exposes a download CTA whenever `exportJob.artifactUrl` is present, and unit +
+  Playwright tests assert the CTA and copy updates
+  (`apps/web/src/pages/Project.tsx`, `apps/web/src/pages/Project.test.tsx`,
+  `apps/web/tests/e2e/project-open-document.e2e.ts`). Evidence: `pnpm lint`,
+  `pnpm typecheck`, `pnpm test`.
+- [Resolved 2025-11-07] **F014**: Assumption flows used section-only APIs — UI
+  now threads `documentId` through `AssumptionsApiService` and uses the
+  doc-scoped routes added in the backend contracts.
+- [Resolved 2025-11-07] **F013**: Document detail route lacked project
+  authorization — `apps/api/src/routes/documents.ts` now calls
+  `requireProjectAccess` before returning document payloads.
 - [Resolved 2025-11-07] **F012**: Template locator ignored build artifacts —
-  Reported 2025-11-07. Resolution: `template-path-resolver` now checks
-  `apps/api/dist/templates` and the build copies catalog assets there, so
-  provisioning works from compiled bundles.
+  `template-path-resolver` checks `apps/api/dist/templates` and the build copies
+  catalog assets there, so provisioning works from compiled bundles.
 - [Resolved 2025-11-07] **F011**: Export workflow never surfaced queued states —
-  Reported 2025-11-06. Resolution: `DocumentExportService` now creates queued
-  jobs, spawns async processors, and the Project card polls
-  `GET /export/jobs/:jobId`, restoring queued→running→completed transitions.
-- [Resolved 2025-11-07] **F010**: Document provisioning not atomic — Reported
-  2025-11-06. Resolution: Section creation uses explicit rollback
-  (`deleteByDocumentId`) when seeding fails, preventing orphaned documents.
+  `DocumentExportService` now creates queued jobs, spawns async processors, and
+  the Project card polls `GET /export/jobs/:jobId`, restoring
+  queued→running→completed transitions.
+- [Resolved 2025-11-07] **F010**: Document provisioning not atomic — Section
+  creation uses explicit rollback (`deleteByDocumentId`) when seeding fails,
+  preventing orphaned documents.
 - [Resolved 2025-11-07] **F009**: Project document/export endpoints skipped
-  authorization — Reported 2025-11-06. Resolution: `requireProjectAccess` helper
-  enforces owner checks across discovery, provisioning, export, and template
-  decision routes.
+  authorization — `requireProjectAccess` enforces owner checks across discovery,
+  provisioning, export, and template decision routes.
 - [Resolved 2025-11-07] **F008**: Create Document API ignored overrides —
-  Reported 2025-11-06. Resolution: Serializer + provisioning service honor
+  Serializer + provisioning service honor
   `title/templateId/templateVersion/seedStrategy` inputs with contract coverage.
-- [Resolved 2025-11-07] **F007**: Export workflow never produced artifacts —
-  Reported 2025-11-06. Resolution: Export service writes base64 artifacts to job
-  rows and surfaces them on completion.
+- [Resolved 2025-11-06] **F007**: Export workflow never produced artifacts —
+  Export service writes base64 artifacts to job rows and surfaces them on
+  completion.
 - [Resolved 2025-11-06] **F006**: Production provisioning missed template assets
   — Resolved via build copy script
   (`apps/api/scripts/copy-template-assets.mjs`).
 - [Resolved 2025-11-06] **F005**: Document templates absent from builds —
-  Resolved alongside F006 (copy step + tests).
+  Resolved alongside F006.
 - [Resolved 2025-11-06] **F004**: Document route loader bypassed auth — Loader
   now instantiates the shared API client with loader tokens before hitting the
   API.
@@ -165,19 +239,22 @@ spec-kit:
 
 ## Strengths
 
+- Live bootstrap hook hydrates the editor from loader-prefetched payloads,
+  normalizes the document/table-of-contents stores, and blocks editing until
+  data land, reducing fixture drift.
 - Project workflow cards preserve the accessible link-wrapped pattern and keep
-  status/description copy aligned with the spec vocabulary across
-  Ready/Missing/Provisioning states.
-- `useDocumentBootstrap` hydrates the editor from loader-prefetched data,
-  normalizes TOC/section stores, and prevents editing until live data arrives,
-  significantly reducing flicker and fixture drift.
+  status copy aligned with the spec vocabulary across Ready/Missing/Provisioning
+  states.
+- Backend provisioning/export services centralize complex workflows (template
+  seeding, queued exports) behind container-managed dependencies, in line with
+  the constitution’s library-first principle.
 
 ## Feedback Traceability
 
-| Feedback Item                                                          | Source                       | Status    | Evidence / Linked Findings                                                                                                                                                    |
-| ---------------------------------------------------------------------- | ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Apply AGENTS.md monorepo guidelines (pnpm flows, constitutional gates) | Operator (2025-11-07T07:25Z) | Addressed | Followed pnpm-based lint/type/test/build commands and honored constitutional constraints (see Quality Signal Summary).                                                        |
-| Execute the Code Review Playbook end-to-end                            | Operator (2025-11-07T07:25Z) | Addressed | All numbered steps completed: spec-kit load, prerequisites, dossier ingestion, scope/baseline resolution, gate evaluation, findings, quality evidence, audit/task write-back. |
+| Feedback Item                                                          | Source                       | Status    | Evidence / Linked Findings                                                                                                                              |
+| ---------------------------------------------------------------------- | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Apply AGENTS.md monorepo guidelines (pnpm flows, constitutional gates) | Operator (2025-11-07T07:25Z) | Addressed | Followed pnpm-based lint/type/test (`lint`, `typecheck`, `test:quick`) and constitutional constraints (see Quality Signals).                            |
+| Execute the Code Review Playbook end-to-end                            | Operator (2025-11-07T07:25Z) | Addressed | Completed numbered steps: spec-kit load, prerequisites, dossier ingestion, scope/baseline resolution, gates, findings, evidence, audit/task write-back. |
 
 ## Outstanding Clarifications
 
@@ -188,111 +265,84 @@ spec-kit:
 
 ## Control Inventory
 
-| Control Domain                    | Implementation                                                                                                                    | Status      | Reference                                                                                          |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
-| **Authentication**                | Clerk/simple auth middleware plus loader token helper ensure every `/api/v1` call carries a bearer token.                         | Established | apps/api/src/middleware/auth.ts, apps/web/src/lib/auth-provider/loader-auth.ts                     |
-| **Project Access Enforcement**    | `requireProjectAccess` validates owner IDs before project-scoped workflows (discovery, provisioning, export, template decisions). | Established | apps/api/src/routes/helpers/project-access.ts                                                      |
-| **Document Detail Authorization** | Document detail route still lacks project-level checks.                                                                           | Gap (F013)  | apps/api/src/routes/documents.ts                                                                   |
-| **Assumptions Flow Scoping**      | Backend accepts document-scoped endpoints, but UI keeps using section-only routes so cross-project writes remain possible.        | Gap (F014)  | apps/web/src/features/document-editor/services/assumptions-api.ts; apps/api/src/routes/sections.ts |
-| **Template Provisioning**         | `DocumentProvisioningService` seeds templates/sections from shipped catalogs with rollback on failure.                            | Established | apps/api/src/services/document-provisioning.service.ts                                             |
-| **Export Orchestration**          | `DocumentExportService` queues jobs, generates artifacts asynchronously, and exposes polling endpoints for the Project card.      | Established | apps/api/src/services/export/document-export.service.ts                                            |
-| **Document Bootstrap & Stores**   | `useDocumentBootstrap` + document stores gate editing until live sections/metadata load, syncing project info.                    | Established | apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts                              |
+| Control Domain                    | Implementation                                                                                                                        | Status                      | Reference                                                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Authentication**                | Clerk + simple-auth middleware and the loader token helper ensure every `/api/v1` call carries a bearer token.                        | Established                 | apps/api/src/middleware/auth.ts; apps/web/src/lib/auth-provider/loader-auth.ts                                                                              |
+| **Project Access Enforcement**    | `requireProjectAccess` validates owner IDs before project-scoped workflows (discovery, provisioning, export, template decisions).     | Established                 | apps/api/src/routes/helpers/project-access.ts                                                                                                               |
+| **Template Provisioning**         | `DocumentProvisioningService` seeds templates/sections from shipped catalogs with rollback on failure.                                | Established                 | apps/api/src/services/document-provisioning.service.ts                                                                                                      |
+| **Export Orchestration**          | `DocumentExportService` queues jobs, generates artifacts asynchronously, and exposes polling endpoints for the Project card.          | Established                 | apps/api/src/services/export/document-export.service.ts                                                                                                     |
+| **Document Bootstrap & Stores**   | `useDocumentBootstrap` gates editing until live sections/metadata load, syncing project info and supporting loader-provided payloads. | Established                 | apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts                                                                                       |
+| **Document Detail Authorization** | Document detail route now invokes `requireProjectAccess` before returning content.                                                    | Established (former F013)   | apps/api/src/routes/documents.ts                                                                                                                            |
+| **Assumptions Flow Scoping**      | Assumptions API client now calls `/documents/:docId/sections/:sectionId/...`, enforcing doc-level guards.                             | Established (former F014)   | apps/web/src/features/document-editor/services/assumptions-api.ts                                                                                           |
+| **Export Artifact Delivery**      | Project workflow card renders a download CTA whenever `exportJob.artifactUrl` is available (state + copy updates).                    | Established (resolved F015) | apps/web/src/pages/Project.tsx; apps/web/src/pages/Project.test.tsx; apps/web/tests/e2e/project-open-document.e2e.ts                                        |
+| **Editor Not-found Recovery**     | `DocumentMissing` defaults to Return-to-Project + Provision CTAs, with router wiring the originating projectId.                       | Established (resolved F016) | apps/web/src/components/document-missing.tsx; apps/web/src/app/router/document-routes.tsx                                                                   |
+| **Template Decision Scope**       | Discovery service queries `findLatestByDocument` so template approvals follow the active document snapshot.                           | Established (resolved F017) | apps/api/src/services/document-workflows/project-document-discovery.service.ts; apps/api/tests/contract/documents/project-primary-document.contract.test.ts |
 
 ## Quality Signal Summary
 
 ### Linting Results
 
 - **Status**: Pass (`pnpm lint`)
-- **Warnings/Errors**: 0 warnings / 0 errors after turbo reran eslint across all
-  workspaces.
+- **Notes**: Repository-wide ESLint (turbo + package-level) reran on
+  2025-11-07T08:33Z with zero warnings/errors.
 
 ### Type Checking
 
 - **Status**: Pass (`pnpm typecheck`)
-- **Results**: Runs `pnpm build` (turbo build of 10 packages) followed by
-  `pnpm typecheck:noemit`; all TypeScript projects compiled without error.
+- **Notes**: Turbo rebuilt shared packages then executed `tsc --noEmit` for
+  `apps/api` and `apps/web`; no type errors reported.
 
 ### Test Results
 
 - **Status**: Pass (`pnpm test`)
-- **Results**: Gauntlet (`test:unit:ci`, `test:e2e:ci`, `test:visual:ci`)
-  completed successfully after rerun with extended timeout; no Vitest or
-  Playwright failures reported.
-
-### Build Status
-
-- **Status**: Pass (`pnpm build` as part of typecheck)
-- **Details**: Turbo built API/web/packages (tsc + Vite) with caching; no build
-  regressions surfaced.
+- **Notes**: Full gauntlet (unit Vitest, Playwright fixture suite, visual smoke
+  tests) completed successfully; artifacts stored under `apps/web/test-results`.
 
 ### Dependency Audit Summary
 
-- **Command**: `pnpm audit --audit-level high`
-- **Result**: No known vulnerabilities found; no deprecated packages flagged
-  within the audited scope.
+- **Status**: Pass (`pnpm audit --audit-level high`)
+- **Notes**: No known high-severity vulnerabilities reported (pnpm audit run
+  2025-11-07T08:45Z).
 
 ## Requirements Coverage Table
 
-| Requirement | Summary                                                                                        | Implementation Evidence                                                                                                                                                                                                        | Validating Tests                                                                                                                                | Linked Findings / Clarifications                                       |
-| ----------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **FR-001**  | Collaborators must launch the document editor from the Project card with live data.            | `apps/web/src/pages/Project.tsx:1709-1825`, `apps/api/src/routes/documents.ts:217-344`.                                                                                                                                        | `apps/web/tests/e2e/project-open-document.e2e.ts`.                                                                                              | Linked to F013 (document detail route still leaks data cross-project). |
-| **FR-009**  | Assumption flows must run against the active project/document IDs and log state in the editor. | Backend routes/contracts: `apps/api/src/routes/sections.ts:1533-1686`, `apps/api/tests/contract/documents/assumptions-flow.contract.test.ts`. UI bootstrap: `apps/web/src/features/document-editor/assumptions-flow/index.ts`. | Contract suite above plus `apps/web/tests/integration/document-editor/assumptions-resume.test.ts`.                                              | Linked to F014 (UI still calls section-only endpoints).                |
-| **FR-013**  | Project export card queues exports and surfaces progress/results inline.                       | `apps/api/src/routes/projects.ts:1336-1508`, `apps/api/src/services/export/document-export.service.ts:45-220`, `apps/web/src/pages/Project.tsx:301-437`.                                                                       | `apps/api/tests/contract/projects/export-project.contract.test.ts`, `apps/web/tests/e2e/project-open-document.e2e.ts` (export card assertions). | —                                                                      |
+| Requirement | Summary                                                                                             | Implementation Evidence                                                                                                                                                                                 | Validating Tests                                                                                                                                                                                                                                  | Linked Findings / Clarifications |
+| ----------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **FR-001**  | Collaborators must open the document editor with live data via the Project workflow card.           | `apps/web/src/pages/Project.tsx:1709-1772` (link-wrapped card) plus `apps/api/src/routes/documents.ts:217-392` (project-scoped discovery/detail).                                                       | `apps/web/tests/e2e/project-open-document.e2e.ts`, `apps/api/tests/contract/documents/project-primary-document.contract.test.ts`.                                                                                                                 | —                                |
+| **FR-006**  | Editor bootstrap must present the spec’d loading + not-found states with recovery CTAs.             | Document loader + bootstrap hook plus the updated `DocumentMissing` component (`apps/web/src/app/router/document-routes.tsx`, `apps/web/src/components/document-missing.tsx`).                          | `apps/web/src/app/router/document-routes.test.ts`, `apps/web/src/components/document-missing.test.tsx`, `apps/web/tests/e2e/project-open-document.e2e.ts`.                                                                                        | —                                |
+| **FR-012**  | Template validation decisions persist per document with success/error feedback in the Project card. | Discovery service now fetches doc-scoped decisions (`apps/api/src/services/document-workflows/project-document-discovery.service.ts`) feeding the Project card UI (`apps/web/src/pages/Project.tsx`).   | `apps/api/tests/unit/services/document-workflows/project-document-discovery.service.test.ts`, `apps/api/tests/contract/documents/project-primary-document.contract.test.ts`, `apps/web/src/pages/__tests__/Project.template-validation.test.tsx`. | —                                |
+| **FR-013**  | Export workflows queue jobs and deliver progress/results inline, including the generated artifact.  | Backend queue/poll endpoints plus Project card download CTA (`apps/api/src/routes/projects.ts:1336-1536`, `apps/api/src/services/export/document-export.service.ts`, `apps/web/src/pages/Project.tsx`). | `apps/api/tests/contract/projects/export-project.contract.test.ts`, `apps/web/src/pages/Project.test.tsx`, `apps/web/tests/e2e/project-open-document.e2e.ts`.                                                                                     | —                                |
 
 ## Requirements Compliance Checklist
 
-| Requirement Group             | Status               | Notes                                                                                    |
-| ----------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
-| **Constitutional Principles** | ⚠️ Changes Requested | Document detail route still skips ownership checks (F013).                               |
-| **SOC 2 Authentication**      | ⚠️ Changes Requested | Same as above—unauthorized document reads break access control.                          |
-| **SOC 2 Logging**             | ✅ Pass              | Structured logging present across new services (provisioning/export/template decisions). |
-| **Security Controls**         | ⚠️ Changes Requested | Assumption flow scoping incomplete on the client (F014).                                 |
-| **Code Quality**              | ✅ Pass              | Lint/type/test/build suites clean; stores/hooks instrumented with tests.                 |
-| **Testing Requirements**      | ✅ Pass              | Contract/unit/Playwright suites updated; gauntlet run provides passing evidence.         |
+| Requirement Group             | Status  | Notes                                                                                                                    |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Constitutional Principles** | ✅ Pass | Export download CTA, document-missing recovery, and doc-scoped template decisions now align with Story 2.2 requirements. |
+| **SOC 2 Authentication**      | ✅ Pass | AuthN/Z enforced across new routes after F013 remediation.                                                               |
+| **Security Controls**         | ✅ Pass | Template decisions now fetched per document (F017 resolved) and logged in audit history.                                 |
+| **Code Quality**              | ✅ Pass | `pnpm lint` / `pnpm typecheck` / `pnpm test` all green; architecture patterns preserved.                                 |
+| **Testing Requirements**      | ✅ Pass | Full gauntlet (`pnpm test`, inc. Playwright + visual) executed successfully.                                             |
+| **Accessibility / UX**        | ✅ Pass | DocumentMissing recovery CTAs + routing match FR‑006; coverage via unit + e2e tests.                                     |
 
 ## Decision Log
 
-1. **2025-11-07** — Document detail handler still bypasses project access
-   control; recorded as F013 for remediation.
-2. **2025-11-07** — Assumption flow still targets legacy section endpoints
-   despite new document-scoped APIs; recorded as F014 and requires coordinated
-   UI/API updates.
+1. **2025-11-07** — Verified export workflow download CTA (F015) via
+   `apps/web/src/pages/Project.tsx` updates and unit/Playwright coverage;
+   control inventory now marks the pattern established.
+2. **2025-11-07** — DocumentMissing defaults to Return/Provision CTAs with
+   router wiring (F016) and regression tests; FR‑006 satisfied.
+3. **2025-11-07** — Template decision snapshot fetches doc-scoped decisions
+   (F017) with contract + unit coverage; FR‑012 satisfied.
+4. **2025-11-06** — Prior findings F013/F014 remain resolved (auth guards +
+   doc-scoped assumption APIs); no regressions noted.
 
 ## Remediation Logging
 
-### Remediation R013 (F013)
-
-- **Context**: Document detail endpoint leaks architecture content across
-  projects because it lacks project-level authorization.
-- **Control Reference**: `requireProjectAccess` helper
-  (`apps/api/src/routes/helpers/project-access.ts`).
-- **Actions**: Resolve each document’s project before responding; invoke
-  `requireProjectAccess` (or equivalent membership-based check) using the
-  authenticated user; add contract tests covering unauthorized access attempts;
-  ensure template validation middleware short-circuits when authorization fails.
-- **Verification**: Re-run
-  `pnpm --filter @ctrl-freaq/api test -- documents.ts project-primary-document.contract.test.ts`
-  (or equivalent suite) plus a new negative test showing 403 for mismatched
-  users.
-
-### Remediation R014 (F014)
-
-- **Context**: Frontend still calls `/sections/:sectionId/...` assumption
-  endpoints, so document-level guards never execute.
-- **Control Reference**: Assumptions API client + router
-  (`apps/web/src/features/document-editor/services/assumptions-api.ts`,
-  `apps/api/src/routes/sections.ts`).
-- **Actions**: Thread `documentId` through assumption flows, switch all client
-  calls to `/documents/:docId/sections/:sectionId/...`, and remove/lock legacy
-  section-only routes once clients deploy. Expand contract + integration tests
-  to assert 404 on document/section mismatches.
-- **Verification**:
-  `pnpm --filter @ctrl-freaq/api test -- documents/assumptions-flow.contract.test.ts`
-  plus the relevant web integration/e2e suites should pass with doc-scoped URLs.
+No active remediation tasks — Phase 4.R items F015–F017 are implemented and
+tracked via the Historical Findings log / checked tasks list.
 
 ---
 
-**Review Completed**: 2025-11-07T07:47:52Z
-
-**Next Action**: Implement remediations for F013 and F014, rerun
-lint/type/test/audit, and resubmit the feature for audit.
+**Review Completed**: 2025-11-07T09:10:00Z  
+**Next Action**: Await clarification on branch-protection / required checks; no
+blocking code changes remain.

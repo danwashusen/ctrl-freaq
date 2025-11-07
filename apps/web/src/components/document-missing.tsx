@@ -10,11 +10,13 @@ interface DocumentMissingProps {
   title?: string;
   supportingCopy?: string;
   className?: string;
+  projectId?: string;
+  showProvisionAction?: boolean;
 }
 
-const defaultTitle = 'Fixture data unavailable';
+const defaultTitle = 'We cannot find that document';
 const defaultSupportingCopy =
-  'We could not locate deterministic fixtures for the requested document. Return to the dashboard and re-launch the deep link once fixtures are refreshed.';
+  'This document may have been archived or you no longer have access. Choose one of the options below to continue.';
 
 export function DocumentMissing({
   documentId,
@@ -22,7 +24,17 @@ export function DocumentMissing({
   title = defaultTitle,
   supportingCopy = defaultSupportingCopy,
   className,
+  projectId,
+  showProvisionAction = true,
 }: DocumentMissingProps) {
+  const primaryCta = projectId
+    ? { label: 'Return to Project', to: `/projects/${projectId}` }
+    : { label: 'Back to dashboard', to: '/dashboard' };
+  const secondaryCta =
+    projectId && showProvisionAction
+      ? { label: 'Provision new document', to: `/projects/${projectId}?workflow=create-document` }
+      : null;
+
   return (
     <Card
       className={cn('mx-auto mt-16 w-full max-w-xl', className)}
@@ -57,11 +69,14 @@ export function DocumentMissing({
         )}
 
         <div className="flex flex-col gap-2">
-          <Button asChild variant="outline">
-            <Link to="/dashboard" aria-label="Back to dashboard">
-              Back to dashboard
-            </Link>
+          <Button asChild autoFocus>
+            <Link to={primaryCta.to}>{primaryCta.label}</Link>
           </Button>
+          {secondaryCta ? (
+            <Button asChild variant="ghost">
+              <Link to={secondaryCta.to}>{secondaryCta.label}</Link>
+            </Button>
+          ) : null}
         </div>
       </CardContent>
     </Card>

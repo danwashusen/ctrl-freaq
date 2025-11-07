@@ -293,7 +293,7 @@ test.describe('Project workflow — Open document', () => {
 
     await page.waitForURL(
       new RegExp(
-        `/documents/${primarySnapshot.documentId}/sections/${primarySnapshot.firstSectionId}$`
+        `/documents/${primarySnapshot.documentId}/sections/${primarySnapshot.firstSectionId}(?:\\?projectId=${primaryProject.id})?$`
       )
     );
 
@@ -301,7 +301,7 @@ test.describe('Project workflow — Open document', () => {
     await expect(page.getByRole('heading', { name: /Document Editor/i })).toBeVisible();
     await expect(page).toHaveURL(
       new RegExp(
-        `/documents/${primarySnapshot.documentId}/sections/${primarySnapshot.firstSectionId}$`
+        `/documents/${primarySnapshot.documentId}/sections/${primarySnapshot.firstSectionId}(?:\\?projectId=${primaryProject.id})?$`
       )
     );
   });

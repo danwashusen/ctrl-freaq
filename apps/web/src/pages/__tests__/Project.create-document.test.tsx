@@ -17,6 +17,7 @@ const {
   mockSetFormValue,
   mockLoggerError,
   paramsRef,
+  locationRef,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetById: vi.fn(),
@@ -28,6 +29,13 @@ const {
   mockSetFormValue: vi.fn(),
   mockLoggerError: vi.fn(),
   paramsRef: { id: 'project-missing' } as { id: string },
+  locationRef: {
+    pathname: '/projects/project-missing',
+    search: '',
+    hash: '',
+    state: undefined as unknown,
+    key: 'default',
+  },
 }));
 
 vi.mock('react-router-dom', async importOriginal => {
@@ -40,6 +48,7 @@ vi.mock('react-router-dom', async importOriginal => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => paramsRef,
+    useLocation: () => locationRef,
     Link: MockLink,
     NavLink: MockLink,
   };
@@ -222,7 +231,9 @@ describe('Project create document workflow', () => {
     await screen.findByText(/creation in progress/i);
 
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith('/documents/doc-new-primary/sections/sec-first')
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/documents/doc-new-primary/sections/sec-first?projectId=${projectFixture.id}`
+      )
     );
 
     expect(createButton).toBeEnabled();

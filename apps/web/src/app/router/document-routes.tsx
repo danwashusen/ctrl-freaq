@@ -5,6 +5,7 @@ import {
   useLoaderData,
   useRouteError,
   useParams,
+  useLocation,
   type RouteObject,
 } from 'react-router-dom';
 
@@ -22,6 +23,7 @@ type LoaderDocumentSectionsResponse = Awaited<ReturnType<ApiClient['getDocumentS
 export interface DocumentRouteLoaderData {
   documentId: string;
   sectionId: string;
+  projectId?: string;
   fixtureDocument?: DocumentFixture;
   missingReason?: 'fixture' | 'not_found';
   bootstrap?: {
@@ -30,7 +32,10 @@ export interface DocumentRouteLoaderData {
   };
 }
 
-export async function documentRouteLoader({ params, request }: LoaderFunctionArgs) {
+export async function documentRouteLoader({
+  params,
+  request,
+}: LoaderFunctionArgs): Promise<DocumentRouteLoaderData> {
   const documentId = params.documentId;
   const sectionId = params.sectionId;
 
@@ -42,6 +47,7 @@ export async function documentRouteLoader({ params, request }: LoaderFunctionArg
 
   const url = request instanceof Request ? new URL(request.url) : null;
   const fixtureOverride = url?.searchParams.get('fixture');
+  const routeProjectId = url?.searchParams.get('projectId') ?? undefined;
   const shouldUseFixtures = isE2EModeEnabled() || typeof fixtureOverride === 'string';
 
   if (shouldUseFixtures) {
@@ -52,11 +58,14 @@ export async function documentRouteLoader({ params, request }: LoaderFunctionArg
         documentId,
         sectionId: section.id,
         fixtureDocument: document,
+        projectId:
+          (document as DocumentFixture & { projectId?: string }).projectId ?? routeProjectId,
       } satisfies DocumentRouteLoaderData;
     } catch {
       return {
         documentId,
         sectionId,
+        projectId: routeProjectId,
         missingReason: 'fixture',
       } satisfies DocumentRouteLoaderData;
     }
@@ -97,6 +106,7 @@ export async function documentRouteLoader({ params, request }: LoaderFunctionArg
       return {
         documentId,
         sectionId,
+        projectId: routeProjectId,
         missingReason: 'not_found',
       } satisfies DocumentRouteLoaderData;
     }
@@ -130,6 +140,7 @@ export async function documentRouteLoader({ params, request }: LoaderFunctionArg
   return {
     documentId,
     sectionId,
+    projectId: documentPayload.document.projectId ?? routeProjectId,
     bootstrap: {
       document: documentPayload,
       sections: sectionsPayload,
@@ -168,12 +179,19 @@ function DocumentEditorRoute() {
         <DocumentMissing
           documentId={data?.documentId}
           sectionId={data?.sectionId}
-          title="Document unavailable"
-          supportingCopy="We could not locate this document. It may have been archived or you no longer have access. Return to the dashboard to continue."
+          projectId={data?.projectId}
         />
       );
     }
-    return <DocumentMissing documentId={data?.documentId} sectionId={data?.sectionId} />;
+    return (
+      <DocumentMissing
+        documentId={data?.documentId}
+        sectionId={data?.sectionId}
+        title="Fixture data unavailable"
+        supportingCopy="We could not locate deterministic fixtures for the requested document. Return to the dashboard and re-launch the deep link once fixtures are refreshed."
+        showProvisionAction={false}
+      />
+    );
   }
 
   const { documentId, initialSectionId, fixtureDocument } = editorProps;
@@ -191,9 +209,23 @@ function DocumentEditorRoute() {
 function DocumentRouteErrorBoundary() {
   const error = useRouteError();
   const params = useParams();
+  const location = useLocation();
+  const projectIdFromSearch = (() => {
+    if (!location.search) {
+      return undefined;
+    }
+    const params = new URLSearchParams(location.search);
+    return params.get('projectId') ?? undefined;
+  })();
 
   if (error instanceof Response && error.status === 404) {
-    return <DocumentMissing documentId={params.documentId} sectionId={params.sectionId} />;
+    return (
+      <DocumentMissing
+        documentId={params.documentId}
+        sectionId={params.sectionId}
+        projectId={projectIdFromSearch}
+      />
+    );
   }
 
   return <Navigate to="/dashboard" replace />;

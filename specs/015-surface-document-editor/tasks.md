@@ -228,6 +228,27 @@ tied to the live document, and trigger a project export with feedback.
 
 ## Implementation Log
 
+- 2025-11-07T09:14:27Z — F015–F017: Added the export artifact download CTA,
+  spec-compliant document-missing recovery actions, and project-document-scoped
+  template decision lookups.
+  - Files: `.eslintignore`, `apps/web/src/pages/Project.tsx`,
+    `apps/web/src/pages/Project.test.tsx`,
+    `apps/web/src/components/document-missing.tsx`,
+    `apps/web/src/components/document-missing.test.tsx`,
+    `apps/web/src/app/router/document-routes.tsx`,
+    `apps/web/src/app/router/document-routes.test.ts`,
+    `apps/api/src/services/document-workflows/project-document-discovery.service.ts`,
+    `apps/api/tests/unit/services/document-workflows/project-document-discovery.service.test.ts`,
+    `apps/api/tests/contract/documents/project-primary-document.contract.test.ts`,
+    `specs/015-surface-document-editor/tasks.md`.
+  - Commands:
+    `pnpm --filter @ctrl-freaq/web test -- src/pages/Project.test.tsx src/components/document-missing.test.tsx src/app/router/document-routes.test.ts`,
+    `pnpm --filter @ctrl-freaq/api test -- tests/unit/services/document-workflows/project-document-discovery.service.test.ts tests/contract/documents/project-primary-document.contract.test.ts`.
+  - Tests: Verified updated Vitest suites for Project workflow UI,
+    DocumentMissing, router loader, the discovery service unit coverage, and the
+    primary document contract test.
+  - Follow-ups: None.
+
 - 2025-11-07T08:08:27Z — F013/F014: Guarded document detail route with project
   auth and migrated assumptions flow to document-scoped APIs/UI.
   - Files: `apps/api/src/routes/documents.ts`,
@@ -460,3 +481,9 @@ tied to the live document, and trigger a project export with feedback.
       described in audit.md
 - [x] F014 Finding F014: Assumptions flow still uses unscoped section endpoints
       as described in audit.md
+- [x] F015 Finding F015: Export workflow never surfaces a downloadable artifact
+      in Project.tsx as described in audit.md
+- [x] F016 Finding F016: Document missing screen lacks the spec-required “Return
+      to project”/“Provision new document” actions as described in audit.md
+- [x] F017 Finding F017: Template decision snapshot reuses project-level history
+      rather than the active document’s decisions as described in audit.md
