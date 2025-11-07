@@ -5,8 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build && pnpm --filter @ctrl-freaq/templates build && pnpm --filter @ctrl-freaq/template-resolver build && pnpm --filter @ctrl-freaq/qa build && pnpm --filter @ctrl-freaq/editor-core build && pnpm --filter @ctrl-freaq/editor-persistence build && pnpm --filter @ctrl-freaq/ai build",
+    "build": "tsc && node ./scripts/copy-template-assets.mjs",
+    "build:copy-templates": "node ./scripts/copy-template-assets.mjs",
+    "build:deps": "pnpm --filter @ctrl-freaq/shared-data build && pnpm --filter @ctrl-freaq/templates build && pnpm --filter @ctrl-freaq/template-resolver build && pnpm --filter @ctrl-freaq/qa build && pnpm --filter @ctrl-freaq/editor-core build && pnpm --filter @ctrl-freaq/editor-persistence build && pnpm --filter @ctrl-freaq/ai build && pnpm --filter @ctrl-freaq/exporter build",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "dev": "tsx watch src/index.ts",
     "dev:e2e": "CTRL_FREAQ_PROFILE=fixture tsx watch src/index.ts",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@clerk/express": "^1.0.0",
     "@ctrl-freaq/editor-core": "workspace:*",
+    "@ctrl-freaq/exporter": "workspace:*",
     "@ctrl-freaq/qa": "workspace:*",
     "@ctrl-freaq/shared-data": "workspace:*",
     "@ctrl-freaq/template-resolver": "workspace:*",

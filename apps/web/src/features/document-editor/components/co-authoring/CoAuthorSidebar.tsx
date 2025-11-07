@@ -51,6 +51,7 @@ const INTENT_LABELS: Array<{ intent: CoAuthoringIntent; label: string }> = [
   { intent: 'explain', label: 'Explain intent' },
   { intent: 'outline', label: 'Outline intent' },
   { intent: 'improve', label: 'Improve intent' },
+  { intent: 'summarize', label: 'Summarize intent' },
 ];
 
 const CoAuthorSidebar: FC<CoAuthorSidebarProps> = props => {

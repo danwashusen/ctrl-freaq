@@ -176,7 +176,77 @@ interface DocumentResponse {
     templateSchemaHash: string;
   };
   migration: Record<string, unknown> | null;
-  templateDecision: Record<string, unknown>;
+  templateDecision: Record<string, unknown> | null;
+}
+
+interface TemplateValidationDecisionResponse {
+  decisionId: string;
+  action: 'approved' | 'pending' | 'blocked';
+  templateId: string;
+  currentVersion: string;
+  requestedVersion: string;
+  submittedAt: string;
+  submittedBy?: string;
+  notes: string | null;
+}
+
+interface TemplateBindingResponse {
+  templateId: string;
+  templateVersion: string;
+  templateSchemaHash: string;
+}
+
+type TemplateValidationDecision = TemplateValidationDecisionResponse;
+
+interface ProjectExportJob {
+  jobId: string;
+  projectId: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  format: 'markdown' | 'zip' | 'pdf' | 'bundle';
+  scope: 'primary_document' | 'all_documents';
+  requestedBy: string;
+  requestedAt: string;
+  completedAt: string | null;
+  artifactUrl: string | null;
+  errorMessage: string | null;
+  notifyEmail?: string | null;
+}
+
+interface CreateDocumentResponse {
+  status: 'created' | 'already_exists';
+  documentId: string;
+  projectId: string;
+  firstSectionId: string;
+  lifecycleStatus: 'draft' | 'review' | 'published';
+  title: string;
+  template: TemplateBindingResponse;
+  lastModifiedAt: string;
+}
+
+interface ProjectDocumentSummaryResponse {
+  documentId: string;
+  firstSectionId: string;
+  title: string;
+  lifecycleStatus: 'draft' | 'review' | 'published';
+  lastModifiedAt: string;
+  template?: TemplateBindingResponse;
+}
+
+interface PrimaryDocumentSnapshotResponse {
+  projectId: string;
+  status: 'missing' | 'loading' | 'ready' | 'archived';
+  document: ProjectDocumentSummaryResponse | null;
+  templateDecision: TemplateValidationDecisionResponse | null;
+  lastUpdatedAt: string;
+}
+
+interface DocumentSectionsResponse {
+  sections: unknown[];
+  toc: {
+    documentId: string;
+    sections: unknown[];
+    lastUpdated: string;
+  };
 }
 
 interface TemplateSummaryResponse {
@@ -459,7 +529,7 @@ class ApiClient {
     endpoint: string,
     method: string,
     requestConfig: RequestInit
-  ): ProjectsListResponse | ProjectData | void {
+  ): ProjectsListResponse | ProjectData | CreateDocumentResponse | void {
     const store = this.resolveFixtureProjectsStore();
     const [path = endpoint] = endpoint.split('?');
 
@@ -547,6 +617,33 @@ class ApiClient {
 
       store.unshift(project);
       return project;
+    }
+
+    if (method === 'POST') {
+      const createDocumentMatch = path.match(/^\/projects\/([^/]+)\/documents$/);
+      if (createDocumentMatch) {
+        const [, matchedProjectId] = createDocumentMatch;
+        if (!matchedProjectId) {
+          const error = new Error('Fixture project id missing for create document request');
+          (error as ApiError).status = 400;
+          throw error;
+        }
+        const projectId = matchedProjectId;
+        return {
+          status: 'created',
+          documentId: `doc_${Math.random().toString(36).slice(2, 10)}`,
+          projectId,
+          firstSectionId: `sec_${Math.random().toString(36).slice(2, 10)}`,
+          lifecycleStatus: 'draft',
+          title: 'Fixture Architecture Document',
+          template: {
+            templateId: 'architecture-reference',
+            templateVersion: '2.1.0',
+            templateSchemaHash: 'fixture-architecture-hash',
+          },
+          lastModifiedAt: new Date().toISOString(),
+        };
+      }
     }
 
     if (method === 'PATCH' && path.startsWith('/projects/')) {
@@ -880,8 +977,102 @@ class ApiClient {
     return response as ConfigurationData;
   }
 
-  async getDocument(id: string): Promise<DocumentResponse> {
-    return this.makeRequest<DocumentResponse>(`/documents/${id}`);
+  async getPrimaryDocument(projectId: string): Promise<PrimaryDocumentSnapshotResponse> {
+    const safeProjectId = encodeURIComponent(projectId);
+    return this.makeRequest<PrimaryDocumentSnapshotResponse>(
+      `/projects/${safeProjectId}/documents/primary`
+    );
+  }
+
+  async createProjectDocument(projectId: string): Promise<CreateDocumentResponse> {
+    const safeProjectId = encodeURIComponent(projectId);
+    return this.makeRequest<CreateDocumentResponse>(`/projects/${safeProjectId}/documents`, {
+      method: 'POST',
+    });
+  }
+
+  async enqueueProjectExport(
+    projectId: string,
+    payload: {
+      format?: ProjectExportJob['format'];
+      scope?: ProjectExportJob['scope'];
+      notifyEmail?: string | null;
+    } = {}
+  ): Promise<ProjectExportJob> {
+    const safeProjectId = encodeURIComponent(projectId);
+    const body: Record<string, unknown> = {
+      format: payload.format ?? 'markdown',
+      scope: payload.scope ?? 'primary_document',
+    };
+
+    if (payload.notifyEmail) {
+      body.notifyEmail = payload.notifyEmail;
+    }
+
+    return this.makeRequest<ProjectExportJob>(`/projects/${safeProjectId}/export`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async submitTemplateDecision(params: {
+    projectId: string;
+    templateId: string;
+    documentId: string;
+    action: TemplateValidationDecisionResponse['action'];
+    currentVersion: string;
+    requestedVersion: string;
+    notes?: string | null;
+    payload?: unknown;
+  }): Promise<TemplateValidationDecisionResponse> {
+    const safeProjectId = encodeURIComponent(params.projectId);
+    const safeTemplateId = encodeURIComponent(params.templateId);
+
+    const body: Record<string, unknown> = {
+      documentId: params.documentId,
+      action: params.action,
+      currentVersion: params.currentVersion,
+      requestedVersion: params.requestedVersion,
+    };
+
+    if (typeof params.notes === 'string' && params.notes.length > 0) {
+      body.notes = params.notes;
+    }
+
+    if (params.payload !== undefined) {
+      body.payload = params.payload;
+    }
+
+    return this.makeRequest<TemplateValidationDecisionResponse>(
+      `/projects/${safeProjectId}/templates/${safeTemplateId}/decisions`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+  }
+
+  async getDocument(
+    id: string,
+    options?: {
+      signal?: AbortSignal;
+    }
+  ): Promise<DocumentResponse> {
+    return this.makeRequest<DocumentResponse>(`/documents/${id}`, {
+      signal: options?.signal,
+    });
+  }
+
+  async getDocumentSections(
+    documentId: string,
+    options?: {
+      signal?: AbortSignal;
+    }
+  ): Promise<DocumentSectionsResponse> {
+    const safeDocumentId = encodeURIComponent(documentId);
+    return this.makeRequest<DocumentSectionsResponse>(`/documents/${safeDocumentId}/sections`, {
+      signal: options?.signal,
+    });
   }
 
   async getTemplate(id: string): Promise<TemplateSummaryResponse> {
@@ -1012,4 +1203,12 @@ export type {
   TraceabilityRequirementDTO,
   TraceabilityOrphanResponseDTO,
   TraceabilityAuditEventDTO,
+  CreateDocumentResponse,
+  TemplateValidationDecision,
+  TemplateValidationDecisionResponse,
+  ProjectDocumentSummaryResponse,
+  ProjectExportJob,
+  DocumentResponse,
+  PrimaryDocumentSnapshotResponse,
+  DocumentSectionsResponse,
 };

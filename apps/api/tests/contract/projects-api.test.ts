@@ -4,6 +4,7 @@ import request from 'supertest';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 import { resetDatabaseForApp } from '../../src/testing/reset';
 
 /**
@@ -24,8 +25,8 @@ import { resetDatabaseForApp } from '../../src/testing/reset';
 
 describe('Projects API Contract Tests', () => {
   let app: Express;
-  const mockUserId = 'user_2abc123def456';
-  const mockJwtToken = 'mock-jwt-token';
+  const mockUserId = DEFAULT_TEST_USER_ID;
+  const mockJwtToken = MOCK_JWT_TOKEN;
 
   beforeAll(async () => {
     // This will fail until the app is implemented

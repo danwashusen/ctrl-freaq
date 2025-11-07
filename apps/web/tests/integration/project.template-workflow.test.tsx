@@ -47,6 +47,69 @@ describe('Project template workflow', () => {
     );
   }
 
+  function createSection(documentId: string) {
+    const timestamp = '2025-09-16T00:00:00.000Z';
+    return {
+      id: 'sec-1',
+      docId: documentId,
+      parentSectionId: null,
+      key: 'introduction',
+      title: 'Introduction',
+      depth: 0,
+      orderIndex: 0,
+      contentMarkdown: '# Introduction',
+      placeholderText: 'Introduction placeholder',
+      hasContent: true,
+      viewState: 'read_mode',
+      editingUser: null,
+      lastModified: timestamp,
+      status: 'drafting',
+      assumptionsResolved: true,
+      qualityGateStatus: null,
+      approvedVersion: null,
+      approvedAt: null,
+      approvedBy: null,
+      lastSummary: null,
+      draftId: null,
+      draftVersion: null,
+      draftBaseVersion: null,
+      latestApprovedVersion: null,
+      conflictState: 'clean',
+      conflictReason: null,
+      summaryNote: null,
+      lastSavedAt: timestamp,
+      lastSavedBy: 'user_123',
+      lastManualSaveAt: Date.parse(timestamp),
+    };
+  }
+
+  function createSectionsPayload(documentId: string) {
+    const section = createSection(documentId);
+    return {
+      sections: [section],
+      toc: {
+        documentId,
+        sections: [
+          {
+            sectionId: section.id,
+            title: section.title,
+            depth: section.depth,
+            orderIndex: section.orderIndex,
+            hasContent: section.hasContent,
+            status: section.status,
+            isExpanded: true,
+            isActive: true,
+            isVisible: true,
+            hasUnsavedChanges: false,
+            children: [],
+            parentId: null,
+          },
+        ],
+        lastUpdated: '2025-09-16T00:00:00.000Z',
+      },
+    };
+  }
+
   it('displays template upgrade success banner when migration succeeded', async () => {
     globalThis.fetch = vi.fn().mockImplementation((input: RequestInfo) => {
       const url = typeof input === 'string' ? input : input.url;
@@ -64,6 +127,40 @@ describe('Project template workflow', () => {
           ok: true,
           json: () => Promise.resolve(projectPayload),
           text: () => Promise.resolve(JSON.stringify(projectPayload)),
+        } as Response);
+      }
+      if (url.endsWith('/projects/project-1/documents/primary')) {
+        const snapshotPayload = {
+          projectId: 'project-1',
+          status: 'ready' as const,
+          document: {
+            documentId: 'project-1',
+            firstSectionId: 'sec-1',
+            title: 'Architecture Overview',
+            lifecycleStatus: 'draft' as const,
+            lastModifiedAt: '2025-09-16T00:00:00.000Z',
+            template: {
+              templateId: 'architecture',
+              templateVersion: '1.1.0',
+              templateSchemaHash: 'hash-1',
+            },
+          },
+          templateDecision: {
+            decisionId: 'decision-1',
+            action: 'approved' as const,
+            templateId: 'architecture',
+            currentVersion: '1.0.0',
+            requestedVersion: '1.1.0',
+            submittedAt: '2025-09-16T00:00:00.000Z',
+            submittedBy: 'user_123',
+            notes: null,
+          },
+          lastUpdatedAt: '2025-09-16T00:00:00.000Z',
+        };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(snapshotPayload),
+          text: () => Promise.resolve(JSON.stringify(snapshotPayload)),
         } as Response);
       }
       if (url.endsWith('/documents/project-1')) {
@@ -114,6 +211,14 @@ describe('Project template workflow', () => {
           ok: true,
           json: () => Promise.resolve(documentPayload),
           text: () => Promise.resolve(JSON.stringify(documentPayload)),
+        } as Response);
+      }
+      if (url.endsWith('/documents/project-1/sections')) {
+        const sectionsPayload = createSectionsPayload('project-1');
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sectionsPayload),
+          text: () => Promise.resolve(JSON.stringify(sectionsPayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture')) {
@@ -274,6 +379,31 @@ describe('Project template workflow', () => {
           text: () => Promise.resolve(JSON.stringify(projectPayload)),
         } as Response);
       }
+      if (url.endsWith('/projects/project-2/documents/primary')) {
+        const snapshotPayload = {
+          projectId: 'project-2',
+          status: 'ready' as const,
+          document: {
+            documentId: 'project-2',
+            firstSectionId: 'sec-1',
+            title: 'Legacy Project Document',
+            lifecycleStatus: 'draft' as const,
+            lastModifiedAt: '2025-09-16T00:00:00.000Z',
+            template: {
+              templateId: 'architecture',
+              templateVersion: '1.0.0',
+              templateSchemaHash: 'hash-0',
+            },
+          },
+          templateDecision: null,
+          lastUpdatedAt: '2025-09-16T00:00:00.000Z',
+        };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(snapshotPayload),
+          text: () => Promise.resolve(JSON.stringify(snapshotPayload)),
+        } as Response);
+      }
       if (url.endsWith('/documents/project-2')) {
         const removedPayload = {
           error: 'TEMPLATE_VERSION_REMOVED',
@@ -288,6 +418,14 @@ describe('Project template workflow', () => {
           statusText: 'Conflict',
           json: () => Promise.resolve(removedPayload),
           text: () => Promise.resolve(JSON.stringify(removedPayload)),
+        } as Response);
+      }
+      if (url.endsWith('/documents/project-2/sections')) {
+        const sectionsPayload = createSectionsPayload('project-2');
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sectionsPayload),
+          text: () => Promise.resolve(JSON.stringify(sectionsPayload)),
         } as Response);
       }
       if (url.endsWith('/templates/architecture')) {
@@ -368,6 +506,31 @@ describe('Project template workflow', () => {
             ),
         } as Response);
       }
+      if (url.endsWith('/projects/project-3/documents/primary')) {
+        const snapshotPayload = {
+          projectId: 'project-3',
+          status: 'ready' as const,
+          document: {
+            documentId: 'project-3',
+            firstSectionId: 'sec-1',
+            title: 'Upgrade Failure Document',
+            lifecycleStatus: 'draft' as const,
+            lastModifiedAt: '2025-09-16T00:00:00.000Z',
+            template: {
+              templateId: 'architecture',
+              templateVersion: '1.0.0',
+              templateSchemaHash: 'hash-old',
+            },
+          },
+          templateDecision: null,
+          lastUpdatedAt: '2025-09-16T00:00:00.000Z',
+        };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(snapshotPayload),
+          text: () => Promise.resolve(JSON.stringify(snapshotPayload)),
+        } as Response);
+      }
       if (url.endsWith('/documents/project-3')) {
         return Promise.resolve({
           ok: false,
@@ -405,6 +568,14 @@ describe('Project template workflow', () => {
                 },
               })
             ),
+        } as Response);
+      }
+      if (url.endsWith('/documents/project-3/sections')) {
+        const sectionsPayload = createSectionsPayload('project-3');
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sectionsPayload),
+          text: () => Promise.resolve(JSON.stringify(sectionsPayload)),
         } as Response);
       }
       return Promise.resolve({

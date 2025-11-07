@@ -53,7 +53,7 @@ export interface TeardownSessionPayload {
   documentId: string;
   sectionId: string;
   sessionId: string;
-  reason?: 'manual' | 'section-change' | 'navigation' | 'logout';
+  reason?: 'manual' | 'section-change' | 'navigation' | 'logout' | 'author_cancelled';
 }
 
 export interface AnalyzeResponseBody {

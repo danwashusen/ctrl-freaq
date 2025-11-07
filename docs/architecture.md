@@ -458,6 +458,10 @@ middleware
 - Proposal Engine: Diff generation, preview, apply/reject workflow
 - QA & Traceability: Quality gates, trace links, citations
 - Exporter: Markdown file generation with sharding
+- Template Decisions: Persist project template validation approvals/deferrals
+  via `/api/v1/projects/:projectId/templates/:templateId/decisions`, wiring
+  shared repositories (`TemplateValidationDecisionRepository`) into document
+  discovery responses and API routing.
 - Streaming Client: SSE/Web Streams with <300ms TTFB
 - Observability: Assumption session service logs structured telemetry events
   (`assumption_session.completed`, `assumption_session.latency_ms`,
@@ -511,6 +515,8 @@ database migrations, transaction management
 - `SectionRepository`: Hierarchical section management
 - `AssumptionRepository`: Assumption tracking
 - `KnowledgeRepository`: Knowledge base access
+- `TemplateValidationDecisionRepository`: Project template validation decision
+  history used by discovery snapshots and auditing
 - Query interfaces with pagination support
 
 **Dependencies:** better-sqlite3, zod schemas

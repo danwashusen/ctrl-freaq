@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { Database } from 'better-sqlite3';
 import cors from 'cors';
 import express, { type Express } from 'express';
@@ -78,6 +80,13 @@ export interface AppContext {
  * Create default application configuration
  */
 export function createDefaultAppConfig(): AppConfig {
+  if (isTestRuntime()) {
+    process.env.AUTH_PROVIDER = process.env.AUTH_PROVIDER || 'simple';
+    process.env.SIMPLE_AUTH_USER_FILE =
+      process.env.SIMPLE_AUTH_USER_FILE ||
+      path.resolve(process.cwd(), 'tests/shared/simple-auth/users.yaml');
+  }
+
   const authProvider = resolveAuthProviderConfig();
   return {
     port: parseInt(process.env.PORT || '5001', 10),

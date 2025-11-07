@@ -7,18 +7,28 @@ import type { DocumentFixture } from '@/lib/fixtures/e2e';
 import { buildFixtureDocumentView } from '@/lib/fixtures/e2e/transformers';
 import { useEditorStore } from '../stores/editor-store';
 import { useDocumentStore } from '../stores/document-store';
+import { useDocumentBootstrap } from './use-document-bootstrap';
+import type { DocumentBootstrapState } from './use-document-bootstrap';
 
 interface UseDocumentFixtureOptions {
   documentId: string;
   fixtureDocument?: DocumentFixture;
   initialSectionId?: string;
+  liveState?: DocumentBootstrapState;
 }
 
 export function useDocumentFixtureBootstrap({
   documentId,
   fixtureDocument,
   initialSectionId,
-}: UseDocumentFixtureOptions) {
+  liveState,
+}: UseDocumentFixtureOptions): DocumentBootstrapState {
+  const fallbackLiveState = useDocumentBootstrap({
+    documentId,
+    initialSectionId,
+    enabled: !fixtureDocument,
+  });
+  const liveBootstrapState = liveState ?? fallbackLiveState;
   const hydratedDocumentRef = useRef<string | null>(null);
   const loadSections = useEditorStore(state => state.loadSections);
   const setActiveSection = useEditorStore(state => state.setActiveSection);
@@ -138,4 +148,6 @@ export function useDocumentFixtureBootstrap({
     setTableOfContents,
     setAssumptionSessions,
   ]);
+
+  return liveBootstrapState;
 }

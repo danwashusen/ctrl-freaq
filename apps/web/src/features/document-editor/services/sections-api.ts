@@ -48,7 +48,7 @@ export class SectionsApiService extends ApiClient {
    * Get all sections for a document
    * GET /api/v1/documents/{docId}/sections
    */
-  async getDocumentSections(docId: string): Promise<DocumentSectionsResponse> {
+  override async getDocumentSections(docId: string): Promise<DocumentSectionsResponse> {
     const response = await this['makeRequest']<{
       sections: SectionView[];
       toc: TableOfContents;

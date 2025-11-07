@@ -18,6 +18,24 @@ export type {
   QueryOptions,
   Repository,
 } from './types/index.js';
+export type {
+  DocumentLifecycleStatus,
+  ProjectDocumentWorkflowStatus,
+  TemplateValidationDecisionAction,
+  TemplateBinding,
+  TemplateValidationDecision,
+  ProjectDocumentSummary,
+  ProjectDocumentSnapshot,
+} from './types/project-document.js';
+export {
+  DocumentLifecycleStatusSchema,
+  ProjectDocumentWorkflowStatusSchema,
+  TemplateValidationDecisionActionSchema,
+  TemplateBindingSchema,
+  TemplateValidationDecisionSchema,
+  ProjectDocumentSummarySchema,
+  ProjectDocumentSnapshotSchema,
+} from './types/project-document.js';
 
 // Section editor model types
 export type {

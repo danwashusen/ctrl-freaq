@@ -4,7 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import type { AssistantContent, CoreMessage } from 'ai';
 
-export type ProposalIntent = 'explain' | 'outline' | 'improve';
+export type ProposalIntent = 'explain' | 'outline' | 'improve' | 'summarize';
 
 export interface ProposalSession {
   sessionId: string;

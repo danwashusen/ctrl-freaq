@@ -28,8 +28,13 @@ sections and metadata.
    to the document editor and the table of contents and section content display
    the latest saved state.
 2. **Given** live document data is still loading, **When** the maintainer opens
-   the document editor, **Then** the UI presents a loading indicator and
+   the document editor, **Then** the UI presents the documented loading skeleton
+   (`Preparing sections…`), keeps focus within the spinner container, and
    prevents editing until the document content is ready.
+3. **Given** a maintainer uses only keyboard navigation, **When** they tab to
+   the workflow card and activate it with Enter or Space, **Then** the action is
+   announced via screen reader, the editor loads, and focus returns to the
+   originating card upon exit.
 
 ---
 
@@ -53,8 +58,13 @@ once creation completes.
    document, shows progress, and routes the maintainer to the first section upon
    success.
 2. **Given** document creation fails, **When** the maintainer reviews the
-   workflow card, **Then** the UI surfaces an error message with guidance to
-   retry without creating duplicates.
+   workflow card, **Then** the UI surfaces the actionable failure banner with
+   retry button and support link so the maintainer can try again without
+   creating duplicates.
+3. **Given** a maintainer attempts to trigger creation while a prior request is
+   pending, **When** they press the CTA again, **Then** the control remains
+   disabled with spinner copy `Creation in progress…` and no duplicate request
+   is submitted.
 
 ---
 
@@ -78,23 +88,30 @@ failures with recovery options.
    and updates the document state without reloading the page.
 2. **Given** another collaborator has conflicting edits, **When** the
    contributor attempts to save, **Then** the editor flags the conflict,
-   preserves the contributor’s draft, and offers options to retry after
-   refreshing.
+   preserves the contributor’s draft, and offers the documented guided steps to
+   refresh, review diffs, and reapply before saving.
+3. **Given** a manual save fails for connectivity reasons, **When** the user
+   stays in the editor, **Then** the UI shows
+   `Save failed. Your draft is still here.` banner, applies `Unsaved` badges to
+   affected sections, and keeps the draft locally until a retry succeeds or the
+   user discards it.
 
 ---
 
 ### Edge Cases
 
 - Project metadata fetch fails or returns stale document IDs; the Project page
-  must fall back to a refresh prompt instead of navigating to a broken editor
-  URL.
-- Backend returns 404 for the requested document; the editor must display a
-  recovery CTA that returns to the Project view or initiates document
-  provisioning.
-- Section save requests time out or are rejected; the editor must preserve
-  unsaved edits locally and guide the user to retry or discard.
-- Streaming co-author or QA requests drop mid-session; the UI must surface the
-  interruption and allow the user to resume without losing chat history.
+  shows the refresh banner with retained scroll position and blocks editor
+  launch until `Refresh project data` succeeds.
+- Backend returns 404 for the requested document; the editor displays the
+  documented not-found modal with `Return to Project` primary CTA and secondary
+  provisioning link.
+- Section save requests time out or are rejected; the editor preserves unsaved
+  edits locally, applies `Unsaved` badges, and guides the user through retry or
+  discard options before leaving the page.
+- Streaming co-author or QA requests drop mid-session; the UI surfaces the
+  interruption banner, keeps transcript history visible, and offers
+  `Resume session` control.
 
 ## Requirements _(mandatory)_
 
@@ -143,6 +160,135 @@ failures with recovery options.
   can return from the document editor to the originating project view without
   losing selection context.
 
+#### UX Detail: Document Status Presentation
+
+- **Loading**: Project card displays a shimmer skeleton, muted progress pill
+  labeled `Document status: Loading…`, and disabled interaction until data
+  resolves. Editor route shows a centered spinner with `Preparing sections…`
+  copy and disables section list focus targets.
+- **Ready**: Project card shows status pill `Ready` with green indicator and
+  highlights last updated timestamp. Editor header shows the same pill and the
+  active section name.
+- **Missing**: Project card displays empty-state illustration, headline
+  `No document yet`, guidance text, and primary `Create document` button. Editor
+  route is blocked with modal offering provisioning CTA and `Return to project`
+  secondary action.
+- **Archived**: Project card shows gray `Archived` badge and disables editor
+  launch while surfacing tooltip `Restore document to resume editing`. Editor
+  route renders read-only banner with link back to Project view.
+
+#### UX Detail: Document Provisioning Flow
+
+- Progress indicator uses a three-step horizontal stepper: `Initializing`,
+  `Provisioning`, `Finalizing`. Each step highlights active state and shows
+  subtext describing backend work.
+- Success state displays toast `Document created. Opening editor…` and routes to
+  section one while stepper shows a checkmark animation.
+- Failure state surfaces inline destructive banner
+  `We could not create the document. Retry now or contact support.` with
+  `Retry create document` button and secondary `View troubleshooting guide`
+  link. Duplicate submissions are blocked with disabled CTA showing spinner and
+  `Creation in progress…`.
+
+#### UX Detail: Manual Save and Conflict UX
+
+- Manual save button label `Save changes` with inline diff preview panel
+  summarizing added/removed lines. Upon success, toast `Section saved at 12:34`
+  appears, and diff collapses.
+- Failure banner `Save failed. Your draft is still here.` offers `Retry save`
+  primary button and `Discard draft` secondary. Unsaved sections gain badge
+  `Unsaved` next to title until resolved.
+- Conflict dialog presents ordered steps: `1. Refresh section` (button to fetch
+  latest), `2. Review incoming diff` (link to diff viewer),
+  `3. Reapply your draft` (button that restores preserved draft). Dialog copy
+  explicitly notes that the draft remains cached until user confirms.
+
+#### UX Detail: Accessible Workflow Action
+
+- Workflow card uses `role="link"` with `aria-label="Open project document"` and
+  remains focusable via Tab order that precedes secondary project actions.
+- Hitting Enter or Space triggers navigation; Escape returns focus to the
+  Project list without scrolling. Focus ring conforms to design token
+  `focus-primary`.
+- After editor closes, focus returns to originating card and announces
+  `Returned to Project workflow card for Architecture document`.
+
+#### UX Detail: Editor Bootstrap States
+
+- Loading layout retains table of contents skeleton, disables editor textarea,
+  and announces via `aria-live="polite"` `Loading document content`. Primary
+  actions remain focusable but inert while spinner is present.
+- Not-found view shows icon, headline `We cannot find that document`, body copy
+  with steps, primary `Return to Project` button, and secondary link
+  `Provision a new document`. Focus defaults to the primary CTA.
+
+#### UX Detail: QA and Export Feedback
+
+- QA request results show inline card with status chip (`Passed`, `Failed`,
+  `Needs attention`) plus timestamp and summary text. Failure card includes
+  bullet list of corrective actions and `View detailed report` link.
+- Export triggers toast `Export queued. We will email you when it is ready.` and
+  updates status card with progress. Failure state displays actionable message
+  describing cause (e.g., `Missing template fields`) and `Retry export` button.
+
+#### UX Detail: Status Vocabulary Alignment
+
+- Shared vocabulary: `Loading`, `Ready`, `Provisioning`, `Missing`, `Archived`,
+  `In progress`. Both Project cards and editor banners must show identical text,
+  color tokens, and iconography documented in design system component specs.
+- Status changes broadcast through shared store so Project and editor surfaces
+  update synchronously with consistent copy.
+
+#### UX Detail: Permission and Session Loss
+
+- When permissions lapse on the Project page, the card converts to disabled
+  state with lock icon, copy `You no longer have access`, and primary
+  `Request access` button. Editor session loss raises modal `Session expired`
+  with `Sign back in` primary action retaining context.
+- Mid-editor token expiry announces via `aria-live` and preserves unsaved edits;
+  after reauth, the editor resumes the previous section view.
+
+#### UX Detail: Stale Identifier Handling
+
+- If metadata returns stale or mismatched document ID, Project page displays
+  warning banner
+  `This project reference looks out of date. Refresh data to continue.` with
+  `Refresh project data` button that retains scroll position and focus. Editor
+  launch is prevented until refresh completes successfully.
+
+#### UX Detail: Interrupted Collaboration Resumption
+
+- Co-author or QA interruptions show persistent amber banner `Connection lost`
+  with timestamp, `Resume session` primary button, and transcript preview to
+  reassure no history was lost. Banner collapses automatically once connection
+  reestablishes.
+- Transcript panels persist conversation history with scroll anchoring to the
+  last received message and note `Messages preserved locally` for clarity.
+
+#### UX Detail: Missing Seeded Content Fallback
+
+- If seeded sections fail to load, editor shows placeholder section card
+  `Add your first section` with CTA to create section, while TOC displays
+  skeleton entries labeled `Section pending`. Metadata panel states
+  `Project details loading` with retry option.
+
+#### UX Detail: Unsaved Edit Preservation
+
+- When autosave fails, banner `Unsaved changes saved locally` stays visible,
+  listing affected sections. Navigation away prompts confirmation dialog with
+  summary of unsaved items and option to export draft.
+- `Unsaved` badges appear in TOC and section headers until a successful save
+  occurs; tooltip explains drafts persist in browser storage for 24 hours.
+
+#### UX Detail: Messaging Terminology
+
+- `Progress` references the provisioning stepper and export queue updates with
+  explicit step labels and percentage when available.
+- `Success message` definition: green toast or inline card with confirmation
+  headline, timestamp, and next-step CTA. `Actionable failure` requires red
+  banner containing cause summary, retry CTA, and support link when escalation
+  is required.
+
 ### Key Entities _(include if feature involves data)_
 
 - **Project**: Represents a team workspace, including project ID, name, and
@@ -169,6 +315,11 @@ failures with recovery options.
   and document editor for the targeted project.
 - Backend services expose reliable identifiers for sections, assumptions
   sessions, QA runs, and export jobs required by the UI workflows.
+- When seeded sections or metadata are delayed, the UI presents placeholder
+  cards and retry affordances so users understand content is pending rather than
+  missing forever.
+- If authentication or permission changes occur mid-session, the UI retains
+  unsaved edits while prompting re-authentication or access requests.
 
 ## Success Criteria _(mandatory)_
 
@@ -183,6 +334,10 @@ failures with recovery options.
   provided guidance.
 - **SC-004**: 90% of QA or export requests initiated from the Project page
   return a success or actionable failure message within 30 seconds.
+- **SC-005**: 85% of surveyed users rate the provisioning and save messaging as
+  clear or very clear in usability validation sessions.
+- **SC-006**: 90% of users confirm progress indicators and status labels were
+  easy to understand in post-session questionnaires.
 
 ## Clarifications
 

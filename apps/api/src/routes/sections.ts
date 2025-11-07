@@ -163,6 +163,34 @@ const sendErrorResponse = (
   res.status(status).json(payload);
 };
 
+const loadSectionScopedToDocument = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  requestId: string,
+  sectionId: string,
+  docId?: string
+): Promise<Awaited<ReturnType<SectionRepository['findById']>> | null> => {
+  const sectionRepository = getSectionRepository(req);
+  const section = await sectionRepository.findById(sectionId);
+  if (!section) {
+    sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
+    return null;
+  }
+
+  if (docId && section.docId !== docId) {
+    sendErrorResponse(
+      res,
+      404,
+      'DOCUMENT_SECTION_MISMATCH',
+      'Section does not belong to document',
+      requestId
+    );
+    return null;
+  }
+
+  return section;
+};
+
 const mapStatusToCode = (status: number): string => {
   switch (status) {
     case 400:
@@ -1505,151 +1533,171 @@ sectionsRouter.get('/documents/:docId/toc', async (req: AuthenticatedRequest, re
   }
 });
 
-sectionsRouter.post(
-  '/sections/:sectionId/assumptions/session',
-  async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.requestId ?? 'unknown';
-    const logger = getRequestLogger(req);
-    const sectionId = req.params.sectionId;
+const handleAssumptionSessionStart = async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = req.requestId ?? 'unknown';
+  const logger = getRequestLogger(req);
+  const { docId, sectionId } = req.params as { docId?: string; sectionId?: string };
 
-    if (!sectionId) {
-      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+  if (!sectionId) {
+    sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId is required', requestId);
+    return;
+  }
+
+  try {
+    const payload = AssumptionSessionStartRequestSchema.parse(req.body);
+    const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+    if (!section) {
       return;
     }
 
-    try {
-      const payload = AssumptionSessionStartRequestSchema.parse(req.body);
-      const sectionRepository = getSectionRepository(req);
-      const section = await sectionRepository.findById(sectionId);
-      if (!section) {
-        sendErrorResponse(res, 404, 'NOT_FOUND', 'Section not found', requestId);
-        return;
-      }
+    const service = getAssumptionSessionService(req);
+    const session = await service.startSession({
+      sectionId,
+      documentId: section.docId,
+      templateVersion: payload.templateVersion,
+      startedBy: req.auth?.userId ?? 'anonymous-user',
+      requestId,
+    });
 
-      const service = getAssumptionSessionService(req);
-      const session = await service.startSession({
-        sectionId,
-        documentId: section.docId,
-        templateVersion: payload.templateVersion,
-        startedBy: req.auth?.userId ?? 'anonymous-user',
-        requestId,
-      });
-
-      res.setHeader('X-Request-ID', requestId);
-      res.status(201).json({
-        sessionId: session.sessionId,
-        sectionId: session.sectionId,
-        prompts: session.prompts,
-        overridesOpen: session.overridesOpen,
-        summaryMarkdown: session.summaryMarkdown,
-        documentDecisionSnapshotId: session.documentDecisionSnapshotId,
-      });
-    } catch (error) {
-      if (error instanceof ZodError) {
-        handleValidationFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId },
-          'Invalid assumption session payload'
-        );
-        return;
-      }
-
-      if (error instanceof SectionEditorServiceError) {
-        handleSectionEditorFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId },
-          'Failed to start assumption session'
-        );
-        return;
-      }
-
-      handleUnexpectedFailure(
+    res.setHeader('X-Request-ID', requestId);
+    res.status(201).json({
+      sessionId: session.sessionId,
+      sectionId: session.sectionId,
+      prompts: session.prompts,
+      overridesOpen: session.overridesOpen,
+      summaryMarkdown: session.summaryMarkdown,
+      documentDecisionSnapshotId: session.documentDecisionSnapshotId,
+    });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      handleValidationFailure(
         error,
         res,
         logger,
         requestId,
         { sectionId },
-        'Unexpected error starting assumption session'
-      );
-    }
-  }
-);
-
-sectionsRouter.post(
-  '/sections/:sectionId/assumptions/:assumptionId/respond',
-  async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.requestId ?? 'unknown';
-    const logger = getRequestLogger(req);
-    const { sectionId, assumptionId } = req.params;
-
-    if (!sectionId || !assumptionId) {
-      sendErrorResponse(
-        res,
-        400,
-        'BAD_REQUEST',
-        'sectionId and assumptionId are required',
-        requestId
+        'Invalid assumption session payload'
       );
       return;
     }
 
-    try {
-      const payload = AssumptionRespondRequestSchema.parse(req.body);
-      const service = getAssumptionSessionService(req);
-      const prompt = await service.respondToAssumption({
-        assumptionId,
-        action: payload.action,
-        actorId: req.auth?.userId ?? 'anonymous-user',
-        answer: payload.answer,
-        notes: payload.notes,
-        overrideJustification: payload.overrideJustification,
+    if (error instanceof SectionEditorServiceError) {
+      handleSectionEditorFailure(
+        error,
+        res,
+        logger,
         requestId,
-      });
+        { sectionId },
+        'Failed to start assumption session'
+      );
+      return;
+    }
 
-      const statusCode = payload.action === 'escalate' ? 202 : 200;
-      res.setHeader('X-Request-ID', requestId);
-      res.status(statusCode).json(prompt);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        handleValidationFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId, assumptionId },
-          'Invalid assumption prompt payload'
-        );
+    handleUnexpectedFailure(
+      error,
+      res,
+      logger,
+      requestId,
+      { sectionId },
+      'Unexpected error starting assumption session'
+    );
+  }
+};
+
+sectionsRouter.post(
+  '/documents/:docId/sections/:sectionId/assumptions/session',
+  handleAssumptionSessionStart
+);
+
+sectionsRouter.post('/sections/:sectionId/assumptions/session', handleAssumptionSessionStart);
+
+const handleAssumptionRespond = async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = req.requestId ?? 'unknown';
+  const logger = getRequestLogger(req);
+  const { docId, sectionId, assumptionId } = req.params as {
+    docId?: string;
+    sectionId?: string;
+    assumptionId?: string;
+  };
+
+  if (!sectionId || !assumptionId) {
+    sendErrorResponse(
+      res,
+      400,
+      'BAD_REQUEST',
+      'sectionId and assumptionId are required',
+      requestId
+    );
+    return;
+  }
+
+  try {
+    if (docId) {
+      const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+      if (!section) {
         return;
       }
+    }
 
-      if (error instanceof SectionEditorServiceError) {
-        handleSectionEditorFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId, assumptionId },
-          'Failed to update assumption prompt'
-        );
-        return;
-      }
+    const payload = AssumptionRespondRequestSchema.parse(req.body);
+    const service = getAssumptionSessionService(req);
+    const prompt = await service.respondToAssumption({
+      assumptionId,
+      action: payload.action,
+      actorId: req.auth?.userId ?? 'anonymous-user',
+      answer: payload.answer,
+      notes: payload.notes,
+      overrideJustification: payload.overrideJustification,
+      requestId,
+    });
 
-      handleUnexpectedFailure(
+    const statusCode = payload.action === 'escalate' ? 202 : 200;
+    res.setHeader('X-Request-ID', requestId);
+    res.status(statusCode).json(prompt);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      handleValidationFailure(
         error,
         res,
         logger,
         requestId,
         { sectionId, assumptionId },
-        'Unexpected error updating assumption prompt'
+        'Invalid assumption prompt payload'
       );
+      return;
     }
+
+    if (error instanceof SectionEditorServiceError) {
+      handleSectionEditorFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, assumptionId },
+        'Failed to update assumption prompt'
+      );
+      return;
+    }
+
+    handleUnexpectedFailure(
+      error,
+      res,
+      logger,
+      requestId,
+      { sectionId, assumptionId },
+      'Unexpected error updating assumption prompt'
+    );
   }
+};
+
+sectionsRouter.post(
+  '/documents/:docId/sections/:sectionId/assumptions/:assumptionId/respond',
+  handleAssumptionRespond
+);
+
+sectionsRouter.post(
+  '/sections/:sectionId/assumptions/:assumptionId/respond',
+  handleAssumptionRespond
 );
 
 sectionsRouter.get(

@@ -5,23 +5,23 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Create shared project/document snapshot types in
+- [x] T001 Create shared project/document snapshot types in
       `packages/shared-data/src/types/project-document.ts`
-- [ ] T002 Export new project/document snapshot types from
+- [x] T002 Export new project/document snapshot types from
       `packages/shared-data/src/index.ts`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T003 Add repository helper to fetch primary document metadata and first
+- [x] T003 Add repository helper to fetch primary document metadata and first
       section in `packages/shared-data/src/models/document.ts`
-- [ ] T004 [P] Introduce project-document serializer utilities in
+- [x] T004 [P] Introduce project-document serializer utilities in
       `apps/api/src/routes/serializers/project-document.serializer.ts`
-- [ ] T005 Update DI container registrations for document
+- [x] T005 Update DI container registrations for document
       discovery/provision/export services in
       `apps/api/src/services/container.ts`
-- [ ] T006 Refresh fixture data to keep live/fixture bootstrap parity in
+- [x] T006 Refresh fixture data to keep live/fixture bootstrap parity in
       `apps/web/src/lib/fixtures/e2e/index.ts`
 
 **Checkpoint**: Foundation ready — user story work can begin.
@@ -38,36 +38,36 @@ without relying on fixtures.
 
 ### Tests (write first, ensure failing)
 
-- [ ] T007 [US1] Add contract test for
+- [x] T007 [US1] Add contract test for
       `GET /projects/:projectId/documents/primary` at
       `apps/api/tests/contract/documents/project-primary-document.contract.test.ts`
-- [ ] T008 [US1] Add Playwright flow for Project→Document navigation at
+- [x] T008 [US1] Add Playwright flow for Project→Document navigation at
       `apps/web/tests/e2e/project-open-document.e2e.ts`
 
 ### Implementation
 
-- [ ] T009 [US1] Implement `GET /projects/:projectId/documents/primary` route
+- [x] T009 [US1] Implement `GET /projects/:projectId/documents/primary` route
       using serializer in `apps/api/src/routes/documents.ts`
-- [ ] T010 [P] [US1] Extend API client with `getPrimaryDocument` helper in
+- [x] T010 [P] [US1] Extend API client with `getPrimaryDocument` helper in
       `apps/web/src/lib/api.ts`
-- [ ] T011 [P] [US1] Update template store loading to consume primary document
+- [x] T011 [P] [US1] Update template store loading to consume primary document
       metadata in `apps/web/src/stores/template-store.ts`
-- [ ] T012 [US1] Rework Project workflow card logic (retain clickable card
+- [x] T012 [US1] Rework Project workflow card logic (retain clickable card
       pattern, add status states) in `apps/web/src/pages/Project.tsx`
-- [ ] T013 [US1] Replace document route loader to fetch live data (fallback to
+- [x] T013 [US1] Replace document route loader to fetch live data (fallback to
       fixtures when flagged) in `apps/web/src/app/router/document-routes.tsx`
-- [ ] T014 [US1] Introduce `useDocumentBootstrap` hook for live
+- [x] T014 [US1] Introduce `useDocumentBootstrap` hook for live
       sections/metadata in
       `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts`
-- [ ] T015 [US1] Integrate bootstrap hook and loading/not-found guards in
+- [x] T015 [US1] Integrate bootstrap hook and loading/not-found guards in
       `apps/web/src/features/document-editor/components/document-editor.tsx`
-- [ ] T016 [US1] Implement breadcrumb/back navigation from the editor to the
+- [x] T016 [US1] Implement breadcrumb/back navigation from the editor to the
       originating project in
       `apps/web/src/features/document-editor/components/document-editor.tsx`
-- [ ] T017 [P] [US1] Sync document store initialization with live bootstrap
+- [x] T017 [P] [US1] Sync document store initialization with live bootstrap
       payloads in
       `apps/web/src/features/document-editor/stores/document-store.ts`
-- [ ] T018 [P] [US1] Keep fixture bootstrap compatibility by delegating to
+- [x] T018 [P] [US1] Keep fixture bootstrap compatibility by delegating to
       `useDocumentBootstrap` within
       `apps/web/src/features/document-editor/hooks/use-document-fixture.ts`
 
@@ -84,26 +84,26 @@ navigate to the first section of the newly created document.
 
 ### Tests (write first, ensure failing)
 
-- [ ] T019 [US2] Add contract test for `POST /projects/:projectId/documents` at
+- [x] T019 [US2] Add contract test for `POST /projects/:projectId/documents` at
       `apps/api/tests/contract/documents/project-create-document.contract.test.ts`
-- [ ] T020 [US2] Add Project page create-document interaction test at
+- [x] T020 [US2] Add Project page create-document interaction test at
       `apps/web/src/pages/__tests__/Project.create-document.test.tsx`
 
 ### Implementation
 
-- [ ] T021 [US2] Implement idempotent `POST /projects/:projectId/documents`
+- [x] T021 [US2] Implement idempotent `POST /projects/:projectId/documents`
       route logic in `apps/api/src/routes/documents.ts`
-- [ ] T022 [US2] Create document provisioning service that seeds template
+- [x] T022 [US2] Create document provisioning service that seeds template
       defaults in `apps/api/src/services/document-provisioning.service.ts`
-- [ ] T023 [US2] Register provisioning service and dependencies in
+- [x] T023 [US2] Register provisioning service and dependencies in
       `apps/api/src/services/container.ts`
-- [ ] T024 [US2] Add `useCreateDocument` hook to orchestrate provisioning calls
+- [x] T024 [US2] Add `useCreateDocument` hook to orchestrate provisioning calls
       in `apps/web/src/features/document-editor/hooks/use-create-document.ts`
-- [ ] T025 [US2] Wire Create Document workflow card with loading/error states in
+- [x] T025 [US2] Wire Create Document workflow card with loading/error states in
       `apps/web/src/pages/Project.tsx`
-- [ ] T026 [US2] Guard template store navigation until provisioning completes in
+- [x] T026 [US2] Guard template store navigation until provisioning completes in
       `apps/web/src/stores/template-store.ts`
-- [ ] T027 [US2] Add create-document API client helper to
+- [x] T027 [US2] Add create-document API client helper to
       `apps/web/src/lib/api.ts`
 
 **Checkpoint**: User Stories 1 & 2 both work independently.
@@ -119,71 +119,78 @@ tied to the live document, and trigger a project export with feedback.
 
 ### Tests (write first, ensure failing)
 
-- [ ] T028 [US3] Add Playwright scenario covering manual save conflict
+- [x] T028 [US3] Add Playwright scenario covering manual save conflict
       resolution at `apps/web/tests/e2e/document-conflict.e2e.ts`
-- [ ] T029 [US3] Add contract test for `POST /projects/:projectId/export` at
+- [x] T029 [US3] Add contract test for `POST /projects/:projectId/export` at
       `apps/api/tests/contract/projects/export-project.contract.test.ts`
-- [ ] T030 [US3] Add unit coverage for co-author cancel/retry/resume behaviours
+- [x] T030 [US3] Add unit coverage for co-author cancel/retry/resume behaviours
       at
       `apps/web/src/features/document-editor/hooks/useCoAuthorSession.test.ts`
-- [ ] T031 [US3] Add Playwright coverage for QA sidebar interruption and retry
+- [x] T031 [US3] Add Playwright coverage for QA sidebar interruption and retry
       handling at `apps/web/tests/e2e/document-qa-sidebar.e2e.ts`
-- [ ] T032 [US3] Add contract test for document assumptions flow scoping at
+- [x] T032 [US3] Add contract test for document assumptions flow scoping at
       `apps/api/tests/contract/documents/assumptions-flow.contract.test.ts`
 
 ### Implementation
 
-- [ ] T033 [US3] Update manual save panel copy and state messaging in
+- [x] T033 [US3] Update manual save panel copy and state messaging in
       `apps/web/src/features/section-editor/components/manual-save-panel.tsx`
-- [ ] T034 [US3] Wire manual save flow to `section-editor.client` optimistic
+- [x] T034 [US3] Wire manual save flow to `section-editor.client` optimistic
       operations in
       `apps/web/src/features/section-editor/api/section-editor.client.ts`
-- [ ] T035 [US3] Align conflict dialog with refresh/diff/reapply guidance in
+- [x] T035 [US3] Align conflict dialog with refresh/diff/reapply guidance in
       `apps/web/src/features/document-editor/components/conflict-dialog.tsx`
-- [ ] T036 [US3] Extend DocumentEditor interactions to manage conflict retry and
+- [x] T036 [US3] Extend DocumentEditor interactions to manage conflict retry and
       saved-state banners in
       `apps/web/src/features/document-editor/components/document-editor.tsx`
-- [ ] T037 [US3] Route co-authoring sessions with live document/section
+- [x] T037 [US3] Route co-authoring sessions with live document/section
       identifiers in
       `apps/web/src/features/document-editor/hooks/useCoAuthorSession.ts`
-- [ ] T038 [US3] Route document QA sessions with live identifiers and fallback
+- [x] T038 [US3] Route document QA sessions with live identifiers and fallback
       handling in
       `apps/web/src/features/document-editor/hooks/useDocumentQaSession.ts`
-- [ ] T039 [US3] Hook DocumentQualityDashboard re-run actions to live endpoints
+- [x] T039 [US3] Hook DocumentQualityDashboard re-run actions to live endpoints
       in
       `apps/web/src/features/document-editor/quality-gates/components/DocumentQualityDashboard.tsx`
-- [ ] T040 [US3] Connect assumptions flow hook to live project/document
+- [x] T040 [US3] Connect assumptions flow hook to live project/document
       identifiers in
       `apps/web/src/features/document-editor/assumptions-flow/hooks/use-assumptions-flow.ts`
-- [ ] T041 [US3] Implement `POST /projects/:projectId/export` handling (queue
+- [x] T041 [US3] Implement `POST /projects/:projectId/export` handling (queue
       job, respond with status) in `apps/api/src/routes/projects.ts`
-- [ ] T042 [US3] Create export orchestration service integrating
+- [x] T042 [US3] Create export orchestration service integrating
       `@ctrl-freaq/exporter` in
       `apps/api/src/services/export/document-export.service.ts`
-- [ ] T043 [US3] Register export orchestration service within
+- [x] T043 [US3] Register export orchestration service within
       `apps/api/src/services/container.ts`
-- [ ] T044 [US3] Add export workflow handling (progress, feedback) to
+- [x] T044 [US3] Add export workflow handling (progress, feedback) to
       `apps/web/src/pages/Project.tsx`
-- [ ] T045 [US3] Implement template validation decision endpoint for Project
+- [x] T045 [US3] Implement template validation decision endpoint for Project
       workflow actions in `apps/api/src/routes/templates.ts`
-- [ ] T046 [US3] Persist template validation decisions via repository/service
+- [x] T046 [US3] Persist template validation decisions via repository/service
       updates in `packages/shared-data/src/models/template-decision.ts`
-- [ ] T047 [US3] Add contract test for template decision submission at
+- [x] T047 [US3] Add contract test for template decision submission at
       `apps/api/tests/contract/templates/template-validation-decision.contract.test.ts`
-- [ ] T048 [US3] Invoke template decision endpoint from `TemplateValidationGate`
+- [x] T048 [US3] Invoke template decision endpoint from `TemplateValidationGate`
       submission flow in `apps/web/src/pages/Project.tsx`
 
 **Checkpoint**: All user stories functional and independently verifiable.
+
+#### Assumption Log
+
+- [ASSUMPTION] T048: Template decision submissions default to
+  `action: 'approved'` when the document already matches the requested template
+  version; handling explicit `pending` or `blocked` selections remains future
+  scope.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T049 Update architectural and UI specs with new endpoints and flows in
+- [x] T049 Update architectural and UI specs with new endpoints and flows in
       `docs/architecture.md` and `docs/front-end-spec.md`
-- [ ] T050 Capture updated validation steps in
+- [x] T050 Capture updated validation steps in
       `specs/015-surface-document-editor/quickstart.md`
-- [ ] T051 Run quickstart validation flows end-to-end following
+- [x] T051 Run quickstart validation flows end-to-end following
       `specs/015-surface-document-editor/quickstart.md`
 
 ---
@@ -218,3 +225,190 @@ tied to the live document, and trigger a project export with feedback.
 - **Quality Gates**: Honor constitutional requirements—tests precede
   implementation, and final validation (T051) ensures quickstart scenarios stay
   green.
+
+## Implementation Log
+
+- 2025-11-06T23:56:30Z — F006–F008: Restored provisioning template lookup in
+  dist builds, honored Create Document overrides (title/template/seed strategy),
+  and wired export jobs to produce completed artifacts.
+  - Files: `apps/api/src/services/document-provisioning.service.ts`,
+    `apps/api/src/services/export/document-export.service.ts`,
+    `apps/api/src/services/templates/template-path-resolver.ts`,
+    `apps/api/src/routes/documents.ts`,
+    `apps/api/tests/contract/documents/project-create-document.contract.test.ts`,
+    `apps/api/tests/contract/projects/export-project.contract.test.ts`,
+    `apps/api/tests/unit/services/document-provisioning.service.test.ts`,
+    `templates/architecture-minimal.yaml`, `.eslintignore`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- document-provisioning.service.test.ts`,
+    `pnpm --filter @ctrl-freaq/api test -- project-create-document.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/api test -- export-project.contract.test.ts`
+  - Tests: Provisioning env override unit test; Create Document and Export
+    contract suites (Vitest)
+  - Follow-ups: None
+
+- 2025-11-06T18:52:41Z — F005: Ensured provisioning templates ship with API
+  builds and added coverage.
+  - Files: `apps/api/package.json`, `apps/api/scripts/copy-template-assets.mjs`,
+    `apps/api/tests/unit/scripts/copy-template-assets.test.ts`,
+    `apps/api/tests/types/copy-template-assets.d.ts`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands: `pnpm --filter @ctrl-freaq/api build`,
+    `pnpm --filter @ctrl-freaq/api test -- copy-template-assets.test.ts`,
+    `pnpm --filter @ctrl-freaq/api test -- project-create-document.contract.test.ts`
+  - Tests: Copy-template-assets unit suite (Vitest); project create-document
+    contract suite (Vitest)
+  - Follow-ups: Monitor turbo pipeline hooks to confirm asset copy runs in CI;
+    extend packaging script if new template catalogs need selective shipping.
+
+- 2025-11-06T18:42:26Z — F004: Restored document loader auth integration and
+  coverage.
+  - Files: `apps/web/src/app/router/document-routes.tsx`,
+    `apps/web/src/lib/auth-provider/loader-auth.ts`, `apps/web/src/lib/api.ts`,
+    `apps/web/src/app/router/document-routes.test.ts`
+  - Commands: `pnpm --filter @ctrl-freaq/web test -- document-routes.test.ts`
+  - Tests: Document route loader unit suite (Vitest)
+  - Follow-ups: Monitor Clerk token availability during navigation; add
+    integration coverage once live auth flows are available in the test harness.
+
+- 2025-11-06T06:56:33Z — F001/F002/F003: Added exporter dependency/build step,
+  corrected export route error payloads/DB lookup, restored document bootstrap
+  fallback, and reintroduced link-wrapped workflow card semantics with new
+  coverage.
+  - Files: `apps/api/package.json`, `apps/api/src/routes/projects.ts`,
+    `apps/api/tests/contract/projects/export-project.contract.test.ts`,
+    `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts`,
+    `apps/web/src/features/document-editor/hooks/use-document-bootstrap.test.tsx`,
+    `apps/web/src/pages/Project.tsx`, `apps/web/src/pages/Project.test.tsx`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- export-project.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- use-document-bootstrap.test.tsx`,
+    `pnpm --filter @ctrl-freaq/web test -- Project.test.tsx`,
+    `pnpm --filter @ctrl-freaq/api lint`, `pnpm --filter @ctrl-freaq/web lint`
+  - Tests: Export route contract suite; document bootstrap hook and Project page
+    Vitest suites
+  - Follow-ups: Audit remaining project routes for consistent `code`/`error`
+    fields before freezing API responses.
+
+- 2025-11-06T05:26:30Z — T044–T051: Extended Project workflow card states,
+  persisted template validation decisions, and refreshed docs/quickstart.
+  - Files: `apps/web/src/pages/Project.tsx`, `apps/web/src/lib/api.ts`,
+    `apps/web/src/pages/__tests__/Project.template-validation.test.tsx`,
+    `apps/api/src/routes/templates.ts`,
+    `apps/api/tests/contract/templates/template-validation-decision.contract.test.ts`,
+    `packages/shared-data/src/repositories/template-decision.repository.ts`,
+    `packages/shared-data/src/models/template-decision.ts`,
+    `docs/architecture.md`, `docs/front-end-spec.md`,
+    `specs/015-surface-document-editor/quickstart.md`
+  - Commands: `pnpm --filter @ctrl-freaq/web test -- Project.test.tsx`,
+    `pnpm --filter @ctrl-freaq/web test -- Project.template-validation.test.tsx`,
+    `pnpm --filter @ctrl-freaq/api test -- template-validation-decision.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/shared-data test -- template-decision.repository.test.ts`
+  - Follow-ups: Consider support for `pending`/`blocked` decision flows and
+    richer export progress updates during future iterations.
+
+- 2025-11-06T04:56:10+00:00 — T028–T043: Completed conflict workflows, streaming
+  integrations, and export service/contract coverage.
+  - Files: `apps/web/tests/e2e/document-conflict.e2e.ts`,
+    `apps/api/tests/contract/projects/export-project.contract.test.ts`,
+    `apps/web/src/features/document-editor/hooks/useCoAuthorSession.ts`,
+    `apps/api/src/services/export/document-export.service.ts`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Follow-ups: Implement export workflow card UI (T044) and template decision
+    endpoints (T045–T048) before polish tasks.
+
+- 2025-11-05T07:14:18Z — T019/T020/T021–T027: Revalidated provisioning contracts
+  and surfaced success copy on the Project create-document workflow. Confirmed
+  backend idempotency and frontend state transitions.
+  - Files: `apps/web/src/pages/Project.tsx`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- project-create-document.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- Project.create-document.test.tsx`
+  - Tests: Create-document API contract suite; Project create-document
+    interaction test (Vitest)
+  - Follow-ups: Monitor provisioning hint timing as Playwright coverage (T028)
+    comes online to ensure success banner persists long enough for accessibility
+    cues.
+- 2025-11-05T05:45:12Z — QA/Playwright stabilization: Added full fixture
+  responses for template summary/version and document bootstrap in the project
+  open flow; relaxed editor title assertion to match live heading and reran the
+  gauntlet (`pnpm test` now green).
+- 2025-11-05T02:32:14Z — T010–T018: Wired live bootstrap across loader, hook,
+  stores, and editor UI; added deterministic tests and updated fixtures
+  compatibility.
+  - Files: `apps/web/src/app/router/document-routes.tsx`,
+    `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts`,
+    `apps/web/src/features/document-editor/hooks/use-document-fixture.ts`,
+    `apps/web/src/features/document-editor/components/document-editor.tsx`,
+    `apps/web/src/features/document-editor/hooks/use-document-bootstrap.test.tsx`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/web test -- use-document-bootstrap.test.tsx`,
+    `pnpm --filter @ctrl-freaq/web test -- template-store.test.ts`
+  - Tests: Document bootstrap hook unit suite; template store regression suite
+  - Follow-ups: Playwright project-open flow remains blocked in sandbox; rerun
+    locally once browser permissions available.
+- 2025-11-05T01:15:52Z — T004/T005/T006: Introduced project document serializer,
+  registered discovery/provision/export services, and refreshed fixture snapshot
+  parity.
+  - Files: `apps/api/src/routes/serializers/project-document.serializer.ts`,
+    `apps/api/src/services/container.ts`,
+    `apps/api/src/services/document-workflows/project-document-discovery.service.ts`,
+    `apps/api/tests/unit/routes/project-document.serializer.test.ts`,
+    `apps/api/tests/unit/services/container/document-workflows-registration.test.ts`,
+    `apps/web/src/lib/fixtures/e2e/index.ts`,
+    `apps/web/src/lib/fixtures/e2e/project-document.fixture.contract.test.ts`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- project-document.serializer.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- project-document.fixture.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/api lint`,
+    `pnpm --filter @ctrl-freaq/api typecheck`,
+    `pnpm --filter @ctrl-freaq/web lint`,
+    `pnpm --filter @ctrl-freaq/web typecheck`
+  - Tests: API serializer and container registration unit suites; web fixture
+    contract test (vitest)
+  - Follow-ups: Implement provisioning/export services before enabling POST
+    routes; update frontend bootstrap to consume live snapshot in US1.
+
+- 2025-11-05T00:41:53Z — T003: Added repository helper to build primary project
+  document snapshots with lifecycle derivation and section lookup.
+  - Files: `packages/shared-data/src/models/document.ts`,
+    `packages/shared-data/src/types/project-document.ts`,
+    `packages/shared-data/src/repositories/document.repository.test.ts`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/shared-data test -- document.repository.test.ts`
+  - Tests: Document repository suite (vitest) verifying snapshot states and
+    archival handling
+  - Follow-ups: Wire serializer (T004) and API route (T009) to consume snapshot
+    helper and propagate template decisions when available.
+
+- 2025-11-05T00:33:20Z — T001/T002: Added shared project-document snapshot
+  schemas and exports for backend/frontend usage.
+  - Files: `packages/shared-data/src/types/project-document.ts`,
+    `packages/shared-data/src/index.ts`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands: none
+  - Tests: not run (schema-only change; will validate alongside upcoming
+    repository/helper wiring)
+  - Follow-ups: Use snapshot types in T003 repository helper and API serializers
+    before implementing routes.
+
+## Phase 4.R: Review Follow-Up
+
+- [x] F001 Finding F001: API lacks dependency on `@ctrl-freaq/exporter` as
+      described in audit.md
+- [x] F002 Finding F002: Document bootstrap fails to fall back when the
+      requested section is missing as described in audit.md
+- [x] F003 Finding F003: Workflow card must restore link-wrapped accessibility
+      semantics as described in audit.md
+- [x] F004 Finding F004: Document route loader bypasses API client auth as
+      described in audit.md
+- [x] F005 Finding F005: Document provisioning template asset missing from
+      builds as described in audit.md
+- [x] F006 Finding F006: Production provisioning still fails from dist builds as
+      described in audit.md
+- [x] F007 Finding F007: Export workflow never produces artifacts as described
+      in audit.md
+- [x] F008 Finding F008: Create Document API ignores contract overrides as
+      described in audit.md

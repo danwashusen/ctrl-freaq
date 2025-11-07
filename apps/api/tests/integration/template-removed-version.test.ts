@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { createApp } from '../../src/app';
 import { publishTemplateVersion, activateTemplateVersion } from '../contract/templates.helpers';
-import { MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 
 describe('Template removed version guard', () => {
   let app: Express;
@@ -39,8 +39,8 @@ describe('Template removed version guard', () => {
       'architecture',
       templateVersion,
       'hash-stub',
-      'user_2abc123def456',
-      'user_2abc123def456'
+      DEFAULT_TEST_USER_ID,
+      DEFAULT_TEST_USER_ID
     );
   }
 

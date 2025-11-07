@@ -1,9 +1,17 @@
 import { useAuth, useUser, UserButton } from '@/lib/auth-provider';
-import { ChevronsLeft, ChevronsRight, Edit, FileText, Settings, Share } from 'lucide-react';
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  Edit,
+  FileText,
+  Loader2,
+  Settings,
+  Share,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { TemplateUpgradeBanner } from '../components/editor/TemplateUpgradeBanner';
@@ -18,7 +26,15 @@ import { logger } from '../lib/logger';
 import { formatIsoDateFull } from '../lib/date-only';
 import { useTemplateStore } from '../stores/template-store';
 import { useProjectsQuery } from '@/hooks/use-projects-query';
-import type { ApiError, ProjectData, ProjectStatus, UpdateProjectRequest } from '../lib/api';
+import { useCreateDocument } from '@/features/document-editor/hooks/use-create-document';
+import type {
+  ApiError,
+  ProjectExportJob,
+  PrimaryDocumentSnapshotResponse,
+  ProjectData,
+  ProjectStatus,
+  UpdateProjectRequest,
+} from '../lib/api';
 import type { EventEnvelope } from '@/lib/streaming/event-hub';
 import { useProjectStore } from '@/stores/project-store';
 import { ProjectStatusBadge } from '@/components/status/ProjectStatusBadge';
@@ -82,11 +98,15 @@ export default function Project() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { projects, client, eventHub, eventHubHealth, eventHubEnabled } = useApi();
+  const getProjectById = projects.getById;
+  const updateProject = projects.update;
+  const apiClientRef = useRef(client);
   const fallbackPollingActive = !eventHubEnabled || eventHubHealth.fallbackActive;
   const queryClient = useQueryClient();
   const { user } = useUser();
   const auth = useAuth();
   const setActiveProject = useProjectStore(state => state.setActiveProject);
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
   const sidebarCollapsed = useProjectStore(state => state.sidebarCollapsed);
   const toggleSidebarCollapsed = useProjectStore(state => state.toggleSidebarCollapsed);
   const projectsQuery = useProjectsQuery();
@@ -94,7 +114,13 @@ export default function Project() {
   const hasNavProjects = projectsList.length > 0;
   const navIsLoading = !hasNavProjects && (projectsQuery.isLoading || projectsQuery.isFetching);
   const [project, setProject] = useState<ProjectView | null>(null);
+  const projectRef = useRef<ProjectView | null>(null);
+  const [primarySnapshot, setPrimarySnapshot] = useState<PrimaryDocumentSnapshotResponse | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
+  const [createDocumentError, setCreateDocumentError] = useState<string | null>(null);
+  const [createDocumentSuccess, setCreateDocumentSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const archiveRedirectRef = useRef(false);
   const [viewerArchiveNotice, setViewerArchiveNotice] = useState<string | null>(null);
@@ -121,12 +147,294 @@ export default function Project() {
     'paused',
     'completed',
   ];
+  const [createDocumentInFlight, setCreateDocumentInFlight] = useState(false);
+  const [showProvisioningHint, setShowProvisioningHint] = useState(false);
+  const [exportInFlight, setExportInFlight] = useState(false);
+  const [exportState, setExportState] = useState<
+    'idle' | 'queued' | 'running' | 'completed' | 'failed'
+  >('idle');
+  const [exportJob, setExportJob] = useState<ProjectExportJob | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [templateSubmitState, setTemplateSubmitState] = useState<
+    'idle' | 'submitting' | 'success' | 'error'
+  >('idle');
+  const [templateSubmitMessage, setTemplateSubmitMessage] = useState<string | null>(null);
+  const {
+    createDocument,
+    isPending: isProvisioning,
+    reset: resetProvisioningMutation,
+  } = useCreateDocument({
+    apiClient: client,
+    onSuccess: result => {
+      setCreateDocumentInFlight(false);
+      setTimeout(() => {
+        setShowProvisioningHint(false);
+      }, 500);
+      setCreateDocumentError(null);
+      setCreateDocumentSuccess(true);
+      setPrimarySnapshot({
+        projectId: result.projectId,
+        status: 'ready',
+        document: {
+          documentId: result.documentId,
+          firstSectionId: result.firstSectionId,
+          title: result.title,
+          lifecycleStatus: result.lifecycleStatus,
+          lastModifiedAt: result.lastModifiedAt,
+          template: result.template,
+        },
+        templateDecision: null,
+        lastUpdatedAt: result.lastModifiedAt,
+      });
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY, exact: false });
+      resetProvisioningMutation();
+      navigate(`/documents/${result.documentId}/sections/${result.firstSectionId}`);
+    },
+    onError: error => {
+      setCreateDocumentInFlight(false);
+      setTimeout(() => {
+        setShowProvisioningHint(false);
+      }, 250);
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : 'Unable to create document.';
+      setCreateDocumentError(message);
+      setCreateDocumentSuccess(false);
+      logger.error(
+        'project.create_document_failed',
+        { projectId: project?.id ?? id ?? 'unknown' },
+        error instanceof Error ? error : undefined
+      );
+    },
+  });
+  const primaryDocumentStatus = isProvisioning ? 'loading' : (primarySnapshot?.status ?? 'loading');
+  const primaryDocumentReady =
+    primarySnapshot?.status === 'ready' &&
+    Boolean(primarySnapshot.document?.documentId) &&
+    Boolean(primarySnapshot.document?.firstSectionId);
+  const openDocumentHref = useMemo(() => {
+    if (
+      !primaryDocumentReady ||
+      !primarySnapshot?.document?.documentId ||
+      !primarySnapshot.document?.firstSectionId
+    ) {
+      return null;
+    }
+
+    return `/documents/${primarySnapshot.document.documentId}/sections/${primarySnapshot.document.firstSectionId}`;
+  }, [primaryDocumentReady, primarySnapshot]);
+  const openDocumentDisabled = !openDocumentHref || isProvisioning;
+  const openDocumentDescription = useMemo(() => {
+    if (isProvisioning) {
+      return 'Creating architecture document…';
+    }
+    if (!primarySnapshot) {
+      return 'Loading live document status…';
+    }
+
+    switch (primarySnapshot.status) {
+      case 'ready':
+        return primarySnapshot.document?.title
+          ? `Open “${primarySnapshot.document.title}” in the editor with live data.`
+          : 'Open the primary document in the editor with live data.';
+      case 'loading':
+        return 'Preparing live document data…';
+      case 'missing':
+        return 'No primary document yet. Create one to get started.';
+      case 'archived':
+        return 'Primary document archived. Restore or create a new document to continue.';
+      default:
+        return 'Document status unavailable.';
+    }
+  }, [isProvisioning, primarySnapshot]);
+  const openDocumentStatusLabel = useMemo(() => {
+    if (isProvisioning) {
+      return 'Provisioning';
+    }
+    if (!primarySnapshot) {
+      return 'Unknown';
+    }
+    switch (primarySnapshot.status) {
+      case 'ready':
+        return 'Ready';
+      case 'loading':
+        return 'Loading';
+      case 'missing':
+        return 'Missing';
+      case 'archived':
+        return 'Archived';
+      default:
+        return 'Unknown';
+    }
+  }, [isProvisioning, primarySnapshot]);
+  const provisioningState = useTemplateStore(state => state.provisioningState ?? 'idle');
   const toDateInputValue = useCallback((value: string | null | undefined) => {
     if (!value) {
       return '';
     }
     return value.slice(0, 10);
   }, []);
+  const handleCreateDocument = useCallback(() => {
+    if (
+      !project ||
+      project.id === 'new' ||
+      isProvisioning ||
+      provisioningState === 'pending' ||
+      createDocumentInFlight
+    ) {
+      return;
+    }
+
+    setCreateDocumentError(null);
+    setCreateDocumentSuccess(false);
+    setCreateDocumentInFlight(true);
+    setShowProvisioningHint(true);
+    createDocument(project.id);
+  }, [createDocument, createDocumentInFlight, isProvisioning, project, provisioningState]);
+  const handleExportProject = useCallback(async () => {
+    if (!project || project.id === 'new' || exportInFlight || project.status === 'archived') {
+      return;
+    }
+
+    const apiClient = apiClientRef.current;
+    if (!apiClient || typeof apiClient.enqueueProjectExport !== 'function') {
+      logger.error('project.export_unavailable', { projectId: project.id });
+      return;
+    }
+
+    setExportError(null);
+    setExportInFlight(true);
+
+    try {
+      const job = await apiClient.enqueueProjectExport(project.id, {
+        format: 'markdown',
+        scope: 'primary_document',
+      });
+      setExportJob(job);
+      setExportState(job.status);
+      logger.info('project.export_queued', {
+        projectId: project.id,
+        jobId: job.jobId,
+        status: job.status,
+      });
+    } catch (err) {
+      setExportJob(null);
+
+      let message = 'Failed to start export.';
+      if (isApiError(err)) {
+        if (err.status === 409) {
+          message = 'An export is already in progress for this project.';
+        } else if (typeof err.message === 'string' && err.message.length > 0) {
+          message = err.message;
+        }
+      } else if (err instanceof Error && err.message.length > 0) {
+        message = err.message;
+      }
+
+      setExportError(message);
+      setExportState('failed');
+      logger.error(
+        'project.export_failed',
+        { projectId: project.id },
+        err instanceof Error ? err : undefined
+      );
+    } finally {
+      setExportInFlight(false);
+    }
+  }, [exportInFlight, project]);
+  const createDocumentButtonDisabled =
+    isProvisioning ||
+    provisioningState === 'pending' ||
+    createDocumentInFlight ||
+    !project ||
+    project.id === 'new';
+  const createDocumentStatusLabel = useMemo(() => {
+    if (isProvisioning || provisioningState === 'pending') {
+      return 'Provisioning';
+    }
+    if (createDocumentSuccess) {
+      return 'Ready';
+    }
+    if (!primarySnapshot) {
+      return 'Missing';
+    }
+    switch (primarySnapshot.status) {
+      case 'ready':
+        return 'Ready';
+      case 'missing':
+        return 'Missing';
+      case 'archived':
+        return 'Archived';
+      case 'loading':
+        return 'Loading';
+      default:
+        return 'Action';
+    }
+  }, [createDocumentSuccess, isProvisioning, primarySnapshot, provisioningState]);
+  const createDocumentDescription = useMemo<ReactNode>(() => {
+    if (createDocumentSuccess) {
+      return 'Document ready. Redirecting…';
+    }
+    if (showProvisioningHint || isProvisioning || provisioningState === 'pending') {
+      return 'Creation in progress';
+    }
+    if (createDocumentError) {
+      const detail = createDocumentError.trim();
+      return detail.length > 0
+        ? `Unable to create document: ${detail}`
+        : 'Unable to create document.';
+    }
+    if (!primarySnapshot || primarySnapshot.status === 'missing') {
+      return 'Generate the architecture document from template defaults.';
+    }
+    if (primarySnapshot.status === 'archived') {
+      return 'Primary document archived. Create a replacement to continue.';
+    }
+    if (primarySnapshot.status === 'ready') {
+      return 'Primary document already provisioned.';
+    }
+    return 'Start writing a new document for this project.';
+  }, [
+    createDocumentError,
+    createDocumentSuccess,
+    isProvisioning,
+    primarySnapshot,
+    provisioningState,
+    showProvisioningHint,
+  ]);
+  const exportStatusLabel = useMemo(() => {
+    switch (exportState) {
+      case 'queued':
+        return 'Queued';
+      case 'running':
+        return 'Running';
+      case 'completed':
+        return 'Ready';
+      case 'failed':
+        return 'Blocked';
+      default:
+        return 'Idle';
+    }
+  }, [exportState]);
+  const exportDescription = useMemo(() => {
+    if (exportState === 'failed') {
+      return exportError ?? 'Export failed. Try again later.';
+    }
+    if (exportState === 'completed') {
+      if (exportJob?.artifactUrl) {
+        return 'Export completed. Download link delivered to your inbox.';
+      }
+      return 'Export completed successfully.';
+    }
+    if (exportState === 'queued') {
+      return 'Export request submitted. You will receive a link when the bundle is ready.';
+    }
+    if (exportState === 'running') {
+      return 'Generating export package…';
+    }
+    return 'Export documents in the latest format for sharing.';
+  }, [exportError, exportJob?.artifactUrl, exportState]);
   const syncFormWithProject = useCallback(
     (incoming: ProjectData) => {
       const normalizedStatus: EditableProjectStatus =
@@ -182,7 +490,7 @@ export default function Project() {
       setMutationState({ type: 'saving' });
 
       try {
-        const updated = await projects.update(project.id, payload, {
+        const updated = await updateProject(project.id, payload, {
           ifUnmodifiedSince: project.updatedAt,
         });
 
@@ -214,7 +522,7 @@ export default function Project() {
               'Project has changed since you loaded it. Refresh to continue.',
           });
           try {
-            const latest = await projects.getById(project.id);
+            const latest = await getProjectById(project.id);
             setProject({
               ...latest,
               documentsCount: project.documentsCount,
@@ -242,7 +550,7 @@ export default function Project() {
         setIsSaving(false);
       }
     },
-    [formState, project, projects, queryClient, syncFormWithProject]
+    [formState, getProjectById, project, queryClient, syncFormWithProject, updateProject]
   );
   const handleSidebarProjectSelect = useCallback(
     (projectId: string) => {
@@ -256,9 +564,18 @@ export default function Project() {
     setIsEditingMetadata(false);
   }, [id]);
 
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
+  useEffect(() => {
+    apiClientRef.current = client;
+  }, [client]);
+
   const handleArchivedWhileViewing = useCallback(
     (latest?: ProjectData) => {
-      if (!project || archiveRedirectRef.current) {
+      const currentProject = projectRef.current;
+      if (!currentProject || archiveRedirectRef.current) {
         return;
       }
       archiveRedirectRef.current = true;
@@ -280,6 +597,8 @@ export default function Project() {
         };
       });
 
+      const projectName = currentProject.name;
+
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
 
       try {
@@ -287,14 +606,14 @@ export default function Project() {
           window.sessionStorage.setItem(
             DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY,
             JSON.stringify({
-              message: `Project "${project.name}" was archived while you were viewing it.`,
+              message: `Project "${projectName}" was archived while you were viewing it.`,
             })
           );
         }
       } catch (storageError) {
         logger.error(
           'project.archive_notice.persist_failed',
-          { projectId: project.id },
+          { projectId: currentProject.id },
           storageError instanceof Error ? storageError : undefined
         );
       }
@@ -303,7 +622,7 @@ export default function Project() {
         navigate('/dashboard');
       }, 1500);
     },
-    [navigate, project, queryClient, setActiveProject]
+    [navigate, queryClient, setActiveProject]
   );
   const dismissMutationAlert = useCallback(() => {
     setMutationState({ type: 'idle' });
@@ -331,6 +650,7 @@ export default function Project() {
   const upgradeFailure = useTemplateStore(state => state.upgradeFailure);
   const sections = useTemplateStore(state => state.sections);
   const validator = useTemplateStore(state => state.validator);
+  const templateUpgradeDecision = useTemplateStore(state => state.decision);
   const formValue = useTemplateStore(state => state.formValue);
   const setFormValue = useTemplateStore(state => state.setFormValue);
   const loadDocument = useTemplateStore(state => state.loadDocument);
@@ -344,7 +664,7 @@ export default function Project() {
       try {
         setLoading(true);
         setError(null);
-        const result = await projects.getById(projectId);
+        const result = await getProjectById(projectId);
         if (!cancelled) {
           setProject({
             ...result,
@@ -357,12 +677,22 @@ export default function Project() {
           syncFormWithProject(result);
           initializeMetadataEditingState(result);
         }
+
+        const snapshot = (await loadDocument({
+          apiClient: apiClientRef.current,
+          projectId,
+        })) as PrimaryDocumentSnapshotResponse | null;
+
+        if (!cancelled) {
+          setPrimarySnapshot(snapshot);
+        }
       } catch (fetchError) {
         const message =
           fetchError instanceof Error ? fetchError.message : 'Error fetching project.';
         if (!cancelled) {
           setError(message);
           setProject(null);
+          setPrimarySnapshot(null);
         }
         logger.error(
           'project.fetch_failed',
@@ -379,8 +709,8 @@ export default function Project() {
     if (id && id !== 'new') {
       archiveRedirectRef.current = false;
       setViewerArchiveNotice(null);
+      setPrimarySnapshot(null);
       void fetchProject(id);
-      void loadDocument({ apiClient: client, documentId: id });
     } else if (id === 'new') {
       const nowIso = new Date().toISOString();
       const draftProject: ProjectView = {
@@ -408,19 +738,20 @@ export default function Project() {
       resetTemplate();
       setLoading(false);
       setActiveProject(null);
+      setPrimarySnapshot(null);
     }
 
     return () => {
       cancelled = true;
       resetTemplate();
+      setPrimarySnapshot(null);
     };
   }, [
-    client,
+    getProjectById,
     id,
     initializeMetadataEditingState,
     loadDocument,
     setActiveProject,
-    projects,
     resetTemplate,
     syncFormWithProject,
   ]);
@@ -502,6 +833,9 @@ export default function Project() {
   ]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
     if (!fallbackPollingActive || !projectId || projectId === 'new' || archiveRedirectRef.current) {
       return;
     }
@@ -510,7 +844,7 @@ export default function Project() {
 
     const poll = async () => {
       try {
-        const latest = await projects.getById(projectId);
+        const latest = await getProjectById(projectId);
         if (cancelled) {
           return;
         }
@@ -548,12 +882,24 @@ export default function Project() {
     };
   }, [
     fallbackPollingActive,
+    getProjectById,
     handleArchivedWhileViewing,
     isEditingMetadata,
     projectId,
-    projects,
     syncFormWithProject,
   ]);
+
+  useEffect(() => {
+    setExportState('idle');
+    setExportJob(null);
+    setExportError(null);
+    setExportInFlight(false);
+  }, [project?.id]);
+
+  useEffect(() => {
+    setTemplateSubmitState('idle');
+    setTemplateSubmitMessage(null);
+  }, [templateDocument?.id]);
 
   const migrationSummary = useMemo(() => {
     if (!templateMigration || !templateDocument) {
@@ -651,10 +997,14 @@ export default function Project() {
   );
 
   useEffect(() => {
-    if (id && id !== 'new') {
-      setActiveProject(id);
+    if (!id || id === 'new') {
+      return;
     }
-  }, [id, setActiveProject]);
+    if (activeProjectId === id) {
+      return;
+    }
+    setActiveProject(id);
+  }, [activeProjectId, id, setActiveProject]);
 
   const handleSwitchAccount = useCallback(async () => {
     const signOut = auth?.signOut;
@@ -806,6 +1156,8 @@ export default function Project() {
     project.goalTargetDate && !isMetadataFormVisible
       ? formatIsoDateFull(project.goalTargetDate)
       : null;
+  const exportIsPending = exportInFlight || exportState === 'queued' || exportState === 'running';
+  const exportButtonDisabled = exportIsPending || isNewProject || isProjectArchived;
 
   return renderShell(
     <>
@@ -1158,17 +1510,85 @@ export default function Project() {
                       : {};
                   setFormValue(nextValue);
                 }}
-                onValid={value => {
+                onValid={async value => {
                   const nextValue =
                     value && typeof value === 'object' && !Array.isArray(value)
                       ? (value as Record<string, unknown>)
                       : {};
-                  logger.info('document.template.validated', {
-                    documentId: templateDocument.id,
-                    templateId: templateDocument.templateId,
-                    templateVersion: templateDocument.templateVersion,
-                  });
-                  setFormValue(nextValue);
+                  if (!project) {
+                    return;
+                  }
+
+                  const apiClient = apiClientRef.current;
+                  if (!apiClient || typeof apiClient.submitTemplateDecision !== 'function') {
+                    logger.error('project.template_decision_unavailable', {
+                      projectId: project.id,
+                      documentId: templateDocument.id,
+                    });
+                    setTemplateSubmitState('error');
+                    setTemplateSubmitMessage('Failed to submit template decision.');
+                    return;
+                  }
+
+                  setTemplateSubmitState('submitting');
+                  setTemplateSubmitMessage(null);
+
+                  const requestedVersion =
+                    templateUpgradeDecision && templateUpgradeDecision.action === 'upgrade'
+                      ? templateUpgradeDecision.targetVersion.version
+                      : templateDocument.templateVersion;
+
+                  try {
+                    const response = await apiClient.submitTemplateDecision({
+                      projectId: project.id,
+                      templateId: templateDocument.templateId,
+                      documentId: templateDocument.id,
+                      action: 'approved',
+                      currentVersion: templateDocument.templateVersion,
+                      requestedVersion,
+                      payload: nextValue,
+                    });
+
+                    logger.info('document.template.validated', {
+                      documentId: templateDocument.id,
+                      templateId: templateDocument.templateId,
+                      templateVersion: templateDocument.templateVersion,
+                    });
+
+                    setFormValue(nextValue);
+                    setTemplateSubmitState('success');
+                    setTemplateSubmitMessage('Template validation recorded.');
+                    setPrimarySnapshot(prev =>
+                      prev
+                        ? {
+                            ...prev,
+                            templateDecision: response,
+                          }
+                        : prev
+                    );
+                    logger.info('project.template_decision_submitted', {
+                      projectId: project.id,
+                      documentId: templateDocument.id,
+                      decisionId: response.decisionId,
+                    });
+                  } catch (submitError) {
+                    setTemplateSubmitState('error');
+                    let message = 'Failed to submit template decision.';
+                    if (isApiError(submitError) && submitError.message.length > 0) {
+                      message = submitError.message;
+                    } else if (submitError instanceof Error && submitError.message.length > 0) {
+                      message = submitError.message;
+                    }
+                    setTemplateSubmitMessage(message);
+                    logger.error(
+                      'project.template_decision_failed',
+                      {
+                        projectId: project.id,
+                        documentId: templateDocument.id,
+                      },
+                      submitError instanceof Error ? submitError : undefined
+                    );
+                  }
                 }}
               >
                 {({ submit, setFieldValue, errors }) => (
@@ -1204,11 +1624,24 @@ export default function Project() {
                       ) : null}
                     </div>
 
-                    <div className="flex items-center justify-end gap-3">
-                      <Button type="submit" className="inline-flex items-center">
+                    <div className="flex flex-col items-end gap-2">
+                      <Button
+                        type="submit"
+                        className="inline-flex items-center"
+                        disabled={templateSubmitState === 'submitting'}
+                      >
                         <FileText className="mr-2 h-4 w-4" />
                         Save Changes
+                        {templateSubmitState === 'submitting' ? (
+                          <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        ) : null}
                       </Button>
+                      {templateSubmitState === 'success' && templateSubmitMessage ? (
+                        <p className="text-sm text-emerald-600">{templateSubmitMessage}</p>
+                      ) : null}
+                      {templateSubmitState === 'error' && templateSubmitMessage ? (
+                        <p className="text-sm text-red-600">{templateSubmitMessage}</p>
+                      ) : null}
                     </div>
                   </form>
                 )}
@@ -1219,16 +1652,71 @@ export default function Project() {
       )}
 
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="mr-2 h-5 w-5" />
-              Create Document
-            </CardTitle>
-            <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
-              Start writing a new document for this project
-            </CardDescription>
-          </CardHeader>
+        <Card
+          data-testid="project-workflow-open-document"
+          data-state={primaryDocumentStatus}
+          className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]"
+        >
+          <Link
+            to={openDocumentHref ?? '.'}
+            role="link"
+            aria-label="Open project document"
+            aria-disabled={openDocumentDisabled}
+            tabIndex={openDocumentDisabled ? -1 : 0}
+            onClick={event => {
+              if (openDocumentDisabled) {
+                event.preventDefault();
+              }
+            }}
+            className={`focus-visible:ring-primary flex h-full w-full flex-col gap-3 rounded-lg p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+              openDocumentDisabled ? 'pointer-events-none cursor-not-allowed opacity-70' : ''
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center text-lg font-semibold">
+                <FileText className="mr-2 h-5 w-5" />
+                Open Document
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--dashboard-content-muted))]">
+                {openDocumentStatusLabel}
+              </span>
+            </div>
+            <span className="text-sm text-[hsl(var(--dashboard-content-muted))]">
+              {openDocumentDescription}
+            </span>
+          </Link>
+        </Card>
+
+        <Card
+          data-testid="project-workflow-create-document"
+          data-state={isProvisioning ? 'loading' : (primarySnapshot?.status ?? 'missing')}
+          className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]"
+        >
+          <button
+            type="button"
+            onClick={handleCreateDocument}
+            disabled={createDocumentButtonDisabled}
+            className="focus-visible:ring-primary flex w-full flex-col gap-3 rounded-lg p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center text-lg font-semibold">
+                <FileText className="mr-2 h-5 w-5" />
+                Create Document
+                {isProvisioning ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--dashboard-content-muted))]">
+                {createDocumentStatusLabel}
+              </span>
+            </div>
+          </button>
+          <span
+            className={`mt-3 block text-sm ${
+              createDocumentError ? 'text-red-600' : 'text-[hsl(var(--dashboard-content-muted))]'
+            }`}
+            data-testid="project-workflow-create-document-description"
+          >
+            {createDocumentDescription}
+          </span>
         </Card>
 
         <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
@@ -1243,16 +1731,38 @@ export default function Project() {
           </CardHeader>
         </Card>
 
-        <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Share className="mr-2 h-5 w-5" />
-              Export Project
-            </CardTitle>
-            <CardDescription className="text-[hsl(var(--dashboard-content-muted))]">
-              Export documents in various formats
-            </CardDescription>
-          </CardHeader>
+        <Card
+          data-testid="project-workflow-export"
+          data-state={exportState}
+          className="border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]"
+        >
+          <button
+            type="button"
+            onClick={handleExportProject}
+            disabled={exportButtonDisabled}
+            className="focus-visible:ring-primary flex w-full flex-col gap-3 rounded-lg p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center text-lg font-semibold">
+                <Share className="mr-2 h-5 w-5" />
+                Export Project
+                {exportIsPending ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--dashboard-content-muted))]">
+                {exportStatusLabel}
+              </span>
+            </div>
+          </button>
+          <span
+            className={`mt-3 block text-sm ${
+              exportState === 'failed'
+                ? 'text-red-600'
+                : 'text-[hsl(var(--dashboard-content-muted))]'
+            }`}
+            data-testid="project-workflow-export-description"
+          >
+            {exportDescription}
+          </span>
         </Card>
       </div>
     </>

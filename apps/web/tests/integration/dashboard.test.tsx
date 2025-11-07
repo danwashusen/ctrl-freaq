@@ -33,7 +33,7 @@ vi.mock('@/lib/auth-provider', () => ({
 global.fetch = vi.fn();
 
 const mockUser = {
-  id: 'user_2abc123def456',
+  id: 'user-local-author',
   emailAddresses: [{ emailAddress: 'test@example.com' }],
   firstName: 'Test',
   lastName: 'User',
@@ -41,7 +41,7 @@ const mockUser = {
 
 const mockProject = {
   id: '123e4567-e89b-12d3-a456-426614174000',
-  ownerUserId: 'user_2abc123def456',
+  ownerUserId: 'user-local-author',
   name: 'My Project',
   slug: 'my-project',
   description: 'A test project',

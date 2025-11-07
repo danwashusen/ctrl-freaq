@@ -73,9 +73,18 @@ documented in `research.md`.
    - Use the “Re-run document validations” button to exercise document-level
      quality gates.
 5. Trigger an export from the Project view. Check
-   `POST /projects/{projectId}/export` returns `202` and poll until the job
-   completes (`artifactUrl` non-null).
-6. Automated verification:
+   `POST /projects/{projectId}/export` returns `202`, the workflow card status
+   flips to `Queued`, and progress text updates from the idle description. Poll
+   until the job completes (`artifactUrl` non-null) or cancel to observe the
+   `Blocked` copy.
+6. From the Template Validation panel, update at least one field and submit.
+   - Expect the Save button to disable while the decision request posts to
+     `/projects/{projectId}/templates/{templateId}/decisions`.
+   - On success, a green success message reads `Template validation recorded.`
+     and the Project workflow card reflects the decision metadata on reload.
+   - Force an error (e.g., disconnect API) to confirm the inline red error text
+     surfaces the failure reason.
+7. Automated verification:
    - Vitest: add unit tests for the live bootstrap hook and manual save panel
      wiring.
    - Contract: add coverage for export job lifecycle under

@@ -873,10 +873,28 @@ error
 - Visual progress indication during export generation
 - Conflict resolution workflows with merge options
 - Success states with clear next action guidance
+- Project view workflow card drives export by enqueueing jobs and reflects
+  statuses (`Idle`, `Queued`, `Blocked`) with inline guidance and retry copy.
 
 **Usage Guidelines:** Maintain transparency throughout export process. Provide
 clear conflict resolution paths. Use success states to guide user toward next
 logical actions.
+
+#### Template Validation Decisions {#template-validation-decisions}
+
+**Purpose:** Capture maintainer acknowledgement of template upgrades directly
+from the Project page.
+
+- Submission happens through the `TemplateValidationGate` form, which now
+  invokes `/api/v1/projects/:projectId/templates/:templateId/decisions` with the
+  current form payload.
+- Success messaging (`Template validation recorded.`) anchors under the save
+  button and updates project document snapshots so the workflow card reflects
+  the latest decision.
+- Error states reuse inline status text (red) and surface API failure detail
+  when available to guide retry behavior.
+- Save action remains disabled while a decision submission is pending to avoid
+  duplicate requests.
 
 #### Section Navigation (Table of Contents) {#section-navigation-toc}
 
@@ -931,6 +949,21 @@ professional color palette. Extends existing CTRL FreaQ branding with
 AI-collaboration visual language that emphasizes sophisticated partnership
 between human and artificial intelligence. Logo features blue-to-purple gradient
 maintaining brand cohesion.
+
+**Hierarchy & Affordance Standards:**
+
+- Primary actions (e.g., `Create document`, `Save changes`, `Resume session`)
+  use solid primary button with 8px corner radius, elevation token `raised-md`,
+  and focus ring `focus-primary`.
+- Secondary actions (e.g., `Return to project`, `Discard draft`) use outlined
+  button with 1px border and maintain equal padding to primary while adopting
+  muted text color.
+- Project workflow cards employ elevation `card-lg` when actionable and drop to
+  `card-flat` with 50% opacity overlay when disabled (permission loss or pending
+  requests).
+- Error emphasis leverages destructive color token with supporting iconography
+  (Lucide `alert-octagon`) and ensures banner height stays within 72px so copy
+  remains scannable.
 
 ### Color Palette {#color-palette}
 
@@ -1032,6 +1065,19 @@ where feasible
   indicators
 - Heading structure: Proper H1-H6 hierarchy matching document section structure
 - Form labels: Clear labeling for all assumption resolution and input interfaces
+
+#### Workflow-Specific Accessibility {#workflow-specific-accessibility}
+
+- Project workflow card declares `role="link"` with `aria-label` describing the
+  document name and status; focus order places it before secondary project
+  actions.
+- Editor bootstrap spinner announces `Preparing sections…` via polite live
+  region and traps focus until content loads, after which focus shifts to the
+  first editable heading.
+- Unsaved edit banner registers as assertive live region with concise copy and
+  includes keyboard-operable `Retry save` and `Discard draft` controls.
+- Session expiration modal returns focus to originating control after the user
+  reauthenticates and announces restoration of draft state.
 
 ### Testing Strategy {#accessibility-testing-strategy}
 

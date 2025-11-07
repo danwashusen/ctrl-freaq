@@ -10,6 +10,24 @@ describe('template-store', () => {
 
   it('loads document metadata and constructs validator from template version schema', async () => {
     const api = {
+      getPrimaryDocument: async () => ({
+        projectId: 'proj-1',
+        status: 'ready' as const,
+        document: {
+          documentId: 'doc-1',
+          firstSectionId: 'sec-1',
+          title: 'Architecture Doc',
+          lifecycleStatus: 'draft' as const,
+          lastModifiedAt: new Date().toISOString(),
+          template: {
+            templateId: 'architecture',
+            templateVersion: '1.1.0',
+            templateSchemaHash: 'hash-1',
+          },
+        },
+        templateDecision: null,
+        lastUpdatedAt: new Date().toISOString(),
+      }),
       getDocument: async () => ({
         document: {
           id: 'doc-1',
@@ -30,7 +48,7 @@ describe('template-store', () => {
             schemaHash: 'hash-1',
             status: 'active',
           },
-        },
+        } as Record<string, unknown>,
       }),
       getTemplate: async () => ({
         template: {
@@ -130,7 +148,7 @@ describe('template-store', () => {
 
     await useTemplateStore.getState().loadDocument({
       apiClient: api,
-      documentId: 'doc-1',
+      projectId: 'proj-1',
     });
 
     const state = useTemplateStore.getState();
@@ -156,6 +174,24 @@ describe('template-store', () => {
     };
 
     const api = {
+      getPrimaryDocument: async () => ({
+        projectId: 'proj-2',
+        status: 'ready' as const,
+        document: {
+          documentId: 'doc-2',
+          firstSectionId: 'sec-1',
+          title: 'Architecture Doc',
+          lifecycleStatus: 'draft' as const,
+          lastModifiedAt: new Date().toISOString(),
+          template: {
+            templateId: 'architecture',
+            templateVersion: '1.0.0',
+            templateSchemaHash: 'hash-0',
+          },
+        },
+        templateDecision: null,
+        lastUpdatedAt: new Date().toISOString(),
+      }),
       getDocument: async () => {
         throw removedVersionError;
       },
@@ -169,7 +205,7 @@ describe('template-store', () => {
 
     await useTemplateStore.getState().loadDocument({
       apiClient: api,
-      documentId: 'doc-2',
+      projectId: 'proj-2',
     });
 
     const state = useTemplateStore.getState();
@@ -204,6 +240,24 @@ describe('template-store', () => {
     failureError.details = (failureError.body as { details: unknown }).details;
 
     const api = {
+      getPrimaryDocument: async () => ({
+        projectId: 'proj-3',
+        status: 'ready' as const,
+        document: {
+          documentId: 'doc-3',
+          firstSectionId: 'sec-1',
+          title: 'Architecture Doc',
+          lifecycleStatus: 'draft' as const,
+          lastModifiedAt: new Date().toISOString(),
+          template: {
+            templateId: 'architecture',
+            templateVersion: '1.2.0',
+            templateSchemaHash: 'hash-2',
+          },
+        },
+        templateDecision: null,
+        lastUpdatedAt: new Date().toISOString(),
+      }),
       getDocument: async () => {
         throw failureError;
       },
@@ -217,7 +271,7 @@ describe('template-store', () => {
 
     await useTemplateStore.getState().loadDocument({
       apiClient: api,
-      documentId: 'doc-3',
+      projectId: 'proj-3',
     });
 
     const state = useTemplateStore.getState();

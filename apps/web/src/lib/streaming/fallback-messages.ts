@@ -57,6 +57,12 @@ export interface FallbackAnnouncementInput {
 
 export const resolveCoAuthorFallbackMessage = (reason: string): string => {
   const key = (reason ?? '').toLowerCase();
+  if (key === 'transport_blocked' || key === 'stream_timeout') {
+    return (
+      FALLBACK_MESSAGES.assistant_unavailable ??
+      'Assistant became unavailable. Retry shortly or continue with manual edits.'
+    );
+  }
   if (key in FALLBACK_MESSAGES) {
     const knownMessage = FALLBACK_MESSAGES[key as keyof typeof FALLBACK_MESSAGES];
     if (typeof knownMessage === 'string') {

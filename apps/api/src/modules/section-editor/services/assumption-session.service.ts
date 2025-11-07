@@ -544,7 +544,10 @@ export class AssumptionSessionService {
       sectionId: input.sectionId,
     });
 
+    const sessionId = `${input.sectionId}-assumption-session-${randomUUID()}`;
+
     const createInput: CreateSessionWithPromptsInput = {
+      sessionId,
       sectionId: input.sectionId,
       documentId: input.documentId,
       templateVersion: input.templateVersion,

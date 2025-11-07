@@ -14,25 +14,26 @@ const conflictStateCopy: Record<
 > = {
   clean: {
     label: 'Draft is clean',
-    description: 'Ready to submit when you finish writing.',
+    description: 'Ready to submit once you are finished editing.',
     tone: 'text-emerald-800',
     icon: ShieldCheck,
   },
   rebase_required: {
     label: 'Rebase required',
-    description: 'A newer approved version exists. Rebase or resolve before submitting.',
+    description: 'A teammate published a newer version. Refresh the section before you continue.',
     tone: 'text-amber-600',
     icon: RefreshCw,
   },
   rebased: {
     label: 'Draft rebased',
-    description: 'Review the merged draft and continue editing.',
+    description: 'Review the merged draft before saving again.',
     tone: 'text-blue-600',
     icon: RefreshCw,
   },
   blocked: {
     label: 'Manual resolution needed',
-    description: 'Conflicts require manual intervention before continuing.',
+    description:
+      'Conflicts must be resolved manually. Compare the diff and copy your updates forward.',
     tone: 'text-rose-600',
     icon: AlertTriangle,
   },

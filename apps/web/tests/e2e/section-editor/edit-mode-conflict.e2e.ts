@@ -17,10 +17,8 @@ test.describe('Section Editor Conflict Handshake', () => {
     );
     await expect(conflictDialog).toContainText('Saving the draft detected a new approval v2 → v3.');
     await expect(conflictDialog).toContainText('Waiting for compliance sign-off.');
-    await expect(
-      conflictDialog.getByRole('button', { name: /rebase and continue/i })
-    ).toBeVisible();
-
-    await expect(conflictDialog.getByTestId('confirm-rebase')).toBeEnabled();
+    await expect(conflictDialog.getByTestId('conflict-step-refresh')).toBeVisible();
+    await expect(conflictDialog.getByTestId('conflict-step-open-diff')).toBeVisible();
+    await expect(conflictDialog.getByTestId('conflict-step-reapply')).toBeVisible();
   });
 });

@@ -22,6 +22,13 @@ test.describe('Section Editor Accessibility', () => {
   test('meets WCAG AA guidelines in edit mode', async ({ page }) => {
     await page.goto('/documents/demo-architecture/sections/sec-overview');
     await page.waitForLoadState('networkidle');
+    try {
+      await page
+        .getByTestId('document-editor-loading')
+        .waitFor({ state: 'detached', timeout: 5000 });
+    } catch {
+      // Loader may not render in fixture mode; ignore timeout.
+    }
     await dismissDraftRecoveryGate(page);
 
     await page.getByTestId('enter-edit').click();

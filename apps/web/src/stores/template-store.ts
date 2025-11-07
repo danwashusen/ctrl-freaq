@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createTemplateValidator } from '../lib/template-validator';
 
 import type ApiClient from '../lib/api';
-import type { ApiError } from '../lib/api';
+import type { ApiError, PrimaryDocumentSnapshotResponse } from '../lib/api';
 import { logger } from '../lib/logger';
 
 interface TemplateSectionOutline {
@@ -31,6 +31,8 @@ interface DocumentTemplateBindingLite {
   version: string;
   schemaHash: string;
 }
+
+type TemplateProvisioningState = 'idle' | 'pending';
 
 type TemplateUpgradeDecision =
   | {
@@ -107,8 +109,11 @@ interface TemplateVersionResponse {
 }
 
 interface LoadDocumentOptions {
-  apiClient: Pick<ApiClient, 'getDocument' | 'getTemplate' | 'getTemplateVersion'>;
-  documentId: string;
+  apiClient: Pick<
+    ApiClient,
+    'getPrimaryDocument' | 'getDocument' | 'getTemplate' | 'getTemplateVersion'
+  >;
+  projectId: string;
 }
 
 type TemplateStoreStatus = 'idle' | 'loading' | 'ready' | 'blocked' | 'upgrade_failed' | 'error';
@@ -138,12 +143,17 @@ interface TemplateStoreState {
   decision: TemplateUpgradeDecision | null;
   errorCode: string | null;
   upgradeFailure: TemplateUpgradeFailureState | null;
-  loadDocument: (options: LoadDocumentOptions) => Promise<void>;
+  provisioningState: TemplateProvisioningState;
+  loadDocument: (options: LoadDocumentOptions) => Promise<PrimaryDocumentSnapshotResponse | null>;
   reset: () => void;
   setFormValue: (value: Record<string, unknown>) => void;
+  setProvisioningState: (state: TemplateProvisioningState) => void;
 }
 
-const initialState: Omit<TemplateStoreState, 'loadDocument' | 'reset' | 'setFormValue'> = {
+const initialState: Omit<
+  TemplateStoreState,
+  'loadDocument' | 'reset' | 'setFormValue' | 'setProvisioningState'
+> = {
   status: 'idle',
   document: null,
   template: null,
@@ -156,11 +166,12 @@ const initialState: Omit<TemplateStoreState, 'loadDocument' | 'reset' | 'setForm
   decision: null,
   errorCode: null,
   upgradeFailure: null,
+  provisioningState: 'idle',
 };
 
-export const useTemplateStore = create<TemplateStoreState>(set => ({
+export const useTemplateStore = create<TemplateStoreState>((set, get) => ({
   ...initialState,
-  async loadDocument({ apiClient, documentId }: LoadDocumentOptions) {
+  async loadDocument({ apiClient, projectId }: LoadDocumentOptions) {
     set({
       status: 'loading',
       error: undefined,
@@ -169,8 +180,37 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
       removedVersion: null,
     });
 
+    let resolvedDocumentId: string | null = null;
+
     try {
-      const response = (await apiClient.getDocument(documentId)) as DocumentApiResponse;
+      const snapshot = (await apiClient.getPrimaryDocument(
+        projectId
+      )) as PrimaryDocumentSnapshotResponse;
+
+      if (!snapshot.document) {
+        const isArchived = snapshot.status === 'archived';
+        set({
+          status: isArchived ? 'blocked' : 'idle',
+          document: null,
+          template: null,
+          migration: null,
+          validator: null,
+          sections: [],
+          removedVersion: null,
+          formValue: null,
+          decision: null,
+          error: isArchived ? 'Primary document has been archived.' : undefined,
+          errorCode: isArchived ? 'DOCUMENT_ARCHIVED' : null,
+          upgradeFailure: null,
+        });
+
+        logger.clearTemplateContext();
+        return snapshot;
+      }
+
+      resolvedDocumentId = snapshot.document.documentId;
+
+      const response = (await apiClient.getDocument(resolvedDocumentId)) as DocumentApiResponse;
       const templateId = response.document.templateId;
       const decision = response.templateDecision as TemplateUpgradeDecision;
       const migration = (response.migration ?? null) as DocumentMigrationSummary | null;
@@ -246,7 +286,7 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
           templateVersion: decision.requestedVersion.version,
           templateSchemaHash: decision.requestedVersion.schemaHash,
         });
-        return;
+        return snapshot;
       }
 
       set({
@@ -269,6 +309,7 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
         templateVersion: response.document.templateVersion,
         templateSchemaHash: response.document.templateSchemaHash,
       });
+      return snapshot;
     } catch (error) {
       if (isApiError(error)) {
         if (error.status === 409) {
@@ -298,12 +339,12 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
           });
 
           logger.warn('template.store.version_removed', {
-            documentId,
+            documentId: resolvedDocumentId ?? 'unknown',
             templateId: templateId ?? 'unknown',
             missingVersion: missingVersion ?? 'unknown',
             requestId: typeof body.requestId === 'string' ? body.requestId : undefined,
           });
-          return;
+          return null;
         }
 
         if (error.status === 422) {
@@ -346,18 +387,48 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
           });
 
           logger.warn('template.store.upgrade_failed', {
-            documentId,
+            documentId: resolvedDocumentId ?? 'unknown',
             issues: issues.length,
             requestId:
               typeof (body as { requestId?: unknown }).requestId === 'string'
                 ? (body as { requestId?: string }).requestId
                 : undefined,
           });
-          return;
+          return null;
+        }
+
+        if (error.status === 404) {
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : 'Primary document could not be found.';
+
+          set({
+            status: 'error',
+            document: null,
+            template: null,
+            migration: null,
+            validator: null,
+            sections: [],
+            removedVersion: null,
+            formValue: null,
+            decision: null,
+            error: message,
+            errorCode: typeof error.code === 'string' ? error.code : null,
+            upgradeFailure: null,
+          });
+
+          logger.warn('template.store.document_not_found', {
+            documentId: resolvedDocumentId ?? 'unknown',
+            status: error.status,
+            code: error.code,
+          });
+          return null;
         }
       }
 
       const message = error instanceof Error ? error.message : 'Failed to load template context';
+
       set({
         status: 'error',
         document: null,
@@ -373,9 +444,10 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
         upgradeFailure: null,
       });
       logger.warn('template.store.load_failed', {
-        documentId,
+        documentId: resolvedDocumentId ?? 'unknown',
         error: error instanceof Error ? error.message : String(error ?? 'unknown'),
       });
+      return null;
     }
   },
   reset() {
@@ -384,6 +456,12 @@ export const useTemplateStore = create<TemplateStoreState>(set => ({
   },
   setFormValue(value: Record<string, unknown>) {
     set({ formValue: value });
+  },
+  setProvisioningState(state: TemplateProvisioningState) {
+    if (get().provisioningState === state) {
+      return;
+    }
+    set({ provisioningState: state });
   },
 }));
 

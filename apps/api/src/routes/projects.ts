@@ -23,6 +23,11 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { EventBroker } from '../modules/event-stream/event-broker.js';
 import type { EventStreamConfig } from '../config/event-stream.js';
+import {
+  DocumentExportService,
+  ExportJobInProgressError,
+} from '../services/export/document-export.service.js';
+import { ProjectNotFoundError } from '../services/document-provisioning.service.js';
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MUTABLE_PROJECT_STATUS_VALUES = ['draft', 'active', 'paused', 'completed'] as const;
@@ -430,6 +435,17 @@ const ListQuerySchema = z.object({
     .max(120)
     .optional()
     .transform(value => (value && value.length > 0 ? value : undefined)),
+});
+
+const ProjectParamSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+});
+
+const ExportProjectRequestSchema = z.object({
+  format: z.enum(['markdown', 'zip', 'pdf', 'bundle']),
+  scope: z.enum(['primary_document', 'all_documents']).optional(),
+  includeDrafts: z.boolean().optional(),
+  notifyEmail: z.string().trim().email().optional(),
 });
 
 projectsRouter.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
@@ -1312,6 +1328,148 @@ projectsRouter.patch(
           timestamp: new Date().toISOString(),
         });
       }
+    }
+  }
+);
+
+projectsRouter.post(
+  '/projects/:projectId/export',
+  async (req: AuthenticatedRequest, res: Response<Record<string, unknown> | ErrorResponse>) => {
+    const logger = req.services?.get('logger') as Logger | undefined;
+    const startedAt = performance.now();
+    const requestId = req.requestId ?? 'unknown';
+    const userId = req.user?.userId ?? req.auth?.userId ?? null;
+
+    if (!userId) {
+      res.status(401).json({
+        code: 'UNAUTHORIZED',
+        error: 'UNAUTHORIZED',
+        message: 'Authentication required',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const paramsResult = ProjectParamSchema.safeParse(req.params);
+    if (!paramsResult.success) {
+      const [issue] = paramsResult.error.issues;
+      res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        error: 'VALIDATION_ERROR',
+        message: issue?.message ?? 'Invalid project identifier',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const bodyResult = ExportProjectRequestSchema.safeParse(req.body ?? {});
+    if (!bodyResult.success) {
+      const [issue] = bodyResult.error.issues;
+      res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        error: 'VALIDATION_ERROR',
+        message: issue?.message ?? 'Invalid export request payload',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const exportService = req.services?.get('documentExportService') as
+      | DocumentExportService
+      | undefined;
+    if (!exportService) {
+      logger?.error({ requestId }, 'Document export service unavailable');
+      res.status(500).json({
+        code: 'INTERNAL_ERROR',
+        error: 'INTERNAL_ERROR',
+        message: 'Document export service unavailable',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const { projectId } = paramsResult.data;
+    const { format, scope = 'primary_document', notifyEmail } = bodyResult.data;
+
+    try {
+      const job = await exportService.enqueue({
+        projectId,
+        format,
+        scope,
+        requestedBy: userId,
+        notifyEmail: notifyEmail ?? null,
+      });
+
+      logger?.info(
+        {
+          requestId,
+          userId,
+          projectId: job.projectId,
+          jobId: job.id,
+          format: job.format,
+          scope: job.scope,
+          durationMs: elapsedMsSince(startedAt),
+        },
+        'Queued document export job'
+      );
+
+      res.status(202).json({
+        jobId: job.id,
+        projectId: job.projectId,
+        status: job.status,
+        format: job.format,
+        scope: job.scope,
+        requestedBy: job.requestedBy,
+        requestedAt: job.requestedAt.toISOString(),
+        artifactUrl: job.artifactUrl,
+        errorMessage: job.errorMessage,
+        completedAt: job.completedAt ? job.completedAt.toISOString() : null,
+      });
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) {
+        res.status(404).json({
+          code: 'PROJECT_NOT_FOUND',
+          error: 'PROJECT_NOT_FOUND',
+          message: `Project not found: ${projectId}`,
+          requestId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (error instanceof ExportJobInProgressError) {
+        res.status(409).json({
+          code: 'EXPORT_IN_PROGRESS',
+          error: 'EXPORT_IN_PROGRESS',
+          message: 'An export is already running for this project',
+          requestId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      logger?.error(
+        {
+          requestId,
+          userId,
+          projectId,
+          reason: error instanceof Error ? error.message : 'unknown',
+          durationMs: elapsedMsSince(startedAt),
+        },
+        'Failed to enqueue document export job'
+      );
+
+      res.status(500).json({
+        code: 'INTERNAL_ERROR',
+        error: 'INTERNAL_ERROR',
+        message: 'Failed to start document export',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 );

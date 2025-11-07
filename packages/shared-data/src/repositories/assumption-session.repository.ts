@@ -41,6 +41,7 @@ function assertDatabase(db: Database.Database | undefined): asserts db is Databa
 }
 
 export interface CreateSessionWithPromptsInput extends AssumptionSessionCreateInput {
+  sessionId?: string;
   prompts: Array<Omit<SectionAssumptionSeed, 'sessionId' | 'createdBy' | 'updatedBy'>>;
 }
 
@@ -60,7 +61,7 @@ export class AssumptionSessionRepository {
   async createSessionWithPrompts(
     input: CreateSessionWithPromptsInput
   ): Promise<{ session: AssumptionSession; prompts: SectionAssumption[] }> {
-    const sessionId = randomUUID();
+    const sessionId = input.sessionId ?? randomUUID();
     const timestamp = new Date();
 
     const transaction = this.db.transaction(() => {

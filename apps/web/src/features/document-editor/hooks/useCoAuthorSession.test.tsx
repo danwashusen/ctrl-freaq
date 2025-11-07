@@ -533,4 +533,116 @@ describe('useCoAuthorSession', () => {
 
     expect((result.current as unknown as { isEditorLocked?: boolean }).isEditorLocked).toBe(false);
   });
+
+  it('cancels the active session, increments retry metadata, and resumes with a new session id', async () => {
+    const postTeardownSession = vi.fn().mockResolvedValue(undefined);
+    const subscribeToSession = vi
+      .fn<
+        (
+          sessionId: string,
+          handler: (event: CoAuthoringStreamEvent) => void
+        ) => { close: () => void }
+      >()
+      .mockImplementation(() => ({ close: vi.fn() }));
+    const postAnalyze = vi.fn().mockResolvedValue({
+      body: {
+        status: 'accepted' as const,
+        sessionId: 'session-analysis-ack',
+        contextSummary: {
+          completedSectionCount: 0,
+          knowledgeItemCount: 0,
+          decisionCount: 0,
+        },
+        audit: {
+          documentId: 'doc-cancel',
+          sectionId: 'section-cancel',
+          intent: 'summarize',
+        },
+      },
+      streamLocation: null,
+    });
+
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useCoAuthorSession({
+          documentId: 'doc-cancel',
+          sectionId: 'section-cancel',
+          authorId: 'author-cancel',
+          api: {
+            postAnalyze,
+            postTeardownSession,
+            subscribeToSession,
+          },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      }
+    );
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    const initialSession = useCoAuthoringStore.getState().session;
+    expect(initialSession?.sessionId).toMatch(/^session-/);
+
+    act(() => {
+      useCoAuthoringStore.setState(state => ({
+        ...state,
+        progress: {
+          ...state.progress,
+          status: 'streaming',
+          elapsedMs: 6500,
+          retryCount: 0,
+        },
+      }));
+    });
+
+    act(() => {
+      result.current.cancelStreaming();
+    });
+
+    await waitFor(() => {
+      expect(postTeardownSession).toHaveBeenCalledWith({
+        documentId: 'doc-cancel',
+        sectionId: 'section-cancel',
+        sessionId: initialSession?.sessionId,
+        reason: 'author_cancelled',
+      });
+    });
+
+    expect(useCoAuthoringStore.getState().progress.retryCount).toBe(1);
+
+    act(() => {
+      result.current.ensureSession();
+    });
+
+    const resumedSession = useCoAuthoringStore.getState().session;
+    expect(resumedSession?.sessionId).not.toBe(initialSession?.sessionId);
+    expect(subscribeToSession).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await result.current.analyze({
+        intent: 'summarize',
+        prompt: 'Summarize the latest architecture changes.',
+        knowledgeItemIds: [],
+        decisionIds: [],
+        completedSections: [],
+        currentDraft: '## Draft',
+        contextSources: [],
+      });
+    });
+
+    expect(postAnalyze).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        documentId: 'doc-cancel',
+        sectionId: 'section-cancel',
+        sessionId: resumedSession?.sessionId,
+      }),
+      expect.anything()
+    );
+  });
 });

@@ -1,0 +1,57 @@
+id: architecture-minimal
+name: Architecture Minimal Snapshot
+version: 3.0.0
+documentType: architecture
+status: experimental
+changelog: Minimal architecture template variant for override testing.
+
+workflow:
+  mode: interactive
+  elicitation: balanced
+
+sections:
+  - id: architecture-overview
+    title: Architecture Overview
+    order: 1
+    required: true
+    type: markdown
+    guidance: |
+      Summarize the current architecture, highlighting critical systems,
+      integrations, and the primary objective of this engagement. Focus on
+      what has changed since the last update and any executive takeaways.
+
+  - id: system-architecture
+    title: System Architecture
+    order: 2
+    required: true
+    type: markdown
+    guidance: |
+      Describe the major components, data flows, and external services.
+      Capture diagrams, ownership, and key quality attributes. Explain how
+      the system satisfies reliability, scalability, and compliance targets.
+    children:
+      - id: system-components
+        title: Core Components
+        order: 1
+        required: true
+        type: markdown
+        guidance: |
+          Document each core component, the responsibility boundaries, and the
+          associated runtime profiles. Include any service-level objectives.
+      - id: integration-surface
+        title: Integration Surface
+        order: 2
+        required: false
+        type: markdown
+        guidance: |
+          List partner systems, sync schedules, auth strategies, and failure
+          handling. Call out any contracts or schema dependencies.
+
+  - id: delivery-and-risk
+    title: Delivery & Risk
+    order: 3
+    required: false
+    type: markdown
+    guidance: |
+      Capture milestones, responsible parties, and tracked risks. Note the
+      mitigations, open questions, and escalation paths that require follow up.

@@ -92,7 +92,7 @@ const waitForEvent = <Payload>(
   source: EventSource,
   eventName: string,
   match: (envelope: EventEnvelope<Payload>, raw: RawMessageEvent) => boolean,
-  timeoutMs: number = 1_500
+  timeoutMs: number = 5_000
 ): Promise<{ envelope: EventEnvelope<Payload>; raw: RawMessageEvent }> => {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {

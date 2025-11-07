@@ -57,7 +57,6 @@ package-specific flows, e.g.
   output; use when investigating noisy or flaky specs locally.
 - `pnpm test:gauntlet`: Explicit alias when CI scripts need the gauntlet
   directly.
-- `pnpm test:ci`: Lint, typecheck, and gauntlet in a single command.
 - `pnpm --filter @ctrl-freaq/web test:e2e:quick`: Fixture Playwright suite for
   fast iteration.
 - `pnpm --filter @ctrl-freaq/web test:e2e:ci`: Fixture Playwright configured for
@@ -79,6 +78,13 @@ package-specific flows, e.g.
 
 To scope any command to one workspace, add `--filter <package>` (e.g.
 `pnpm --filter @ctrl-freaq/web lint`).
+
+Test commands (e.g. `pnpm test`, `pnpm test:gauntlet`, etc.) can run for several
+minutes and produce a lot of output, prefer piping to a file for review:
+
+```sh
+pnpm run test > /tmp/test-output.log 2>&1
+```
 
 ### Fixture Profile Expectations
 
