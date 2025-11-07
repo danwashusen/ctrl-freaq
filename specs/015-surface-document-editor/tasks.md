@@ -412,3 +412,11 @@ tied to the live document, and trigger a project export with feedback.
       in audit.md
 - [x] F008 Finding F008: Create Document API ignores contract overrides as
       described in audit.md
+- [ ] F009 Finding F009: Project-scoped document/export endpoints skip
+      authorization as described in audit.md
+- [ ] F010 Finding F010: Document provisioning is not atomic as described in
+      audit.md
+- [ ] F011 Finding F011: Export jobs run synchronously so UI never sees queued
+      states as described in audit.md
+- [ ] F012 Finding F012: Template locator ignores dist templates as described in
+      audit.md
