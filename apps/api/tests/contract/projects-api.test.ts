@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
+
 import { resetDatabaseForApp } from '../../src/testing/reset';
 
 /**

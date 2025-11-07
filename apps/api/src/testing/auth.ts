@@ -4,18 +4,16 @@ import path from 'node:path';
 import type { Database } from 'better-sqlite3';
 import { load } from 'js-yaml';
 
-import { isTestRuntime } from '../utils/runtime-env.js';
-
-interface SimpleAuthUserRecord {
+type SimpleAuthUserRecord = {
   id: string;
   email: string;
   first_name?: string;
   last_name?: string;
-}
+};
 
-interface SimpleAuthConfig {
+type SimpleAuthConfig = {
   users: SimpleAuthUserRecord[];
-}
+};
 
 const CANONICAL_SIMPLE_AUTH_USER_FILE = path.resolve(
   process.cwd(),
@@ -29,19 +27,46 @@ type EnvSnapshot = {
 
 let cachedUsers: SimpleAuthUserRecord[] | null = null;
 
-const resolveCanonicalFile = (): string => {
-  if (!fs.existsSync(CANONICAL_SIMPLE_AUTH_USER_FILE)) {
-    throw new Error(`Canonical simple-auth fixture missing at ${CANONICAL_SIMPLE_AUTH_USER_FILE}`);
-  }
+export function getCanonicalSimpleAuthUserFile(): string {
   return CANONICAL_SIMPLE_AUTH_USER_FILE;
-};
+}
 
-const loadCanonicalUsers = (): SimpleAuthUserRecord[] => {
+export function setSimpleAuthEnv(): EnvSnapshot {
+  const snapshot: EnvSnapshot = {
+    authProvider: process.env.AUTH_PROVIDER,
+    simpleAuthUserFile: process.env.SIMPLE_AUTH_USER_FILE,
+  };
+
+  process.env.AUTH_PROVIDER = 'simple';
+  process.env.SIMPLE_AUTH_USER_FILE = CANONICAL_SIMPLE_AUTH_USER_FILE;
+
+  return snapshot;
+}
+
+export function restoreSimpleAuthEnv(snapshot: EnvSnapshot): void {
+  if (snapshot.authProvider === undefined) {
+    delete process.env.AUTH_PROVIDER;
+  } else {
+    process.env.AUTH_PROVIDER = snapshot.authProvider;
+  }
+
+  if (snapshot.simpleAuthUserFile === undefined) {
+    delete process.env.SIMPLE_AUTH_USER_FILE;
+  } else {
+    process.env.SIMPLE_AUTH_USER_FILE = snapshot.simpleAuthUserFile;
+  }
+}
+
+function loadCanonicalUsers(): SimpleAuthUserRecord[] {
   if (cachedUsers) {
     return cachedUsers;
   }
 
-  const raw = fs.readFileSync(resolveCanonicalFile(), 'utf8');
+  if (!fs.existsSync(CANONICAL_SIMPLE_AUTH_USER_FILE)) {
+    throw new Error(`Canonical simple-auth fixture missing at ${CANONICAL_SIMPLE_AUTH_USER_FILE}`);
+  }
+
+  const raw = fs.readFileSync(CANONICAL_SIMPLE_AUTH_USER_FILE, 'utf8');
   const parsed = load(raw) as SimpleAuthConfig | undefined;
   const rawUsers = Array.isArray(parsed?.users) ? parsed.users : [];
 
@@ -53,13 +78,9 @@ const loadCanonicalUsers = (): SimpleAuthUserRecord[] => {
   }));
 
   return cachedUsers;
-};
+}
 
-export const seedSimpleAuthUsers = (db: Database): void => {
-  if (!isTestRuntime()) {
-    return;
-  }
-
+export function seedSimpleAuthUsers(db: Database): void {
   const users = loadCanonicalUsers();
   if (users.length === 0) {
     return;
@@ -79,30 +100,4 @@ export const seedSimpleAuthUsers = (db: Database): void => {
   for (const user of users) {
     statement.run(user.id, user.email, user.first_name ?? null, user.last_name ?? null);
   }
-};
-
-export const setSimpleAuthEnv = (): EnvSnapshot => {
-  const snapshot: EnvSnapshot = {
-    authProvider: process.env.AUTH_PROVIDER,
-    simpleAuthUserFile: process.env.SIMPLE_AUTH_USER_FILE,
-  };
-
-  process.env.AUTH_PROVIDER = 'simple';
-  process.env.SIMPLE_AUTH_USER_FILE = resolveCanonicalFile();
-
-  return snapshot;
-};
-
-export const restoreSimpleAuthEnv = (snapshot: EnvSnapshot): void => {
-  if (snapshot.authProvider === undefined) {
-    delete process.env.AUTH_PROVIDER;
-  } else {
-    process.env.AUTH_PROVIDER = snapshot.authProvider;
-  }
-
-  if (snapshot.simpleAuthUserFile === undefined) {
-    delete process.env.SIMPLE_AUTH_USER_FILE;
-  } else {
-    process.env.SIMPLE_AUTH_USER_FILE = snapshot.simpleAuthUserFile;
-  }
-};
+}
