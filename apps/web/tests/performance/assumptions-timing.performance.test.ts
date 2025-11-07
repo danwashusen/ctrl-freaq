@@ -143,6 +143,7 @@ describe('Performance: assumption flow', () => {
             prompts: mockPrompts,
             overridesOpen: 0,
             summaryMarkdown: '### Checklist seeded',
+            documentDecisionSnapshotId: 'decision-fast',
           };
         },
         async respondToPrompt() {

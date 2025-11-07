@@ -536,7 +536,7 @@ export function useAssumptionsFlow({
         streamSubscriptionRef.current = null;
       }
     };
-  }, [api?.subscribeToStream, enabled, sectionId, state]);
+  }, [api?.subscribeToStream, documentId, enabled, sectionId, state]);
 
   const respond = useCallback(
     async (promptId: string, action: AssumptionAction, payload?: RespondPayload) => {
