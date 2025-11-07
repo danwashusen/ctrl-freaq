@@ -29,6 +29,16 @@ export class DocumentExportPreparationError extends Error {
   }
 }
 
+export class ExportJobNotFoundError extends Error {
+  constructor(
+    public readonly projectId: string,
+    public readonly jobId: string
+  ) {
+    super(`Export job ${jobId} was not found for project ${projectId}`);
+    this.name = 'ExportJobNotFoundError';
+  }
+}
+
 export interface EnqueueExportJobOptions {
   projectId: string;
   format: 'markdown' | 'zip' | 'pdf' | 'bundle';
@@ -79,47 +89,26 @@ export class DocumentExportService {
       'Queued document export job'
     );
 
-    try {
-      await this.deps.jobs.updateJobStatus(job.id, { status: 'running' });
-      const artifactUrl = await this.generateArtifact({
-        projectId: options.projectId,
-        format: options.format,
-      });
-      const completedJob = await this.deps.jobs.updateJobStatus(job.id, {
-        status: 'completed',
-        artifactUrl,
-        errorMessage: null,
-        completedAt: new Date(),
-      });
-
-      this.deps.logger.info(
-        {
-          jobId: completedJob.id,
-          projectId: completedJob.projectId,
-          format: completedJob.format,
-        },
-        'Completed document export job'
-      );
-
-      return completedJob;
-    } catch (error) {
-      await this.deps.jobs.updateJobStatus(job.id, {
-        status: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Export failed',
-        completedAt: new Date(),
-      });
-
+    void this.processJob(job, options).catch(error => {
       this.deps.logger.error(
         {
           jobId: job.id,
           projectId: job.projectId,
-          format: job.format,
-          reason: error instanceof Error ? error.message : 'unknown',
+          error: error instanceof Error ? error.message : String(error),
         },
-        'Document export job failed'
+        'Document export job processor encountered an error'
       );
-      throw error;
+    });
+
+    return job;
+  }
+
+  async getJob(projectId: string, jobId: string): Promise<DocumentExportJob> {
+    const job = await this.deps.jobs.findById(jobId);
+    if (!job || job.projectId !== projectId) {
+      throw new ExportJobNotFoundError(projectId, jobId);
     }
+    return job;
   }
 
   private async generateArtifact(input: {
@@ -207,5 +196,50 @@ export class DocumentExportService {
     }
 
     return lines.join('\n');
+  }
+
+  private async processJob(
+    job: DocumentExportJob,
+    options: EnqueueExportJobOptions
+  ): Promise<void> {
+    try {
+      await this.deps.jobs.updateJobStatus(job.id, { status: 'running' });
+      const artifactUrl = await this.generateArtifact({
+        projectId: options.projectId,
+        format: options.format,
+      });
+      await this.deps.jobs.updateJobStatus(job.id, {
+        status: 'completed',
+        artifactUrl,
+        errorMessage: null,
+        completedAt: new Date(),
+      });
+
+      this.deps.logger.info(
+        {
+          jobId: job.id,
+          projectId: job.projectId,
+          format: job.format,
+        },
+        'Completed document export job'
+      );
+    } catch (error) {
+      await this.deps.jobs.updateJobStatus(job.id, {
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Export failed',
+        completedAt: new Date(),
+      });
+
+      this.deps.logger.error(
+        {
+          jobId: job.id,
+          projectId: job.projectId,
+          format: job.format,
+          reason: error instanceof Error ? error.message : 'unknown',
+        },
+        'Document export job failed'
+      );
+      throw error;
+    }
   }
 }

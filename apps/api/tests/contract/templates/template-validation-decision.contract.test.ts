@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../../src/app';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { MOCK_JWT_TOKEN, TEMPLATE_MANAGER_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 vi.mock('@ctrl-freaq/exporter', () => ({
   DocumentExporter: class DocumentExporterStub {
@@ -18,6 +18,7 @@ vi.mock('@ctrl-freaq/exporter', () => ({
 }));
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
+const SecondaryAuthorizationHeader = { Authorization: `Bearer ${TEMPLATE_MANAGER_JWT_TOKEN}` };
 
 const TemplateDecisionSchema = z.object({
   decisionId: z.string().uuid(),
@@ -47,6 +48,40 @@ describe('POST /api/v1/projects/:projectId/templates/:templateId/decisions', () 
       .post(`/api/v1/projects/${projectId}/templates/architecture-reference/decisions`)
       .send({})
       .expect(401);
+  });
+
+  it('returns forbidden when submitting a decision for a project owned by another user', async () => {
+    const createProject = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: 'Template Decision Ownership',
+        visibility: 'workspace',
+      })
+      .expect(201);
+
+    const projectId = createProject.body.id as string;
+
+    const provision = await request(app)
+      .post(`/api/v1/projects/${projectId}/documents`)
+      .set(AuthorizationHeader)
+      .send({})
+      .expect(201);
+
+    const response = await request(app)
+      .post(
+        `/api/v1/projects/${projectId}/templates/${provision.body.template.templateId}/decisions`
+      )
+      .set(SecondaryAuthorizationHeader)
+      .send({
+        documentId: provision.body.documentId,
+        action: 'approved',
+        currentVersion: provision.body.template.templateVersion,
+        requestedVersion: provision.body.template.templateVersion,
+      })
+      .expect(403);
+
+    expect(response.body).toMatchObject({ error: 'FORBIDDEN' });
   });
 
   it('persists template validation decisions and returns normalized payload', async () => {

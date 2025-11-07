@@ -2,11 +2,22 @@ import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import {
+  DocumentRepositoryImpl,
+  DocumentTemplateRepositoryImpl,
+  ProjectRepositoryImpl,
+  SectionRepositoryImpl,
+  TemplateVersionRepositoryImpl,
+} from '@ctrl-freaq/shared-data';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createApp, type AppContext } from '../../../src/app';
 import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import {
+  DocumentProvisioningError,
+  DocumentProvisioningService,
+} from '../../../src/services/document-provisioning.service';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
@@ -80,5 +91,114 @@ describe('DocumentProvisioningService template resolution', () => {
     });
 
     await appContext.database.close();
+  });
+});
+
+describe('DocumentProvisioningService rollback safeguards', () => {
+  let app: Awaited<ReturnType<typeof createApp>>;
+  let appContext: AppContext;
+  let projectRepository: ProjectRepositoryImpl;
+  let documentRepository: DocumentRepositoryImpl;
+  let sectionRepository: SectionRepositoryImpl;
+  let provisioningService: DocumentProvisioningService;
+
+  beforeEach(async () => {
+    app = await createApp();
+    appContext = app.locals.appContext as AppContext;
+    const db = appContext.database;
+
+    projectRepository = new ProjectRepositoryImpl(db);
+    documentRepository = new DocumentRepositoryImpl(db);
+    sectionRepository = new SectionRepositoryImpl(db);
+    const templateRepository = new DocumentTemplateRepositoryImpl(db);
+    const templateVersionRepository = new TemplateVersionRepositoryImpl(db);
+
+    provisioningService = new DocumentProvisioningService({
+      logger: appContext.logger,
+      projects: projectRepository,
+      documents: documentRepository,
+      sections: sectionRepository,
+      templates: templateRepository,
+      templateVersions: templateVersionRepository,
+    });
+
+    const seedUserStatement = db.prepare(
+      'INSERT OR IGNORE INTO users (id, email, first_name, last_name, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    seedUserStatement.run(
+      'system',
+      'system@ctrl-freaq.local',
+      'System',
+      'User',
+      'system',
+      'system'
+    );
+    seedUserStatement.run(
+      'user-rollback',
+      'user-rollback@test.local',
+      null,
+      null,
+      'system',
+      'system'
+    );
+  });
+
+  afterEach(async () => {
+    await appContext.database.close();
+  });
+
+  test('rolls back partial provisioning when section seeding fails', async () => {
+    const project = await projectRepository.create({
+      ownerUserId: 'user-rollback',
+      name: 'Rollback Project',
+      slug: 'rollback-project',
+      description: null,
+      visibility: 'workspace',
+      status: 'draft',
+      goalTargetDate: null,
+      goalSummary: null,
+      createdBy: 'user-rollback',
+      updatedBy: 'user-rollback',
+    });
+
+    const createSectionsSpy = vi
+      .spyOn(
+        provisioningService as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>,
+        'createSectionsFromTemplate'
+      )
+      .mockImplementation(async () => {
+        throw new DocumentProvisioningError('section seeding failed');
+      });
+
+    await expect(
+      provisioningService.provisionPrimaryDocument({
+        projectId: project.id,
+        requestedBy: 'user-rollback',
+      })
+    ).rejects.toThrow('section seeding failed');
+
+    const orphanedDocuments = appContext.database
+      .prepare('SELECT id, deleted_at AS deletedAt FROM documents WHERE project_id = ?')
+      .all(project.id) as Array<{ id: string; deletedAt: string | null }>;
+
+    expect(orphanedDocuments).toHaveLength(1);
+    expect(orphanedDocuments[0]?.deletedAt).not.toBeNull();
+
+    const sectionCount = appContext.database
+      .prepare('SELECT COUNT(*) AS total FROM sections WHERE doc_id = ?')
+      .get(orphanedDocuments[0]?.id) as { total: number };
+
+    expect(sectionCount.total).toBe(0);
+
+    createSectionsSpy.mockRestore();
+
+    const result = await provisioningService.provisionPrimaryDocument({
+      projectId: project.id,
+      requestedBy: 'user-rollback',
+    });
+
+    expect(result.status).toBe('created');
+    const persistedDocuments = await documentRepository.listByProject(project.id);
+    expect(persistedDocuments).toHaveLength(1);
   });
 });

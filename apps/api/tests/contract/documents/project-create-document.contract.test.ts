@@ -7,9 +7,10 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../../src/app';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { MOCK_JWT_TOKEN, TEMPLATE_MANAGER_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
+const SecondaryAuthorizationHeader = { Authorization: `Bearer ${TEMPLATE_MANAGER_JWT_TOKEN}` };
 
 const CreateDocumentResponseSchema = z.object({
   status: z.enum(['created', 'already_exists']),
@@ -63,6 +64,28 @@ describe('POST /api/v1/projects/:projectId/documents', () => {
   test('requires authentication', async () => {
     const projectId = randomUUID();
     await request(app).post(`/api/v1/projects/${projectId}/documents`).expect(401);
+  });
+
+  test('returns forbidden when a different user attempts to provision the document', async () => {
+    const createProject = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: 'Ownership Guard Project',
+        visibility: 'workspace',
+      })
+      .expect(201);
+
+    const projectId = createProject.body.id as string;
+
+    const response = await request(app)
+      .post(`/api/v1/projects/${projectId}/documents`)
+      .set(SecondaryAuthorizationHeader)
+      .expect(403);
+
+    expect(response.body).toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 
   test('provisions the first document and returns created response', async () => {

@@ -435,6 +435,59 @@ export default function Project() {
     }
     return 'Export documents in the latest format for sharing.';
   }, [exportError, exportJob?.artifactUrl, exportState]);
+
+  useEffect(() => {
+    if (!project || !apiClientRef.current || !exportJob) {
+      return;
+    }
+    if (exportJob.status !== 'queued' && exportJob.status !== 'running') {
+      return;
+    }
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const pollJobStatus = async () => {
+      if (!apiClientRef.current) {
+        return;
+      }
+
+      try {
+        const latest = await apiClientRef.current.getProjectExportJob(project.id, exportJob.jobId);
+        if (cancelled) {
+          return;
+        }
+        setExportJob(latest);
+        setExportState(latest.status);
+        if (latest.status === 'failed') {
+          setExportError(
+            latest.errorMessage ?? 'Export failed. Try again once the exporter is available.'
+          );
+        }
+        if (latest.status === 'queued' || latest.status === 'running') {
+          timeoutId = setTimeout(pollJobStatus, 2000);
+        }
+      } catch (statusError) {
+        if (!cancelled) {
+          setExportError('Unable to check export progress.');
+          setExportState('failed');
+          logger.error(
+            'project.export_status_failed',
+            { projectId: project.id, jobId: exportJob.jobId },
+            statusError instanceof Error ? statusError : undefined
+          );
+        }
+      }
+    };
+
+    pollJobStatus();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [project, exportJob]);
   const syncFormWithProject = useCallback(
     (incoming: ProjectData) => {
       const normalizedStatus: EditableProjectStatus =

@@ -14,6 +14,8 @@ const {
   mockLoadDocument,
   mockResetTemplate,
   mockSetFormValue,
+  mockEnqueueExport,
+  mockGetExportJob,
   mockSignOut,
   paramsRef,
 } = vi.hoisted(() => ({
@@ -24,6 +26,8 @@ const {
   mockLoadDocument: vi.fn(),
   mockResetTemplate: vi.fn(),
   mockSetFormValue: vi.fn(),
+  mockEnqueueExport: vi.fn(),
+  mockGetExportJob: vi.fn(),
   mockSignOut: vi.fn(),
   paramsRef: { id: 'project-alpha' } as { id: string },
 }));
@@ -34,6 +38,19 @@ vi.mock('react-router-dom', async importOriginal => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => paramsRef,
+    Link: ({ to, children, ...rest }: any) => {
+      const href =
+        typeof to === 'string'
+          ? to
+          : typeof to === 'object' && to !== null && 'pathname' in to
+            ? ((to.pathname as string) ?? '')
+            : '';
+      return (
+        <a {...rest} href={href}>
+          {children}
+        </a>
+      );
+    },
   };
 });
 
@@ -87,7 +104,10 @@ vi.mock('../lib/api-context', () => ({
       archive: vi.fn(),
       restore: vi.fn(),
     },
-    client: {},
+    client: {
+      enqueueProjectExport: mockEnqueueExport,
+      getProjectExportJob: mockGetExportJob,
+    },
   }),
 }));
 
@@ -119,6 +139,7 @@ describe('Project page metadata view', () => {
     deletedBy: null,
     archivedStatusBefore: null,
   };
+  const exportRequestedAt = '2026-05-02T16:00:00.000Z';
 
   const renderWithProviders = () => {
     const queryClient = new QueryClient({
@@ -140,7 +161,33 @@ describe('Project page metadata view', () => {
     mockLoadDocument.mockReset();
     mockResetTemplate.mockReset();
     mockSetFormValue.mockReset();
+    mockEnqueueExport.mockReset();
+    mockGetExportJob.mockReset();
     mockGetAll.mockResolvedValue({ projects: [projectFixture], total: 1, limit: 20, offset: 0 });
+    mockEnqueueExport.mockResolvedValue({
+      jobId: 'job-export-1',
+      projectId: projectFixture.id,
+      status: 'queued',
+      format: 'markdown',
+      scope: 'primary_document',
+      requestedBy: 'user-test',
+      requestedAt: exportRequestedAt,
+      artifactUrl: null,
+      errorMessage: null,
+      completedAt: null,
+    });
+    mockGetExportJob.mockResolvedValue({
+      jobId: 'job-export-1',
+      projectId: projectFixture.id,
+      status: 'completed',
+      format: 'markdown',
+      scope: 'primary_document',
+      requestedBy: 'user-test',
+      requestedAt: exportRequestedAt,
+      artifactUrl: 'data:text/markdown;base64,ZW5jb2RlZA==',
+      errorMessage: null,
+      completedAt: '2026-05-02T16:01:00.000Z',
+    });
     paramsRef.id = 'project-alpha';
   });
 
@@ -308,6 +355,53 @@ describe('Project page metadata view', () => {
     expect(screen.queryByTestId('project-edit-toggle')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId('project-metadata-view-status')).toHaveTextContent('Archived')
+    );
+  });
+
+  it('enqueues a project export and updates status once the job completes', async () => {
+    mockGetById.mockResolvedValue(projectFixture);
+
+    renderWithProviders();
+
+    const exportCard = await screen.findByTestId('project-workflow-export');
+    const exportButton = within(exportCard).getByRole('button', { name: /export project/i });
+    await userEvent.click(exportButton);
+
+    await waitFor(() =>
+      expect(mockEnqueueExport).toHaveBeenCalledWith(projectFixture.id, expect.any(Object))
+    );
+    await waitFor(() => expect(mockGetExportJob).toHaveBeenCalled());
+    await waitFor(() => expect(within(exportCard).getByText(/ready/i)).toBeInTheDocument());
+    expect(within(exportCard).getByTestId('project-workflow-export-description')).toHaveTextContent(
+      /Download link delivered/i
+    );
+  });
+
+  it('displays export failure details when the job ends with an error', async () => {
+    mockGetById.mockResolvedValue(projectFixture);
+    mockGetExportJob.mockResolvedValueOnce({
+      jobId: 'job-export-1',
+      projectId: projectFixture.id,
+      status: 'failed',
+      format: 'markdown',
+      scope: 'primary_document',
+      requestedBy: 'user-test',
+      requestedAt: exportRequestedAt,
+      artifactUrl: null,
+      errorMessage: 'Exporter offline',
+      completedAt: '2026-05-02T16:01:00.000Z',
+    });
+
+    renderWithProviders();
+
+    const exportCard = await screen.findByTestId('project-workflow-export');
+    const exportButton = within(exportCard).getByRole('button', { name: /export project/i });
+    await userEvent.click(exportButton);
+
+    await waitFor(() => expect(mockGetExportJob).toHaveBeenCalled());
+    await waitFor(() => expect(within(exportCard).getByText(/blocked/i)).toBeInTheDocument());
+    expect(within(exportCard).getByTestId('project-workflow-export-description')).toHaveTextContent(
+      /Exporter offline/i
     );
   });
 });

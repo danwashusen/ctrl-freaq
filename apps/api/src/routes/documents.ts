@@ -28,6 +28,7 @@ import {
   ProjectNotFoundError,
   TemplateProvisioningError,
 } from '../services/document-provisioning.service.js';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 export const documentsRouter: Router = Router();
 
@@ -154,11 +155,6 @@ documentsRouter.get(
     const projectId = paramsResult.data.projectId;
     const authenticatedUser = req.auth?.userId ?? req.user?.userId;
 
-    if (!authenticatedUser) {
-      sendErrorResponse(res, 401, 'UNAUTHORIZED', 'Authentication required', requestId);
-      return;
-    }
-
     if (!projectRepository || !discoveryService) {
       logger?.error(
         {
@@ -180,22 +176,19 @@ documentsRouter.get(
     }
 
     try {
-      const project = await projectRepository.findById(projectId);
-      if (!project) {
-        sendErrorResponse(res, 404, 'PROJECT_NOT_FOUND', 'Project not found', requestId);
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId: authenticatedUser,
+        requestId,
+        logger,
+      });
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
         return;
       }
-    } catch (error) {
-      logger?.error(
-        {
-          requestId,
-          projectId,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        'Failed to resolve project for primary document lookup'
-      );
-      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Failed to load project metadata', requestId);
-      return;
+      throw error;
     }
 
     try {
@@ -228,14 +221,17 @@ documentsRouter.post(
     const provisioningService = req.services?.get('documentProvisioningService') as
       | DocumentProvisioningService
       | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
     const requestId = req.requestId ?? 'unknown';
 
-    if (!provisioningService) {
+    if (!provisioningService || !projectRepository) {
       sendErrorResponse(
         res,
         500,
         'SERVICE_UNAVAILABLE',
-        'Document provisioning service is not available',
+        'Document provisioning dependencies are not available',
         requestId
       );
       return;
@@ -269,13 +265,21 @@ documentsRouter.post(
       return;
     }
 
-    const requestedBy = req.user?.userId ?? req.auth?.userId ?? null;
+    const userId = req.user?.userId ?? req.auth?.userId ?? null;
     const overrides = bodyResult.data ?? undefined;
 
     try {
+      const project = await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
+
       const result = await provisioningService.provisionPrimaryDocument({
         projectId,
-        requestedBy,
+        requestedBy: userId ?? project.ownerUserId,
         title: overrides?.title,
         templateId: overrides?.templateId,
         templateVersion: overrides?.templateVersion,
@@ -294,6 +298,10 @@ documentsRouter.post(
         lastModifiedAt: result.lastModifiedAt,
       });
     } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
+        return;
+      }
       if (error instanceof ProjectNotFoundError) {
         sendErrorResponse(res, 404, 'PROJECT_NOT_FOUND', error.message, requestId);
         return;

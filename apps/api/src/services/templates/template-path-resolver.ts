@@ -42,8 +42,11 @@ function buildSearchRoots(moduleUrl: string): string[] {
     roots.push(resolve(envRoot.trim()));
   }
   const currentDir = dirname(fileURLToPath(moduleUrl));
-  roots.push(resolve(currentDir, '..', '..', 'templates'));
-  roots.push(resolve(currentDir, '..', '..', '..', '..', 'templates'));
+  const apiRoot = resolve(currentDir, '..', '..');
+  const repoRoot = resolve(currentDir, '..', '..', '..', '..');
+  roots.push(resolve(apiRoot, 'dist', 'templates'));
+  roots.push(resolve(apiRoot, 'templates'));
+  roots.push(resolve(repoRoot, 'templates'));
   return roots;
 }
 

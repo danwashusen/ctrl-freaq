@@ -228,6 +228,26 @@ tied to the live document, and trigger a project export with feedback.
 
 ## Implementation Log
 
+- 2025-11-07T01:50:30Z — F009–F012: locked down project-scoped APIs, hardened
+  document provisioning, queued export jobs asynchronously with polling, and
+  taught the template locator to read dist assets.
+  - Files: `apps/api/src/routes/helpers/project-access.ts`,
+    `apps/api/src/routes/documents.ts`, `apps/api/src/routes/projects.ts`,
+    `apps/api/src/routes/templates.ts`,
+    `apps/api/src/services/document-provisioning.service.ts`,
+    `packages/shared-data/src/repositories/section-repository.ts`,
+    `apps/api/src/services/export/document-export.service.ts`,
+    `apps/api/src/services/templates/template-path-resolver.ts`,
+    `apps/web/src/lib/api.ts`, `apps/web/src/pages/Project.tsx`,
+    `apps/web/src/pages/Project.test.tsx`, affected contract/unit tests.
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- project-primary-document.contract.test.ts project-create-document.contract.test.ts projects/export-project.contract.test.ts templates/template-validation-decision.contract.test.ts document-provisioning.service.test.ts template-path-resolver.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- Project.test.tsx`
+  - Tests: API contract suites for project documents, exports, and template
+    decisions; provisioning/template resolver unit tests; Project page Vitest
+    coverage.
+  - Follow-ups: None.
+
 - 2025-11-06T23:56:30Z — F006–F008: Restored provisioning template lookup in
   dist builds, honored Create Document overrides (title/template/seed strategy),
   and wired export jobs to produce completed artifacts.
@@ -412,11 +432,11 @@ tied to the live document, and trigger a project export with feedback.
       in audit.md
 - [x] F008 Finding F008: Create Document API ignores contract overrides as
       described in audit.md
-- [ ] F009 Finding F009: Project-scoped document/export endpoints skip
+- [x] F009 Finding F009: Project-scoped document/export endpoints skip
       authorization as described in audit.md
-- [ ] F010 Finding F010: Document provisioning is not atomic as described in
+- [x] F010 Finding F010: Document provisioning is not atomic as described in
       audit.md
-- [ ] F011 Finding F011: Export jobs run synchronously so UI never sees queued
+- [x] F011 Finding F011: Export jobs run synchronously so UI never sees queued
       states as described in audit.md
-- [ ] F012 Finding F012: Template locator ignores dist templates as described in
+- [x] F012 Finding F012: Template locator ignores dist templates as described in
       audit.md

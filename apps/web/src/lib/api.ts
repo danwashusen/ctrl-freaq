@@ -1015,6 +1015,14 @@ class ApiClient {
     });
   }
 
+  async getProjectExportJob(projectId: string, jobId: string): Promise<ProjectExportJob> {
+    const safeProjectId = encodeURIComponent(projectId);
+    const safeJobId = encodeURIComponent(jobId);
+    return this.makeRequest<ProjectExportJob>(
+      `/projects/${safeProjectId}/export/jobs/${safeJobId}`
+    );
+  }
+
   async submitTemplateDecision(params: {
     projectId: string;
     templateId: string;

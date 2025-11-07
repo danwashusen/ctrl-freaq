@@ -172,49 +172,54 @@ export class DocumentProvisioningService {
       throw new DocumentProvisioningError('Failed to create project document record');
     }
 
-    const sectionsToSeed = seedStrategy === 'empty' ? [] : template.sections;
-    const rootSections = await this.createSectionsFromTemplate({
-      documentId: document.id,
-      sections: sectionsToSeed,
-      seedStrategy,
-    });
+    try {
+      const sectionsToSeed = seedStrategy === 'empty' ? [] : template.sections;
+      const rootSections = await this.createSectionsFromTemplate({
+        documentId: document.id,
+        sections: sectionsToSeed,
+        seedStrategy,
+      });
 
-    if (rootSections.length === 0) {
-      throw new DocumentProvisioningError('Template did not yield any primary sections');
-    }
+      if (rootSections.length === 0) {
+        throw new DocumentProvisioningError('Template did not yield any primary sections');
+      }
 
-    const sortedSections = [...rootSections].sort((a, b) => a.orderIndex - b.orderIndex);
-    const firstSection = sortedSections[0];
-    if (!firstSection) {
-      throw new DocumentProvisioningError('Primary section lookup failed during provisioning');
-    }
+      const sortedSections = [...rootSections].sort((a, b) => a.orderIndex - b.orderIndex);
+      const firstSection = sortedSections[0];
+      if (!firstSection) {
+        throw new DocumentProvisioningError('Primary section lookup failed during provisioning');
+      }
 
-    this.dependencies.logger.info(
-      {
+      this.dependencies.logger.info(
+        {
+          projectId: project.id,
+          documentId: document.id,
+          templateId: templateRecord.metadata.id,
+          seedStrategy,
+          sectionCount: rootSections.length,
+          requestedBy,
+        },
+        'Provisioned primary project document'
+      );
+
+      return {
+        status: 'created',
         projectId: project.id,
         documentId: document.id,
-        templateId: templateRecord.metadata.id,
-        seedStrategy,
-        sectionCount: rootSections.length,
-        requestedBy,
-      },
-      'Provisioned primary project document'
-    );
-
-    return {
-      status: 'created',
-      projectId: project.id,
-      documentId: document.id,
-      firstSectionId: firstSection.id,
-      lifecycleStatus: 'draft',
-      title: document.title,
-      lastModifiedAt: document.updatedAt.toISOString(),
-      template: {
-        templateId: templateRecord.metadata.id,
-        templateVersion: template.version,
-        templateSchemaHash: template.schemaHash,
-      },
-    };
+        firstSectionId: firstSection.id,
+        lifecycleStatus: 'draft',
+        title: document.title,
+        lastModifiedAt: document.updatedAt.toISOString(),
+        template: {
+          templateId: templateRecord.metadata.id,
+          templateVersion: template.version,
+          templateSchemaHash: template.schemaHash,
+        },
+      };
+    } catch (error) {
+      await this.rollbackProvisionedDocument(document.id, requestedBy);
+      throw error;
+    }
   }
 
   private async buildExistingDocumentResponse(
@@ -594,5 +599,31 @@ export class DocumentProvisioningService {
       return `## ${section.title}\n\n${section.guidance.trim()}`;
     }
     return `## ${section.title}\n\nProvide initial content for ${section.title}.`;
+  }
+
+  private async rollbackProvisionedDocument(documentId: string, deletedBy: string): Promise<void> {
+    try {
+      await this.dependencies.sections.deleteByDocumentId(documentId);
+    } catch (error) {
+      this.dependencies.logger.warn(
+        {
+          documentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to delete sections during provisioning rollback'
+      );
+    }
+
+    try {
+      await this.dependencies.documents.delete(documentId, deletedBy);
+    } catch (error) {
+      this.dependencies.logger.warn(
+        {
+          documentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to delete document during provisioning rollback'
+      );
+    }
   }
 }

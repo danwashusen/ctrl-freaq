@@ -7,10 +7,11 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../../src/app';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { MOCK_JWT_TOKEN, TEMPLATE_MANAGER_JWT_TOKEN } from '../../../src/middleware/test-auth';
 import { seedSectionFixture, seedUserFixture } from '../../../src/testing/fixtures/section-editor';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
+const SecondaryAuthorizationHeader = { Authorization: `Bearer ${TEMPLATE_MANAGER_JWT_TOKEN}` };
 
 const PrimaryDocumentSnapshotSchema = z.object({
   projectId: z.string(),
@@ -60,6 +61,28 @@ describe('GET /api/v1/projects/:projectId/documents/primary', () => {
   test('requires authentication', async () => {
     const projectId = randomUUID();
     await request(app).get(`/api/v1/projects/${projectId}/documents/primary`).expect(401);
+  });
+
+  test('rejects access from users who do not own the project', async () => {
+    const createResponse = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: 'Private Project',
+        visibility: 'workspace',
+      })
+      .expect(201);
+
+    const projectId = createResponse.body.id as string;
+
+    const response = await request(app)
+      .get(`/api/v1/projects/${projectId}/documents/primary`)
+      .set(SecondaryAuthorizationHeader)
+      .expect(403);
+
+    expect(response.body).toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 
   test('returns primary document snapshot when project document exists', async () => {

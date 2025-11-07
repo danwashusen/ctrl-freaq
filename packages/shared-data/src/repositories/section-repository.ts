@@ -222,6 +222,7 @@ export interface SectionRepository {
   generateTableOfContents(docId: string): Promise<TableOfContents>;
   updateViewState(sectionId: string, viewState: SectionView['viewState']): Promise<SectionView>;
   updateStatus(sectionId: string, status: SectionView['status']): Promise<SectionView>;
+  deleteByDocumentId(docId: string): Promise<void>;
 
   // Content management
   updateContent(sectionId: string, contentMarkdown: string): Promise<SectionView>;
@@ -297,6 +298,11 @@ export class SectionRepositoryImpl
       orderBy: orderBy ?? 'order_index',
       orderDirection: orderDirection ?? 'ASC',
     });
+  }
+
+  async deleteByDocumentId(docId: string): Promise<void> {
+    const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE doc_id = ?`);
+    stmt.run(docId);
   }
 
   /**

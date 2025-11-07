@@ -17,6 +17,7 @@ import {
   type ProjectRepositoryImpl,
   type TemplateValidationDecisionRepository,
 } from '@ctrl-freaq/shared-data';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 const PublishTemplateVersionSchema = z.object({
   version: z.string().min(1, 'Version is required'),
@@ -412,30 +413,18 @@ templatesRouter.post(
     }
 
     const userId = req.user?.userId ?? req.auth?.userId;
-    if (!userId) {
-      res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Authentication required to submit template decisions',
-        requestId,
-        timestamp,
-      });
-      return;
-    }
 
     const { projectId, templateId } = paramsResult.data;
     const input = bodyResult.data;
 
     try {
-      const project = await projectRepository.findById(projectId);
-      if (!project) {
-        res.status(404).json({
-          error: 'PROJECT_NOT_FOUND',
-          message: `Project not found: ${projectId}`,
-          requestId,
-          timestamp,
-        });
-        return;
-      }
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
 
       const document = await documentRepository.findById(input.documentId);
       if (!document || document.projectId !== projectId) {
@@ -495,6 +484,15 @@ templatesRouter.post(
 
       res.status(201).json(payload);
     } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        res.status(error.status).json({
+          error: error.code,
+          message: error.message,
+          requestId,
+          timestamp,
+        });
+        return;
+      }
       logger?.error(
         {
           requestId,

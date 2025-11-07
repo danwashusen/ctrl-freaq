@@ -1,4 +1,5 @@
 import type {
+  DocumentExportJob,
   Project,
   ProjectStatus,
   CreateProjectInput,
@@ -26,8 +27,10 @@ import type { EventStreamConfig } from '../config/event-stream.js';
 import {
   DocumentExportService,
   ExportJobInProgressError,
+  ExportJobNotFoundError,
 } from '../services/export/document-export.service.js';
 import { ProjectNotFoundError } from '../services/document-provisioning.service.js';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MUTABLE_PROJECT_STATUS_VALUES = ['draft', 'active', 'paused', 'completed'] as const;
@@ -231,6 +234,19 @@ const serializeProject = (project: Project): SerializedProject => ({
   deletedAt: project.deletedAt ? project.deletedAt.toISOString() : null,
   deletedBy: project.deletedBy ?? null,
   archivedStatusBefore: project.archivedStatusBefore ?? null,
+});
+
+const serializeExportJobResponse = (job: DocumentExportJob) => ({
+  jobId: job.id,
+  projectId: job.projectId,
+  status: job.status,
+  format: job.format,
+  scope: job.scope,
+  requestedBy: job.requestedBy,
+  requestedAt: job.requestedAt.toISOString(),
+  artifactUrl: job.artifactUrl,
+  errorMessage: job.errorMessage,
+  completedAt: job.completedAt ? job.completedAt.toISOString() : null,
 });
 
 const MIN_TIMEZONE_OFFSET_MINUTES = -12 * 60;
@@ -446,6 +462,11 @@ const ExportProjectRequestSchema = z.object({
   scope: z.enum(['primary_document', 'all_documents']).optional(),
   includeDrafts: z.boolean().optional(),
   notifyEmail: z.string().trim().email().optional(),
+});
+
+const ExportJobParamsSchema = z.object({
+  projectId: z.string().uuid('Project ID must be a valid UUID'),
+  jobId: z.string().uuid('Export job ID must be a valid UUID'),
 });
 
 projectsRouter.get('/projects', async (req: AuthenticatedRequest, res: Response) => {
@@ -1342,7 +1363,6 @@ projectsRouter.post(
 
     if (!userId) {
       res.status(401).json({
-        code: 'UNAUTHORIZED',
         error: 'UNAUTHORIZED',
         message: 'Authentication required',
         requestId,
@@ -1380,8 +1400,11 @@ projectsRouter.post(
     const exportService = req.services?.get('documentExportService') as
       | DocumentExportService
       | undefined;
-    if (!exportService) {
-      logger?.error({ requestId }, 'Document export service unavailable');
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    if (!exportService || !projectRepository) {
+      logger?.error({ requestId }, 'Document export dependencies unavailable');
       res.status(500).json({
         code: 'INTERNAL_ERROR',
         error: 'INTERNAL_ERROR',
@@ -1396,6 +1419,14 @@ projectsRouter.post(
     const { format, scope = 'primary_document', notifyEmail } = bodyResult.data;
 
     try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
+
       const job = await exportService.enqueue({
         projectId,
         format,
@@ -1417,19 +1448,18 @@ projectsRouter.post(
         'Queued document export job'
       );
 
-      res.status(202).json({
-        jobId: job.id,
-        projectId: job.projectId,
-        status: job.status,
-        format: job.format,
-        scope: job.scope,
-        requestedBy: job.requestedBy,
-        requestedAt: job.requestedAt.toISOString(),
-        artifactUrl: job.artifactUrl,
-        errorMessage: job.errorMessage,
-        completedAt: job.completedAt ? job.completedAt.toISOString() : null,
-      });
+      res.status(202).json(serializeExportJobResponse(job));
     } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        res.status(error.status).json({
+          code: error.code,
+          error: error.code,
+          message: error.message,
+          requestId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
       if (error instanceof ProjectNotFoundError) {
         res.status(404).json({
           code: 'PROJECT_NOT_FOUND',
@@ -1467,6 +1497,102 @@ projectsRouter.post(
         code: 'INTERNAL_ERROR',
         error: 'INTERNAL_ERROR',
         message: 'Failed to start document export',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+);
+
+projectsRouter.get(
+  '/projects/:projectId/export/jobs/:jobId',
+  async (req: AuthenticatedRequest, res: Response<Record<string, unknown> | ErrorResponse>) => {
+    const logger = req.services?.get('logger') as Logger | undefined;
+    const requestId = req.requestId ?? 'unknown';
+    const userId = req.user?.userId ?? req.auth?.userId ?? null;
+
+    const paramsResult = ExportJobParamsSchema.safeParse(req.params);
+    if (!paramsResult.success) {
+      const [issue] = paramsResult.error.issues;
+      res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        error: 'VALIDATION_ERROR',
+        message: issue?.message ?? 'Invalid export job parameters',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const exportService = req.services?.get('documentExportService') as
+      | DocumentExportService
+      | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+
+    if (!exportService || !projectRepository) {
+      logger?.error({ requestId }, 'Document export dependencies unavailable');
+      res.status(500).json({
+        code: 'INTERNAL_ERROR',
+        error: 'INTERNAL_ERROR',
+        message: 'Document export service unavailable',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const { projectId, jobId } = paramsResult.data;
+
+    try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
+
+      const job = await exportService.getJob(projectId, jobId);
+      res.status(200).json(serializeExportJobResponse(job));
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        res.status(error.status).json({
+          code: error.code,
+          error: error.code,
+          message: error.message,
+          requestId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (error instanceof ExportJobNotFoundError) {
+        res.status(404).json({
+          code: 'EXPORT_JOB_NOT_FOUND',
+          error: 'EXPORT_JOB_NOT_FOUND',
+          message: `Export job not found for project ${projectId}`,
+          requestId,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      logger?.error(
+        {
+          requestId,
+          projectId,
+          jobId,
+          reason: error instanceof Error ? error.message : 'unknown',
+        },
+        'Failed to load export job status'
+      );
+
+      res.status(500).json({
+        code: 'INTERNAL_ERROR',
+        error: 'INTERNAL_ERROR',
+        message: 'Unable to load export job status',
         requestId,
         timestamp: new Date().toISOString(),
       });
