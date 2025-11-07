@@ -133,7 +133,10 @@ describe('Performance: assumption flow', () => {
 
     const bootstrap = createAssumptionsFlowBootstrap({
       api: {
-        async startSession() {
+        async startSession(
+          _documentId: string,
+          _sectionId: string
+        ): Promise<Awaited<ReturnType<AssumptionsApiService['startSession']>>> {
           return {
             sessionId: 'sess-checklist-fast',
             sectionId: 'sec-fast',
@@ -195,7 +198,9 @@ describe('Performance: assumption flow', () => {
     ).performStreamingRequest = vi.fn(async () => response);
 
     const startedAt = performance.now();
-    const result = await service.streamProposal('sec-fast', 'sess-fast', { source: 'ai_generate' });
+    const result = await service.streamProposal('doc-fast', 'sec-fast', 'sess-fast', {
+      source: 'ai_generate',
+    });
     const durationMs = performance.now() - startedAt;
 
     expect(result).toEqual(mockProposal);

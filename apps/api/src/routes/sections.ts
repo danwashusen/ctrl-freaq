@@ -1700,185 +1700,236 @@ sectionsRouter.post(
   handleAssumptionRespond
 );
 
-sectionsRouter.get(
-  '/sections/:sectionId/assumptions/session/:sessionId/stream',
-  async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.requestId ?? 'unknown';
-    const logger = getRequestLogger(req);
-    const { sectionId, sessionId } = req.params;
+const handleAssumptionStream = async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = req.requestId ?? 'unknown';
+  const logger = getRequestLogger(req);
+  const { docId, sectionId, sessionId } = req.params as {
+    docId?: string;
+    sectionId?: string;
+    sessionId?: string;
+  };
 
-    if (!sectionId || !sessionId) {
-      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+  if (!sectionId || !sessionId) {
+    sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+    return;
+  }
+
+  if (docId) {
+    const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+    if (!section) {
       return;
     }
+  }
 
-    try {
-      const service = getAssumptionSessionService(req);
+  try {
+    const service = getAssumptionSessionService(req);
 
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.flushHeaders?.();
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
 
-      let closed = false;
+    let closed = false;
 
-      req.on('close', () => {
-        closed = true;
-        void service.completeStreamingSession({
-          sessionId,
-          sectionId,
-          reason: 'client_close',
-        });
-      });
-
-      const registration = await service.openStreamingSession({
+    req.on('close', () => {
+      closed = true;
+      void service.completeStreamingSession({
         sessionId,
         sectionId,
-        requestId,
-        actorId: req.auth?.userId ?? 'anonymous-user',
+        reason: 'client_close',
       });
+    });
 
-      for await (const event of registration.stream) {
-        if (closed) {
-          break;
-        }
-        res.write(`event: ${event.type}\n`);
-        res.write(`data: ${JSON.stringify(event.data)}\n\n`);
+    const registration = await service.openStreamingSession({
+      sessionId,
+      sectionId,
+      requestId,
+      actorId: req.auth?.userId ?? 'anonymous-user',
+    });
+
+    for await (const event of registration.stream) {
+      if (closed) {
+        break;
       }
-
-      if (!closed) {
-        await service.completeStreamingSession({
-          sessionId,
-          sectionId,
-          reason: 'client_close',
-        });
-      }
-
-      res.end();
-    } catch (error) {
-      logger.error(
-        {
-          requestId,
-          sectionId,
-          sessionId,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        'Failed to stream assumption session events'
-      );
-
-      res.end();
-    }
-  }
-);
-
-sectionsRouter.post(
-  '/sections/:sectionId/assumptions/session/:sessionId/proposals',
-  async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.requestId ?? 'unknown';
-    const logger = getRequestLogger(req);
-    const { sectionId, sessionId } = req.params;
-
-    if (!sectionId || !sessionId) {
-      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
-      return;
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event.data)}\n\n`);
     }
 
-    try {
-      const payload = AssumptionProposalRequestSchema.parse(req.body);
-      const service = getAssumptionSessionService(req);
-      const proposal = await service.createProposal({
+    if (!closed) {
+      await service.completeStreamingSession({
         sessionId,
-        source: payload.source,
-        actorId: req.auth?.userId ?? 'anonymous-user',
-        draftOverride: payload.draftOverride,
-        requestId,
+        sectionId,
+        reason: 'client_close',
       });
-
-      const responseBody = AssumptionProposalResponseSchema.parse(proposal);
-      res.setHeader('X-Request-ID', requestId);
-      res.status(201).json(responseBody);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        handleValidationFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId, sessionId },
-          'Invalid assumption proposal payload'
-        );
-        return;
-      }
-
-      if (error instanceof SectionEditorServiceError) {
-        handleSectionEditorFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId, sessionId },
-          'Failed to create assumption proposal'
-        );
-        return;
-      }
-
-      handleUnexpectedFailure(
-        error,
-        res,
-        logger,
-        requestId,
-        { sectionId, sessionId },
-        'Unexpected error creating assumption proposal'
-      );
     }
+
+    res.end();
+  } catch (error) {
+    logger.error(
+      {
+        requestId,
+        sectionId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to stream assumption session events'
+    );
+
+    res.end();
   }
-);
+};
 
 sectionsRouter.get(
-  '/sections/:sectionId/assumptions/session/:sessionId/proposals',
-  async (req: AuthenticatedRequest, res: Response) => {
-    const requestId = req.requestId ?? 'unknown';
-    const logger = getRequestLogger(req);
-    const { sectionId, sessionId } = req.params;
+  '/documents/:docId/sections/:sectionId/assumptions/session/:sessionId/stream',
+  handleAssumptionStream
+);
+sectionsRouter.get(
+  '/sections/:sectionId/assumptions/session/:sessionId/stream',
+  handleAssumptionStream
+);
 
-    if (!sectionId || !sessionId) {
-      sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+const handleAssumptionProposalCreate = async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = req.requestId ?? 'unknown';
+  const logger = getRequestLogger(req);
+  const { docId, sectionId, sessionId } = req.params as {
+    docId?: string;
+    sectionId?: string;
+    sessionId?: string;
+  };
+
+  if (!sectionId || !sessionId) {
+    sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+    return;
+  }
+
+  if (docId) {
+    const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+    if (!section) {
       return;
     }
+  }
 
-    try {
-      const service = getAssumptionSessionService(req);
-      const proposals = await service.listProposals(sessionId);
-      const responseBody = AssumptionProposalsListResponseSchema.parse({
-        sessionId,
-        proposals,
-      });
+  try {
+    const payload = AssumptionProposalRequestSchema.parse(req.body);
+    const service = getAssumptionSessionService(req);
+    const proposal = await service.createProposal({
+      sessionId,
+      source: payload.source,
+      actorId: req.auth?.userId ?? 'anonymous-user',
+      draftOverride: payload.draftOverride,
+      requestId,
+    });
 
-      res.setHeader('X-Request-ID', requestId);
-      res.status(200).json(responseBody);
-    } catch (error) {
-      if (error instanceof SectionEditorServiceError) {
-        handleSectionEditorFailure(
-          error,
-          res,
-          logger,
-          requestId,
-          { sectionId, sessionId },
-          'Failed to list assumption proposals'
-        );
-        return;
-      }
-
-      handleUnexpectedFailure(
+    const responseBody = AssumptionProposalResponseSchema.parse(proposal);
+    res.setHeader('X-Request-ID', requestId);
+    res.status(201).json(responseBody);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      handleValidationFailure(
         error,
         res,
         logger,
         requestId,
         { sectionId, sessionId },
-        'Unexpected error listing assumption proposals'
+        'Invalid assumption proposal payload'
       );
+      return;
+    }
+
+    if (error instanceof SectionEditorServiceError) {
+      handleSectionEditorFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, sessionId },
+        'Failed to create assumption proposal'
+      );
+      return;
+    }
+
+    handleUnexpectedFailure(
+      error,
+      res,
+      logger,
+      requestId,
+      { sectionId, sessionId },
+      'Unexpected error creating assumption proposal'
+    );
+  }
+};
+
+sectionsRouter.post(
+  '/documents/:docId/sections/:sectionId/assumptions/session/:sessionId/proposals',
+  handleAssumptionProposalCreate
+);
+sectionsRouter.post(
+  '/sections/:sectionId/assumptions/session/:sessionId/proposals',
+  handleAssumptionProposalCreate
+);
+
+const handleAssumptionProposalList = async (req: AuthenticatedRequest, res: Response) => {
+  const requestId = req.requestId ?? 'unknown';
+  const logger = getRequestLogger(req);
+  const { docId, sectionId, sessionId } = req.params as {
+    docId?: string;
+    sectionId?: string;
+    sessionId?: string;
+  };
+
+  if (!sectionId || !sessionId) {
+    sendErrorResponse(res, 400, 'BAD_REQUEST', 'sectionId and sessionId are required', requestId);
+    return;
+  }
+
+  if (docId) {
+    const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+    if (!section) {
+      return;
     }
   }
+
+  try {
+    const service = getAssumptionSessionService(req);
+    const proposals = await service.listProposals(sessionId);
+    const responseBody = AssumptionProposalsListResponseSchema.parse({
+      sessionId,
+      proposals,
+    });
+
+    res.setHeader('X-Request-ID', requestId);
+    res.status(200).json(responseBody);
+  } catch (error) {
+    if (error instanceof SectionEditorServiceError) {
+      handleSectionEditorFailure(
+        error,
+        res,
+        logger,
+        requestId,
+        { sectionId, sessionId },
+        'Failed to list assumption proposals'
+      );
+      return;
+    }
+
+    handleUnexpectedFailure(
+      error,
+      res,
+      logger,
+      requestId,
+      { sectionId, sessionId },
+      'Unexpected error listing assumption proposals'
+    );
+  }
+};
+
+sectionsRouter.get(
+  '/documents/:docId/sections/:sectionId/assumptions/session/:sessionId/proposals',
+  handleAssumptionProposalList
+);
+sectionsRouter.get(
+  '/sections/:sectionId/assumptions/session/:sessionId/proposals',
+  handleAssumptionProposalList
 );
 
 export default sectionsRouter;

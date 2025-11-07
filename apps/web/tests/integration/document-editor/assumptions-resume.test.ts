@@ -9,6 +9,9 @@ describe('Assumptions Flow Resume Behaviour', () => {
       .mockImplementation(async (input: RequestInfo | URL) => {
         const url = typeof input === 'string' ? input : input.toString();
         if (url.includes('/assumptions/session')) {
+          expect(url).toContain(
+            '/documents/doc-new-content-flow/sections/sec-new-content-flow/assumptions/session'
+          );
           return new Response(
             JSON.stringify({
               sessionId: 'session-fixture-001',
@@ -80,6 +83,9 @@ describe('Assumptions Flow Resume Behaviour', () => {
         const url = typeof input === 'string' ? input : input.toString();
 
         if (url.endsWith('/assumptions/session')) {
+          expect(url).toContain(
+            '/documents/doc-new-content-flow/sections/sec-new-content-flow/assumptions/session'
+          );
           return new Response(
             JSON.stringify({
               sessionId: 'session-multi-001',
@@ -148,6 +154,9 @@ describe('Assumptions Flow Resume Behaviour', () => {
         }
 
         if (url.includes('/assumptions/prompt-multi/respond')) {
+          expect(url).toContain(
+            '/documents/doc-new-content-flow/sections/sec-new-content-flow/assumptions/prompt-multi/respond'
+          );
           const requestBody = init?.body ? JSON.parse(String(init.body)) : {};
           return new Response(
             JSON.stringify({

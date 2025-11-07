@@ -228,6 +228,22 @@ tied to the live document, and trigger a project export with feedback.
 
 ## Implementation Log
 
+- 2025-11-07T08:08:27Z — F013/F014: Guarded document detail route with project
+  auth and migrated assumptions flow to document-scoped APIs/UI.
+  - Files: `apps/api/src/routes/documents.ts`,
+    `apps/api/src/routes/sections.ts`,
+    `apps/api/tests/contract/documents/document-detail.contract.test.ts`,
+    `apps/web/src/features/document-editor/services/assumptions-api.ts`,
+    `apps/web/src/features/document-editor/assumptions-flow/**`,
+    `apps/web/tests/**/*assumptions*.test.ts`.
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- tests/contract/documents/document-detail.contract.test.ts tests/contract/documents/assumptions-flow.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- src/features/document-editor/assumptions-flow/hooks/use-assumptions-flow.test.tsx tests/integration/document-editor/assumptions-resume.test.ts tests/performance/assumptions-timing.performance.test.ts tests/unit/services/assumptions-api.service.test.ts`.
+  - Tests: API contract suites for document detail + assumptions scoping; web
+    Vitest coverage for assumptions hook, integration resume flow, performance
+    harness, and API client.
+  - Follow-ups: None.
+
 - 2025-11-07T01:50:30Z — F009–F012: locked down project-scoped APIs, hardened
   document provisioning, queued export jobs asynchronously with polling, and
   taught the template locator to read dist assets.
@@ -440,3 +456,7 @@ tied to the live document, and trigger a project export with feedback.
       states as described in audit.md
 - [x] F012 Finding F012: Template locator ignores dist templates as described in
       audit.md
+- [x] F013 Finding F013: Document detail route lacks project authorization as
+      described in audit.md
+- [x] F014 Finding F014: Assumptions flow still uses unscoped section endpoints
+      as described in audit.md

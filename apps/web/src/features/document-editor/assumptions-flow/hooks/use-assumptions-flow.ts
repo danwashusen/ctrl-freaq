@@ -59,6 +59,7 @@ interface UseAssumptionsFlowOptions {
   enabled?: boolean;
   api?: {
     subscribeToStream?: (
+      documentId: string,
       sectionId: string,
       sessionId: string,
       handler: (event: { type: string; data: unknown }) => void
@@ -521,7 +522,12 @@ export function useAssumptionsFlow({
       }
     };
 
-    const subscription = subscribeToStream(sectionIdentifier, currentSessionId, handleEvent);
+    const subscription = subscribeToStream(
+      documentId,
+      sectionIdentifier,
+      currentSessionId,
+      handleEvent
+    );
     streamSubscriptionRef.current = subscription;
 
     return () => {

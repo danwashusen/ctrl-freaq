@@ -87,6 +87,7 @@ describe('useAssumptionsFlow streaming', () => {
     const callbacks = new Map<string, (event: { type: string; data: unknown }) => void>();
     const subscribeToStream = vi.fn(
       (
+        _documentId: string,
         sectionId: string,
         sessionId: string,
         handler: (event: { type: string; data: unknown }) => void
@@ -133,6 +134,7 @@ describe('useAssumptionsFlow streaming', () => {
     const callbacks = new Map<string, (event: { type: string; data: unknown }) => void>();
     const subscribeToStream = vi.fn(
       (
+        _documentId: string,
         sectionId: string,
         sessionId: string,
         handler: (event: { type: string; data: unknown }) => void
@@ -176,6 +178,7 @@ describe('useAssumptionsFlow streaming', () => {
     const callbacks = new Map<string, (event: { type: string; data: unknown }) => void>();
     const subscribeToStream = vi.fn(
       (
+        _documentId: string,
         sectionId: string,
         sessionId: string,
         handler: (event: { type: string; data: unknown }) => void
@@ -215,6 +218,7 @@ describe('useAssumptionsFlow streaming', () => {
     const callbacks = new Map<string, (event: { type: string; data: unknown }) => void>();
     const subscribeToStream = vi.fn(
       (
+        _documentId: string,
         sectionId: string,
         sessionId: string,
         handler: (event: { type: string; data: unknown }) => void

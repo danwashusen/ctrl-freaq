@@ -163,7 +163,7 @@ export const createAssumptionsFlowBootstrap = (
 
   return {
     async start(options: StartAssumptionsFlowOptions): Promise<AssumptionFlowState> {
-      const response = await deps.api.startSession(options.sectionId, {
+      const response = await deps.api.startSession(options.documentId, options.sectionId, {
         templateVersion: options.templateVersion ?? '1.0.0',
         decisionSnapshotId: options.decisionSnapshotId,
       });
@@ -248,6 +248,7 @@ export const createAssumptionsFlowBootstrap = (
       } = options;
 
       const prompt = await deps.api.respondToPrompt(
+        documentId,
         sectionId,
         promptId,
         {

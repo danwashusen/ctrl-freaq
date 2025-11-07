@@ -351,11 +351,12 @@ documentsRouter.get(
     const logger = req.services?.get('logger') as Logger | undefined;
     const locals = res.locals as TemplateValidationLocals;
     const document = locals.document;
+    const requestId = req.requestId ?? 'unknown';
 
     if (!document) {
       logger?.error(
         {
-          requestId: req.requestId,
+          requestId,
           documentId: (req.params as { documentId?: string }).documentId,
         },
         'Document missing from template validation context'
@@ -364,10 +365,42 @@ documentsRouter.get(
       res.status(500).json({
         error: 'INTERNAL_ERROR',
         message: 'Document context unavailable after validation',
-        requestId: req.requestId ?? 'unknown',
+        requestId,
         timestamp: new Date().toISOString(),
       });
       return;
+    }
+
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    if (!projectRepository) {
+      logger?.error(
+        {
+          requestId,
+          documentId: document.id,
+        },
+        'Project repository unavailable for document authorization check'
+      );
+      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Project repository unavailable', requestId);
+      return;
+    }
+
+    const authenticatedUser = req.auth?.userId ?? req.user?.userId ?? null;
+    try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId: document.projectId,
+        userId: authenticatedUser,
+        requestId,
+        logger,
+      });
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
+        return;
+      }
+      throw error;
     }
 
     const migration = locals.templateMigration;
@@ -375,7 +408,7 @@ documentsRouter.get(
 
     logger?.info(
       {
-        requestId: req.requestId,
+        requestId,
         documentId: document.id,
         templateId: document.templateId,
         templateVersion: document.templateVersion,
