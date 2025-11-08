@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import type * as BetterSqlite3 from 'better-sqlite3';
 
 import { createApp, type AppContext } from '../../../src/app';
@@ -17,13 +17,22 @@ import {
   seedSectionEditorFixtures,
   seedSectionFixture,
 } from '../../../src/testing/fixtures/section-editor';
+import { TEMPLATE_MANAGER_USER_ID } from '../../../src/middleware/test-auth.js';
 
 const SECTION_ID = 'sec-architecture-overview';
 const DOCUMENT_ID = 'doc-architecture-demo';
 const DRAFT_ID = 'draft-architecture-overview';
-const USER_ID = 'user-editor-001';
+const USER_ID = 'user-local-author';
 
 const AuthorizationHeader = { Authorization: 'Bearer mock-jwt-token' };
+const PROJECT_ID = '00000000-0000-4000-8000-000000000121';
+const PROJECT_SLUG = 'project-test';
+const PROJECT_NAME = 'Architecture Reference Project';
+const PROJECT_FIXTURE = {
+  projectId: PROJECT_ID,
+  projectSlug: PROJECT_SLUG,
+  projectOwnerId: USER_ID,
+};
 
 let app: Express;
 let db: BetterSqlite3.Database;
@@ -32,6 +41,10 @@ beforeAll(async () => {
   app = await createApp();
   const appContext = app.locals.appContext as AppContext;
   db = appContext.database;
+});
+
+beforeEach(() => {
+  ensureProjectOwnedBy(db, USER_ID);
 });
 
 type SectionEditorFixtureOptions = {
@@ -61,7 +74,85 @@ function seedSectionAndDraft(overrides: Partial<SectionEditorFixtureOptions> = {
     ...overrides,
   };
 
-  seedSectionEditorFixtures(db, options);
+  seedSectionEditorFixtures(db, {
+    ...PROJECT_FIXTURE,
+    ...options,
+  });
+}
+
+function ensureProjectOwnedBy(db: BetterSqlite3.Database, ownerId: string) {
+  const nowIso = new Date().toISOString();
+  ensureUser(db, ownerId);
+  db.prepare(
+    `INSERT INTO projects (
+       id,
+       owner_user_id,
+       name,
+       slug,
+       description,
+       visibility,
+       status,
+       archived_status_before,
+       goal_target_date,
+       goal_summary,
+       created_at,
+       created_by,
+       updated_at,
+       updated_by,
+       deleted_at,
+       deleted_by
+     ) VALUES (
+       :id,
+       :owner_user_id,
+       :name,
+       :slug,
+       :description,
+       'workspace',
+       'active',
+       NULL,
+       NULL,
+       NULL,
+       :created_at,
+       :created_by,
+       :updated_at,
+       :updated_by,
+       NULL,
+       NULL
+     )
+     ON CONFLICT(id) DO UPDATE SET
+       owner_user_id = excluded.owner_user_id,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).run({
+    id: PROJECT_ID,
+    owner_user_id: ownerId,
+    name: PROJECT_NAME,
+    slug: PROJECT_SLUG,
+    description: 'Seeded project for section editor fixtures',
+    created_at: nowIso,
+    created_by: ownerId,
+    updated_at: nowIso,
+    updated_by: ownerId,
+  });
+
+  db.prepare('UPDATE documents SET project_id = ? WHERE id = ?').run(PROJECT_ID, DOCUMENT_ID);
+}
+
+function ensureUser(db: BetterSqlite3.Database, userId: string) {
+  db.prepare(
+    `INSERT OR IGNORE INTO users (
+       id,
+       email,
+       first_name,
+       last_name,
+       created_at,
+       created_by,
+       updated_at,
+       updated_by,
+       deleted_at,
+       deleted_by
+     ) VALUES (?, ?, NULL, NULL, datetime('now'), 'system', datetime('now'), 'system', NULL, NULL)`
+  ).run(userId, `${userId}@test.local`);
 }
 
 describe('Section Editor API Contract', () => {
@@ -119,6 +210,7 @@ describe('Section Editor API Contract', () => {
         documentId: DOCUMENT_ID,
         userId: USER_ID,
         approvedVersion: 5,
+        ...PROJECT_FIXTURE,
       });
 
       const response = await request(app)
@@ -149,6 +241,30 @@ describe('Section Editor API Contract', () => {
       expect(response.body.documentId).toBe(DOCUMENT_ID);
       expect(response.body.draftBaseVersion).toBe(5);
       expect(payload.conflictState).toBeDefined();
+    });
+
+    test('returns 403 when the caller lacks access to the section project', async () => {
+      seedSectionFixture(db, {
+        sectionId: SECTION_ID,
+        documentId: DOCUMENT_ID,
+        userId: USER_ID,
+        approvedVersion: 5,
+      });
+      ensureProjectOwnedBy(db, TEMPLATE_MANAGER_USER_ID);
+
+      const response = await request(app)
+        .post(`/api/v1/sections/${SECTION_ID}/drafts`)
+        .set(AuthorizationHeader)
+        .send({
+          draftId: DRAFT_ID,
+          documentId: DOCUMENT_ID,
+          draftBaseVersion: 5,
+          draftVersion: 6,
+          contentMarkdown: '## Unauthorized draft payload',
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
     });
   });
 
@@ -255,6 +371,43 @@ describe('Section Editor API Contract', () => {
       const conflictLog = ConflictLogResponseSchema.parse(response.body);
       expect(conflictLog.sectionId).toBe(SECTION_ID);
       expect(conflictLog.draftId).toBe(DRAFT_ID);
+    });
+  });
+
+  describe('GET /api/v1/documents/:documentId/sections', () => {
+    test('returns sections and table of contents for authorized users', async () => {
+      seedSectionFixture(db, {
+        sectionId: SECTION_ID,
+        documentId: DOCUMENT_ID,
+        userId: USER_ID,
+        ...PROJECT_FIXTURE,
+      });
+
+      const response = await request(app)
+        .get(`/api/v1/documents/${DOCUMENT_ID}/sections`)
+        .set(AuthorizationHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('sections');
+      expect(response.body).toHaveProperty('toc');
+      expect(Array.isArray(response.body.sections)).toBe(true);
+    });
+
+    test('returns 403 when document belongs to another project', async () => {
+      seedSectionFixture(db, {
+        sectionId: SECTION_ID,
+        documentId: DOCUMENT_ID,
+        userId: USER_ID,
+        ...PROJECT_FIXTURE,
+      });
+      ensureProjectOwnedBy(db, TEMPLATE_MANAGER_USER_ID);
+
+      const response = await request(app)
+        .get(`/api/v1/documents/${DOCUMENT_ID}/sections`)
+        .set(AuthorizationHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
     });
   });
 });

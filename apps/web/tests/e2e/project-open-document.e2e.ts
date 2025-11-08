@@ -67,6 +67,16 @@ const primaryDocumentSnapshot: PrimaryDocumentSnapshotResponse = {
   lastUpdatedAt: primaryProject.updatedAt,
 };
 
+const missingDocumentSnapshot: PrimaryDocumentSnapshotResponse = {
+  projectId: primaryProject.id,
+  status: 'missing',
+  document: null,
+  templateDecision: null,
+  lastUpdatedAt: primaryProject.updatedAt,
+};
+
+let activePrimarySnapshot: PrimaryDocumentSnapshotResponse = primaryDocumentSnapshot;
+
 const documentFixture = getDocumentFixture(primarySnapshot.documentId);
 const documentView = buildFixtureDocumentView(documentFixture);
 
@@ -111,6 +121,7 @@ const templateVersionResponse = {
 test.describe('Project workflow — Open document', () => {
   test.beforeEach(async ({ page }) => {
     resetFixtureProjectsStore();
+    activePrimarySnapshot = primaryDocumentSnapshot;
 
     await page.route('**/__fixtures/api/**', async route => {
       const request = route.request();
@@ -182,7 +193,7 @@ test.describe('Project workflow — Open document', () => {
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify(primaryDocumentSnapshot),
+            body: JSON.stringify(activePrimarySnapshot),
           });
           return;
         }
@@ -304,5 +315,43 @@ test.describe('Project workflow — Open document', () => {
         `/documents/${primarySnapshot.documentId}/sections/${primarySnapshot.firstSectionId}(?:\\?projectId=${primaryProject.id})?$`
       )
     );
+  });
+
+  test('shows provisioning stepper and troubleshooting guidance when creation fails', async ({
+    page,
+  }) => {
+    activePrimarySnapshot = missingDocumentSnapshot;
+
+    await page.route(
+      `**/__fixtures/api/**/projects/${primaryProject.id}/documents`,
+      async route => {
+        if (route.request().method() === 'POST') {
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              code: 'fixtures.templates_unavailable',
+              message: 'Templates service unavailable',
+            }),
+          });
+          return;
+        }
+        await route.fallback();
+      }
+    );
+
+    await page.goto(`/project/${primaryProject.id}`);
+    await page.waitForLoadState('networkidle');
+    await selectSimpleAuthUser(page);
+
+    const createCard = page.getByTestId('project-workflow-create-document');
+    await expect(createCard).toHaveAttribute('data-state', 'missing');
+
+    await createCard.getByRole('button', { name: /create document/i }).click();
+
+    await expect(page.getByTestId('create-document-stepper')).toBeVisible();
+    const failureBanner = page.getByTestId('create-document-failure-banner');
+    await expect(failureBanner).toBeVisible();
+    await expect(page.getByRole('button', { name: /retry create document/i })).toBeEnabled();
   });
 });

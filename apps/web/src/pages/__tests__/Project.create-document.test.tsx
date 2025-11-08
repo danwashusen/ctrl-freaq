@@ -228,7 +228,8 @@ describe('Project create document workflow', () => {
 
     expect(mockCreateProjectDocument).toHaveBeenCalledWith(projectFixture.id);
     expect(createButton).toBeDisabled();
-    await screen.findByText(/creation in progress/i);
+    const stepper = await screen.findByTestId('create-document-stepper');
+    await waitFor(() => expect(stepper).toHaveAttribute('data-current-step', 'finalizing'));
 
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith(
@@ -252,6 +253,14 @@ describe('Project create document workflow', () => {
 
     const createButton = await screen.findByRole('button', { name: /create document/i });
     await userEvent.click(createButton);
+
+    const failureBanner = await screen.findByTestId('create-document-failure-banner');
+    expect(failureBanner).toHaveTextContent(/we could not create the document/i);
+    expect(screen.getByRole('button', { name: /retry create document/i })).toBeEnabled();
+    expect(screen.getByRole('link', { name: /view troubleshooting guide/i })).toHaveAttribute(
+      'href',
+      'https://docs.ctrl-freaq.dev/surface-document-editor/provisioning-troubleshooting'
+    );
 
     await waitFor(() => expect(screen.getByText(/unable to create document/i)).toBeInTheDocument());
     expect(createButton).toBeEnabled();

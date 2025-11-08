@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 import type * as BetterSqlite3 from 'better-sqlite3';
 import request from 'supertest';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../../src/app';
@@ -36,7 +36,9 @@ describe('Document assumption flow scoping', () => {
     app = await createApp();
     const context = app.locals.appContext as AppContext;
     db = context.database;
+  });
 
+  beforeEach(() => {
     const seeded = seedAssumptionSessionFixtures(db);
     documentId = seeded.documentId;
     sectionId = seeded.sectionId;

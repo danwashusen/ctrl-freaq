@@ -5,13 +5,18 @@ import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 
 import { createApp, type AppContext } from '../../../src/app';
 import { seedSectionFixture } from '../../../src/testing/fixtures/section-editor';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
 const DOCUMENT_ID = 'demo-architecture';
 const REQUIREMENT_ID = 'req-governance-escalation';
 const SECTION_ID = 'sec-overview';
+const PROJECT_FIXTURE = {
+  projectId: '00000000-0000-4000-8000-000000000312',
+  projectSlug: 'project-traceability',
+  projectOwnerId: DEFAULT_TEST_USER_ID,
+};
 
 describe('Traceability endpoints', () => {
   let app: Express;
@@ -200,6 +205,7 @@ describe('Traceability endpoints', () => {
       userId: 'user-quality-runner',
       approvedVersion: 7,
       approvedContent: '## Executive overview\n\nRisk posture remains pending final review.',
+      ...PROJECT_FIXTURE,
     });
 
     const runResponse = await request(app)

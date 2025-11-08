@@ -12,6 +12,8 @@ import {
 } from '../middleware/auth.js';
 import { isTestRuntime } from '../utils/runtime-env.js';
 import {
+  DocumentRepositoryImpl,
+  ProjectRepositoryImpl,
   SectionDraftRepositoryImpl,
   SectionRepositoryImpl,
   type PendingChangeRepository,
@@ -46,6 +48,7 @@ import {
   type ConflictTrigger,
   type FormattingAnnotation,
 } from '../modules/section-editor/validation/section-editor.schema.js';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 export const sectionsRouter: Router = Router();
 
@@ -161,6 +164,102 @@ const sendErrorResponse = (
     payload.details = details;
   }
   res.status(status).json(payload);
+};
+
+const getDocumentRepository = (req: AuthenticatedRequest): DocumentRepositoryImpl => {
+  const repo = req.services?.get('documentRepository') as DocumentRepositoryImpl | undefined;
+  if (!repo) {
+    throw new Error('Document repository not available');
+  }
+  return repo;
+};
+
+const getProjectRepository = (req: AuthenticatedRequest): ProjectRepositoryImpl => {
+  const repo = req.services?.get('projectRepository') as ProjectRepositoryImpl | undefined;
+  if (!repo) {
+    throw new Error('Project repository not available');
+  }
+  return repo;
+};
+
+const getAuthenticatedUserId = (req: AuthenticatedRequest): string | null =>
+  req.auth?.userId ?? req.user?.userId ?? null;
+
+const ensureProjectAccessForDocument = async ({
+  req,
+  res,
+  requestId,
+  documentId,
+  logger,
+}: {
+  req: AuthenticatedRequest;
+  res: Response;
+  requestId: string;
+  documentId: string;
+  logger?: Logger;
+}): Promise<Awaited<ReturnType<DocumentRepositoryImpl['findById']>> | null> => {
+  const documentRepository = getDocumentRepository(req);
+  const document = await documentRepository.findById(documentId);
+  if (!document) {
+    sendErrorResponse(res, 404, 'DOCUMENT_NOT_FOUND', 'Document not found', requestId);
+    return null;
+  }
+
+  const projectRepository = getProjectRepository(req);
+  const userId = getAuthenticatedUserId(req);
+
+  try {
+    await requireProjectAccess({
+      projectRepository,
+      projectId: document.projectId,
+      userId,
+      requestId,
+      logger,
+    });
+  } catch (error) {
+    if (error instanceof ProjectAccessError) {
+      sendErrorResponse(res, error.status, error.code, error.message, requestId);
+      return null;
+    }
+    throw error;
+  }
+
+  return document;
+};
+
+const ensureSectionAccess = async ({
+  req,
+  res,
+  requestId,
+  sectionId,
+  docId,
+  logger,
+}: {
+  req: AuthenticatedRequest;
+  res: Response;
+  requestId: string;
+  sectionId: string;
+  docId?: string;
+  logger?: Logger;
+}) => {
+  const section = await loadSectionScopedToDocument(req, res, requestId, sectionId, docId);
+  if (!section) {
+    return null;
+  }
+
+  const document = await ensureProjectAccessForDocument({
+    req,
+    res,
+    requestId,
+    documentId: section.docId,
+    logger,
+  });
+
+  if (!document) {
+    return null;
+  }
+
+  return { section, document };
 };
 
 const loadSectionScopedToDocument = async (
@@ -381,7 +480,25 @@ sectionsRouter.post(
       return;
     }
 
+    const docIdFromBody =
+      typeof req.body?.documentId === 'string' && req.body.documentId.length > 0
+        ? req.body.documentId
+        : undefined;
+
     try {
+      const access = await ensureSectionAccess({
+        req,
+        res,
+        requestId,
+        sectionId,
+        docId: docIdFromBody,
+        logger,
+      });
+      if (!access) {
+        return;
+      }
+      const { section } = access;
+
       const draftBody = req.body as Partial<{
         draftId: string;
         draftVersion: number;
@@ -418,7 +535,7 @@ sectionsRouter.post(
 
       const draftOptions: SaveDraftOptions = {
         sectionId,
-        documentId: req.body.documentId,
+        documentId: section.docId,
         userId,
         draftId,
         draftVersion: draftInput.draftVersion,
@@ -438,7 +555,7 @@ sectionsRouter.post(
 
       res.status(202).json({
         ...draftResponse,
-        documentId: persistedDraft?.documentId ?? req.body.documentId,
+        documentId: persistedDraft?.documentId ?? section.docId,
         draftBaseVersion:
           persistedDraft?.draftBaseVersion ??
           draftOptions.draftBaseVersion ??
@@ -943,6 +1060,17 @@ sectionsRouter.get(
           requestId,
           timestamp: new Date().toISOString(),
         });
+        return;
+      }
+
+      const documentAccess = await ensureProjectAccessForDocument({
+        req,
+        res,
+        requestId,
+        documentId: docId,
+        logger,
+      });
+      if (!documentAccess) {
         return;
       }
 

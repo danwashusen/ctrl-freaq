@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import type * as BetterSqlite3 from 'better-sqlite3';
 
 import { createApp, type AppContext } from '../../src/app';
@@ -12,27 +12,31 @@ describe('Assumption Session API Contract', () => {
   let app: Express;
   let db: BetterSqlite3.Database;
   let sectionId: string;
-  let sessionId: string;
-  let firstPromptId: string;
 
   beforeAll(async () => {
     app = await createApp();
     const appContext = app.locals.appContext as AppContext;
     db = appContext.database;
+  });
 
+  beforeEach(() => {
     const seeded = seedAssumptionSessionFixtures(db);
     sectionId = seeded.sectionId;
   });
 
-  test('POST /api/v1/sections/:sectionId/assumptions/session creates a session with prioritized prompts', async () => {
+  const startSession = async (templateVersion = '1.0.0') => {
     const response = await request(app)
       .post(`/api/v1/sections/${sectionId}/assumptions/session`)
       .set(AuthorizationHeader)
-      .send({ templateVersion: '1.0.0' });
+      .send({ templateVersion });
 
     expect(response.status).toBe(201);
     expect(response.headers['x-request-id']).toBeTruthy();
+    return response;
+  };
 
+  test('POST /api/v1/sections/:sectionId/assumptions/session creates a session with prioritized prompts', async () => {
+    const response = await startSession('1.0.0');
     const { sessionId: createdSessionId, prompts, documentDecisionSnapshotId } = response.body;
     expect(typeof createdSessionId).toBe('string');
     expect(Array.isArray(prompts)).toBe(true);
@@ -54,30 +58,36 @@ describe('Assumption Session API Contract', () => {
       ])
     );
 
-    sessionId = createdSessionId;
-    firstPromptId = prompts[0]?.id;
+    const firstPromptId = prompts[0]?.id;
     expect(typeof firstPromptId).toBe('string');
   });
 
   test('POST /api/v1/sections/:sectionId/assumptions/:assumptionId/respond records answers and exposes override count', async () => {
+    const response = await startSession('1.0.0');
+    const sessionId = response.body.sessionId as string;
+    const firstPromptId = response.body.prompts?.[0]?.id as string;
     expect(sessionId).toBeTruthy();
     expect(firstPromptId).toBeTruthy();
 
-    const response = await request(app)
+    const respond = await request(app)
       .post(`/api/v1/sections/${sectionId}/assumptions/${firstPromptId}/respond`)
       .set(AuthorizationHeader)
       .send({ action: 'answer', answer: 'no-changes' });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({
+    expect(respond.status).toBe(200);
+    expect(respond.body).toMatchObject({
       id: firstPromptId,
       status: 'answered',
     });
-    expect(typeof response.body.unresolvedOverrideCount).toBe('number');
-    expect(response.body.unresolvedOverrideCount).toBeGreaterThanOrEqual(0);
+    expect(typeof respond.body.unresolvedOverrideCount).toBe('number');
+    expect(respond.body.unresolvedOverrideCount).toBeGreaterThanOrEqual(0);
   });
 
   test('POST /api/v1/sections/:sectionId/assumptions/:assumptionId/respond blocks conflicting decisions', async () => {
+    const response = await startSession('1.0.0');
+    const firstPromptId = response.body.prompts?.[0]?.id as string;
+    expect(firstPromptId).toBeTruthy();
+
     const conflict = await request(app)
       .post(`/api/v1/sections/${sectionId}/assumptions/${firstPromptId}/respond`)
       .set(AuthorizationHeader)
@@ -94,32 +104,44 @@ describe('Assumption Session API Contract', () => {
   });
 
   test('POST /api/v1/sections/:sectionId/assumptions/session/:sessionId/proposals creates draft history entries', async () => {
-    const response = await request(app)
+    const response = await startSession('1.0.0');
+    const sessionId = response.body.sessionId as string;
+
+    const proposal = await request(app)
       .post(`/api/v1/sections/${sectionId}/assumptions/session/${sessionId}/proposals`)
       .set(AuthorizationHeader)
       .send({ source: 'ai_generate' });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({
+    expect(proposal.status).toBe(201);
+    expect(proposal.body).toMatchObject({
       proposalId: expect.any(String),
       proposalIndex: 0,
       overridesOpen: expect.any(Number),
     });
-    expect(Array.isArray(response.body.rationale)).toBe(true);
+    expect(Array.isArray(proposal.body.rationale)).toBe(true);
   });
 
   test('GET /api/v1/sections/:sectionId/assumptions/session/:sessionId/proposals returns ordered history', async () => {
-    const response = await request(app)
+    const response = await startSession('1.0.0');
+    const sessionId = response.body.sessionId as string;
+
+    await request(app)
+      .post(`/api/v1/sections/${sectionId}/assumptions/session/${sessionId}/proposals`)
+      .set(AuthorizationHeader)
+      .send({ source: 'ai_generate' })
+      .expect(201);
+
+    const list = await request(app)
       .get(`/api/v1/sections/${sectionId}/assumptions/session/${sessionId}/proposals`)
       .set(AuthorizationHeader)
       .expect('Content-Type', /json/);
 
-    expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({
+    expect(list.status).toBe(200);
+    expect(list.body).toMatchObject({
       sessionId,
     });
-    expect(Array.isArray(response.body.proposals)).toBe(true);
-    expect(response.body.proposals.length).toBeGreaterThanOrEqual(1);
-    expect(response.body.proposals[0]).toHaveProperty('proposalId');
+    expect(Array.isArray(list.body.proposals)).toBe(true);
+    expect(list.body.proposals.length).toBeGreaterThanOrEqual(1);
+    expect(list.body.proposals[0]).toHaveProperty('proposalId');
   });
 });

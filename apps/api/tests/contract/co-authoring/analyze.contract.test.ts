@@ -5,13 +5,18 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { createApp, type AppContext } from '../../../src/app';
 import { seedSectionFixture } from '../../../src/testing/fixtures/section-editor';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
 const DOCUMENT_ID = 'doc-architecture-demo';
 const SECTION_ID = 'architecture-overview';
 const AUTHOR_ID = 'user_staff_eng';
+const PROJECT_FIXTURE = {
+  projectId: '00000000-0000-4000-8000-000000000212',
+  projectSlug: 'project-co-authoring-analyze',
+  projectOwnerId: DEFAULT_TEST_USER_ID,
+};
 
 describe('Co-authoring analyze endpoint contract', () => {
   let app: Express;
@@ -28,6 +33,7 @@ describe('Co-authoring analyze endpoint contract', () => {
       documentId: DOCUMENT_ID,
       userId: AUTHOR_ID,
       approvedContent: '# Overview\nApproved content ready for context',
+      ...PROJECT_FIXTURE,
     });
   });
 

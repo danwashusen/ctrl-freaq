@@ -1,7 +1,9 @@
 import { useAuth, useUser, UserButton } from '@/lib/auth-provider';
 import {
+  AlertTriangle,
   ChevronsLeft,
   ChevronsRight,
+  CheckCircle2,
   Edit,
   FileText,
   Loader2,
@@ -75,6 +77,40 @@ interface ProjectLifecycleEventPayload {
 }
 
 const DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY = 'ctrl-freaq:dashboard:archive-notice';
+
+const CREATE_DOCUMENT_STEPS = [
+  {
+    id: 'initializing',
+    label: 'Initializing',
+    description: 'Validating project access and loading template defaults.',
+  },
+  {
+    id: 'provisioning',
+    label: 'Provisioning',
+    description: 'Seeding document sections and metadata.',
+  },
+  {
+    id: 'finalizing',
+    label: 'Finalizing',
+    description: 'Syncing state with the editor and redirecting.',
+  },
+] as const;
+
+type CreateDocumentStepId = (typeof CREATE_DOCUMENT_STEPS)[number]['id'];
+type CreateDocumentStepperState = CreateDocumentStepId | 'idle';
+
+const CREATE_DOCUMENT_STEP_ORDER = CREATE_DOCUMENT_STEPS.reduce<
+  Record<CreateDocumentStepId, number>
+>(
+  (acc, step, index) => {
+    acc[step.id] = index;
+    return acc;
+  },
+  {} as Record<CreateDocumentStepId, number>
+);
+
+const DOCUMENT_PROVISIONING_TROUBLESHOOTING_URL =
+  'https://docs.ctrl-freaq.dev/surface-document-editor/provisioning-troubleshooting';
 
 const isApiError = (error: unknown): error is ApiError =>
   typeof error === 'object' && error !== null && 'status' in error;
@@ -469,6 +505,24 @@ export default function Project() {
     provisioningState,
     showProvisioningHint,
   ]);
+  const createDocumentErrorMessage = (createDocumentError ?? '').trim();
+  const createDocumentStepperState = useMemo<CreateDocumentStepperState>(() => {
+    if (createDocumentSuccess) {
+      return 'finalizing';
+    }
+    if (isProvisioning || provisioningState === 'pending') {
+      return 'provisioning';
+    }
+    if (createDocumentInFlight) {
+      return 'initializing';
+    }
+    return 'idle';
+  }, [createDocumentInFlight, createDocumentSuccess, isProvisioning, provisioningState]);
+  const activeCreateDocumentStep =
+    createDocumentStepperState === 'idle' ? null : createDocumentStepperState;
+  const activeCreateDocumentStepIndex = activeCreateDocumentStep
+    ? CREATE_DOCUMENT_STEP_ORDER[activeCreateDocumentStep]
+    : -1;
   const exportStatusLabel = useMemo(() => {
     switch (exportState) {
       case 'queued':
@@ -1837,6 +1891,97 @@ export default function Project() {
           >
             {createDocumentDescription}
           </span>
+          {activeCreateDocumentStep ? (
+            <ol
+              data-testid="create-document-stepper"
+              data-current-step={activeCreateDocumentStep}
+              className="mt-4 space-y-3 rounded-md border border-[hsla(var(--dashboard-panel-border)/0.35)] bg-[hsla(var(--dashboard-panel-bg)/0.5)] p-4 text-sm"
+            >
+              {CREATE_DOCUMENT_STEPS.map(step => {
+                const stepIndex = CREATE_DOCUMENT_STEP_ORDER[step.id];
+                const state =
+                  activeCreateDocumentStepIndex < stepIndex
+                    ? 'pending'
+                    : activeCreateDocumentStepIndex === stepIndex
+                      ? 'active'
+                      : 'complete';
+
+                const iconClasses =
+                  state === 'complete'
+                    ? 'text-emerald-600'
+                    : state === 'active'
+                      ? 'text-[hsl(var(--dashboard-content-foreground))]'
+                      : 'text-[hsl(var(--dashboard-content-muted))]';
+
+                return (
+                  <li key={step.id} data-state={state} className="flex items-start gap-3">
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold ${
+                        state === 'complete'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600'
+                          : state === 'active'
+                            ? 'border-[hsl(var(--dashboard-content-foreground))] bg-[hsla(var(--dashboard-content-foreground)/0.1)] text-[hsl(var(--dashboard-content-foreground))]'
+                            : 'border-[hsla(var(--dashboard-panel-border)/0.6)] text-[hsl(var(--dashboard-content-muted))]'
+                      }`}
+                    >
+                      {state === 'complete' ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : state === 'active' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        stepIndex + 1
+                      )}
+                    </span>
+                    <div className="flex-1">
+                      <p className={`font-semibold ${iconClasses}`}>{step.label}</p>
+                      <p className="text-[hsl(var(--dashboard-content-muted))]">
+                        {step.description}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : null}
+          {createDocumentError ? (
+            <div
+              className="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              data-testid="create-document-failure-banner"
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold text-red-800">
+                    We could not create the document. Retry now or contact support.
+                  </p>
+                  <p className="mt-1">
+                    {createDocumentErrorMessage.length > 0
+                      ? createDocumentErrorMessage
+                      : 'Unable to create document.'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="inline-flex items-center"
+                  onClick={handleCreateDocument}
+                  disabled={createDocumentButtonDisabled}
+                >
+                  Retry create document
+                </Button>
+                <a
+                  href={DOCUMENT_PROVISIONING_TROUBLESHOOTING_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-red-700 underline hover:text-red-800"
+                >
+                  View troubleshooting guide
+                </a>
+              </div>
+            </div>
+          ) : null}
         </Card>
 
         <Card className="cursor-pointer border-[hsla(var(--dashboard-panel-border)/0.6)] bg-[hsla(var(--dashboard-panel-bg)/0.9)] text-[hsl(var(--dashboard-content-foreground))] shadow-none transition hover:bg-[hsla(var(--dashboard-surface-hover)/0.35)]">

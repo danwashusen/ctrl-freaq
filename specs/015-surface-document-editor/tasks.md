@@ -181,6 +181,10 @@ tied to the live document, and trigger a project export with feedback.
   `action: 'approved'` when the document already matches the requested template
   version; handling explicit `pending` or `blocked` selections remains future
   scope.
+- [ASSUMPTION] F019: The "View troubleshooting guide" CTA points to
+  `https://docs.ctrl-freaq.dev/surface-document-editor/provisioning-troubleshooting`
+  because no canonical support URL exists in the repo, and the spec mandates a
+  link.
 
 ---
 
@@ -227,6 +231,59 @@ tied to the live document, and trigger a project export with feedback.
   green.
 
 ## Implementation Log
+
+- 2025-11-09T00:20:00Z — F022: Reseeded section-editor fixtures with
+  project-scoped UUID metadata so the new project-ownership guards in the
+  section routes keep returning 200/403 as expected instead of 500s.
+  - Files: `apps/api/tests/contract/documents.draft-bundle.contract.test.ts`,
+    `apps/api/tests/contract/section-editor/section-editor.contract.test.ts`,
+    `apps/api/tests/contract/co-authoring/{analyze,apply,proposal}.contract.test.ts`,
+    `apps/api/tests/contract/quality-gates/{sections,traceability}.contract.test.ts`,
+    `apps/api/tests/integration/events/section-draft.stream.test.ts`.
+  - Commands: `CI=1 pnpm install`, `pnpm format`, `pnpm lint:fix`,
+    `pnpm typecheck`, `pnpm build`, `pnpm test`.
+  - Tests: `pnpm test` (first run exposed invalid project-id formats; reran
+    successfully after aligning every fixture with deterministic UUID IDs).
+  - Follow-ups: None.
+
+- 2025-11-08T21:25:46Z — F021: Cleared the Create Document stepper guard to
+  align with its narrowed union so the repository typecheck can complete.
+  - Files: `apps/web/src/pages/Project.tsx`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands: `pnpm format`, `pnpm lint:fix`, `pnpm lint`, `pnpm typecheck`
+  - Tests: `pnpm lint`, `pnpm typecheck`
+  - Follow-ups: None.
+
+- 2025-11-08T00:16:05Z — F020: Hardened section routes against nullable access
+  responses so `tsc` stops flagging `section` references as possibly `null`.
+  - Files: `apps/api/src/routes/sections.ts`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands: `pnpm typecheck` (fails in `apps/web/src/pages/Project.tsx:1897`
+    due to existing status narrowing issue),
+    `pnpm --filter @ctrl-freaq/api typecheck`
+  - Tests: `tsc --noEmit` via `pnpm --filter @ctrl-freaq/api typecheck`
+  - Follow-ups: Repo-wide `pnpm typecheck` still blocked by the Project page
+    status union mismatch; address lint scope finding F021 when governance
+    change is approved.
+
+- 2025-11-07T21:34:55Z — F018/F019: Locked section and assumption routes behind
+  project authorization and added the spec-required provisioning stepper plus
+  failure banner on the Project create-document workflow.
+  - Files: `apps/api/src/routes/sections.ts`,
+    `apps/api/src/testing/fixtures/section-editor.ts`,
+    `apps/api/tests/contract/section-editor/section-editor.contract.test.ts`,
+    `apps/web/src/pages/Project.tsx`,
+    `apps/web/src/pages/__tests__/Project.create-document.test.tsx`,
+    `apps/web/tests/e2e/project-open-document.e2e.ts`,
+    `specs/015-surface-document-editor/tasks.md`.
+  - Commands:
+    `pnpm --filter @ctrl-freaq/api test -- tests/contract/section-editor/section-editor.contract.test.ts`,
+    `pnpm --filter @ctrl-freaq/web test -- src/pages/__tests__/Project.create-document.test.tsx`,
+    `pnpm --filter @ctrl-freaq/web test:e2e:quick -- tests/e2e/project-open-document.e2e.ts`.
+  - Tests: Section editor contract suite (API), Project create-document Vitest
+    specs (web), and the Playwright fixture flow covering create-document error
+    handling.
+  - Follow-ups: None.
 
 - 2025-11-07T09:14:27Z — F015–F017: Added the export artifact download CTA,
   spec-compliant document-missing recovery actions, and project-document-scoped
@@ -487,3 +544,11 @@ tied to the live document, and trigger a project export with feedback.
       to project”/“Provision new document” actions as described in audit.md
 - [x] F017 Finding F017: Template decision snapshot reuses project-level history
       rather than the active document’s decisions as described in audit.md
+- [x] F018 Finding F018: Section routes bypass project authorization as
+      described in audit.md
+- [x] F019 Finding F019: Create-document workflow lacks the spec-mandated
+      provisioning stepper and failure UX as described in audit.md
+- [x] F020 Finding F020: TypeScript build fails in section routes as described
+      in audit.md
+- [x] F021 Finding F021: Create-document stepper state check keeps typecheck red
+      as described in audit.md

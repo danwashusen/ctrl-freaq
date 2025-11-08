@@ -10,9 +10,15 @@ import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 const PROJECT_SLUG = 'project-test';
+const PROJECT_ID = '00000000-0000-4000-8000-000000000111';
 const DOCUMENT_ID = 'doc-architecture-demo';
 const SECTION_ALPHA = 'architecture-overview';
 const AUTHOR_ID = DEFAULT_TEST_USER_ID;
+const PROJECT_FIXTURE = {
+  projectId: PROJECT_ID,
+  projectSlug: PROJECT_SLUG,
+  projectOwnerId: AUTHOR_ID,
+};
 
 const DraftBundleResponseSchema = z.object({
   documentId: z.string(),
@@ -50,6 +56,7 @@ describe('Draft bundle API contract', () => {
       documentId: DOCUMENT_ID,
       userId: AUTHOR_ID,
       approvedVersion: 7,
+      ...PROJECT_FIXTURE,
     });
     seedDraftFixture(db, {
       draftId: 'draft-alpha',
@@ -90,6 +97,7 @@ describe('Draft bundle API contract', () => {
       documentId: DOCUMENT_ID,
       userId: AUTHOR_ID,
       approvedVersion: 7,
+      ...PROJECT_FIXTURE,
     });
 
     const response = await request(app)
@@ -158,6 +166,7 @@ describe('Draft bundle API contract', () => {
       documentId: DOCUMENT_ID,
       userId: AUTHOR_ID,
       approvedVersion: 7,
+      ...PROJECT_FIXTURE,
     });
 
     seedSectionFixture(db, {
@@ -165,6 +174,7 @@ describe('Draft bundle API contract', () => {
       documentId: rogueDocumentId,
       userId: AUTHOR_ID,
       approvedVersion: 3,
+      ...PROJECT_FIXTURE,
     });
 
     const response = await request(app)
