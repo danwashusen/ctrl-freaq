@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 import { createFixtureRequestHandler } from './src/lib/fixtures/e2e';
+import { createFixtureEventStreamHandler } from './src/lib/fixtures/e2e/event-stream';
 
 const resolveCliMode = (): string | null => {
   const modeFlagIndex = process.argv.findIndex(
@@ -33,6 +34,26 @@ const createE2EFixturePlugin = (isE2EEnabled: boolean) => {
       }
 
       const handler = createFixtureRequestHandler();
+      const eventStreamHandler = createFixtureEventStreamHandler();
+
+      server.middlewares.use('/api/v1/events', (req, res) => {
+        try {
+          eventStreamHandler(req, res);
+        } catch (error) {
+          server.config.logger.error(
+            '[fixtures] event stream handler failed',
+            error instanceof Error ? error : new Error(String(error))
+          );
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(
+            JSON.stringify({
+              code: 'fixtures.stream_error',
+              message: 'Fixture event stream failed to initialize.',
+            })
+          );
+        }
+      });
 
       server.middlewares.use('/__fixtures', (req, res, next) => {
         Promise.resolve(handler(req, res, next)).catch(error => {

@@ -85,6 +85,10 @@ export function createDefaultAppConfig(): AppConfig {
     process.env.SIMPLE_AUTH_USER_FILE =
       process.env.SIMPLE_AUTH_USER_FILE ||
       path.resolve(process.cwd(), 'tests/shared/simple-auth/users.yaml');
+    process.env.SIMPLE_AUTH_TEST_USER_ID =
+      process.env.SIMPLE_AUTH_TEST_USER_ID || 'user-local-author';
+    process.env.SIMPLE_AUTH_TEMPLATE_MANAGER_USER_ID =
+      process.env.SIMPLE_AUTH_TEMPLATE_MANAGER_USER_ID || 'template_manager';
   }
 
   const authProvider = resolveAuthProviderConfig();
