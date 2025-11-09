@@ -1413,6 +1413,12 @@ All data access must verify:
   - Emit structured warnings whenever simple mode is active (API + UI banner)
   - Mount `/auth/simple/*` endpoints only in simple mode; Clerk deployments
     bypass them entirely
+  - All document-editor networking (assumptions, section editor, persistence,
+    retention, co-authoring, document QA) MUST obtain both the API base URL and
+    bearer token via `configureDocumentEditorClients()` inside `ApiProvider`.
+    Never read `VITE_AUTH_PROVIDER`, cookies, or env vars directly inside these
+    feature clients—always call the shared `getAuthToken` so Clerk and simple
+    auth stay behaviorally identical.
 
 ### Secrets Management {#secrets-management}
 

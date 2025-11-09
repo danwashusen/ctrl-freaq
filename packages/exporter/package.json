@@ -5,20 +5,26 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
     },
     "./formats/*": {
+      "development": "./src/formats/*.ts",
       "import": "./dist/formats/*.js",
-      "types": "./dist/formats/*.d.ts"
+      "types": "./src/formats/*.ts",
+      "default": "./dist/formats/*.js"
     },
     "./exporters/*": {
+      "development": "./src/exporters/*.ts",
       "import": "./dist/exporters/*.js",
-      "types": "./dist/exporters/*.d.ts"
+      "types": "./src/exporters/*.ts",
+      "default": "./dist/exporters/*.js"
     }
   },
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "bin": {
     "ctrl-freaq-exporter": "dist/cli.js"
   },

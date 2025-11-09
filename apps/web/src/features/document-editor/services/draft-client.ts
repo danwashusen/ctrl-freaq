@@ -1,4 +1,5 @@
 import ApiClient, { type ApiClientOptions } from '@/lib/api';
+import { createDocumentEditorApiClientOptions } from '@/lib/document-editor-client-config';
 
 export interface DraftSectionSubmission {
   draftKey: string;
@@ -39,7 +40,7 @@ export interface DraftComplianceResponse {
 
 export class DraftPersistenceClient extends ApiClient {
   constructor(options?: ApiClientOptions) {
-    super(options);
+    super(createDocumentEditorApiClientOptions(options));
   }
 
   async applyDraftBundle(

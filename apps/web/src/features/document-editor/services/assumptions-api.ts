@@ -9,6 +9,7 @@ import type {
   RespondToAssumptionRequest,
   StartAssumptionSessionResponse,
 } from '../types/assumption-session';
+import { createDocumentEditorApiClientOptions } from '@/lib/document-editor-client-config';
 
 export interface StartAssumptionSessionRequest {
   templateVersion: string;
@@ -47,7 +48,7 @@ export class AssumptionsApiService extends ApiClient {
 
   constructor(options: AssumptionsApiServiceOptions = {}) {
     const { queryClient, ...apiOptions } = options;
-    super(apiOptions);
+    super(createDocumentEditorApiClientOptions(apiOptions));
     this.queryClient = queryClient;
   }
 
@@ -433,4 +434,5 @@ export class AssumptionsApiService extends ApiClient {
   }
 }
 
-export const assumptionsApi = new AssumptionsApiService();
+export const createAssumptionsApiService = (options?: AssumptionsApiServiceOptions) =>
+  new AssumptionsApiService(options);

@@ -52,6 +52,7 @@ import { useDocumentQualityStore } from '../quality-gates/stores/document-qualit
 import { useCoAuthorSession } from '../hooks/useCoAuthorSession';
 import { useDocumentQaSession } from '../hooks/useDocumentQaSession';
 import type { CoAuthoringIntent } from '../stores/co-authoring-store';
+import { getDocumentEditorClientConfig } from '@/lib/document-editor-client-config';
 
 export interface DocumentEditorProps {
   documentId: string;
@@ -347,13 +348,25 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }
     }, [pendingRehydratedDrafts]);
 
+    const { baseUrl: documentEditorBaseUrl, getAuthToken: documentEditorToken } =
+      getDocumentEditorClientConfig();
+
     const client = useMemo(() => {
-      const baseUrl =
-        fixtureDocument && typeof window !== 'undefined'
-          ? `${window.location.origin.replace(/\/$/, '')}/__fixtures/api`
-          : undefined;
-      return createSectionEditorClient(baseUrl ? { baseUrl } : undefined);
-    }, [fixtureDocument]);
+      const sharedOptions = {
+        baseUrl: documentEditorBaseUrl,
+        getAuthToken: documentEditorToken,
+      };
+
+      if (fixtureDocument && typeof window !== 'undefined') {
+        const origin = window.location.origin.replace(/\/$/, '');
+        return createSectionEditorClient({
+          ...sharedOptions,
+          baseUrl: `${origin}/__fixtures/api`,
+        });
+      }
+
+      return createSectionEditorClient(sharedOptions);
+    }, [documentEditorBaseUrl, documentEditorToken, fixtureDocument]);
 
     const sectionsList = useMemo(() => sortSections(sections), [sections]);
     const activeSection = activeSectionId ? (sections[activeSectionId] ?? null) : null;

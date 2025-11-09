@@ -575,6 +575,34 @@ backend dependencies.
 **Interaction Notes:** Deep links always resolve to fixture content in E2E mode,
 while production mode continues to rely on live API responses once implemented.
 
+##### Document Editor Networking {#document-editor-networking}
+
+**Purpose:** Keep every document-editor service (assumptions, section editor,
+draft persistence/compliance, retention, co-authoring, document QA) aligned on a
+single authentication surface regardless of provider.
+
+**Key Behaviors:**
+
+- `ApiProvider` calls
+  `configureDocumentEditorClients({ baseUrl, getAuthToken })` before rendering
+  children. Feature clients must call `getDocumentEditorClientConfig()` (or the
+  helper shims) instead of reading `VITE_API_BASE_URL`, `VITE_AUTH_PROVIDER`, or
+  cookies directly.
+- REST helpers (e.g. `postAnalyze`, `postDocumentQaReview`,
+  `DraftPersistenceClient`) must attach `Authorization: Bearer <token>` when the
+  getter returns a value and always send `credentials: 'include'` so simple-auth
+  cookies accompany SSE/fetch requests.
+- SSE helpers (`subscribeToSession`, assumption streams, Event Hub) set
+  `withCredentials: true` and reuse the shared EventSource factory so Clerk and
+  simple mode behave identically.
+- Tests that bypass `ApiProvider` (unit/MSW) call
+  `configureDocumentEditorClients()` in their setup to stub the base URL and
+  token getter.
+
+**Interaction Notes:** Feature code never branches on the auth provider; it
+calls the shared token getter and surfaces actionable errors when the getter
+returns null.
+
 #### Floating AI Assistant Interface {#floating-ai-assistant-interface}
 
 **Purpose:** Persistent, repositionable AI chat interface for conversational

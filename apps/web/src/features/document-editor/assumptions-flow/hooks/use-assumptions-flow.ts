@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
   createAssumptionSessionStore,
@@ -13,7 +14,7 @@ import {
 } from '..';
 import type { AssumptionAction } from '../../types/assumption-session';
 import { useDocumentStore } from '../../stores/document-store';
-import { assumptionsApi } from '../../services/assumptions-api';
+import { createAssumptionsApiService } from '../../services/assumptions-api';
 import {
   emitAssumptionStreamingMetric,
   emitAssumptionStreamingResequence,
@@ -111,9 +112,23 @@ export function useAssumptionsFlow({
     ...INITIAL_STREAMING_STATE,
   }));
   const sessionStoreRef = useRef(createAssumptionSessionStore());
-  const bootstrapRef = useRef(
-    createAssumptionsFlowBootstrap({ sessionStore: sessionStoreRef.current })
+  const queryClient = useQueryClient();
+  const assumptionsService = useMemo(
+    () => createAssumptionsApiService({ queryClient }),
+    [queryClient]
   );
+  const bootstrapRef = useRef(
+    createAssumptionsFlowBootstrap({
+      sessionStore: sessionStoreRef.current,
+      api: assumptionsService,
+    })
+  );
+  useEffect(() => {
+    bootstrapRef.current = createAssumptionsFlowBootstrap({
+      sessionStore: sessionStoreRef.current,
+      api: assumptionsService,
+    });
+  }, [assumptionsService]);
   const lastSequenceRef = useRef(0);
   const streamSubscriptionRef = useRef<{ close: () => void } | null>(null);
   const resequenceCountRef = useRef(0);
@@ -198,6 +213,11 @@ export function useAssumptionsFlow({
     setAssumptionSession,
   ]);
 
+  const subscribeToStreamImpl = useMemo(
+    () => api?.subscribeToStream ?? assumptionsService.subscribeToStream?.bind(assumptionsService),
+    [api?.subscribeToStream, assumptionsService]
+  );
+
   useEffect(() => {
     const activeState = state;
 
@@ -209,10 +229,7 @@ export function useAssumptionsFlow({
       return;
     }
 
-    const subscribeToStream =
-      api?.subscribeToStream ?? assumptionsApi.subscribeToStream?.bind(assumptionsApi);
-
-    if (typeof subscribeToStream !== 'function') {
+    if (typeof subscribeToStreamImpl !== 'function') {
       return;
     }
 
@@ -522,7 +539,7 @@ export function useAssumptionsFlow({
       }
     };
 
-    const subscription = subscribeToStream(
+    const subscription = subscribeToStreamImpl(
       documentId,
       sectionIdentifier,
       currentSessionId,
@@ -536,7 +553,7 @@ export function useAssumptionsFlow({
         streamSubscriptionRef.current = null;
       }
     };
-  }, [api?.subscribeToStream, documentId, enabled, sectionId, state]);
+  }, [documentId, enabled, sectionId, state, subscribeToStreamImpl]);
 
   const respond = useCallback(
     async (promptId: string, action: AssumptionAction, payload?: RespondPayload) => {

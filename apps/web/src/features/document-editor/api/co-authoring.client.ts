@@ -1,11 +1,54 @@
-const RAW_API_BASE =
-  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
-    ? (import.meta.env.VITE_API_BASE_URL as string)
-    : undefined) ?? '/api/v1';
-const API_BASE_PATH = RAW_API_BASE.replace(/\/$/, '');
+import {
+  getDocumentEditorClientConfig,
+  getDocumentEditorEventSourceFactory,
+  getDocumentEditorFetchImpl,
+} from '@/lib/document-editor-client-config';
+
+type EventSourceFactory = (url: string, init?: EventSourceInit) => EventSource;
 
 export const buildApiUrl = (path: string): string => {
-  return `${API_BASE_PATH}${path}`;
+  const config = getDocumentEditorClientConfig();
+  return `${config.baseUrl}${path}`;
+};
+
+const resolveFetchImpl = (override?: typeof fetch): typeof fetch => {
+  if (override) {
+    return override;
+  }
+  return getDocumentEditorFetchImpl();
+};
+
+const resolveEventSourceFactory = (override?: EventSourceFactory): EventSourceFactory => {
+  if (override) {
+    return override;
+  }
+  return getDocumentEditorEventSourceFactory();
+};
+
+const buildJsonRequest = async (
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+  fetchOverride?: typeof fetch
+) => {
+  const config = getDocumentEditorClientConfig();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const token = await config.getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const init: RequestInit = {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal,
+    credentials: 'include',
+  };
+  return {
+    fetchImpl: resolveFetchImpl(fetchOverride),
+    init,
+  };
 };
 
 export interface ContextSection {
@@ -155,20 +198,6 @@ export interface EventSubscription {
   close: () => void;
 }
 
-const defaultFetch: typeof fetch = (...args) => fetch(...args);
-
-const createRequestInit = (
-  payload: Record<string, unknown>,
-  signal?: AbortSignal
-): RequestInit => ({
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(payload),
-  signal,
-});
-
 const readJson = async <T>(response: Response): Promise<T> => {
   const text = await response.text();
   if (!text) {
@@ -185,26 +214,24 @@ export const postAnalyze = async (
   payload: AnalyzeRequestPayload,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<RequestResult<AnalyzeResponseBody>> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/co-author/analyze`
   );
 
-  const response = await fetchImpl(
-    url,
-    createRequestInit(
-      {
-        sessionId: payload.sessionId,
-        intent: payload.intent,
-        prompt: payload.prompt,
-        knowledgeItemIds: payload.knowledgeItemIds ?? [],
-        decisionIds: payload.decisionIds ?? [],
-        completedSections: payload.completedSections,
-        currentDraft: payload.currentDraft,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await buildJsonRequest(
+    {
+      sessionId: payload.sessionId,
+      intent: payload.intent,
+      prompt: payload.prompt,
+      knowledgeItemIds: payload.knowledgeItemIds ?? [],
+      decisionIds: payload.decisionIds ?? [],
+      completedSections: payload.completedSections,
+      currentDraft: payload.currentDraft,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Analyze request failed with status ${response.status}`);
@@ -220,30 +247,28 @@ export const postProposal = async (
   payload: ProposalRequestPayload,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<RequestResult<ProposalResponseBody>> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/co-author/proposal`
   );
 
-  const response = await fetchImpl(
-    url,
-    createRequestInit(
-      {
-        sessionId: payload.sessionId,
-        promptId: payload.promptId,
-        turnId: payload.turnId,
-        intent: payload.intent,
-        prompt: payload.prompt,
-        knowledgeItemIds: payload.knowledgeItemIds ?? [],
-        decisionIds: payload.decisionIds ?? [],
-        completedSections: payload.completedSections,
-        currentDraft: payload.currentDraft,
-        draftVersion: payload.draftVersion,
-        baselineVersion: payload.baselineVersion,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await buildJsonRequest(
+    {
+      sessionId: payload.sessionId,
+      promptId: payload.promptId,
+      turnId: payload.turnId,
+      intent: payload.intent,
+      prompt: payload.prompt,
+      knowledgeItemIds: payload.knowledgeItemIds ?? [],
+      decisionIds: payload.decisionIds ?? [],
+      completedSections: payload.completedSections,
+      currentDraft: payload.currentDraft,
+      draftVersion: payload.draftVersion,
+      baselineVersion: payload.baselineVersion,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Proposal request failed with status ${response.status}`);
@@ -259,24 +284,22 @@ export const postApply = async (
   payload: ApplyRequestPayload,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<ApplyResponseBody> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/co-author/apply`
   );
 
-  const response = await fetchImpl(
-    url,
-    createRequestInit(
-      {
-        sessionId: payload.sessionId,
-        proposalId: payload.proposalId,
-        draftPatch: payload.draftPatch,
-        diffHash: payload.diffHash,
-        approvalNotes: payload.approvalNotes,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await buildJsonRequest(
+    {
+      sessionId: payload.sessionId,
+      proposalId: payload.proposalId,
+      draftPatch: payload.draftPatch,
+      diffHash: payload.diffHash,
+      approvalNotes: payload.approvalNotes,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Apply request failed with status ${response.status}`);
@@ -305,10 +328,12 @@ const resolveStreamPath = (streamPath: string | undefined, sessionId: string): s
 export const subscribeToSession = (
   sessionId: string,
   onEvent: (event: CoAuthoringStreamEvent) => void,
-  options?: { eventSourceFactory?: (url: string) => EventSource; streamPath?: string }
+  options?: { eventSourceFactory?: EventSourceFactory; streamPath?: string }
 ): EventSubscription => {
-  const factory = options?.eventSourceFactory ?? ((url: string) => new EventSource(url));
-  const eventSource = factory(resolveStreamPath(options?.streamPath, sessionId));
+  const factory = resolveEventSourceFactory(options?.eventSourceFactory);
+  const eventSource = factory(resolveStreamPath(options?.streamPath, sessionId), {
+    withCredentials: true,
+  });
 
   const handleMessage = (event: MessageEvent<string>) => {
     if (!event?.data) {
@@ -513,21 +538,19 @@ export const postRejectProposal = async (
   payload: RejectProposalPayload,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<void> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/co-author/proposal/reject`
   );
 
-  const response = await fetchImpl(
-    url,
-    createRequestInit(
-      {
-        sessionId: payload.sessionId,
-        proposalId: payload.proposalId,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await buildJsonRequest(
+    {
+      sessionId: payload.sessionId,
+      proposalId: payload.proposalId,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok && response.status !== 204) {
     throw new Error(`Reject proposal request failed with status ${response.status}`);
@@ -538,21 +561,19 @@ export const postTeardownSession = async (
   payload: TeardownSessionPayload,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<void> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/co-author/teardown`
   );
 
-  const response = await fetchImpl(
-    url,
-    createRequestInit(
-      {
-        sessionId: payload.sessionId,
-        reason: payload.reason ?? 'manual',
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await buildJsonRequest(
+    {
+      sessionId: payload.sessionId,
+      reason: payload.reason ?? 'manual',
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok && response.status !== 204) {
     throw new Error(`Teardown session request failed with status ${response.status}`);
