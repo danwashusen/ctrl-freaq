@@ -686,6 +686,10 @@ export function createRepositoryRegistrationMiddleware(
         'assumptionSessionRepository'
       ) as AssumptionSessionRepository;
       const logger = currentContainer.get('logger') as Logger;
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const templateResolver = currentContainer.get('templateResolver') as TemplateResolver;
       const promptProvider = currentContainer.get(
         'assumptionPromptProvider'
       ) as AssumptionPromptProvider;
@@ -709,6 +713,8 @@ export function createRepositoryRegistrationMiddleware(
       const service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider,
         decisionProvider,
         queue: sharedQueue,

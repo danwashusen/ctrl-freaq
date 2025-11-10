@@ -65,9 +65,10 @@ export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSecti
   const projectOwnerId = params.projectOwnerId ?? params.userId ?? 'user-local-author';
   const approvedVersion = Math.max(params.approvedVersion ?? 6, 1);
   const approvedContent = params.approvedContent ?? DEFAULT_APPROVED_CONTENT;
-  const templateId = params.templateId ?? 'architecture';
-  const templateVersion = params.templateVersion ?? '1.0.0';
-  const templateSchemaHash = params.templateSchemaHash ?? 'hash-architecture-v1';
+  const templateId = params.templateId ?? 'architecture-reference';
+  const templateVersion = params.templateVersion ?? '2.1.0';
+  const templateSchemaHash =
+    params.templateSchemaHash ?? 'e4da6c86723feba8843017296d64a4b31f9e2691a4df59012665356e39f564bb';
   const templateVersionId = params.templateVersionId ?? randomUUID();
 
   seedUserFixture(db, params.userId);

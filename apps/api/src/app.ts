@@ -28,10 +28,14 @@ import type { AuthProviderConfig } from './config/auth-provider.js';
 import { resolveEventStreamConfig } from './config/event-stream.js';
 import { EventBroker } from './modules/event-stream/event-broker.js';
 import {
+  DocumentTemplateRepositoryImpl,
   ProjectRepositoryImpl,
   ProjectRetentionPolicyRepositoryImpl,
+  TemplateVersionRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { bootstrapRetentionPolicies } from './services/retention/default-policies.js';
+import { TemplateCatalogService } from './services/template-catalog.service.js';
+import { bootstrapDefaultTemplate } from './services/template/bootstrap-default-template.js';
 
 /**
  * Express App Configuration and Middleware Setup
@@ -167,6 +171,19 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   await bootstrapRetentionPolicies({
     projectRepository: bootstrapProjectRepository,
     retentionRepository: bootstrapRetentionRepository,
+    logger,
+  });
+  const bootstrapTemplateRepository = new DocumentTemplateRepositoryImpl(database);
+  const bootstrapTemplateVersionRepository = new TemplateVersionRepositoryImpl(database);
+  const bootstrapTemplateCatalogService = new TemplateCatalogService(
+    bootstrapTemplateRepository,
+    bootstrapTemplateVersionRepository,
+    logger
+  );
+  await bootstrapDefaultTemplate({
+    templateRepository: bootstrapTemplateRepository,
+    versionRepository: bootstrapTemplateVersionRepository,
+    catalogService: bootstrapTemplateCatalogService,
     logger,
   });
 

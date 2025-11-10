@@ -3,17 +3,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { createTemplateLocator } from '../../../src/services/templates/template-path-resolver.js';
 
 describe('template-path-resolver', () => {
   let tmpRoot: string | null = null;
+  let previousTemplateRoot: string | undefined;
+
+  beforeEach(() => {
+    previousTemplateRoot = process.env.CTRL_FREAQ_TEMPLATE_ROOT;
+    delete process.env.CTRL_FREAQ_TEMPLATE_ROOT;
+  });
 
   afterEach(async () => {
     if (tmpRoot) {
       await rm(tmpRoot, { recursive: true, force: true });
       tmpRoot = null;
+    }
+    if (typeof previousTemplateRoot === 'string') {
+      process.env.CTRL_FREAQ_TEMPLATE_ROOT = previousTemplateRoot;
+    } else {
+      delete process.env.CTRL_FREAQ_TEMPLATE_ROOT;
     }
   });
 

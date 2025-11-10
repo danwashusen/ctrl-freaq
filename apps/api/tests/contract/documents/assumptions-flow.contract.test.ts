@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { Express } from 'express';
 import type * as BetterSqlite3 from 'better-sqlite3';
@@ -11,6 +13,16 @@ import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
 import { seedAssumptionSessionFixtures } from '../../../src/testing/fixtures/assumption-session';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
+const __dirname = dirname(fileURLToPath(import.meta.url));
+process.env.CTRL_FREAQ_TEMPLATE_ROOT = resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'templates'
+);
 
 const SessionResponseSchema = z.object({
   sessionId: z.string().min(1),
@@ -49,7 +61,7 @@ describe('Document assumption flow scoping', () => {
       .post(`/api/v1/documents/${documentId}/sections/${sectionId}/assumptions/session`)
       .set(AuthorizationHeader)
       .send({
-        templateVersion: '1.1.0',
+        templateVersion: '2.1.0',
         decisionSnapshotId: 'a'.repeat(64),
       })
       .expect(201);
@@ -67,17 +79,53 @@ describe('Document assumption flow scoping', () => {
     const mismatch = await request(app)
       .post(`/api/v1/documents/${randomUUID()}/sections/${sectionId}/assumptions/session`)
       .set(AuthorizationHeader)
-      .send({ templateVersion: '1.1.0' })
+      .send({ templateVersion: '2.1.0' })
       .expect(404);
 
     expect(mismatch.body).toMatchObject({ code: 'DOCUMENT_SECTION_MISMATCH' });
+  });
+
+  test('falls back to the stored template when the request references an unknown version', async () => {
+    const response = await request(app)
+      .post(`/api/v1/documents/${documentId}/sections/${sectionId}/assumptions/session`)
+      .set(AuthorizationHeader)
+      .send({ templateVersion: '0.0.0' })
+      .expect(201);
+
+    const parsed = SessionResponseSchema.safeParse(response.body);
+    expect(parsed.success).toBe(true);
+  });
+
+  test('returns a conflict when the referenced template cannot be resolved', async () => {
+    db.prepare(
+      `UPDATE documents
+          SET template_id = 'orphan-template',
+              template_version = '9.9.9',
+              template_schema_hash = 'hash-orphan'
+        WHERE id = ?`
+    ).run(documentId);
+
+    const response = await request(app)
+      .post(`/api/v1/documents/${documentId}/sections/${sectionId}/assumptions/session`)
+      .set(AuthorizationHeader)
+      .send({ templateVersion: '9.9.9' })
+      .expect(409);
+
+    expect(response.body).toMatchObject({
+      code: 'CONFLICT',
+      message: 'Template version unavailable for this document',
+      details: expect.objectContaining({
+        code: 'TEMPLATE_VERSION_MISSING',
+        templateId: 'orphan-template',
+      }),
+    });
   });
 
   test('respond endpoint enforces document scoped identifiers', async () => {
     const start = await request(app)
       .post(`/api/v1/documents/${documentId}/sections/${sectionId}/assumptions/session`)
       .set(AuthorizationHeader)
-      .send({ templateVersion: '1.1.2' })
+      .send({ templateVersion: '2.1.0' })
       .expect(201);
 
     const sessionId = start.body.sessionId as string;
