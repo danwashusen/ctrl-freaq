@@ -137,6 +137,15 @@ graph TD
 - "Return to Project" action always available from document editor
 - Document state indicators (Draft, In Review, Published) in breadcrumb area
 
+**Slug-First Routing:**
+
+- Frontend routes and deep links should prefer entity slugs over opaque IDs for
+  readability and shareability (e.g.,
+  `/projects/{projectSlug}/documents/{docSlug}`).
+- When the UI receives both slug and id, it must continue to send slugs in URL
+  segments while passing the canonical IDs to API calls or state stores as
+  needed.
+
 ## User Flows {#user-flows}
 
 ### Core Document Editor Workflow (MVP Focus) {#core-document-editor-workflow}

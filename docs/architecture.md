@@ -428,6 +428,22 @@ process.on('exit', () => clearInterval(interval));
 - No deletion in MVP
 - Rename allowed via PATCH API
 
+### Slug Usage Guidance {#slug-usage-guidance}
+
+- Treat a slug as a human-friendly, external identifier owned by the entity’s
+  repository. That repository may expose helpers such as `findBySlug` for
+  inbound requests that originate from user routes or APIs, but it must convert
+  the slug to the canonical `id` before returning results.
+- Downstream repositories and services (e.g. draft, document, or QA
+  repositories) must use the entity’s `id` for lookups and persistence. They
+  should never accept or store another entity’s slug; instead they should rely
+  on the owning repository to resolve the slug → id mapping at the boundary.
+- Example: API handlers can call `ProjectRepository.findBySlug(slug)` to resolve
+  a project, but `DraftBundleRepositoryImpl` and similar collaborators should
+  consume `project.id` only. This prevents cross-entity coupling on mutable
+  slugs and ensures slug formatting changes are isolated to the owning
+  repository.
+
 ## Components {#components}
 
 ### apps/api - Express.js API Server {#api-server}
