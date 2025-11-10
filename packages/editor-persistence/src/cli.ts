@@ -297,6 +297,7 @@ export function cli(argv?: string[]): void {
     .description('Inspect and manage persisted section drafts')
     .option('-a, --author <authorId>', 'Filter by author ID')
     .option('-p, --project <projectSlug>', 'Filter by project slug')
+    .option('-i, --project-id <projectId>', 'Filter by project id')
     .option('-d, --document <documentSlug>', 'Filter by document slug')
     .option('--remove <draftKey>', 'Remove a specific draft by composite key')
     .option('--clear', 'Clear all drafts for the provided author filter')
@@ -334,12 +335,14 @@ export function cli(argv?: string[]): void {
 
       const drafts = await store.listDrafts({
         authorId: options.author,
+        projectId: options.projectId,
         projectSlug: options.project,
         documentSlug: options.document,
       });
 
       const serialized = drafts.map(draft => ({
         draftKey: draft.draftKey,
+        projectId: draft.projectId,
         projectSlug: draft.projectSlug,
         documentSlug: draft.documentSlug,
         sectionTitle: draft.sectionTitle,
@@ -360,6 +363,7 @@ export function cli(argv?: string[]): void {
         console.log(`Drafts (${serialized.length}):`);
         serialized.forEach(item => {
           console.log(`- ${item.draftKey}`);
+          console.log(`    Project: ${item.projectSlug} (${item.projectId})`);
           console.log(`    Status: ${item.status}`);
           console.log(`    Updated: ${item.updatedAt}`);
           if (item.complianceWarning) {

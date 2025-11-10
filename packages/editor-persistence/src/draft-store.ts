@@ -12,6 +12,7 @@ import {
 } from './schema';
 
 export interface SectionDraftInput {
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   sectionTitle: string;
@@ -50,12 +51,14 @@ export interface DraftStoreConfig {
 export interface DraftStore {
   saveDraft(input: SectionDraftInput): Promise<DraftSaveResult>;
   rehydrateDocumentState(args: {
+    projectId?: string;
     projectSlug: string;
     documentSlug: string;
     authorId: string;
   }): Promise<DocumentDraftState | null>;
   listDrafts(filters?: {
     authorId?: string;
+    projectId?: string;
     projectSlug?: string;
     documentSlug?: string;
   }): Promise<SectionDraftSnapshot[]>;
@@ -200,6 +203,7 @@ export function createDraftStore(config: DraftStoreConfig = {}): DraftStore {
       const timestamp = input.lastEditedAt;
       const snapshot: SectionDraftSnapshot = {
         draftKey,
+        projectId: input.projectId,
         projectSlug: input.projectSlug,
         documentSlug: input.documentSlug,
         sectionTitle: input.sectionTitle,
@@ -262,12 +266,15 @@ export function createDraftStore(config: DraftStoreConfig = {}): DraftStore {
         }
 
         if (
-          candidate.data.projectSlug === args.projectSlug &&
-          candidate.data.documentSlug === args.documentSlug &&
-          candidate.data.authorId === args.authorId
+          (args.projectId && candidate.data.projectId !== args.projectId) ||
+          candidate.data.projectSlug !== args.projectSlug ||
+          candidate.data.documentSlug !== args.documentSlug ||
+          candidate.data.authorId !== args.authorId
         ) {
-          matches.push(fromStorageRecord(candidate.data));
+          return;
         }
+
+        matches.push(fromStorageRecord(candidate.data));
       });
 
       if (matches.length === 0) {
@@ -285,6 +292,7 @@ export function createDraftStore(config: DraftStoreConfig = {}): DraftStore {
       }, firstMatch.updatedAt);
 
       const state = {
+        projectId: firstMatch.projectId,
         projectSlug: args.projectSlug,
         documentSlug: args.documentSlug,
         authorId: args.authorId,
@@ -308,6 +316,7 @@ export function createDraftStore(config: DraftStoreConfig = {}): DraftStore {
 
         if (
           (filters.authorId && candidate.data.authorId !== filters.authorId) ||
+          (filters.projectId && candidate.data.projectId !== filters.projectId) ||
           (filters.projectSlug && candidate.data.projectSlug !== filters.projectSlug) ||
           (filters.documentSlug && candidate.data.documentSlug !== filters.documentSlug)
         ) {

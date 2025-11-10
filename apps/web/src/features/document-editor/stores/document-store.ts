@@ -18,6 +18,7 @@ interface DocumentInfo {
   title: string;
   lastModified: string;
   status: 'draft' | 'review' | 'published';
+  projectId: string;
   projectSlug: string;
 }
 

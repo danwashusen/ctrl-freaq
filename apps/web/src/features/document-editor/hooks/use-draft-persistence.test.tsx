@@ -85,6 +85,7 @@ const createMockDraftStore = () => ({
   saveDraft: vi.fn().mockResolvedValue({
     record: {
       draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user-author',
+      projectId: 'project-test-id',
       projectSlug: 'project-test',
       documentSlug: 'doc-architecture-demo',
       sectionTitle: 'Architecture Overview',
@@ -100,12 +101,14 @@ const createMockDraftStore = () => ({
     prunedDraftKeys: [],
   }),
   rehydrateDocumentState: vi.fn().mockResolvedValue({
+    projectId: 'project-test-id',
     projectSlug: 'project-test',
     documentSlug: 'doc-architecture-demo',
     authorId: 'user-author',
     sections: [
       {
         draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user-author',
+        projectId: 'project-test-id',
         projectSlug: 'project-test',
         documentSlug: 'doc-architecture-demo',
         sectionTitle: 'Architecture Overview',
@@ -157,6 +160,7 @@ function StatusHarness() {
     discardRecoveredDraft,
     lastUpdatedLabel,
   } = useDraftPersistence({
+    projectId: 'project-test-id',
     projectSlug: 'project-test',
     documentSlug: 'doc-architecture-demo',
     sectionTitle: 'Architecture Overview',
@@ -242,18 +246,21 @@ describe('useDraftPersistence', () => {
 
   test('logs compliance warnings through QA helper when retention policy is pending', async () => {
     const complianceState = {
+      projectId: 'project-test-id',
       projectSlug: 'project-test',
       documentSlug: 'doc-architecture-demo',
       authorId: 'user-author',
       sectionPath: 'architecture-overview',
     };
     mockDraftStore.rehydrateDocumentState.mockResolvedValueOnce({
+      projectId: complianceState.projectId,
       projectSlug: complianceState.projectSlug,
       documentSlug: complianceState.documentSlug,
       authorId: complianceState.authorId,
       sections: [
         {
           draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user-author',
+          projectId: complianceState.projectId,
           projectSlug: complianceState.projectSlug,
           documentSlug: complianceState.documentSlug,
           sectionTitle: 'Architecture Overview',
@@ -281,6 +288,7 @@ describe('useDraftPersistence', () => {
     expect(logDraftComplianceWarningMock).toHaveBeenCalledTimes(1);
     const [, warningPayload] = logDraftComplianceWarningMock.mock.calls[0] ?? [];
     expect(warningPayload).toMatchObject({
+      projectId: complianceState.projectId,
       projectSlug: complianceState.projectSlug,
       documentSlug: complianceState.documentSlug,
       authorId: complianceState.authorId,
@@ -306,12 +314,14 @@ describe('useDraftPersistence', () => {
 
   test('keeps sections without matching draft keys marked as synced', async () => {
     mockDraftStore.rehydrateDocumentState.mockResolvedValueOnce({
+      projectId: 'project-test-id',
       projectSlug: 'project-test',
       documentSlug: 'doc-architecture-demo',
       authorId: 'user-author',
       sections: [
         {
           draftKey: 'project-test/doc-architecture-demo/Other Section/user-author',
+          projectId: 'project-test-id',
           projectSlug: 'project-test',
           documentSlug: 'doc-architecture-demo',
           sectionTitle: 'Other Section',
@@ -373,12 +383,14 @@ describe('useDraftPersistence', () => {
 
   test('logs compliance warnings when rehydrated draft requires escalation', async () => {
     mockDraftStore.rehydrateDocumentState.mockResolvedValueOnce({
+      projectId: 'project-test-id',
       projectSlug: 'project-test',
       documentSlug: 'doc-architecture-demo',
       authorId: 'user-author',
       sections: [
         {
           draftKey: 'project-test/doc-architecture-demo/Architecture Overview/user-author',
+          projectId: 'project-test-id',
           projectSlug: 'project-test',
           documentSlug: 'doc-architecture-demo',
           sectionTitle: 'Architecture Overview',
@@ -426,12 +438,14 @@ describe('useDraftPersistence', () => {
 
     mockDraftStore.rehydrateDocumentState
       .mockResolvedValueOnce({
+        projectId: 'project-test-id',
         projectSlug: 'project-test',
         documentSlug: 'doc-architecture-demo',
         authorId: 'user-author',
         sections: [
           {
             draftKey: complianceDraftKey,
+            projectId: 'project-test-id',
             projectSlug: 'project-test',
             documentSlug: 'doc-architecture-demo',
             sectionTitle: 'Architecture Overview',
@@ -450,12 +464,14 @@ describe('useDraftPersistence', () => {
         pendingComplianceWarning: false,
       })
       .mockResolvedValueOnce({
+        projectId: 'project-test-id',
         projectSlug: 'project-test',
         documentSlug: 'doc-architecture-demo',
         authorId: 'user-author',
         sections: [
           {
             draftKey: complianceDraftKey,
+            projectId: 'project-test-id',
             projectSlug: 'project-test',
             documentSlug: 'doc-architecture-demo',
             sectionTitle: 'Architecture Overview',

@@ -14,7 +14,7 @@ export interface DraftSectionSubmission {
 }
 
 export interface DraftBundleRequest {
-  projectSlug: string;
+  projectId: string;
   documentId: string;
   submittedBy: string;
   sections: DraftSectionSubmission[];
@@ -27,12 +27,12 @@ export interface DraftBundleResult {
 
 export interface DraftBundleRepository {
   validateBaseline(
-    input: DraftSectionSubmission & { documentId: string; projectSlug: string; authorId: string }
+    input: DraftSectionSubmission & { documentId: string; projectId: string; authorId: string }
   ): Promise<{ status: string }>;
   applySectionPatch(
     input: DraftSectionSubmission & {
       documentId: string;
-      projectSlug: string;
+      projectId: string;
       authorId: string;
     }
   ): Promise<{ applied: boolean }>;
@@ -40,7 +40,7 @@ export interface DraftBundleRepository {
     sections: DraftSectionSubmission[],
     context: {
       documentId: string;
-      projectSlug: string;
+      projectId: string;
       authorId: string;
     }
   ): Promise<string[]>;
@@ -48,7 +48,7 @@ export interface DraftBundleRepository {
   getSectionSnapshot(input: {
     sectionPath: string;
     documentId: string;
-    projectSlug: string;
+    projectId: string;
   }): Promise<{ serverVersion: number; serverContent: string } | null>;
 }
 
@@ -116,7 +116,7 @@ export class DraftBundleService {
         const snapshot = await this.deps.draftRepo.getSectionSnapshot({
           sectionPath: section.sectionPath,
           documentId: request.documentId,
-          projectSlug: request.projectSlug,
+          projectId: request.projectId,
         });
 
         conflicts.push({
@@ -133,7 +133,7 @@ export class DraftBundleService {
         await this.deps.draftRepo.validateBaseline({
           ...section,
           documentId: request.documentId,
-          projectSlug: request.projectSlug,
+          projectId: request.projectId,
           authorId: request.submittedBy,
         });
         validatedSections.push(section);
@@ -167,7 +167,7 @@ export class DraftBundleService {
           validatedSections,
           {
             documentId: request.documentId,
-            projectSlug: request.projectSlug,
+            projectId: request.projectId,
             authorId: request.submittedBy,
           }
         );

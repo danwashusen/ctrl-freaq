@@ -52,6 +52,7 @@ function createMemoryStore() {
 }
 
 const baseDraft: SectionDraftInput = {
+  projectId: 'proj-alpha-id',
   projectSlug: 'proj-alpha',
   documentSlug: 'doc-plan',
   sectionTitle: 'Architecture Overview',
@@ -86,6 +87,7 @@ describe('createDraftStore', () => {
     const stored = await memoryStore.getItem<Record<string, unknown>>(keys[0]!);
     expect(stored).toMatchObject({
       draftKey: 'proj-alpha/doc-plan/Architecture Overview/user-author',
+      projectId: 'proj-alpha-id',
       status: 'draft',
       sectionPath: 'architecture-overview',
       patch: 'diff --git a b',
@@ -109,12 +111,26 @@ describe('createDraftStore', () => {
     });
 
     expect(state).not.toBeNull();
+    expect(state?.projectId).toBe(baseDraft.projectId);
     expect(state?.sections.map(section => section.sectionPath)).toEqual([
       'scaling-plan',
       'architecture-overview',
     ]);
     expect(state?.pendingComplianceWarning).toBe(false);
     expect(state?.rehydratedAt).toBeDefined();
+  });
+
+  test('requires project id match when provided during rehydration', async () => {
+    await store.saveDraft(baseDraft);
+
+    const state = await store.rehydrateDocumentState({
+      projectId: 'proj-other-id',
+      projectSlug: baseDraft.projectSlug,
+      documentSlug: baseDraft.documentSlug,
+      authorId: baseDraft.authorId,
+    });
+
+    expect(state).toBeNull();
   });
 
   test('prunes oldest drafts when storage quota is exceeded', async () => {
@@ -224,5 +240,23 @@ describe('createDraftStore', () => {
 
     const remainingKeys = await memoryStore.keys();
     expect(remainingKeys).toEqual(['proj-alpha/doc-plan/Peer Review/user-other']);
+  });
+
+  test('supports filtering drafts by project id when listing', async () => {
+    await store.saveDraft(baseDraft);
+    await store.saveDraft({
+      ...baseDraft,
+      projectId: 'proj-beta-id',
+      projectSlug: 'proj-beta',
+      documentSlug: 'doc-beta',
+      sectionTitle: 'Beta Section',
+      sectionPath: 'beta-section',
+    });
+
+    const matches = await store.listDrafts({ projectId: baseDraft.projectId });
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.projectId).toBe(baseDraft.projectId);
+    expect(matches[0]?.projectSlug).toBe(baseDraft.projectSlug);
   });
 });

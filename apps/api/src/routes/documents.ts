@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
+import { DocumentRepositoryImpl } from '@ctrl-freaq/shared-data';
 import type {
   Document,
   DocumentTemplateMigration,
@@ -430,6 +431,12 @@ documentsRouter.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const logger = req.services?.get('logger') as Logger | undefined;
     const service = req.services?.get('draftBundleService') as DraftBundleService | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const documentRepository = req.services?.get('documentRepository') as
+      | DocumentRepositoryImpl
+      | undefined;
     const requestId = req.requestId ?? 'unknown';
     const { projectSlug, documentId } = req.params as {
       projectSlug?: string;
@@ -447,7 +454,7 @@ documentsRouter.patch(
       return;
     }
 
-    if (!service) {
+    if (!service || !projectRepository) {
       sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Draft bundle service unavailable', requestId);
       return;
     }
@@ -489,9 +496,32 @@ documentsRouter.patch(
       return;
     }
 
+    const project = await projectRepository.findBySlug(projectSlug);
+    let resolvedProjectId = project?.id;
+    if (!resolvedProjectId && documentRepository) {
+      const documentRecord = await documentRepository.findById(documentId);
+      if (documentRecord && documentRecord.projectId === projectSlug) {
+        resolvedProjectId = documentRecord.projectId;
+        logger?.warn(
+          {
+            requestId,
+            projectSlug,
+            documentId,
+          },
+          'Draft bundle fallback: treating slug as canonical project id'
+        );
+      }
+    }
+    if (!resolvedProjectId) {
+      sendErrorResponse(res, 404, 'NOT_FOUND', 'Project not found', requestId, {
+        projectSlug,
+      });
+      return;
+    }
+
     try {
       const result = await service.applyBundle({
-        projectSlug,
+        projectId: resolvedProjectId,
         documentId,
         submittedBy: authenticatedUserId,
         sections: parsedBody.data.sections,
@@ -504,6 +534,7 @@ documentsRouter.patch(
           {
             requestId,
             projectSlug,
+            projectId: resolvedProjectId,
             documentId,
             conflicts: error.conflicts,
           },
@@ -520,6 +551,7 @@ documentsRouter.patch(
         {
           requestId,
           projectSlug,
+          projectId: resolvedProjectId,
           documentId,
           error: error instanceof Error ? error.message : String(error),
         },
@@ -534,6 +566,12 @@ documentsRouter.post(
   '/projects/:projectSlug/documents/:documentId/draft-compliance',
   async (req: AuthenticatedRequest, res: Response) => {
     const logger = req.services?.get('logger') as Logger | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const documentRepository = req.services?.get('documentRepository') as
+      | DocumentRepositoryImpl
+      | undefined;
     const requestId = req.requestId ?? 'unknown';
     const { projectSlug, documentId } = req.params as {
       projectSlug?: string;
@@ -604,6 +642,35 @@ documentsRouter.post(
       return;
     }
 
+    if (!projectRepository) {
+      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Project repository unavailable', requestId);
+      return;
+    }
+
+    const project = await projectRepository.findBySlug(projectSlug);
+    let resolvedProjectId = project?.id;
+    if (!resolvedProjectId && documentRepository) {
+      const documentRecord = await documentRepository.findById(documentId);
+      if (documentRecord && documentRecord.projectId === projectSlug) {
+        resolvedProjectId = documentRecord.projectId;
+        logger?.warn(
+          {
+            requestId,
+            projectSlug,
+            documentId,
+          },
+          'Draft compliance fallback: treating slug as canonical project id'
+        );
+      }
+    }
+
+    if (!resolvedProjectId) {
+      sendErrorResponse(res, 404, 'NOT_FOUND', 'Project not found', requestId, {
+        projectSlug,
+      });
+      return;
+    }
+
     const normalizedContext: Record<string, string> =
       context && typeof context === 'object'
         ? Object.fromEntries(
@@ -622,6 +689,7 @@ documentsRouter.post(
           },
         },
         {
+          projectId: resolvedProjectId,
           projectSlug,
           documentSlug: documentId,
           authorId: authenticatedUserId,

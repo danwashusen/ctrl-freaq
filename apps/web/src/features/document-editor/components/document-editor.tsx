@@ -257,15 +257,19 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }))
     );
 
+    const projectId =
+      documentInfo?.projectId ??
+      bootstrapState.projectId ??
+      fixtureDocument?.projectId ??
+      'project-test';
+
     const projectSlug =
       documentInfo?.projectSlug ??
       bootstrapState.projectSlug ??
       fixtureDocument?.projectSlug ??
       'project-test';
     const projectLink =
-      bootstrapState.projectId && bootstrapState.projectId.length > 0
-        ? `/project/${bootstrapState.projectId}`
-        : `/project/${projectSlug}`;
+      projectId && projectId.length > 0 ? `/project/${projectId}` : `/project/${projectSlug}`;
     const projectDisplayName = bootstrapState.projectName
       ? `Back to ${bootstrapState.projectName}`
       : 'Back to project';
@@ -1953,6 +1957,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                         section={activeSection}
                         assumptionSession={activeAssumptionSession}
                         documentId={documentId}
+                        projectId={projectId}
                         projectSlug={projectSlug}
                         onEnterEdit={handleEnterEdit}
                         isEditDisabled={

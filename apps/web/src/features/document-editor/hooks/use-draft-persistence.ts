@@ -16,6 +16,7 @@ import { useDraftStateStore } from '../stores/draft-state';
 import { DraftPersistenceClient, type DraftComplianceRequest } from '../services/draft-client';
 
 export interface UseDraftPersistenceParams {
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   sectionTitle: string;
@@ -41,7 +42,10 @@ const buildDraftKey = ({
   documentSlug,
   sectionTitle,
   authorId,
-}: UseDraftPersistenceParams): string => {
+}: Pick<
+  UseDraftPersistenceParams,
+  'projectSlug' | 'documentSlug' | 'sectionTitle' | 'authorId'
+>): string => {
   return `${projectSlug}/${documentSlug}/${sectionTitle}/${authorId}`;
 };
 
@@ -79,6 +83,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
       setLastUpdatedAt(null);
       emitDraftPruned({
         draftKey,
+        projectId: params.projectId,
         projectSlug: params.projectSlug,
         documentSlug: params.documentSlug,
         sectionPath: params.sectionPath,
@@ -96,6 +101,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
         'Failed to revert draft to published content',
         {
           draftKey,
+          projectId: params.projectId,
           projectSlug: params.projectSlug,
           documentSlug: params.documentSlug,
           sectionPath: params.sectionPath,
@@ -108,6 +114,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
   }, [
     draftStore,
     draftKey,
+    params.projectId,
     params.projectSlug,
     params.documentSlug,
     params.sectionPath,
@@ -136,6 +143,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
       setLastUpdatedAt(null);
       emitDraftPruned({
         draftKey,
+        projectId: params.projectId,
         projectSlug: params.projectSlug,
         documentSlug: params.documentSlug,
         sectionPath: params.sectionPath,
@@ -153,6 +161,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
         'Failed to clear drafts during logout',
         {
           draftKey,
+          projectId: params.projectId,
           projectSlug: params.projectSlug,
           documentSlug: params.documentSlug,
           sectionPath: params.sectionPath,
@@ -165,6 +174,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
   }, [
     draftStore,
     draftKey,
+    params.projectId,
     params.projectSlug,
     params.documentSlug,
     params.sectionPath,
@@ -179,6 +189,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
     const rehydrate = () => {
       draftStore
         .rehydrateDocumentState({
+          projectId: params.projectId,
           projectSlug: params.projectSlug,
           documentSlug: params.documentSlug,
           authorId: params.authorId,
@@ -265,6 +276,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             void discardRecoveredDraft().catch(error => {
               logger.debug('Auto-discard of recovered draft failed', {
                 draftKey,
+                projectId: params.projectId,
                 reason: error instanceof Error ? error.message : String(error),
               });
             });
@@ -288,6 +300,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
 
           emitDraftSaved({
             draftKey,
+            projectId: params.projectId,
             projectSlug: params.projectSlug,
             documentSlug: params.documentSlug,
             sectionPath: matchingSection.sectionPath ?? params.sectionPath,
@@ -311,6 +324,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
               },
             };
             logDraftComplianceWarning(qaLogger, {
+              projectId: params.projectId,
               projectSlug: params.projectSlug,
               documentSlug: params.documentSlug,
               authorId: params.authorId,
@@ -330,6 +344,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             ).catch(error => {
               logger.warn('Failed to log compliance warning', {
                 draftKey,
+                projectId: params.projectId,
                 projectSlug: params.projectSlug,
                 documentSlug: params.documentSlug,
                 errorMessage: error instanceof Error ? error.message : String(error),
@@ -337,6 +352,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
             });
             emitComplianceWarning({
               draftKey,
+              projectId: params.projectId,
               projectSlug: params.projectSlug,
               documentSlug: params.documentSlug,
               sectionPath: matchingSection.sectionPath ?? params.sectionPath,
@@ -386,6 +402,7 @@ export function useDraftPersistence(params: UseDraftPersistenceParams): UseDraft
     };
   }, [
     draftStore,
+    params.projectId,
     params.projectSlug,
     params.documentSlug,
     params.authorId,

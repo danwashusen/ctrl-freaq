@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 interface MockDraftStatusBadgeProps {
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   sectionTitle: string;
@@ -134,6 +135,7 @@ describe('DocumentSectionPreview', () => {
       <DocumentSectionPreview
         section={baseSection}
         onEnterEdit={onEnterEdit}
+        projectId="demo-project-id"
         projectSlug="demo-project"
       />
     );
@@ -154,7 +156,12 @@ describe('DocumentSectionPreview', () => {
 
   it('auto-runs validation when prior results exist', () => {
     render(
-      <DocumentSectionPreview section={baseSection} projectSlug="demo-project" documentId="doc-1" />
+      <DocumentSectionPreview
+        section={baseSection}
+        projectId="demo-project-id"
+        projectSlug="demo-project"
+        documentId="doc-1"
+      />
     );
 
     expect(runSectionMock).toHaveBeenCalledWith({ reason: 'auto' });
@@ -187,7 +194,12 @@ describe('DocumentSectionPreview', () => {
     });
 
     render(
-      <DocumentSectionPreview section={baseSection} projectSlug="demo-project" documentId="doc-1" />
+      <DocumentSectionPreview
+        section={baseSection}
+        projectId="demo-project-id"
+        projectSlug="demo-project"
+        documentId="doc-1"
+      />
     );
 
     expect(runSectionMock).not.toHaveBeenCalled();
@@ -201,7 +213,13 @@ describe('DocumentSectionPreview', () => {
       placeholderText: 'No content provided.',
     };
 
-    render(<DocumentSectionPreview section={emptySection} projectSlug="demo-project" />);
+    render(
+      <DocumentSectionPreview
+        section={emptySection}
+        projectId="demo-project-id"
+        projectSlug="demo-project"
+      />
+    );
 
     expect(screen.getByText('No content provided.')).toBeInTheDocument();
   });
@@ -216,6 +234,7 @@ describe('DocumentSectionPreview', () => {
       <DocumentSectionPreview
         section={sectionWithoutSummary}
         approval={{ reviewerSummary: '' }}
+        projectId="demo-project-id"
         projectSlug="demo-project"
       />
     );
@@ -229,6 +248,7 @@ describe('DocumentSectionPreview', () => {
     render(
       <DocumentSectionPreview
         section={baseSection}
+        projectId="demo-project-id"
         projectSlug="alpha-project"
         documentId="doc-1"
       />

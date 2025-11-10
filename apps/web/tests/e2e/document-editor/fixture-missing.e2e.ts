@@ -6,7 +6,7 @@ test.describe('Document Fixture Missing State', () => {
   test('redirects users to dashboard with helpful messaging when fixtures are absent', async ({
     page,
   }) => {
-    await page.goto('/documents/demo-architecture/sections/unknown-section');
+    await page.goto('/documents/demo-architecture/sections/unknown-section?fixture=missing');
     await page.waitForLoadState('networkidle');
     await dismissDraftRecoveryGate(page);
 

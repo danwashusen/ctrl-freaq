@@ -1,14 +1,16 @@
 import type { Express } from 'express';
 import type * as BetterSqlite3 from 'better-sqlite3';
 import request from 'supertest';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 
 import { createApp, type AppContext } from '../../src/app';
 import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
+import { seedSectionFixture } from '../../src/testing/fixtures/section-editor.js';
 import { demoProjectRetention } from './fixtures/project-retention';
 
 const PROJECT_SLUG = demoProjectRetention.projectSlug;
+const PROJECT_ID = demoProjectRetention.projectId;
 const DOCUMENT_ID = 'doc-architecture-demo';
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
@@ -26,25 +28,23 @@ describe('Draft compliance logging API contract', () => {
     app = await createApp();
     const appContext = app.locals.appContext as AppContext;
     db = appContext.database;
+  });
 
-    // Ensure baseline document exists for association checks downstream.
-    db.prepare(
-      `INSERT OR IGNORE INTO documents (
-         id,
-         project_id,
-         title,
-         content_json,
-         template_id,
-         template_version,
-         template_schema_hash,
-         created_at,
-         created_by,
-         updated_at,
-         updated_by,
-         deleted_at,
-         deleted_by
-       ) VALUES (?, ?, 'Compliance Demo Document', '{}', 'architecture', '1.0.0', 'hash-architecture-v1', datetime('now'), 'system', datetime('now'), 'system', NULL, NULL)`
-    ).run(DOCUMENT_ID, PROJECT_SLUG);
+  beforeEach(() => {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+    const projectOwnerId = DEFAULT_TEST_USER_ID;
+    seedSectionFixture(db, {
+      sectionId: 'retention-seed-section',
+      documentId: DOCUMENT_ID,
+      userId: projectOwnerId,
+      projectId: PROJECT_ID,
+      projectSlug: PROJECT_SLUG,
+      templateId: 'architecture',
+      templateVersion: '1.0.0',
+      templateSchemaHash: 'hash-architecture-v1',
+    });
   });
 
   test('POST /api/v1/projects/:projectSlug/documents/:documentId/draft-compliance queues retention warning', async () => {

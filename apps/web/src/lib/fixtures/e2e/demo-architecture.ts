@@ -523,6 +523,7 @@ const tableOfContents: SectionReference[] = [
 
 export const demoArchitectureDocument: DocumentFixture = documentFixtureSchema.parse({
   id: 'demo-architecture',
+  projectId: 'proj-architecture-demo',
   projectSlug: 'demo-project',
   title: 'CTRL FreaQ Architecture Reference',
   summary:

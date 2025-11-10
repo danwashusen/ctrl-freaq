@@ -50,6 +50,7 @@ export function useDocumentFixtureBootstrap({
     const hydrate = async () => {
       const view = buildFixtureDocumentView(fixtureDocument);
       const projectSlug = fixtureDocument.projectSlug ?? 'project-test';
+      const projectId = fixtureDocument.projectId ?? projectSlug;
 
       if (typeof window !== 'undefined') {
         try {
@@ -92,6 +93,7 @@ export function useDocumentFixtureBootstrap({
               }
 
               await draftStore.saveDraft({
+                projectId,
                 projectSlug,
                 documentSlug: view.documentId,
                 sectionTitle: section.title,
@@ -116,6 +118,7 @@ export function useDocumentFixtureBootstrap({
         title: view.title,
         lastModified: view.updatedAt,
         status: view.lifecycleStatus,
+        projectId,
         projectSlug,
       });
       setTableOfContents(view.toc);

@@ -1,12 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import { createPatchEngine } from '@ctrl-freaq/editor-core';
-import type {
-  Document,
-  FinalizeApprovalContext,
-  Project,
-  SectionView,
-} from '@ctrl-freaq/shared-data';
+import type { Document, FinalizeApprovalContext, SectionView } from '@ctrl-freaq/shared-data';
 import type { Logger } from 'pino';
 
 import { DraftBundleRepositoryImpl } from '../../../src/services/drafts/draft-bundle.repository';
@@ -64,29 +59,6 @@ function createDocumentEntity(overrides: Partial<Document> = {}): Document {
   } satisfies Document;
 }
 
-function createProjectEntity(overrides: Partial<Project> = {}): Project {
-  const timestamp = overrides.createdAt ?? new Date('2025-09-30T12:00:00.000Z');
-  return {
-    id: 'project-demo',
-    ownerUserId: 'owner-1',
-    name: 'Demo Project',
-    slug: 'project-demo',
-    description: null,
-    visibility: 'workspace',
-    status: 'draft',
-    goalTargetDate: null,
-    goalSummary: null,
-    createdAt: timestamp,
-    createdBy: overrides.createdBy ?? 'system',
-    updatedAt: overrides.updatedAt ?? timestamp,
-    updatedBy: overrides.updatedBy ?? 'system',
-    deletedAt: overrides.deletedAt ?? null,
-    deletedBy: overrides.deletedBy ?? null,
-    archivedStatusBefore: overrides.archivedStatusBefore ?? null,
-    ...overrides,
-  } satisfies Project;
-}
-
 function createRepository(section: SectionView) {
   const sections = {
     findById: vi.fn(async (id: string) => (id === section.id ? section : null)),
@@ -105,16 +77,11 @@ function createRepository(section: SectionView) {
     ),
   };
 
-  const document = createDocumentEntity({ id: section.docId });
-  const projectSlug = 'project-demo';
-  const project = createProjectEntity({ id: projectSlug, slug: projectSlug });
+  const projectId = 'project-demo';
+  const document = createDocumentEntity({ id: section.docId, projectId });
 
   const documents = {
     findById: vi.fn(async (id: string) => (id === section.docId ? document : null)),
-  };
-
-  const projects = {
-    findBySlug: vi.fn(async (slug: string) => (slug === projectSlug ? project : null)),
   };
 
   const logger = {
@@ -126,11 +93,10 @@ function createRepository(section: SectionView) {
   const repository = new DraftBundleRepositoryImpl(
     sections as unknown as any,
     documents as unknown as any,
-    projects as unknown as any,
     logger
   );
 
-  return { repository, sections, documents, projects };
+  return { repository, sections, documents };
 }
 
 describe('DraftBundleRepositoryImpl', () => {
@@ -147,7 +113,7 @@ describe('DraftBundleRepositoryImpl', () => {
       baselineVersion: 'rev-1',
       qualityGateReport: { status: 'pass', issues: [] },
       documentId: section.docId,
-      projectSlug: 'project-demo',
+      projectId: 'project-demo',
       authorId: 'user-1',
     });
 
@@ -173,7 +139,7 @@ describe('DraftBundleRepositoryImpl', () => {
       baselineVersion: 'rev-1',
       qualityGateReport: { status: 'pass', issues: [] },
       documentId: section.docId,
-      projectSlug: 'project-demo',
+      projectId: 'project-demo',
       authorId: 'user-1',
     });
 
@@ -206,7 +172,7 @@ describe('DraftBundleRepositoryImpl', () => {
         baselineVersion: 'rev-1',
         qualityGateReport: { status: 'pass', issues: [] },
         documentId: section.docId,
-        projectSlug: 'project-demo',
+        projectId: 'project-demo',
         authorId: 'user-1',
       })
     ).rejects.toBeInstanceOf(DraftBundleValidationError);
@@ -227,7 +193,7 @@ describe('DraftBundleRepositoryImpl', () => {
         baselineVersion: 'rev-4',
         qualityGateReport: { status: 'pass', issues: [] },
         documentId: section.docId,
-        projectSlug: 'project-demo',
+        projectId: 'project-demo',
         authorId: 'user-1',
       })
     ).rejects.toMatchObject({
@@ -256,7 +222,7 @@ describe('DraftBundleRepositoryImpl', () => {
         baselineVersion: 'rev-1',
         qualityGateReport: { status: 'pass', issues: [] },
         documentId: 'document-primary',
-        projectSlug: 'project-demo',
+        projectId: 'project-demo',
         authorId: 'user-1',
       })
     ).rejects.toMatchObject({
@@ -284,7 +250,7 @@ describe('DraftBundleRepositoryImpl', () => {
         baselineVersion: 'rev-1',
         qualityGateReport: { status: 'pass', issues: [] },
         documentId: 'document-primary',
-        projectSlug: 'project-demo',
+        projectId: 'project-demo',
         authorId: 'user-1',
       })
     ).rejects.toMatchObject({

@@ -138,6 +138,7 @@ describe('useDocumentBootstrap', () => {
     const documentState = useDocumentStore.getState();
     expect(documentState.document).toMatchObject({
       id: 'doc-123',
+      projectId: 'proj-456',
       projectSlug: 'architecture-reference',
       title: 'Architecture Overview',
     });

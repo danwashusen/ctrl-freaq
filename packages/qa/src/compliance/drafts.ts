@@ -3,6 +3,7 @@ export interface ComplianceLogger {
 }
 
 export interface DraftComplianceWarning {
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   authorId: string;
@@ -16,6 +17,7 @@ export function formatDraftComplianceWarning(
 ): Record<string, unknown> {
   return {
     event: 'draft.compliance.warning',
+    projectId: warning.projectId,
     projectSlug: warning.projectSlug,
     documentSlug: warning.documentSlug,
     authorId: warning.authorId,

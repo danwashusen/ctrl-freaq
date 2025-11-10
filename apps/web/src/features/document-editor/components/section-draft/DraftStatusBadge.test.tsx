@@ -22,6 +22,7 @@ describe('DraftStatusBadge', () => {
   test('renders last updated timestamp with accessible announcement', () => {
     render(
       <DraftStatusBadge
+        projectId="project-test-id"
         projectSlug="project-test"
         documentSlug="doc-architecture-demo"
         sectionTitle="Architecture Overview"

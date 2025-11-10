@@ -200,14 +200,8 @@ export function createRepositoryRegistrationMiddleware(
       const documentRepository = currentContainer.get(
         'documentRepository'
       ) as DocumentRepositoryImpl;
-      const projectRepository = currentContainer.get('projectRepository') as ProjectRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
-      return new DraftBundleRepositoryImpl(
-        sectionRepository,
-        documentRepository,
-        projectRepository,
-        logger
-      );
+      return new DraftBundleRepositoryImpl(sectionRepository, documentRepository, logger);
     });
 
     container.register('assumptionPromptProvider', currentContainer => {

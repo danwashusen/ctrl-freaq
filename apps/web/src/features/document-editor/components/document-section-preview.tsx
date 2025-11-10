@@ -82,6 +82,7 @@ export interface DocumentSectionPreviewProps {
   section: SectionViewWithApproval;
   assumptionSession?: AssumptionFlowState | null;
   documentId?: string;
+  projectId: string;
   projectSlug: string;
   approval?: SectionApprovalMetadata;
   onEnterEdit?: (sectionId: string) => void;
@@ -94,6 +95,7 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
     section,
     assumptionSession,
     documentId,
+    projectId,
     projectSlug,
     approval,
     onEnterEdit,
@@ -246,6 +248,7 @@ export const DocumentSectionPreview = memo<DocumentSectionPreviewProps>(
 
               {documentId && (
                 <DraftStatusBadge
+                  projectId={projectId}
                   projectSlug={projectSlug}
                   documentSlug={documentId}
                   sectionTitle={section.title}

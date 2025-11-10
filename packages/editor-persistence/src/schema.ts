@@ -5,6 +5,7 @@ export type SectionDraftStatus = z.infer<typeof SectionDraftStatusSchema>;
 
 export const SectionDraftSchema = z.object({
   draftKey: z.string().min(1),
+  projectId: z.string().min(1),
   projectSlug: z.string().min(1),
   documentSlug: z.string().min(1),
   sectionTitle: z.string().min(1),
@@ -20,6 +21,7 @@ export const SectionDraftSchema = z.object({
 export type SectionDraft = z.infer<typeof SectionDraftSchema>;
 
 export const DocumentDraftStateSchema = z.object({
+  projectId: z.string().min(1),
   projectSlug: z.string().min(1),
   documentSlug: z.string().min(1),
   authorId: z.string().min(1),

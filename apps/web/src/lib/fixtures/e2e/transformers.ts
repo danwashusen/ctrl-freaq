@@ -19,6 +19,7 @@ interface FixtureDocumentView {
   summary: string;
   lifecycleStatus: DocumentStoreStatus;
   updatedAt: string;
+  projectId: string;
   projectSlug: string;
   sections: SectionView[];
   toc: TableOfContents;
@@ -209,6 +210,7 @@ export function buildFixtureDocumentView(document: DocumentFixture): FixtureDocu
     summary: document.summary,
     lifecycleStatus: documentStatus,
     updatedAt: document.updatedAt,
+    projectId: document.projectId ?? document.projectSlug ?? 'project-test',
     projectSlug: document.projectSlug ?? 'project-test',
     sections,
     toc,

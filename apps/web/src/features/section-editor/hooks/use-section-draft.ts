@@ -125,6 +125,7 @@ export interface UseSectionDraftOptions {
   approvedVersion: number;
   documentId?: string;
   userId?: string;
+  projectId?: string;
   projectSlug?: string;
   documentSlug?: string;
   sectionTitle?: string;
@@ -182,6 +183,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     approvedVersion,
     documentId,
     userId,
+    projectId,
     projectSlug,
     documentSlug,
     sectionTitle,
@@ -298,6 +300,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   }, [initialContent, sectionId]);
 
   const resolvedProjectSlug = projectSlug ?? documentId ?? 'local-project';
+  const resolvedProjectId = projectId ?? resolvedProjectSlug ?? 'local-project';
   const resolvedDocumentSlug = documentSlug ?? documentId ?? 'document-local';
   const resolvedSectionTitle = sectionTitle ?? sectionId;
   const resolvedSectionPath = sectionPath ?? sectionId;
@@ -614,6 +617,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
 
       try {
         const result = await draftStore.saveDraft({
+          projectId: resolvedProjectId,
           projectSlug: resolvedProjectSlug,
           documentSlug: resolvedDocumentSlug,
           sectionTitle: resolvedSectionTitle,
@@ -664,6 +668,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
         const reason = caught instanceof Error ? caught.message : String(caught);
         logger.warn('Failed to persist draft snapshot to DraftStore', {
           sectionId,
+          projectId: resolvedProjectId,
           projectSlug: resolvedProjectSlug,
           documentSlug: resolvedDocumentSlug,
           reason,
@@ -672,6 +677,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     },
     [
       draftStore,
+      resolvedProjectId,
       resolvedProjectSlug,
       resolvedDocumentSlug,
       resolvedSectionTitle,

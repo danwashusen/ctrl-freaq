@@ -16,6 +16,7 @@ vi.mock('@/lib/logger', () => ({
 
 const payload = {
   draftKey: 'project/doc/section/user',
+  projectId: 'proj-id',
   projectSlug: 'project',
   documentSlug: 'doc',
   sectionPath: 'section',

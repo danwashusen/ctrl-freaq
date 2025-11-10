@@ -188,6 +188,7 @@ export function useDocumentBootstrap({
           title: documentResponse.document.title,
           lastModified: lastModifiedAt,
           status: lifecycleStatus,
+          projectId: projectId ?? 'project',
           projectSlug: projectSlug ?? projectId ?? 'project',
         });
 
