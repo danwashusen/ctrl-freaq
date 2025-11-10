@@ -21,6 +21,7 @@ export * from './activity-log.js';
 
 // Document model
 export * from './document.js';
+export * from './project-retention-policy.js';
 
 // Document template catalog
 export * from './document-template.js';

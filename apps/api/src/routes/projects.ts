@@ -4,6 +4,7 @@ import type {
   ProjectStatus,
   CreateProjectInput,
   UpdateProjectInput,
+  ProjectRetentionPolicy,
 } from '@ctrl-freaq/shared-data';
 import {
   ProjectRepositoryImpl,
@@ -17,6 +18,7 @@ import {
   RESOURCE_TYPES,
   PROJECT_CONSTANTS,
   PROJECT_VISIBILITY_VALUES,
+  ProjectRetentionPolicyRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { Router } from 'express';
 import type { Request, Response, Router as ExpressRouter } from 'express';
@@ -31,6 +33,7 @@ import {
 } from '../services/export/document-export.service.js';
 import { ProjectNotFoundError } from '../services/document-provisioning.service.js';
 import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
+import { createDefaultRetentionPolicyTemplate } from '../services/retention/default-policies.js';
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MUTABLE_PROJECT_STATUS_VALUES = ['draft', 'active', 'paused', 'completed'] as const;
@@ -399,23 +402,17 @@ const _ErrorResponseSchema = z.object({
 
 type ErrorResponse = z.infer<typeof _ErrorResponseSchema>;
 
-interface RetentionPolicyRecord {
+interface SerializedRetentionPolicy {
   policyId: string;
   retentionWindow: string;
   guidance: string;
 }
 
-const retentionPoliciesByProject = new Map<string, RetentionPolicyRecord>([
-  [
-    'project-test',
-    {
-      policyId: 'retention-client-only',
-      retentionWindow: '30d',
-      guidance:
-        'Client-only drafts must be reviewed within 30 days or escalated to compliance storage.',
-    },
-  ],
-]);
+const serializeRetentionPolicy = (policy: ProjectRetentionPolicy): SerializedRetentionPolicy => ({
+  policyId: policy.policyId,
+  retentionWindow: policy.retentionWindow,
+  guidance: policy.guidance,
+});
 
 /**
  * Projects API router
@@ -730,7 +727,7 @@ projectsRouter.patch('/projects/config', async (req: AuthenticatedRequest, res: 
 
 projectsRouter.get(
   '/projects/:projectSlug/retention',
-  async (req: AuthenticatedRequest, res: Response<RetentionPolicyRecord | ErrorResponse>) => {
+  async (req: AuthenticatedRequest, res: Response<SerializedRetentionPolicy | ErrorResponse>) => {
     const logger = req.services?.get('logger') as Logger | undefined;
     const userId = req.user?.userId;
     const { projectSlug } = req.params as { projectSlug: string };
@@ -745,28 +742,65 @@ projectsRouter.get(
       return;
     }
 
-    const policy = retentionPoliciesByProject.get(projectSlug);
-    if (!policy) {
-      res.status(404).json({
-        error: 'NOT_FOUND',
-        message: `No retention policy defined for project ${projectSlug}`,
+    try {
+      const projectRepo = req.services.get('projectRepository') as ProjectRepositoryImpl;
+      const retentionRepo = req.services.get(
+        'projectRetentionPolicyRepository'
+      ) as ProjectRetentionPolicyRepositoryImpl;
+
+      const project = await projectRepo.findBySlug(projectSlug);
+      if (!project) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: `Project not found for slug ${projectSlug}`,
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const policy = await retentionRepo.findByProjectId(project.id);
+      if (!policy) {
+        res.status(404).json({
+          error: 'NOT_FOUND',
+          message: `No retention policy defined for project ${projectSlug}`,
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      logger?.info(
+        {
+          requestId: req.requestId,
+          userId,
+          projectSlug,
+          projectId: project.id,
+          action: 'get_project_retention_policy',
+        },
+        'Project retention policy retrieved'
+      );
+
+      res.status(200).json(serializeRetentionPolicy(policy));
+    } catch (error) {
+      logger?.error(
+        {
+          requestId: req.requestId,
+          userId,
+          projectSlug,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          action: 'get_project_retention_policy',
+        },
+        'Failed to retrieve project retention policy'
+      );
+
+      res.status(500).json({
+        error: 'INTERNAL_ERROR',
+        message: 'Failed to load retention policy',
         requestId: req.requestId || 'unknown',
         timestamp: new Date().toISOString(),
       });
-      return;
     }
-
-    logger?.info(
-      {
-        requestId: req.requestId,
-        userId,
-        projectSlug,
-        action: 'get_project_retention_policy',
-      },
-      'Project retention policy retrieved'
-    );
-
-    res.status(200).json(policy);
   }
 );
 
@@ -843,6 +877,39 @@ projectsRouter.post(
 
       const project = await projectRepo.create(projectData);
       const serializedProject = serializeProject(project);
+
+      const retentionRepo = req.services.get(
+        'projectRetentionPolicyRepository'
+      ) as ProjectRetentionPolicyRepositoryImpl;
+      const defaultPolicyTemplate = createDefaultRetentionPolicyTemplate();
+      try {
+        await retentionRepo.upsertDefault(project.id, {
+          ...defaultPolicyTemplate,
+          createdBy: userId,
+          updatedBy: userId,
+        });
+      } catch (policyError) {
+        logger?.error(
+          {
+            requestId: req.requestId,
+            userId,
+            projectId: project.id,
+            projectSlug: project.slug,
+            error: policyError instanceof Error ? policyError.message : 'Unknown error',
+            action: 'create_project_retention_policy',
+            durationMs: elapsedMsSince(startedAt),
+          },
+          'Failed to seed default retention policy for project'
+        );
+
+        res.status(500).json({
+          error: 'INTERNAL_ERROR',
+          message: 'Failed to persist project retention policy',
+          requestId: req.requestId || 'unknown',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
 
       // Log activity
       const activityRepo = req.services.get('activityLogRepository') as ActivityLogRepositoryImpl;

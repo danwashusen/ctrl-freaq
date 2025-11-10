@@ -3,7 +3,7 @@ export interface ProjectRetentionFixture {
   projectSlug: string;
   policyId: string;
   retentionWindow: string;
-  description: string;
+  guidance: string;
 }
 
 export const demoProjectRetention: ProjectRetentionFixture = {
@@ -11,5 +11,6 @@ export const demoProjectRetention: ProjectRetentionFixture = {
   projectSlug: 'project-test',
   policyId: 'retention-client-only',
   retentionWindow: '30d',
-  description: 'Fixtures queue a compliance warning when drafts exceed client-only retention.',
+  guidance:
+    'Client-only drafts must be reviewed within 30 days or escalated to compliance storage.',
 };

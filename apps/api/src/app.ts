@@ -27,6 +27,11 @@ import { isSimpleAuthProvider, resolveAuthProviderConfig } from './config/auth-p
 import type { AuthProviderConfig } from './config/auth-provider.js';
 import { resolveEventStreamConfig } from './config/event-stream.js';
 import { EventBroker } from './modules/event-stream/event-broker.js';
+import {
+  ProjectRepositoryImpl,
+  ProjectRetentionPolicyRepositoryImpl,
+} from '@ctrl-freaq/shared-data';
+import { bootstrapRetentionPolicies } from './services/retention/default-policies.js';
 
 /**
  * Express App Configuration and Middleware Setup
@@ -156,6 +161,14 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   // Initialize database
   await databaseManager.initialize();
   const database = databaseManager.getDatabase();
+
+  const bootstrapProjectRepository = new ProjectRepositoryImpl(database);
+  const bootstrapRetentionRepository = new ProjectRetentionPolicyRepositoryImpl(database);
+  await bootstrapRetentionPolicies({
+    projectRepository: bootstrapProjectRepository,
+    retentionRepository: bootstrapRetentionRepository,
+    logger,
+  });
 
   // Setup process error logging
   setupProcessErrorLogging(logger);

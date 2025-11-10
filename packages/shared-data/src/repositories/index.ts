@@ -23,5 +23,6 @@ export * from './quality-gates/section-quality-gate-result.repository.js';
 export * from './quality-gates/document-quality-gate-summary.repository.js';
 export * from './quality-gates/traceability-sync.repository.js';
 export * from './traceability/traceability.repository.js';
+export * from './project-retention-policy.repository.js';
 
 export type { Repository, QueryOptions } from '../types/index.js';

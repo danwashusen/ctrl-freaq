@@ -27,6 +27,7 @@ import {
   DocumentExportJobRepository,
   TemplateValidationDecisionRepository,
   type RequirementGap,
+  ProjectRetentionPolicyRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type {
@@ -133,6 +134,10 @@ export function createRepositoryRegistrationMiddleware(
       () => new DocumentTemplateMigrationRepositoryImpl(getDb())
     );
     container.register('documentRepository', () => new DocumentRepositoryImpl(getDb()));
+    container.register(
+      'projectRetentionPolicyRepository',
+      () => new ProjectRetentionPolicyRepositoryImpl(getDb())
+    );
 
     // Document Editor repositories
     container.register('sectionRepository', () => new SectionRepositoryImpl(getDb()));

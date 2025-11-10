@@ -23,9 +23,23 @@ describe('Project retention policy contract', () => {
     app = await createApp();
   });
 
-  test('GET /api/v1/projects/:projectSlug/retention returns retention metadata', async () => {
+  test('creates a project and returns its default retention metadata', async () => {
+    const projectName = `Retention Contract ${Date.now()}`;
+    const createResponse = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: projectName,
+        description: 'Contract test project',
+      });
+
+    expect(createResponse.status).toBe(201);
+    const projectSlug = createResponse.body?.slug as string | undefined;
+    expect(typeof projectSlug).toBe('string');
+    expect(projectSlug?.length).toBeGreaterThan(0);
+
     const response = await request(app)
-      .get(`/api/v1/projects/${demoProjectRetention.projectSlug}/retention`)
+      .get(`/api/v1/projects/${projectSlug}/retention`)
       .set(AuthorizationHeader);
 
     expect(response.status).toBe(200);
@@ -34,6 +48,7 @@ describe('Project retention policy contract', () => {
     if (parsed.success) {
       expect(parsed.data.policyId).toBe(demoProjectRetention.policyId);
       expect(parsed.data.retentionWindow).toBe(demoProjectRetention.retentionWindow);
+      expect(parsed.data.guidance).toBe(demoProjectRetention.guidance);
     }
   });
 
