@@ -83,6 +83,8 @@ interface DiffRequestPayload {
 
 interface ConflictLogListPayload {
   sectionId: string;
+  draftId: string;
+  signal?: AbortSignal;
 }
 
 type ManualDraftPersistence = Pick<ManualDraftStorage, 'saveDraft' | 'loadDraft' | 'deleteDraft'>;
@@ -274,6 +276,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   }, [sectionId]);
 
   const conflictState = useSectionDraftStore(state => state.conflictState);
+  const draftIdentifier = useSectionDraftStore(state => state.draftId);
   const formattingAnnotations = useSectionDraftStore(state => state.formattingAnnotations);
   const isSaving = useSectionDraftStore(state => state.isSaving);
   const summaryNote = useSectionDraftStore(state => state.summaryNote);
@@ -1277,10 +1280,19 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       return;
     }
 
+    if (!sectionId || !draftIdentifier) {
+      return;
+    }
+
     let cancelled = false;
+    const abortController = new AbortController();
 
     api
-      .listConflictLogs({ sectionId })
+      .listConflictLogs({
+        sectionId,
+        draftId: draftIdentifier,
+        signal: abortController.signal,
+      })
       .then(result => {
         if (!cancelled) {
           recordConflictEvents(result.events ?? []);
@@ -1289,14 +1301,16 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       .catch(error => {
         logger.debug('Unable to hydrate conflict log history', {
           sectionId,
+          draftId: draftIdentifier,
           reason: error instanceof Error ? error.message : 'unknown',
         });
       });
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
-  }, [api, sectionId, recordConflictEvents]);
+  }, [api, sectionId, draftIdentifier, recordConflictEvents]);
 
   return {
     state: derivedState,

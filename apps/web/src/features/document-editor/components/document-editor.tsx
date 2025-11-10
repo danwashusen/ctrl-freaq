@@ -471,8 +471,8 @@ export const DocumentEditor = memo<DocumentEditorProps>(
           payload: { sectionId: string } & Parameters<typeof client.checkConflicts>[1]
         ) => client.checkConflicts(payload.sectionId, payload),
         fetchDiff: (payload: { sectionId: string }) => client.getDiff(payload.sectionId),
-        listConflictLogs: (payload: { sectionId: string }) =>
-          client.listConflictLogs(payload.sectionId),
+        listConflictLogs: (payload: { sectionId: string; draftId: string; signal?: AbortSignal }) =>
+          client.listConflictLogs(payload),
       }),
       [client]
     );

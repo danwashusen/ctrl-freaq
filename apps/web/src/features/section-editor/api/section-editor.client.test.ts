@@ -177,4 +177,32 @@ describe('SectionEditorClient', () => {
 
     await expect(client.getDiff('sec-1')).rejects.toBeInstanceOf(SectionEditorClientError);
   });
+
+  it('appends draftId when listing conflict logs', async () => {
+    const client = new SectionEditorClient({
+      baseUrl,
+      fetch: fetchMock as unknown as typeof fetch,
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      buildResponse(
+        {
+          events: [],
+        },
+        {
+          status: 200,
+          headers: {
+            'x-request-id': 'req-logs',
+          },
+        }
+      )
+    );
+
+    await client.listConflictLogs({ sectionId: 'sec-42', draftId: 'draft-99' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${baseUrl}/sections/sec-42/conflicts/logs?draftId=draft-99`);
+    expect(init.method).toBe('GET');
+  });
 });
