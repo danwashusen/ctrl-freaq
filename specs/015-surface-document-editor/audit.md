@@ -6,31 +6,25 @@
 
 **Branch**: `015-surface-document-editor`  
 **Baseline**: `main` (`73d1d9f603a0b2c60ad9349d3583b97fe5d9ac7c`)  
-**Diff Source**: `HEAD` (`6fb6305c3afc940abfa279b7528a725988e14f5a`) vs `main`  
-**Review Target**: Story 015 – surface the architecture document editor from the
-Project dashboard, including discovery, provisioning, live editor bootstrap,
-collaboration/QA, template validation, and export flows across the API and web
-clients.  
-**Files Analyzed**: 107 changed files including Express/DI routes & services,
-shared-data models/repositories, React Project workflow + document-editor
+**Diff Source**: `HEAD` (`c08066996e41d84dab1115aad378394ba4153921`) vs `main`  
+**Review Target**: Story 015 – surface the architecture document editor
+(discovery, provisioning, live editor bootstrap, collaboration/QA, template
+validation, export) across API + web apps.  
+**Files Analyzed**: 184 changed files including Express routes/services,
+shared-data models & repositories, React Project workflow + document-editor
 modules, fixtures/tests, and spec collateral.
 
-**Resolved Scope Narrative**: Loaded `.specify.yaml`, locked
-`FEATURE_DIR=/Users/danwas/Development/Projects/ctrl-freaq/worktrees/015-surface-document-editor/specs/015-surface-document-editor`,
-and ingested the dossier (`plan.md`, `tasks.md`, `spec.md`, `research.md`,
-`data-model.md`, `quickstart.md`, contracts) plus governance inputs
-(`docs/prd.md`, `docs/architecture.md`, `docs/ui-architecture.md`,
-`docs/front-end-spec.md`, `CONSTITUTION.md`). Recorded sandbox posture
-(workspace-write, network enabled, approval on-request) and normalized
-SESSION_FEEDBACK (follow the Code Review Playbook end-to-end; baseline option 1
-accepted). Selected `HEAD`→`main` as the comparison target, enumerated scope
-hints from `tasks.md`/`plan.md` (Project workflow card, document-editor hooks,
-API document routes, shared-data repositories), and inspected git diff paths.
-Executed `pnpm lint` (pass with `ESLintIgnoreWarning`) and `pnpm typecheck`,
-which now fails in `apps/web/src/pages/Project.tsx` because the create-document
-stepper compares a non-idle union to `'idle'`. Per the playbook’s Quality
-Controls gate, deeper analysis/test evidence is deferred until the build
-recovers.
+**Resolved Scope Narrative**: Reloaded `.specify.yaml`, confirmed sandbox
+posture (workspace-write, network enabled, approval policy _untrusted_),
+recorded SESSION_FEEDBACK, and re-read the dossier (`plan.md`, `tasks.md`,
+`spec.md`, `research.md`, `data-model.md`, `quickstart.md`, contracts). Locked
+`HEAD`→`main` as the comparison baseline, enumerated scope hints (Project
+workflow, document-editor hooks/stores, API document/section/export/template
+routes, shared-data repositories). Executed `pnpm lint` (pass), `pnpm typecheck`
+(now passes after the prior create-document fix), then `pnpm test`, which fails
+in the Playwright gauntlet because the approval panel never renders under common
+section statuses. Quality Controls and TDD gates remain blocked until that
+regression is resolved.
 
 **Feature Directory**:
 `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/015-surface-document-editor/specs/015-surface-document-editor`
@@ -38,17 +32,17 @@ recovers.
 **Implementation Scope**:
 
 - Project workflow page (`apps/web/src/pages/Project.tsx`) wiring discovery,
-  provisioning, export, and template validation states.
-- Document-editor bootstrap + fixture hooks (`use-document-bootstrap`,
-  `use-document-fixture`, stores, and streaming hooks).
-- Section-editor conflict + manual save UX plus assumptions/co-author/QA
-  services.
-- Express routes/services for documents, sections, templates, exports, and
-  provisioning, including shared helpers such as `ensureSectionAccess`.
-- Shared-data models/repositories for document/export/decision state plus
-  template assets/scripts.
-- Specs, contracts, quickstart, and checklist collateral under
-  `specs/015-surface-document-editor/`.
+  provisioning, template validation, and export workflows
+- Document-editor bootstrap/hooks/stores plus loading/not-found/streaming guards
+  (`use-document-bootstrap`, `document-editor.tsx`, QA/co-author sessions)
+- Section-editor manual save, conflict guide, approval controls, diff viewer,
+  and persistence adapters
+- Express routes/services for documents, sections, templates, provisioning,
+  exports, plus DI container + helper guards
+- Shared-data repositories/models for documents, sections, template decisions,
+  export jobs, and retention policies
+- Feature dossier collateral
+  (plan/tasks/spec/data-model/quickstart/contracts/checklists)
 
 ## SPEC_KIT_CONFIG
 
@@ -71,104 +65,99 @@ spec-kit:
 
 ## Pre-Review Gates
 
-| Gate                      | Status        | Details                                                                                                                                                                          |
-| ------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Context Gate**          | Pass          | Spec kit config, dossier assets, and governance docs loaded before diff analysis.                                                                                                |
-| **Change Intent Gate**    | Pass          | Diff still implements the POR described in `plan.md`/`tasks.md` (surface live editor, provisioning, QA/export).                                                                  |
-| **Unknowns Gate**         | Pass          | No `[NEEDS CLARIFICATION]` items after reviewing spec + research notes.                                                                                                          |
-| **Separation of Duties**  | Not Evaluated | Local review; GitHub branch protection/approver enforcement unavailable for verification.                                                                                        |
-| **Code Owners Gate**      | N/A           | Repository still lacks `.github/CODEOWNERS`; no enforced owners.                                                                                                                 |
-| **Quality Controls Gate** | **Fail**      | `pnpm typecheck` fails (`TS2367`) in `apps/web/src/pages/Project.tsx:1897` because the stepper state compares against `'idle'` inside a branch that already excluded that value. |
-| **TDD Evidence Gate**     | Not Evaluated | Gauntlet blocked by the Quality Controls failure; tests were not rerun.                                                                                                          |
+| Gate                      | Status        | Details                                                                                                                                                                                |
+| ------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Context Gate**          | Pass          | Spec kit configuration, dossier files, and governance docs were loaded before inspecting diffs.                                                                                        |
+| **Change Intent Gate**    | Pass          | Diff still implements the POR described in `plan.md`/`tasks.md` (surface live editor flows end-to-end).                                                                                |
+| **Unknowns Gate**         | Pass          | No `[NEEDS CLARIFICATION]` items remain after reviewing the dossier and SESSION_FEEDBACK.                                                                                              |
+| **Separation of Duties**  | Not Evaluated | Local review cannot confirm GitHub branch protection or approver assignments.                                                                                                          |
+| **Code Owners Gate**      | N/A           | Repository still lacks `.github/CODEOWNERS`; no enforced owners.                                                                                                                       |
+| **Quality Controls Gate** | **Fail**      | `pnpm test` fails in `@ctrl-freaq/web test:e2e:ci` because the approval panel never renders for sections that are still `drafting`, so Playwright cannot finish the approval workflow. |
+| **TDD Evidence Gate**     | **Fail**      | Failing Playwright gauntlet leaves FR-007 behavior unverified; evidence must be repaired before deeper review proceeds.                                                                |
 
 ## Findings
 
 ### Active Findings (Current Iteration)
 
-#### Finding F021: Create-document stepper state check keeps typecheck red
+#### Finding F022: Section approval panel hidden, breaking Playwright gauntlet
 
-- **Category**: Quality Controls
+- **Category**: Quality Controls / Functional Correctness
 - **Severity**: Critical
 - **Confidence**: High
-- **Impact**: `pnpm typecheck` aborts while building `@ctrl-freaq/web` with
-  `TS2367: This comparison appears to be unintentional because the types '"initializing" | "provisioning" | "finalizing"' and '"idle"' have no overlap`
-  at `apps/web/src/pages/Project.tsx(1897,19)`. The `showCreateDocumentStepper`
-  guard (`createDocumentStepperState !== 'idle'`) already narrows the union, so
-  the comparison can never be true. As a result, `pnpm typecheck`, `pnpm test`,
-  and `pnpm build` cannot run, violating the Constitution’s
-  test-first/quality-gate mandate and blocking deployment.
-- **Evidence**: `pnpm typecheck` output (2025-11-08) shows
-  `src/pages/Project.tsx(1897,19): error TS2367…`. The code at
-  `apps/web/src/pages/Project.tsx:1888-1904` renders the `<ol>` only when
-  `showCreateDocumentStepper` is true, yet still checks
-  `createDocumentStepperState === 'idle'`, creating the impossible branch that
-  `tsc` flags.
-- **Remediation**: Remove the idle comparison inside the guarded block (e.g.,
-  compute `currentIndex` directly from
-  `CREATE_DOCUMENT_STEP_ORDER[createDocumentStepperState]`, or restructure so
-  the stepper renders even when idle). Re-run `pnpm typecheck`, `pnpm lint`, and
-  the gauntlet afterward to prove the repo builds.
-- **Source Requirement**: `CONSTITUTION.md` (Test-First Development & Quality
-  Controls Protection) and `QUAL-01 Correctness & Tests`.
-- **Files**: `apps/web/src/pages/Project.tsx:1888-1904`
+- **Impact**: `pnpm test` aborts because
+  `apps/web/tests/e2e/section-editor/approval-finalize.e2e.ts` cannot find
+  `data-testid="approval-panel"`. `document-editor.tsx` now only renders
+  `<ApprovalControls>` when `activeSection.status` is `'review'` or `'ready'`
+  (`apps/web/src/features/document-editor/components/document-editor.tsx:2068-2096`).
+  Fixture sections load as `drafting`, so reviewers have no approval UI,
+  preventing manual saves from being committed or verified, regressing
+  FR-007/FR-008 and blocking the gauntlet.
+- **Evidence**: `pnpm test` (2025-11-11) output shows Playwright failure
+  `expect(received).toBeVisible()` at
+  `apps/web/tests/e2e/section-editor/approval-finalize.e2e.ts:22`. Corresponding
+  code gates the approval panel behind
+  `activeSection.status === 'review' || activeSection.status === 'ready'`, so
+  the selector never exists for `drafting` sections.
+- **Remediation**: Render `ApprovalControls` whenever the user has review
+  permission (e.g., while in edit mode or when section status ∈
+  {'drafting','review','ready'}) and gate behavior via capability checks instead
+  of status equality. Update Playwright + RTL tests to cover the regression,
+  rerun `pnpm test`, and confirm the approval workflow passes with `drafting`
+  fixtures.
+- **Source Requirement**: `FR-007` (manual save + approval UX), `FR-008`
+  (conflict/approval guidance), `QUAL-01 Correctness & Tests`,
+  `TEST-01 Required Checks`.
+- **Files**:
+  `apps/web/src/features/document-editor/components/document-editor.tsx:2058-2096`,
+  `apps/web/tests/e2e/section-editor/approval-finalize.e2e.ts`.
 
 ### Historical Findings Log
 
+- [Resolved 2025-11-11] **F021**: Create-document stepper state check kept
+  typecheck red — Reported 2025-11-08; verified fixed by re-running
+  `pnpm typecheck` (2025-11-11) and inspecting
+  `apps/web/src/pages/Project.tsx:1888-1904`, which no longer compares `'idle'`
+  after `showCreateDocumentStepper` narrows the union.
 - [Resolved 2025-11-08] **F020**: Section-route null-safety regression blocked
-  builds — Reported 2025-11-07; `pnpm typecheck` no longer references
-  `apps/api/src/routes/sections.ts`, indicating the guards were tightened.
-  Evidence: 2025-11-08 `pnpm typecheck` failure occurs in
-  `apps/web/src/pages/Project.tsx` instead, so the earlier backend issue appears
-  addressed.
+  builds — `apps/api/src/routes/sections.ts` now narrows nullable responses;
+  `pnpm typecheck` no longer fails on backend files.
 - [Resolved 2025-11-07] **F019**: Provisioning workflow omitted spec-required
-  stepper/failure UX — Create Document card now renders the three-step
-  `Initializing → Provisioning → Finalizing` stepper plus the destructive
-  failure banner with retry CTA and troubleshooting link
-  (`apps/web/src/pages/Project.tsx:1860-1998`), covered by
-  `apps/web/src/pages/__tests__/Project.create-document.test.tsx`.
+  stepper/failure UX — Create Document card renders the three-step progress
+  indicator and destructive banner; tests cover it.
 - [Resolved 2025-11-07] **F018**: Section endpoints bypassed project
-  authorization — `apps/api/src/routes/sections.ts` introduces
-  `ensureSectionAccess` (lines 230-330) that loads a section, resolves its
-  document, and calls `requireProjectAccess` before returning to callers; every
-  route now invokes this helper, addressing the cross-project data leak.
-  Regression coverage:
-  `apps/api/tests/contract/section-editor/section-editor.contract.test.ts`.
+  authorization — `ensureSectionAccess` + `requireProjectAccess` guard every
+  route; contract tests cover.
 - [Resolved 2025-11-07] **F017**: Template decision snapshot reused
-  project-level history — Discovery service now calls `findLatestByDocument`;
-  evidence:
-  `apps/api/src/services/document-workflows/project-document-discovery.service.ts`,
-  unit + contract tests.
-- [Resolved 2025-11-07] **F016**: Document-missing screen omitted spec-required
-  actions — Updated CTA set in `apps/web/src/components/document-missing.tsx`,
-  router tests, and Playwright coverage.
+  project-level history — Discovery service now hydrates latest decisions per
+  document with unit + contract coverage.
+- [Resolved 2025-11-07] **F016**: Document-missing screen omitted required
+  actions — Updated CTA set in `document-missing.tsx` with tests + Playwright
+  coverage.
 - [Resolved 2025-11-07] **F015**: Export workflow lacked downloadable artifact
-  CTA — `apps/web/src/pages/Project.tsx` + tests now expose the download link
-  fed by export jobs.
-- [Resolved 2025-11-07] **F014**: Assumption flow used unscoped APIs —
-  `AssumptionsApiService` threads `documentId`; backend contracts enforce
-  document scope.
+  CTA — Project page now renders download link backed by export jobs.
+- [Resolved 2025-11-07] **F014**: Assumptions flow used unscoped APIs — Hooks +
+  API service thread project/document IDs; contract tests enforce scope.
 - [Resolved 2025-11-07] **F013**: Document detail route lacked project
-  authorization — `apps/api/src/routes/documents.ts` now calls
-  `requireProjectAccess` for every project/doc request.
+  authorization — Document routes call `requireProjectAccess` for every request.
 - [Resolved 2025-11-07] **F012**: Template locator ignored build artifacts —
-  Build script copies templates to `dist`, resolver checks the new path.
+  Build script copies templates to dist; resolver checks new path with tests.
 - [Resolved 2025-11-07] **F011**: Export workflow never surfaced queued states —
-  Export service queues jobs and UI polls job status.
-- [Resolved 2025-11-07] **F010**: Document provisioning not atomic — Service now
-  rolls back document + sections when seeding fails.
+  Export service enqueues jobs and UI polls job status.
+- [Resolved 2025-11-07] **F010**: Document provisioning not atomic —
+  Provisioning service rolls back document/sections on failure.
 - [Resolved 2025-11-07] **F009**: Project document/export endpoints skipped
   authorization — `requireProjectAccess` guard added to
-  discovery/provision/export/template decision routes.
+  discovery/provision/export/template-decision routes.
 - [Resolved 2025-11-07] **F008**: Create Document API ignored overrides —
-  Serializer + provisioning service honor overrides, with contract coverage.
+  Serializer + provisioning service honor overrides with contract coverage.
 - [Resolved 2025-11-06] **F007**: Export workflow never produced artifacts —
   Export service writes artifacts to job rows and exposes downloads.
 - [Resolved 2025-11-06] **F006**: Production provisioning missed template assets
   — Copy script plus tests ensure assets ship with builds.
 - [Resolved 2025-11-06] **F005**: Document templates absent from builds —
-  Addressed together with F006.
+  Addressed with F006 (copy + packaging tests).
 - [Resolved 2025-11-06] **F004**: Document route loader bypassed auth — Loader
-  now instantiates API client with loader tokens.
+  uses API client configured with loader tokens.
 - [Resolved 2025-11-06] **F003**: Workflow card lost link semantics — Project
   workflow card wraps CTA in `<Link>` again.
 - [Resolved 2025-11-06] **F002**: Document bootstrap failed missing-section
@@ -179,19 +168,17 @@ spec-kit:
 
 ## Strengths
 
-- Create Document workflow card still renders the three-step progress indicator,
-  inline failure banner, and animated success state documented in the spec
-  (`apps/web/src/pages/Project.tsx:1860-1998`), keeping the UX transparent.
-- Dossier collateral (e.g., `specs/015-surface-document-editor/data-model.md`
-  and `plan.md`) remains exhaustive, mapping entities, dependencies, and quick
-  start flows so scope stays traceable for future iterations.
+- Repository-wide lint/typecheck/build gates are green again, demonstrating the
+  earlier stepper regression was resolved quickly and without suppressions.
+- Dossier collateral (`plan.md`, `data-model.md`, `quickstart.md`, contracts)
+  remains comprehensive, preserving POR traceability for downstream audit loops.
 
 ## Feedback Traceability
 
-| Feedback Item                                                  | Source                       | Status                           | Evidence / Linked Findings                                                                      |
-| -------------------------------------------------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Follow the Code Review Playbook end-to-end (no skipped steps). | Operator — 2025-11-08T20:20Z | Blocked at Quality Controls gate | Steps 1–7 completed; Step 8 ran `pnpm lint` then `pnpm typecheck`, which failed (Finding F021). |
-| Comparison baseline defaults to HEAD vs `main` (option 1).     | Operator — 2025-11-08T20:43Z | Completed                        | Resolved scope records `HEAD` (`6fb6305c…`) vs `main` (`73d1d9f…`).                             |
+| Feedback Item                                                  | Source                       | Status                           | Evidence / Linked Findings                                                                |
+| -------------------------------------------------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
+| Follow the Code Review Playbook end-to-end (no skipped steps). | Operator — 2025-11-11T19:44Z | Blocked at Quality Controls gate | Steps 1–7 completed; Step 9 `pnpm test` fails due to F022, halting the loop per playbook. |
+| Comparison baseline defaults to HEAD vs `main` (option 1).     | Operator — 2025-11-11T19:45Z | Completed                        | Resolved scope documents `HEAD` (`c0806699…`) vs `main` (`73d1d9f…`).                     |
 
 ## Outstanding Clarifications
 
@@ -199,119 +186,114 @@ spec-kit:
 
 ## Control Inventory
 
-| Control Domain         | Implementation                                                                                                                                 | Status  | Reference                                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Authentication**     | `ensureSectionAccess` + `requireProjectAccess` guard every section/document route and reuse the loader auth client for frontend data fetching. | Healthy | `apps/api/src/routes/sections.ts:230-340`, `apps/web/src/lib/auth-provider/loader-auth.ts`                         |
-| **Logging**            | Routes/services emit Pino logs with `requestId`, project/document ids, and duration metadata via DI injected loggers.                          | Healthy | `apps/api/src/routes/projects.ts:70-160`, `apps/api/src/services/export/document-export.service.ts:70-150`         |
-| **Error Handling**     | Shared helpers (`sendErrorResponse`, Zod schemas) normalize JSON errors and validation failures.                                               | Healthy | `apps/api/src/routes/documents.ts:40-160`, `apps/api/src/routes/templates.ts:30-140`                               |
-| **Repository Pattern** | Shared-data repositories back document snapshots, template decisions, export jobs, and section drafts.                                         | Healthy | `packages/shared-data/src/repositories/*.ts`, `packages/shared-data/src/models/*.ts`                               |
-| **Input Validation**   | API routes validate payloads with Zod, while frontend bootstrap/hooks guard required identifiers before mutating stores.                       | Healthy | `apps/api/src/routes/documents.ts:60-118`, `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts` |
-| **State Management**   | Template/document stores (Zustand) synchronize status vocabularies across Project + editor views to keep UX copy consistent.                   | Healthy | `apps/web/src/stores/template-store.ts`, `apps/web/src/features/document-editor/components/document-editor.tsx`    |
+| Control Domain         | Implementation                                                                                                                                                   | Status          | Reference                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Authentication**     | `ensureSectionAccess` + `requireProjectAccess` guard section/document routes; loader auth client reuses the same tokens for frontend data fetching.              | Healthy         | `apps/api/src/routes/sections.ts:230-340`, `apps/web/src/lib/auth-provider/loader-auth.ts`                         |
+| **Logging**            | Routes/services emit structured Pino logs with `requestId`, project/document ids, and timing metadata via DI loggers.                                            | Healthy         | `apps/api/src/routes/projects.ts:70-160`, `apps/api/src/services/export/document-export.service.ts:70-150`         |
+| **Error Handling**     | Shared helpers (`sendErrorResponse`, Zod schemas) normalize JSON errors and validation failures.                                                                 | Healthy         | `apps/api/src/routes/documents.ts:40-160`, `apps/api/src/routes/templates.ts:30-140`                               |
+| **Repository Pattern** | Shared-data repositories back document snapshots, template decisions, export jobs, and section drafts.                                                           | Healthy         | `packages/shared-data/src/repositories/*.ts`, `packages/shared-data/src/models/*.ts`                               |
+| **Input Validation**   | API routes validate payloads with Zod while frontend bootstrap/hooks guard required identifiers before mutating stores.                                          | Healthy         | `apps/api/src/routes/documents.ts:60-118`, `apps/web/src/features/document-editor/hooks/use-document-bootstrap.ts` |
+| **State Management**   | Document + section stores coordinate Project/editor state, but approval controls now gate on status in `document-editor.tsx`, hiding reviewer UI (Finding F022). | Needs Attention | `apps/web/src/features/document-editor/components/document-editor.tsx:2058-2096`                                   |
 
 ## Quality Signal Summary
 
 ### Linting Results
 
 - **Status**: Pass (`pnpm lint`)
-- **Warnings**: 1 warning (ESLintIgnoreWarning), 0 errors
-- **Key Issues**:
-  - Turbo fan-out across 10 workspaces succeeded; repo-level `eslint . --cache`
-    produced no rule violations.
-  - ESLint emitted `ESLintIgnoreWarning` because `.eslintignore` is unsupported
-    in flat-config projects (Finding F022).
-  - No lint suppressions were added in source files this iteration.
+- **Warnings**: 0 warnings, 0 errors
+- **Key Notes**:
+  - Turbo lint fan-out across 10 workspaces completed without rule violations.
+  - Repo-level `eslint . --cache --ext .ts,.tsx,.js,.jsx` finished cleanly; no
+    ignore anomalies reported.
 
 ### Type Checking
 
-- **Status**: **Fail (`pnpm typecheck`)**
-- **Results**: Turbo build fails during `@ctrl-freaq/web` compile with `TS2367`
-  at `apps/web/src/pages/Project.tsx(1897,19)`; type narrowing and the gauntlet
-  terminate immediately (Finding F021).
+- **Status**: Pass (`pnpm typecheck`)
+- **Results**: Turbo build + `tsc --noEmit` succeeded across all packages; prior
+  F021 regression is resolved.
 
 ### Test Results
 
-- **Status**: Not Run
-- **Results**: Deferred per playbook; gauntlet cannot proceed until
-  `pnpm typecheck` succeeds.
-- **Root Cause**: Create-document stepper state comparison (F021).
+- **Status**: **Fail (`pnpm test`)**
+- **Results**: `@ctrl-freaq/web test:e2e:ci` (Playwright fixture config) fails
+  `section-editor/approval-finalize.e2e.ts` because
+  `[data-testid="approval-panel"]` is never visible once a section enters edit
+  mode.
+- **Root Cause**: Approval panel rendering is restricted to `review`/`ready`
+  statuses in `document-editor.tsx`, so reviewers cannot approve `drafting`
+  fixtures, breaking FR-007 workflow coverage (Finding F022).
 
 ### Build Status
 
-- **Status**: Fail
-- **Details**: Turbo build invoked by `pnpm typecheck` stops with the same
-  `TS2367` diagnostic, so dist artifacts were not generated.
+- **Status**: Pass (`pnpm typecheck` ➜ `pnpm run build`)
+- **Details**: Turbo build succeeded for all workspaces while running
+  `pnpm typecheck`.
 
 ## Dependency Audit Summary
 
-- Dependency audit deferred — rerun `pnpm audit --prod` once Findings F021/F022
-  are resolved and the gauntlet is green.
+- Not run this iteration; rerun `pnpm audit --prod` or equivalent once the
+  Playwright gauntlet is green so dependency deltas can be triaged alongside a
+  passing build.
 
 ## Requirements Coverage Table
 
-| Requirement | Summary                                                             | Implementation Evidence                                                                                | Validating Tests                | Linked Findings / Clarifications        |
-| ----------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------- |
-| **FR-001**  | Accessible workflow card launches the primary document.             | Implementation still lives in `apps/web/src/pages/Project.tsx:1700-1820`; not revalidated this run.    | Deferred (`pnpm test` blocked). | Quality Controls Violation (F021).      |
-| **FR-002**  | Project page shows Loading/Ready/Missing/Archived badges.           | Logic unchanged at `apps/web/src/pages/Project.tsx:223-289`; not re-run.                               | Deferred.                       | Quality Controls Violation (F021).      |
-| **FR-003**  | Create Document CTA blocks duplicates until provisioning completes. | Guarding remains in `apps/web/src/pages/Project.tsx:1805-1860`.                                        | Deferred.                       | Quality Controls Violation (F021).      |
-| **FR-004**  | Provisioning flow shows progress + actionable failure UX.           | Verified earlier; UI still renders `CREATE_DOCUMENT_STEPS` + failure banner (`Project.tsx:1860-1998`). | Tests skipped this iteration.   | Review pending once `pnpm test` reruns. |
-| **FR-005**  | Route to editor on selection/creation landing on first section.     | `apps/web/src/app/router/document-routes.tsx` unchanged.                                               | Deferred.                       | Quality Controls Violation (F021).      |
-| **FR-006**  | Live bootstrap + loading/not-found guards before editing.           | `use-document-bootstrap.ts` + `document-editor.tsx` continue to gate editing.                          | Deferred.                       | Review pending.                         |
-| **FR-007**  | Manual save diff + success/failure handling.                        | `manual-save-panel.tsx` still wires diff states; not revalidated.                                      | Deferred.                       | Review pending.                         |
-| **FR-008**  | Conflict handling preserves drafts & guides resolution.             | `conflict-dialog.tsx` retains refresh/diff/reapply steps.                                              | Deferred.                       | Review pending.                         |
-| **FR-009**  | Assumptions flow scoped to active project/document ids.             | `assumptions-api.ts` + hooks still thread identifiers.                                                 | Deferred.                       | Review pending.                         |
-| **FR-010**  | Co-author sidebar streams sessions with cancel/retry.               | `useCoAuthorSession.ts` + store unchanged.                                                             | Deferred.                       | Review pending.                         |
-| **FR-011**  | QA checks + gate results visible in editor.                         | `document-editor.tsx` continues to surface QA runs.                                                    | Deferred.                       | Review pending.                         |
-| **FR-012**  | Template decisions persist with feedback.                           | Template store + API wiring untouched; requires revalidation once gates pass.                          | Deferred.                       | Review pending.                         |
-| **FR-013**  | Export workflow triggers jobs and returns artifact/status.          | API service + Project card logic unchanged.                                                            | Deferred.                       | Review pending.                         |
-| **FR-014**  | Breadcrumb/back navigation returns to originating project.          | `document-editor.tsx:240-320` still renders breadcrumb/back CTA.                                       | Deferred.                       | Review pending.                         |
+| Requirement | Summary                                                            | Implementation Evidence                                                                                                                   | Validating Tests                                     | Linked Findings / Clarifications |
+| ----------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| **FR-001**  | Accessible workflow card launches the primary document.            | Logic unchanged in `apps/web/src/pages/Project.tsx:1700-1820`; not revalidated because gauntlet blocked at document editor stage.         | Deferred (`pnpm test` blocked).                      | Review pending once tests rerun. |
+| **FR-002**  | Project page shows Loading/Ready/Missing/Archived badges.          | Status pill rendering remains in `Project.tsx:223-289`; screenshot/tests not rerun this loop.                                             | Deferred.                                            | Review pending.                  |
+| **FR-003**  | Create Document CTA blocks duplicates until provisioning succeeds. | Guarding + disabled states still implemented in `Project.tsx:1805-1860`.                                                                  | Deferred.                                            | Review pending.                  |
+| **FR-004**  | Provisioning flow shows progress + actionable failure UX.          | Stepper + banner remain at `Project.tsx:1860-1998`.                                                                                       | Deferred.                                            | Review pending.                  |
+| **FR-005**  | Route user to editor landing on first section.                     | Loader + router continue to compute first section in `document-routes.tsx`.                                                               | Deferred.                                            | Review pending.                  |
+| **FR-006**  | Load live document content with loading/not-found guards.          | `use-document-bootstrap.ts` + `document-editor.tsx` still orchestrate gating and fallbacks.                                               | Deferred.                                            | Review pending.                  |
+| **FR-007**  | Manual save diff + approval UX.                                    | `ManualSavePanel` + `ApprovalControls` still exist, but approval UI is hidden for `drafting` sections in `document-editor.tsx:2068-2096`. | `section-editor/approval-finalize.e2e.ts` fails.     | Finding F022.                    |
+| **FR-008**  | Conflict handling preserves drafts & guides resolution.            | `ConflictDialog` + conflict guide logic remain in `document-editor.tsx`.                                                                  | Deferred (gauntlet stopped before these assertions). | Review pending.                  |
+| **FR-009**  | Assumptions flow scoped to active project/document ids.            | Hooks + API service still thread identifiers.                                                                                             | Deferred.                                            | Review pending.                  |
+| **FR-010**  | Co-author sidebar streams sessions with cancel/retry.              | `useCoAuthorSession.ts` unchanged.                                                                                                        | Deferred.                                            | Review pending.                  |
+| **FR-011**  | QA checks show latest gate results.                                | QA panel + dashboard wiring intact.                                                                                                       | Deferred.                                            | Review pending.                  |
+| **FR-012**  | Template decisions persist with feedback.                          | Template store + API client unchanged.                                                                                                    | Deferred.                                            | Review pending.                  |
+| **FR-013**  | Export workflow triggers jobs and returns artifact/status.         | Export API/service logic still present.                                                                                                   | Deferred.                                            | Review pending.                  |
+| **FR-014**  | Breadcrumb/back navigation returns to originating project.         | Breadcrumb/back CTA still rendered in `document-editor.tsx:240-320`.                                                                      | Deferred.                                            | Review pending.                  |
 
 ## Requirements Compliance Checklist
 
-| Requirement Group             | Status        | Notes                                                                                                                            |
-| ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **Constitutional Principles** | Fail          | `pnpm typecheck` failure (F021) and unauthorized `.eslintignore` change (F022) violate Test-First + Quality Controls Protection. |
-| **SOC 2 Authentication**      | Pass          | Backend routes still enforce `requireProjectAccess`; no regressions noted before gate failure.                                   |
-| **SOC 2 Logging**             | Pass          | Structured logging + request IDs remain intact within routes/services.                                                           |
-| **Security Controls**         | Pass          | Prior authorization findings (F013/F018) remain resolved; no new security gaps observed pre-gate.                                |
-| **Code Quality**              | Fail          | Build and lint gates not clean (F021/F022).                                                                                      |
-| **Testing Requirements**      | Not Evaluated | Gauntlet not executed because `pnpm typecheck` fails.                                                                            |
+| Requirement Group             | Status | Notes                                                                                                 |
+| ----------------------------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| **Constitutional Principles** | Fail   | Playwright gauntlet failure (F022) violates Test-First + Quality Controls Protection.                 |
+| **SOC 2 Authentication**      | Pass   | Backend routes continue to enforce `requireProjectAccess`; no new auth regressions observed pre-gate. |
+| **SOC 2 Logging**             | Pass   | Structured logging with `requestId` persists in touched routes/services.                              |
+| **Security Controls**         | Pass   | Prior authorization findings remain resolved; no new security deltas spotted before gate failure.     |
+| **Code Quality**              | Fail   | Tests are red (F022), so code quality gates are not satisfied.                                        |
+| **Testing Requirements**      | Fail   | Gauntlet execution fails during Playwright suite; evidence must be green before approval.             |
 
 ## Decision Log
 
-1. **2025-11-08** — Loaded spec kit configuration, recorded sandbox posture, and
-   captured SESSION_FEEDBACK (follow the playbook; baseline option 1).
-2. **2025-11-08** — Ran `pnpm lint` (pass with ESLintIgnoreWarning) and
-   `pnpm typecheck`, which failed in `apps/web/src/pages/Project.tsx`; per Step
-   8 the review halts at the Quality Controls gate.
-3. **2025-11-08** — Deferred deeper diff/test analysis, documented Findings
-   F021/F022, and prepared remediation guidance plus Phase 4.R follow-up tasks.
+1. **2025-11-11** — Reloaded spec kit config, recorded sandbox/network posture,
+   SESSION_FEEDBACK, and baseline selection (HEAD vs `main`).
+2. **2025-11-11** — Ran `pnpm lint` and `pnpm typecheck`; both succeeded,
+   confirming F021 was resolved.
+3. **2025-11-11** — Ran `pnpm test`; Playwright approval workflow failed,
+   triggering Finding F022 and halting the review per the playbook.
 
 ## Remediation Logging
 
-### Remediation R022
+### Remediation R024
 
-- **Context**: Finding F021 — Create Document stepper compares a narrowed union
-  against `'idle'`, causing `pnpm typecheck` to fail.
-- **Control Reference**: Constitutional Test-First & Quality Controls gates.
-- **Actions**: Remove the idle comparison within the guarded block (or allow the
-  stepper component to render when idle so the comparison is meaningful), ensure
-  `currentIndex` is computed only from valid step ids, and rerun
-  `pnpm typecheck`, `pnpm lint`, and `pnpm test`.
-- **Verification**: `pnpm typecheck` succeeds without `TS2367`; gauntlet passes.
-
-### Remediation R023
-
-- **Context**: Finding F022 — `.eslintignore` attempts to modify lint scope in a
-  flat-config repo, triggering governance warnings.
-- **Control Reference**: `CONSTITUTION.md` Quality Controls Protection.
-- **Actions**: Delete `.eslintignore`. If ignores are needed, add them to
-  `eslint.config.js`’s `ignores` array with documented rationale and reviewers’
-  consent. Confirm lint coverage remains unchanged.
-- **Verification**: `pnpm lint` finishes without `ESLintIgnoreWarning`; lint
-  scope matches project expectations.
+- **Context**: Finding F022 — Approval controls only render for sections already
+  in `review`/`ready`, preventing reviewers from approving drafts and leaving
+  `pnpm test` red.
+- **Control Reference**: Constitutional Quality Controls gate; `FR-007`/`FR-008`
+  workflow requirements.
+- **Actions**: Allow `<ApprovalControls>` to render as soon as the reviewer
+  opens the section (e.g., while entering edit mode or when permissions grant
+  review access), guard the buttons by capability instead of status equality,
+  and update Playwright/RTL coverage so drafting fixtures assert the approval
+  panel is visible. Re-run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
+  attach evidence to the follow-up audit.
+- **Verification**: Playwright `section-editor/approval-finalize.e2e.ts` passes
+  locally (no retries), and `pnpm test` exits 0.
 
 ---
 
-**Review Completed**: 2025-11-08T21:14:39Z  
-**Next Action**: Fix Findings F021/F022, rerun
-`pnpm lint && pnpm typecheck && pnpm test`, then request a follow-up audit.
+**Review Completed**: 2025-11-11T19:52:59Z  
+**Next Action**: Address Finding F022, rerun
+`pnpm lint && pnpm typecheck && pnpm test`, then request the next audit loop.

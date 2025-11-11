@@ -232,6 +232,20 @@ tied to the live document, and trigger a project export with feedback.
 
 ## Implementation Log
 
+- 2025-11-11T20:21:39Z — F022: Restored approval panel gating so reviewers can
+  approve drafting sections and the gauntlet regains access to the Section
+  Approval UI.
+  - Files:
+    `apps/web/src/features/document-editor/components/document-editor.tsx`,
+    `apps/web/src/features/document-editor/components/approval-panel-gate.tsx`,
+    `apps/web/src/features/document-editor/components/approval-panel-gate.test.tsx`,
+    `specs/015-surface-document-editor/tasks.md`
+  - Commands:
+    `pnpm --filter @ctrl-freaq/web test -- src/features/document-editor/components/approval-panel-gate.test.tsx`
+  - Tests:
+    `pnpm --filter @ctrl-freaq/web test -- src/features/document-editor/components/approval-panel-gate.test.tsx`
+  - Follow-ups: None.
+
 - 2025-11-09T00:20:00Z — F022: Reseeded section-editor fixtures with
   project-scoped UUID metadata so the new project-ownership guards in the
   section routes keep returning 200/403 as expected instead of 500s.
@@ -552,3 +566,5 @@ tied to the live document, and trigger a project export with feedback.
       in audit.md
 - [x] F021 Finding F021: Create-document stepper state check keeps typecheck red
       as described in audit.md
+- [x] F022 Finding F022: Section approval panel hidden so pnpm test fails as
+      described in audit.md

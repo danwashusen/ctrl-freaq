@@ -20,6 +20,7 @@ import type { SectionView } from '../types/section-view';
 import TableOfContentsComponent from './table-of-contents';
 import DocumentSectionPreview from './document-section-preview';
 import MilkdownEditor from './milkdown-editor';
+import { ApprovalPanelGate } from './approval-panel-gate';
 
 import { ManualSavePanel } from '@/features/section-editor/components/manual-save-panel';
 import type { DocumentFixture } from '@/lib/fixtures/e2e';
@@ -2078,8 +2079,10 @@ console.log('code snippet');
                             />
                           )}
 
-                          {(activeSection.status === 'review' ||
-                            activeSection.status === 'ready') && (
+                          <ApprovalPanelGate
+                            isEditing={isEditing}
+                            sectionStatus={activeSection.status}
+                          >
                             <div className="space-y-3">
                               {approvalError && (
                                 <div
@@ -2106,7 +2109,7 @@ console.log('code snippet');
                                 isDisabled={draftState.conflictState !== 'clean'}
                               />
                             </div>
-                          )}
+                          </ApprovalPanelGate>
                         </div>
                       )}
                     </div>
