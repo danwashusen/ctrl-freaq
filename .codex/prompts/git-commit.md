@@ -34,8 +34,17 @@ Always run the commands directly and report the result; do not merely print read
 ---
 
 ## 💬 Instruction
-Review the given file changes or description, determine what type of change it is,  
-then stage the files and execute the `git add`/`git commit` command yourself.
+Review **all** changes and determine whether they belong to a single logical commit.  
+- If the user already confirmed that everything belongs together or you are running in a non-interactive context (CI, scripted run), explicitly note that assumption and proceed without additional prompts.  
+- When interactive and uncertain, confirm with the user before proceeding. If you cannot obtain a response when one is required, abort and report that the commit selection could not be confirmed.  
+- If everything is part of the same change, proceed without asking for subsets.  
+- If you spot multiple unrelated changes (e.g. feature work plus prompt tweaks), summarize each logical group with a compact repo-relative tree of the changed files grouped by directory, for example:  
+  ```
+  apps/web
+    src/components/Button.tsx
+  ```
+  Present the groups as an easy multi-choice prompt (e.g. numbered list), ask which single group to commit now, and use the commit type that matches that group.  
+Stage only the files in the selected group, leave the others untouched, and execute the `git add`/`git commit` command for that group. Do not commit additional groups in the same run; report which groups remain so the user can rerun the workflow.
 
 The commit message must follow this template:
 
