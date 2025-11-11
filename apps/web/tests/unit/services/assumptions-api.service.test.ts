@@ -13,6 +13,7 @@ import type {
   StartAssumptionSessionResponse,
 } from '@/features/document-editor/types/assumption-session';
 
+const DOCUMENT_ID = 'doc-789';
 const SECTION_ID = 'sec-123';
 const SESSION_ID = 'sess-abc';
 
@@ -72,7 +73,9 @@ describe('AssumptionsApiService', () => {
 
     const service = new AssumptionsApiService({ queryClient, baseUrl: 'https://example.test' });
 
-    const result = await service.startSession(SECTION_ID, { templateVersion: '1.0.0' });
+    const result = await service.startSession(DOCUMENT_ID, SECTION_ID, {
+      templateVersion: '1.0.0',
+    });
 
     expect(result).toEqual(responseBody);
     expect(queryClient.getQueryData(ASSUMPTION_QUERY_KEYS.session(SESSION_ID))).toEqual(
@@ -80,6 +83,10 @@ describe('AssumptionsApiService', () => {
     );
     expect(queryClient.getQueryData(ASSUMPTION_QUERY_KEYS.prompts(SESSION_ID))).toEqual(
       responseBody.prompts
+    );
+    const [url] = fetchSpy.mock.calls[0] ?? [];
+    expect(String(url)).toContain(
+      `/documents/${DOCUMENT_ID}/sections/${SECTION_ID}/assumptions/session`
     );
   });
 
@@ -110,6 +117,7 @@ describe('AssumptionsApiService', () => {
     const chunkSpy = mockFn<(payload: { type: 'chunk'; content: string }) => void>();
 
     const proposal = await service.streamProposal(
+      DOCUMENT_ID,
       SECTION_ID,
       SESSION_ID,
       { source: 'ai_generate' },
@@ -124,7 +132,7 @@ describe('AssumptionsApiService', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] ?? [];
     expect(String(url)).toContain(
-      `/sections/${SECTION_ID}/assumptions/session/${SESSION_ID}/proposals`
+      `/documents/${DOCUMENT_ID}/sections/${SECTION_ID}/assumptions/session/${SESSION_ID}/proposals`
     );
     expect((init as RequestInit)?.headers).toMatchObject({ Accept: 'text/event-stream' });
   });
@@ -142,11 +150,13 @@ describe('AssumptionsApiService', () => {
     class TestService extends AssumptionsApiService {
       public fallbackCalls = 0;
       override async createProposal(
+        documentId: string,
         sectionId: string,
         sessionId: string,
-        request: Parameters<AssumptionsApiService['createProposal']>[2]
+        request: Parameters<AssumptionsApiService['createProposal']>[3]
       ): Promise<AssumptionProposal> {
         this.fallbackCalls += 1;
+        expect(documentId).toBe(DOCUMENT_ID);
         expect(sectionId).toBe(SECTION_ID);
         expect(sessionId).toBe(SESSION_ID);
         expect(request).toMatchObject({ source: 'ai_generate' });
@@ -156,7 +166,9 @@ describe('AssumptionsApiService', () => {
 
     const service = new TestService({ queryClient, baseUrl: 'https://example.test' });
 
-    const result = await service.streamProposal(SECTION_ID, SESSION_ID, { source: 'ai_generate' });
+    const result = await service.streamProposal(DOCUMENT_ID, SECTION_ID, SESSION_ID, {
+      source: 'ai_generate',
+    });
 
     expect(result).toEqual(fallbackProposal);
     expect(service.fallbackCalls).toBe(1);

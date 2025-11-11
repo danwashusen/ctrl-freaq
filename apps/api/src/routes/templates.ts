@@ -10,12 +10,34 @@ import {
   type TemplateSummary,
   type TemplateVersionDetails,
 } from '../services/template-catalog.service.js';
+import {
+  TemplateValidationDecisionActionSchema,
+  TemplateValidationDecisionSchema,
+  type DocumentRepositoryImpl,
+  type ProjectRepositoryImpl,
+  type TemplateValidationDecisionRepository,
+} from '@ctrl-freaq/shared-data';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 const PublishTemplateVersionSchema = z.object({
   version: z.string().min(1, 'Version is required'),
   templateYaml: z.string().min(1, 'Template YAML is required'),
   changelog: z.string().optional(),
   publish: z.boolean().optional(),
+});
+
+const ProjectTemplateDecisionParamsSchema = z.object({
+  projectId: z.string().uuid('Project id must be a valid UUID'),
+  templateId: z.string().min(1, 'templateId is required'),
+});
+
+const TemplateDecisionRequestSchema = z.object({
+  documentId: z.string().uuid('documentId must be a valid UUID'),
+  action: TemplateValidationDecisionActionSchema,
+  currentVersion: z.string().min(1, 'currentVersion is required'),
+  requestedVersion: z.string().min(1, 'requestedVersion is required'),
+  notes: z.string().optional(),
+  payload: z.unknown().optional(),
 });
 
 export const templatesRouter: Router = Router();
@@ -325,6 +347,167 @@ templatesRouter.post(
           timestamp: new Date().toISOString(),
         });
       }
+    }
+  }
+);
+
+templatesRouter.post(
+  '/projects/:projectId/templates/:templateId/decisions',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const logger = getLogger(req);
+    const requestId = req.requestId ?? 'unknown';
+    const timestamp = new Date().toISOString();
+
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const documentRepository = req.services?.get('documentRepository') as
+      | DocumentRepositoryImpl
+      | undefined;
+    const decisionRepository = req.services?.get('templateValidationDecisionRepository') as
+      | TemplateValidationDecisionRepository
+      | undefined;
+
+    if (!projectRepository || !documentRepository || !decisionRepository) {
+      logger?.error(
+        {
+          requestId,
+          hasProjectRepository: Boolean(projectRepository),
+          hasDecisionRepository: Boolean(decisionRepository),
+        },
+        'Template decision dependencies unavailable'
+      );
+      res.status(500).json({
+        error: 'SERVICE_UNAVAILABLE',
+        message: 'Template decision dependencies unavailable',
+        requestId,
+        timestamp,
+      });
+      return;
+    }
+
+    const paramsResult = ProjectTemplateDecisionParamsSchema.safeParse(req.params);
+    if (!paramsResult.success) {
+      const [issue] = paramsResult.error.issues;
+      res.status(400).json({
+        error: 'BAD_REQUEST',
+        message: issue?.message ?? 'Invalid request parameters',
+        requestId,
+        timestamp,
+        issues: paramsResult.error.format(),
+      });
+      return;
+    }
+
+    const bodyResult = TemplateDecisionRequestSchema.safeParse(req.body);
+    if (!bodyResult.success) {
+      const [issue] = bodyResult.error.issues;
+      res.status(400).json({
+        error: 'BAD_REQUEST',
+        message: issue?.message ?? 'Invalid request payload',
+        requestId,
+        timestamp,
+        issues: bodyResult.error.format(),
+      });
+      return;
+    }
+
+    const userId = req.user?.userId ?? req.auth?.userId;
+
+    const { projectId, templateId } = paramsResult.data;
+    const input = bodyResult.data;
+
+    try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
+
+      const document = await documentRepository.findById(input.documentId);
+      if (!document || document.projectId !== projectId) {
+        res.status(404).json({
+          error: 'DOCUMENT_NOT_FOUND',
+          message: `Document not found for project: ${input.documentId}`,
+          requestId,
+          timestamp,
+        });
+        return;
+      }
+
+      if (document.templateId !== templateId) {
+        res.status(400).json({
+          error: 'TEMPLATE_MISMATCH',
+          message: 'Document does not reference the requested template',
+          requestId,
+          timestamp,
+        });
+        return;
+      }
+
+      const decision = await decisionRepository.recordDecision({
+        projectId,
+        documentId: input.documentId,
+        templateId,
+        currentVersion: input.currentVersion,
+        requestedVersion: input.requestedVersion,
+        action: input.action,
+        notes: input.notes ?? null,
+        submittedBy: userId,
+        submittedAt: new Date(),
+        payload: input.payload ?? null,
+      });
+
+      const payload = TemplateValidationDecisionSchema.parse({
+        decisionId: decision.id,
+        action: decision.action,
+        templateId: decision.templateId,
+        currentVersion: decision.currentVersion,
+        requestedVersion: decision.requestedVersion,
+        submittedAt: decision.submittedAt.toISOString(),
+        submittedBy: decision.submittedBy ?? undefined,
+        notes: decision.notes ?? null,
+      });
+
+      logger?.info(
+        {
+          requestId,
+          projectId,
+          documentId: input.documentId,
+          decisionId: decision.id,
+          action: decision.action,
+        },
+        'Template validation decision recorded'
+      );
+
+      res.status(201).json(payload);
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        res.status(error.status).json({
+          error: error.code,
+          message: error.message,
+          requestId,
+          timestamp,
+        });
+        return;
+      }
+      logger?.error(
+        {
+          requestId,
+          projectId,
+          documentId: input.documentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to record template validation decision'
+      );
+      res.status(500).json({
+        error: 'INTERNAL_ERROR',
+        message: 'Failed to persist template validation decision',
+        requestId,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 );

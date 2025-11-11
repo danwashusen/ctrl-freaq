@@ -241,7 +241,7 @@ components:
         ownerUserId:
           type: string
           description: Clerk user ID
-          example: 'user_2abc123def456'
+          example: 'user-local-author'
         name:
           type: string
           description: Project name

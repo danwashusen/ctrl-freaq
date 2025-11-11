@@ -188,12 +188,15 @@ export class SectionEditorClient {
     );
   }
 
-  async listConflictLogs(
-    sectionId: string,
-    options: { signal?: AbortSignal } = {}
-  ): Promise<ConflictLogListResponseDTO> {
+  async listConflictLogs(options: {
+    sectionId: string;
+    draftId: string;
+    signal?: AbortSignal;
+  }): Promise<ConflictLogListResponseDTO> {
+    const query = new URLSearchParams({ draftId: options.draftId });
+
     return this.request(
-      `/sections/${encodeURIComponent(sectionId)}/conflicts/logs`,
+      `/sections/${encodeURIComponent(options.sectionId)}/conflicts/logs?${query.toString()}`,
       {
         method: 'GET',
         signal: options.signal,

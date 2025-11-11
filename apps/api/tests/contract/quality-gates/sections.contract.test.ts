@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { createApp, type AppContext } from '../../../src/app';
 import { seedSectionFixture } from '../../../src/testing/fixtures/section-editor';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
@@ -13,6 +13,11 @@ const DOCUMENT_ID = 'doc-quality-demo';
 const SECTION_ID = 'sec-overview';
 const RUN_ID = '11111111-2222-3333-4444-555555555555';
 const TRIGGERED_BY = 'user-quality-runner';
+const PROJECT_FIXTURE = {
+  projectId: '00000000-0000-4000-8000-000000000311',
+  projectSlug: 'project-quality-sections',
+  projectOwnerId: DEFAULT_TEST_USER_ID,
+};
 
 describe('Quality gate section endpoints', () => {
   let app: Express;
@@ -79,6 +84,7 @@ describe('Quality gate section endpoints', () => {
       documentId: DOCUMENT_ID,
       userId: TRIGGERED_BY,
       approvedContent: '## Architecture overview\n\nContent with Request ID reference.',
+      ...PROJECT_FIXTURE,
     });
 
     const response = await request(app)
@@ -122,6 +128,7 @@ describe('Quality gate section endpoints', () => {
       documentId: DOCUMENT_ID,
       userId: TRIGGERED_BY,
       approvedContent: 'Content missing headings and telemetry details.',
+      ...PROJECT_FIXTURE,
     });
 
     await request(app)

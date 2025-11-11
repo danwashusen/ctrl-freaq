@@ -18,6 +18,8 @@ const qualityGateError: ZodErrorMap = issue => {
   return issue.message;
 };
 
+const SECTION_RECORD_SEED_USER = 'section_record_seed';
+
 /**
  * SectionView entity schema
  * Represents the view state of a document section in the editor.
@@ -155,6 +157,12 @@ export interface SectionQueryOptions extends QueryOptions {
   depth?: number;
 }
 
+export interface SeedSectionRecordOptions {
+  createdBy?: string;
+  updatedBy?: string;
+  transactionDb?: Database.Database;
+}
+
 export interface FinalizeApprovalContext {
   approvedContent: string;
   approvedVersion: number;
@@ -222,11 +230,19 @@ export interface SectionRepository {
   generateTableOfContents(docId: string): Promise<TableOfContents>;
   updateViewState(sectionId: string, viewState: SectionView['viewState']): Promise<SectionView>;
   updateStatus(sectionId: string, status: SectionView['status']): Promise<SectionView>;
+  deleteByDocumentId(docId: string): Promise<void>;
 
   // Content management
   updateContent(sectionId: string, contentMarkdown: string): Promise<SectionView>;
   bulkUpdateOrderIndex(updates: Array<{ id: string; orderIndex: number }>): Promise<void>;
   finalizeApproval(section: SectionView, context: FinalizeApprovalContext): Promise<SectionView>;
+  seedSectionRecord(
+    section: Pick<
+      SectionView,
+      'id' | 'docId' | 'key' | 'title' | 'depth' | 'orderIndex' | 'createdAt' | 'updatedAt'
+    >,
+    options?: SeedSectionRecordOptions
+  ): Promise<void>;
 }
 
 /**
@@ -297,6 +313,11 @@ export class SectionRepositoryImpl
       orderBy: orderBy ?? 'order_index',
       orderDirection: orderDirection ?? 'ASC',
     });
+  }
+
+  async deleteByDocumentId(docId: string): Promise<void> {
+    const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE doc_id = ?`);
+    stmt.run(docId);
   }
 
   /**
@@ -488,6 +509,95 @@ export class SectionRepositoryImpl
       throw new Error(`Section ${section.id} not found after approval update`);
     }
     return refreshed;
+  }
+
+  async seedSectionRecord(
+    section: Pick<
+      SectionView,
+      'id' | 'docId' | 'key' | 'title' | 'depth' | 'orderIndex' | 'createdAt' | 'updatedAt'
+    >,
+    options: SeedSectionRecordOptions = {}
+  ): Promise<void> {
+    const createdAt =
+      section.createdAt instanceof Date ? section.createdAt : new Date(section.createdAt);
+    const updatedAt =
+      section.updatedAt instanceof Date
+        ? section.updatedAt
+        : new Date(section.updatedAt ?? createdAt);
+    const createdBy = options.createdBy ?? SECTION_RECORD_SEED_USER;
+    const updatedBy = options.updatedBy ?? createdBy;
+
+    const execute = (db: Database.Database) => {
+      const stmt = db.prepare(
+        `INSERT INTO section_records (
+            id,
+            document_id,
+            template_key,
+            title,
+            depth,
+            order_index,
+            approved_version,
+            approved_content,
+            approved_at,
+            approved_by,
+            last_summary,
+            status,
+            quality_gate,
+            accessibility_score,
+            created_at,
+            created_by,
+            updated_at,
+            updated_by,
+            deleted_at,
+            deleted_by
+         ) VALUES (
+            @id,
+            @document_id,
+            @template_key,
+            @title,
+            @depth,
+            @order_index,
+            @approved_version,
+            @approved_content,
+            NULL,
+            NULL,
+            NULL,
+            @status,
+            @quality_gate,
+            NULL,
+            @created_at,
+            @created_by,
+            @updated_at,
+            @updated_by,
+            NULL,
+            NULL
+         )
+         ON CONFLICT(id) DO NOTHING`
+      );
+      stmt.run({
+        id: section.id,
+        document_id: section.docId,
+        template_key: section.key,
+        title: section.title,
+        depth: section.depth,
+        order_index: section.orderIndex,
+        approved_version: 0,
+        approved_content: '',
+        status: 'idle',
+        quality_gate: 'pending',
+        created_at: createdAt.toISOString(),
+        created_by: createdBy,
+        updated_at: updatedAt.toISOString(),
+        updated_by: updatedBy,
+      });
+    };
+
+    if (options.transactionDb) {
+      execute(options.transactionDb);
+      return;
+    }
+
+    this.transaction(execute);
   }
 
   private buildBaseSelect(): string {

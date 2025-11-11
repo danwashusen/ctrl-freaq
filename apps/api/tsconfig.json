@@ -11,6 +11,7 @@
     "src/**/*",
     "tests/**/*",
     "../../packages/ai/src/**/*",
+    "../../packages/exporter/src/**/*",
     "../../tests/support/**/*"
   ],
   "exclude": [
@@ -20,12 +21,14 @@
     "../../packages/shared-data/src/**/*.test.ts",
     "../../packages/templates/src/**/*.test.ts",
     "../../packages/template-resolver/src/**/*.test.ts",
-    "../../packages/qa/src/**/*.test.ts"
+    "../../packages/qa/src/**/*.test.ts",
+    "../../packages/exporter/src/**/*.test.ts"
   ],
   "references": [
     { "path": "../../packages/editor-core" },
     { "path": "../../packages/shared-data" },
     { "path": "../../packages/ai" },
+    { "path": "../../packages/exporter" },
     { "path": "../../packages/templates" },
     { "path": "../../packages/template-resolver" },
     { "path": "../../packages/qa" }

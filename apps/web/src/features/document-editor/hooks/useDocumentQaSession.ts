@@ -31,7 +31,10 @@ export interface UseDocumentQaSessionOptions {
     subscribeToSession?: (
       sessionId: string,
       handler: (event: CoAuthoringStreamEvent) => void,
-      options?: { eventSourceFactory?: (url: string) => EventSource; streamPath?: string }
+      options?: {
+        eventSourceFactory?: (url: string, init?: EventSourceInit) => EventSource;
+        streamPath?: string;
+      }
     ) => { close: () => void };
   };
 }

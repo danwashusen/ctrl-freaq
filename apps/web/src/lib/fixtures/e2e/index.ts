@@ -34,6 +34,51 @@ const fixturesByDocumentId: Record<string, DocumentFixture> = {
   [demoArchitectureDocument.id]: demoArchitectureDocument,
 };
 
+type DocumentWorkflowStatus = 'missing' | 'loading' | 'ready' | 'archived';
+type DocumentLifecycleState = 'draft' | 'review' | 'published';
+
+interface TemplateBindingFixture {
+  templateId: string;
+  templateVersion: string;
+  templateSchemaHash: string;
+}
+
+interface PrimaryDocumentSnapshotFixture {
+  projectId: string;
+  status: DocumentWorkflowStatus;
+  document: {
+    documentId: string;
+    firstSectionId: string;
+    title: string;
+    lifecycleStatus: DocumentLifecycleState;
+    lastModifiedAt: string;
+    template?: TemplateBindingFixture;
+  } | null;
+  templateDecision: null;
+  lastUpdatedAt: string;
+}
+
+const projectDocumentSnapshots: Record<string, PrimaryDocumentSnapshotFixture> = {
+  'proj-architecture-demo': {
+    projectId: 'proj-architecture-demo',
+    status: 'ready',
+    document: {
+      documentId: demoArchitectureDocument.id,
+      firstSectionId: 'sec-overview',
+      title: demoArchitectureDocument.title,
+      lifecycleStatus: 'review',
+      lastModifiedAt: demoArchitectureDocument.updatedAt,
+      template: {
+        templateId: 'architecture-reference',
+        templateVersion: '2.1.0',
+        templateSchemaHash: 'tmpl-architecture-210',
+      },
+    },
+    templateDecision: null,
+    lastUpdatedAt: demoArchitectureDocument.updatedAt,
+  },
+};
+
 interface RuntimeSectionState {
   draft: DraftMetadataFixture | null;
   diff: DiffFixture | null;
@@ -96,6 +141,7 @@ const simpleAuthUsersFixture: Array<{
 type ParsedRequest =
   | { kind: 'document'; documentId: string }
   | { kind: 'section'; documentId: string; sectionId: string }
+  | { kind: 'apiProjectPrimaryDocument'; projectId: string }
   | { kind: 'apiSimpleAuthUsers' }
   | { kind: 'apiSaveDraft'; sectionId: string }
   | { kind: 'apiDiff'; sectionId: string }
@@ -269,7 +315,10 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
         return { kind: 'unknown' };
       }
 
-      if (segments[5] === 'co-author') {
+      const tailStart = 5;
+      const tailLength = segments.length - tailStart;
+
+      if (segments[tailStart] === 'co-author') {
         if (segments.length === 7) {
           const action = segments[6];
           switch (action) {
@@ -288,6 +337,13 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
 
         if (segments.length === 8 && segments[6] === 'proposal' && segments[7] === 'reject') {
           return { kind: 'apiCoAuthorReject', documentId, sectionId };
+        }
+      }
+
+      if (segments[tailStart] === 'assumptions' && tailLength >= 2) {
+        const remainder = segments.slice(tailStart + 1);
+        if (remainder.length === 1 && remainder[0] === 'session') {
+          return { kind: 'apiAssumptionsStart', sectionId };
         }
       }
     }
@@ -367,13 +423,17 @@ function parseRequest(req: IncomingMessage): ParsedRequest {
   }
 
   if (segments[0] === 'api' && segments[1] === 'projects') {
-    const projectSlug = segments[2];
-    if (!projectSlug) {
+    const projectIdentifier = segments[2];
+    if (!projectIdentifier) {
       return { kind: 'unknown' };
     }
 
     if (segments.length === 4 && segments[3] === 'retention') {
-      return { kind: 'apiProjectRetention', projectSlug };
+      return { kind: 'apiProjectRetention', projectSlug: projectIdentifier };
+    }
+
+    if (segments.length === 5 && segments[3] === 'documents' && segments[4] === 'primary') {
+      return { kind: 'apiProjectPrimaryDocument', projectId: projectIdentifier };
     }
   }
 
@@ -480,6 +540,16 @@ function handleProjectRetentionResponse(res: ServerResponse, projectSlug: string
     retentionWindow: policy.retentionWindow,
     guidance: policy.guidance,
   });
+}
+
+function handlePrimaryDocumentSnapshotResponse(res: ServerResponse, projectId: string) {
+  const snapshot = projectDocumentSnapshots[projectId];
+  if (!snapshot) {
+    sendJson(res, 404, notFoundError);
+    return;
+  }
+
+  sendJson(res, 200, cloneValue(snapshot));
 }
 
 function handleSimpleAuthUsers(res: ServerResponse) {
@@ -1245,6 +1315,14 @@ export const createFixtureRequestHandler = (): FixtureRequestHandler => {
             return;
           }
           handleSectionResponse(res, parsed.documentId, parsed.sectionId);
+          return;
+        }
+        case 'apiProjectPrimaryDocument': {
+          if (req.method && req.method !== 'GET') {
+            sendJson(res, 405, methodNotAllowedError);
+            return;
+          }
+          handlePrimaryDocumentSnapshotResponse(res, parsed.projectId);
           return;
         }
         case 'apiSaveDraft': {

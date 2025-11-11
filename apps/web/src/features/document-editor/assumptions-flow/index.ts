@@ -4,7 +4,7 @@ import type {
   DraftProposalSnapshot,
 } from '@ctrl-freaq/editor-persistence/assumption-sessions/session-store';
 
-import { assumptionsApi, AssumptionsApiService } from '../services/assumptions-api';
+import { AssumptionsApiService, createAssumptionsApiService } from '../services/assumptions-api';
 import type { AssumptionAction, AssumptionPromptState } from '../types/assumption-session';
 import {
   createProposalStore,
@@ -95,7 +95,7 @@ const createDependencies = (
   const proposalStores = new Map<string, ProposalStore>();
 
   return {
-    api: overrides?.api ?? assumptionsApi,
+    api: overrides?.api ?? createAssumptionsApiService(),
     sessionStore,
     proposalStoreFactory: (sessionId: string) => {
       let store = proposalStores.get(sessionId);
@@ -163,7 +163,7 @@ export const createAssumptionsFlowBootstrap = (
 
   return {
     async start(options: StartAssumptionsFlowOptions): Promise<AssumptionFlowState> {
-      const response = await deps.api.startSession(options.sectionId, {
+      const response = await deps.api.startSession(options.documentId, options.sectionId, {
         templateVersion: options.templateVersion ?? '1.0.0',
         decisionSnapshotId: options.decisionSnapshotId,
       });
@@ -248,6 +248,7 @@ export const createAssumptionsFlowBootstrap = (
       } = options;
 
       const prompt = await deps.api.respondToPrompt(
+        documentId,
         sectionId,
         promptId,
         {

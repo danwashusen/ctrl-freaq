@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 
 import { createApp, type AppContext } from '../../../src/app';
 import { seedDraftFixture, seedSectionFixture } from '../../../src/testing/fixtures/section-editor';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth';
 
 const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
 
@@ -13,6 +13,11 @@ const DOCUMENT_ID = 'doc-architecture-demo';
 const SECTION_ID = 'architecture-overview';
 const AUTHOR_ID = 'user_staff_eng';
 const DRAFT_ID = 'draft-coauthor-apply';
+const PROJECT_FIXTURE = {
+  projectId: '00000000-0000-4000-8000-000000000213',
+  projectSlug: 'project-co-authoring-apply',
+  projectOwnerId: DEFAULT_TEST_USER_ID,
+};
 
 const CANONICAL_DIFF_HASH =
   'sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945';
@@ -33,6 +38,7 @@ describe('Co-authoring apply endpoint contract', () => {
       userId: AUTHOR_ID,
       approvedContent: '# Overview\nApproved content ready for apply testing',
       approvedVersion: 6,
+      ...PROJECT_FIXTURE,
     });
 
     seedDraftFixture(db, {

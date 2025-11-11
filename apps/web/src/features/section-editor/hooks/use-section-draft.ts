@@ -83,6 +83,8 @@ interface DiffRequestPayload {
 
 interface ConflictLogListPayload {
   sectionId: string;
+  draftId: string;
+  signal?: AbortSignal;
 }
 
 type ManualDraftPersistence = Pick<ManualDraftStorage, 'saveDraft' | 'loadDraft' | 'deleteDraft'>;
@@ -125,6 +127,7 @@ export interface UseSectionDraftOptions {
   approvedVersion: number;
   documentId?: string;
   userId?: string;
+  projectId?: string;
   projectSlug?: string;
   documentSlug?: string;
   sectionTitle?: string;
@@ -182,6 +185,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     approvedVersion,
     documentId,
     userId,
+    projectId,
     projectSlug,
     documentSlug,
     sectionTitle,
@@ -272,6 +276,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   }, [sectionId]);
 
   const conflictState = useSectionDraftStore(state => state.conflictState);
+  const draftIdentifier = useSectionDraftStore(state => state.draftId);
   const formattingAnnotations = useSectionDraftStore(state => state.formattingAnnotations);
   const isSaving = useSectionDraftStore(state => state.isSaving);
   const summaryNote = useSectionDraftStore(state => state.summaryNote);
@@ -298,6 +303,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
   }, [initialContent, sectionId]);
 
   const resolvedProjectSlug = projectSlug ?? documentId ?? 'local-project';
+  const resolvedProjectId = projectId ?? resolvedProjectSlug ?? 'local-project';
   const resolvedDocumentSlug = documentSlug ?? documentId ?? 'document-local';
   const resolvedSectionTitle = sectionTitle ?? sectionId;
   const resolvedSectionPath = sectionPath ?? sectionId;
@@ -614,6 +620,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
 
       try {
         const result = await draftStore.saveDraft({
+          projectId: resolvedProjectId,
           projectSlug: resolvedProjectSlug,
           documentSlug: resolvedDocumentSlug,
           sectionTitle: resolvedSectionTitle,
@@ -664,6 +671,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
         const reason = caught instanceof Error ? caught.message : String(caught);
         logger.warn('Failed to persist draft snapshot to DraftStore', {
           sectionId,
+          projectId: resolvedProjectId,
           projectSlug: resolvedProjectSlug,
           documentSlug: resolvedDocumentSlug,
           reason,
@@ -672,6 +680,7 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
     },
     [
       draftStore,
+      resolvedProjectId,
       resolvedProjectSlug,
       resolvedDocumentSlug,
       resolvedSectionTitle,
@@ -1271,10 +1280,19 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       return;
     }
 
+    if (!sectionId || !draftIdentifier) {
+      return;
+    }
+
     let cancelled = false;
+    const abortController = new AbortController();
 
     api
-      .listConflictLogs({ sectionId })
+      .listConflictLogs({
+        sectionId,
+        draftId: draftIdentifier,
+        signal: abortController.signal,
+      })
       .then(result => {
         if (!cancelled) {
           recordConflictEvents(result.events ?? []);
@@ -1283,14 +1301,16 @@ export function useSectionDraft(options: UseSectionDraftOptions): UseSectionDraf
       .catch(error => {
         logger.debug('Unable to hydrate conflict log history', {
           sectionId,
+          draftId: draftIdentifier,
           reason: error instanceof Error ? error.message : 'unknown',
         });
       });
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
-  }, [api, sectionId, recordConflictEvents]);
+  }, [api, sectionId, draftIdentifier, recordConflictEvents]);
 
   return {
     state: derivedState,

@@ -4,6 +4,11 @@ import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
 import { BaseRepository } from '../repositories/base-repository.js';
+import {
+  type DocumentLifecycleStatus,
+  type ProjectDocumentSnapshot,
+  ProjectDocumentSnapshotSchema,
+} from '../types/project-document.js';
 
 export const DocumentContentSchema = z.record(z.string(), z.unknown(), {
   message: 'Document content is required',
@@ -123,6 +128,108 @@ export class DocumentRepositoryImpl extends BaseRepository<Document> {
     );
     const rows = stmt.all(projectId) as Record<string, unknown>[];
     return rows.map(row => this.mapRowToEntity(row));
+  }
+
+  async fetchProjectDocumentSnapshot(projectId: string): Promise<ProjectDocumentSnapshot> {
+    const nowIso = new Date().toISOString();
+    const documentRow = this.db
+      .prepare(
+        `SELECT *
+           FROM ${this.tableName}
+          WHERE project_id = ?
+          ORDER BY updated_at DESC
+          LIMIT 1`
+      )
+      .get(projectId) as Record<string, unknown> | undefined;
+
+    if (!documentRow) {
+      return ProjectDocumentSnapshotSchema.parse({
+        projectId,
+        status: 'missing',
+        document: null,
+        templateDecision: null,
+        lastUpdatedAt: nowIso,
+      });
+    }
+
+    const document = this.mapRowToEntity(documentRow);
+    const lastUpdatedAt = document.deletedAt
+      ? document.deletedAt.toISOString()
+      : document.updatedAt.toISOString();
+
+    if (document.deletedAt) {
+      return ProjectDocumentSnapshotSchema.parse({
+        projectId,
+        status: 'archived',
+        document: null,
+        templateDecision: null,
+        lastUpdatedAt,
+      });
+    }
+
+    const sectionRows = this.db
+      .prepare(
+        `SELECT id, status, order_index AS orderIndex
+           FROM sections
+          WHERE doc_id = ?
+          ORDER BY order_index ASC, last_modified ASC`
+      )
+      .all(document.id) as Array<{ id: string; status: string; orderIndex: number }>;
+
+    if (sectionRows.length === 0) {
+      throw new Error(
+        `Document ${document.id} has no sections; cannot compute primary document snapshot`
+      );
+    }
+
+    const [firstSection] = sectionRows;
+    if (!firstSection) {
+      throw new Error(`Document ${document.id} sections payload missing first entry despite guard`);
+    }
+
+    const lifecycleStatus = this.resolveLifecycleStatus(sectionRows);
+    const firstSectionId = String(firstSection.id);
+
+    const template =
+      document.templateId && document.templateVersion && document.templateSchemaHash
+        ? {
+            templateId: document.templateId,
+            templateVersion: document.templateVersion,
+            templateSchemaHash: document.templateSchemaHash,
+          }
+        : undefined;
+
+    return ProjectDocumentSnapshotSchema.parse({
+      projectId,
+      status: 'ready',
+      document: {
+        documentId: document.id,
+        firstSectionId,
+        title: document.title,
+        lifecycleStatus,
+        lastModifiedAt: document.updatedAt.toISOString(),
+        template,
+      },
+      templateDecision: null,
+      lastUpdatedAt,
+    });
+  }
+
+  private resolveLifecycleStatus(sections: Array<{ status: string }>): DocumentLifecycleStatus {
+    const normalized = sections.map(section => {
+      if (typeof section.status !== 'string') {
+        throw new Error('Encountered section with invalid status value');
+      }
+      return section.status;
+    });
+
+    if (normalized.every(status => status === 'ready')) {
+      return 'published';
+    }
+    if (normalized.some(status => status === 'review')) {
+      return 'review';
+    }
+    return 'draft';
   }
 
   protected override mapEntityToRow(entity: Document): Record<string, unknown> {

@@ -24,7 +24,10 @@ import {
   TraceabilitySyncRepository,
   CoAuthoringChangelogRepository,
   DocumentQualityGateSummaryRepository,
+  DocumentExportJobRepository,
+  TemplateValidationDecisionRepository,
   type RequirementGap,
+  ProjectRetentionPolicyRepositoryImpl,
 } from '@ctrl-freaq/shared-data';
 import { createTemplateResolver } from '@ctrl-freaq/template-resolver';
 import type {
@@ -36,6 +39,7 @@ import { createTemplateValidator } from '@ctrl-freaq/templates';
 import { generateSectionDiff } from '@ctrl-freaq/editor-core';
 import { TemplateCatalogService } from './template-catalog.service.js';
 import { TemplateUpgradeService } from './template-upgrade.service.js';
+import { DocumentProvisioningService } from './document-provisioning.service.js';
 import {
   SectionConflictService,
   SectionDraftService,
@@ -87,9 +91,12 @@ import type {
   ProposalProvider,
   ProposalProviderEvent,
 } from '@ctrl-freaq/ai/session/proposal-runner.js';
+import { DocumentExporter } from '@ctrl-freaq/exporter';
 import { SharedSectionStreamQueueCoordinator } from './streaming/shared-section-stream-queue.js';
 import type { EventBroker } from '../modules/event-stream/event-broker.js';
 import type { EventStreamConfig } from '../config/event-stream.js';
+import { ProjectDocumentDiscoveryService } from './document-workflows/project-document-discovery.service.js';
+import { DocumentExportService } from './export/document-export.service.js';
 
 export interface RepositoryRegistrationOptions {
   eventBroker?: EventBroker;
@@ -127,6 +134,10 @@ export function createRepositoryRegistrationMiddleware(
       () => new DocumentTemplateMigrationRepositoryImpl(getDb())
     );
     container.register('documentRepository', () => new DocumentRepositoryImpl(getDb()));
+    container.register(
+      'projectRetentionPolicyRepository',
+      () => new ProjectRetentionPolicyRepositoryImpl(getDb())
+    );
 
     // Document Editor repositories
     container.register('sectionRepository', () => new SectionRepositoryImpl(getDb()));
@@ -149,6 +160,14 @@ export function createRepositoryRegistrationMiddleware(
     container.register(
       'assumptionSessionRepository',
       () => new AssumptionSessionRepository(getDb())
+    );
+    container.register(
+      'documentExportJobRepository',
+      () => new DocumentExportJobRepository(getDb())
+    );
+    container.register(
+      'templateValidationDecisionRepository',
+      () => new TemplateValidationDecisionRepository(getDb())
     );
 
     container.register(
@@ -186,14 +205,8 @@ export function createRepositoryRegistrationMiddleware(
       const documentRepository = currentContainer.get(
         'documentRepository'
       ) as DocumentRepositoryImpl;
-      const projectRepository = currentContainer.get('projectRepository') as ProjectRepositoryImpl;
       const logger = currentContainer.get('logger') as Logger;
-      return new DraftBundleRepositoryImpl(
-        sectionRepository,
-        documentRepository,
-        projectRepository,
-        logger
-      );
+      return new DraftBundleRepositoryImpl(sectionRepository, documentRepository, logger);
     });
 
     container.register('assumptionPromptProvider', currentContainer => {
@@ -673,6 +686,10 @@ export function createRepositoryRegistrationMiddleware(
         'assumptionSessionRepository'
       ) as AssumptionSessionRepository;
       const logger = currentContainer.get('logger') as Logger;
+      const documentRepository = currentContainer.get(
+        'documentRepository'
+      ) as DocumentRepositoryImpl;
+      const templateResolver = currentContainer.get('templateResolver') as TemplateResolver;
       const promptProvider = currentContainer.get(
         'assumptionPromptProvider'
       ) as AssumptionPromptProvider;
@@ -696,6 +713,8 @@ export function createRepositoryRegistrationMiddleware(
       const service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider,
         decisionProvider,
         queue: sharedQueue,
@@ -762,8 +781,82 @@ export function createRepositoryRegistrationMiddleware(
       return new SectionConflictLogService(sections, drafts, conflicts, scopedLogger);
     });
 
+    registerDocumentWorkflowServices(container);
+
     next();
   };
+}
+
+export function registerRepositoryFactories(
+  container: ServiceContainer,
+  options: RepositoryRegistrationOptions = {}
+): void {
+  const middleware = createRepositoryRegistrationMiddleware(options);
+  middleware({ services: container } as unknown as Request, {} as Response, () => {});
+}
+
+export function registerDocumentWorkflowServices(container: ServiceContainer): void {
+  const ensureRegistered = (
+    serviceName: string,
+    factory: (current: ServiceContainer) => unknown
+  ): void => {
+    if (!container.has(serviceName)) {
+      container.register(serviceName, factory);
+    }
+  };
+
+  ensureRegistered('projectDocumentDiscoveryService', currentContainer => {
+    const documents = currentContainer.get('documentRepository') as DocumentRepositoryImpl;
+    const logger = currentContainer.get('logger') as Logger;
+    const templateDecisions = currentContainer.get(
+      'templateValidationDecisionRepository'
+    ) as TemplateValidationDecisionRepository;
+    return new ProjectDocumentDiscoveryService({
+      documents,
+      templateDecisions,
+      logger,
+    });
+  });
+
+  ensureRegistered('documentProvisioningService', currentContainer => {
+    const logger = currentContainer.get('logger') as Logger;
+    const projects = currentContainer.get('projectRepository') as ProjectRepositoryImpl;
+    const documents = currentContainer.get('documentRepository') as DocumentRepositoryImpl;
+    const sections = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+    const templates = currentContainer.get(
+      'documentTemplateRepository'
+    ) as DocumentTemplateRepositoryImpl;
+    const templateVersions = currentContainer.get(
+      'templateVersionRepository'
+    ) as TemplateVersionRepositoryImpl;
+
+    return new DocumentProvisioningService({
+      logger,
+      projects,
+      documents,
+      sections,
+      templates,
+      templateVersions,
+    });
+  });
+
+  ensureRegistered('documentExportService', currentContainer => {
+    const logger = currentContainer.get('logger') as Logger;
+    const projects = currentContainer.get('projectRepository') as ProjectRepositoryImpl;
+    const jobs = currentContainer.get('documentExportJobRepository') as DocumentExportJobRepository;
+    const documents = currentContainer.get('documentRepository') as DocumentRepositoryImpl;
+    const sections = currentContainer.get('sectionRepository') as SectionRepositoryImpl;
+    const exporter = new DocumentExporter();
+
+    return new DocumentExportService({
+      logger,
+      projects,
+      jobs,
+      documents,
+      sections,
+      exporter,
+    });
+  });
 }
 
 function createCoAuthorContextDependencies(

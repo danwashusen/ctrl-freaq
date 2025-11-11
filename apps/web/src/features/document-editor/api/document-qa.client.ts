@@ -1,18 +1,41 @@
 import { buildApiUrl } from './co-authoring.client';
+import {
+  getDocumentEditorClientConfig,
+  getDocumentEditorFetchImpl,
+} from '@/lib/document-editor-client-config';
 
-const defaultFetch: typeof fetch = (...args) => fetch(...args);
+const resolveFetchImpl = (override?: typeof fetch): typeof fetch => {
+  if (override) {
+    return override;
+  }
+  return getDocumentEditorFetchImpl();
+};
 
-const createJsonRequest = (
+const createJsonRequest = async (
   payload: Record<string, unknown>,
-  signal?: AbortSignal
-): RequestInit => ({
-  method: 'POST',
-  headers: {
+  signal?: AbortSignal,
+  fetchOverride?: typeof fetch
+) => {
+  const config = getDocumentEditorClientConfig();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(payload),
-  signal,
-});
+  };
+  const token = await config.getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return {
+    fetchImpl: resolveFetchImpl(fetchOverride),
+    init: {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal,
+      credentials: 'include' as RequestCredentials,
+    },
+  };
+};
 
 const readJson = async <T>(response: Response): Promise<T> => {
   const text = await response.text();
@@ -68,22 +91,20 @@ export const postDocumentQaReview = async (
   payload: DocumentQaReviewRequest,
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<{ body: DocumentQaReviewResponseBody; streamLocation: string | null }> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/document-qa/review`
   );
 
-  const response = await fetchImpl(
-    url,
-    createJsonRequest(
-      {
-        reviewerId: payload.reviewerId,
-        sessionId: payload.sessionId,
-        prompt: payload.prompt,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await createJsonRequest(
+    {
+      reviewerId: payload.reviewerId,
+      sessionId: payload.sessionId,
+      prompt: payload.prompt,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Document QA review request failed with status ${response.status}`);
@@ -105,20 +126,18 @@ export const postDocumentQaCancel = async (
   },
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<DocumentQaCancelResponseBody> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/document-qa/sessions/${payload.sessionId}/cancel`
   );
 
-  const response = await fetchImpl(
-    url,
-    createJsonRequest(
-      {
-        reason: payload.reason,
-      },
-      options?.signal
-    )
+  const { fetchImpl, init } = await createJsonRequest(
+    {
+      reason: payload.reason,
+    },
+    options?.signal,
+    options?.fetchImpl
   );
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Document QA cancel request failed with status ${response.status}`);
@@ -135,12 +154,12 @@ export const postDocumentQaRetry = async (
   },
   options?: { fetchImpl?: typeof fetch; signal?: AbortSignal }
 ): Promise<{ body: DocumentQaRetryResponseBody; streamLocation: string | null }> => {
-  const fetchImpl = options?.fetchImpl ?? defaultFetch;
   const url = buildApiUrl(
     `/documents/${payload.documentId}/sections/${payload.sectionId}/document-qa/sessions/${payload.sessionId}/retry`
   );
 
-  const response = await fetchImpl(url, createJsonRequest({}, options?.signal));
+  const { fetchImpl, init } = await createJsonRequest({}, options?.signal, options?.fetchImpl);
+  const response = await fetchImpl(url, init);
 
   if (!response.ok) {
     throw new Error(`Document QA retry request failed with status ${response.status}`);

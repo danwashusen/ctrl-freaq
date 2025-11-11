@@ -1,12 +1,8 @@
 import type { Logger } from 'pino';
 
 import { createPatchEngine, type PatchDiff } from '@ctrl-freaq/editor-core';
-import {
-  DocumentRepositoryImpl,
-  ProjectRepositoryImpl,
-  SectionRepositoryImpl,
-} from '@ctrl-freaq/shared-data';
-import type { Document, Project, SectionView } from '@ctrl-freaq/shared-data';
+import { DocumentRepositoryImpl, SectionRepositoryImpl } from '@ctrl-freaq/shared-data';
+import type { Document, SectionView } from '@ctrl-freaq/shared-data';
 
 import {
   DraftBundleValidationError,
@@ -79,7 +75,6 @@ type ScopeKey = `${string}:${string}`;
 
 interface DocumentScope {
   document: Document;
-  project: Project | null;
 }
 
 export class DraftBundleRepositoryImpl implements DraftBundleRepository {
@@ -88,13 +83,12 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
   constructor(
     private readonly sections: SectionRepositoryImpl,
     private readonly documents: DocumentRepositoryImpl,
-    private readonly projects: ProjectRepositoryImpl,
     private readonly logger: Logger
   ) {}
 
   async applyBundleSectionsAtomically(
     sections: DraftSectionSubmission[],
-    context: { documentId: string; projectSlug: string; authorId: string }
+    context: { documentId: string; projectId: string; authorId: string }
   ): Promise<string[]> {
     if (sections.length === 0) {
       return [];
@@ -122,11 +116,11 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
   }
 
   async validateBaseline(
-    input: DraftSectionSubmission & { documentId: string; projectSlug: string; authorId: string }
+    input: DraftSectionSubmission & { documentId: string; projectId: string; authorId: string }
   ): Promise<{ status: string }> {
     const { section } = await this.loadScopedSection(input.sectionPath, {
       documentId: input.documentId,
-      projectSlug: input.projectSlug,
+      projectId: input.projectId,
       authorId: input.authorId,
     });
 
@@ -151,13 +145,13 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
   async applySectionPatch(
     input: DraftSectionSubmission & {
       documentId: string;
-      projectSlug: string;
+      projectId: string;
       authorId: string;
     }
   ): Promise<{ applied: boolean }> {
     const context = {
       documentId: input.documentId,
-      projectSlug: input.projectSlug,
+      projectId: input.projectId,
       authorId: input.authorId,
     } satisfies ApplicationContext;
 
@@ -175,12 +169,12 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
   async getSectionSnapshot(input: {
     sectionPath: string;
     documentId: string;
-    projectSlug: string;
+    projectId: string;
   }): Promise<{ serverVersion: number; serverContent: string } | null> {
     try {
       const { section } = await this.loadScopedSection(input.sectionPath, {
         documentId: input.documentId,
-        projectSlug: input.projectSlug,
+        projectId: input.projectId,
         authorId: 'system',
       });
 
@@ -196,7 +190,7 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
           {
             sectionPath: input.sectionPath,
             documentId: input.documentId,
-            projectSlug: input.projectSlug,
+            projectId: input.projectId,
             reason: error.conflicts?.[0]?.message ?? error.message,
           },
           'Unable to load section snapshot for bundle conflict'
@@ -262,7 +256,7 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
 
     this.logger.info(
       {
-        projectSlug: context.projectSlug,
+        projectId: context.projectId,
         documentId: context.documentId,
         sectionId: prepared.section.id,
         draftKey: prepared.submission.draftKey,
@@ -274,7 +268,7 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
   }
 
   private buildScopeKey(context: ApplicationContext): ScopeKey {
-    return `${context.projectSlug}:${context.documentId}`;
+    return `${context.projectId}:${context.documentId}`;
   }
 
   private async ensureDocumentScope(
@@ -291,7 +285,7 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
     if (!document) {
       this.logger.warn(
         {
-          projectSlug: context.projectSlug,
+          projectId: context.projectId,
           documentId: context.documentId,
           sectionPath,
         },
@@ -300,58 +294,32 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
       throw new DraftBundleValidationError([
         buildConflict(
           sectionPath,
-          `Document ${context.documentId} is not available in project ${context.projectSlug}`,
+          `Document ${context.documentId} is not available in project ${context.projectId}`,
           { serverVersion: 0, serverContent: '' }
         ),
       ]);
     }
 
-    let project: Project | null = null;
-
-    if (document.projectId === context.projectSlug) {
-      project = null;
-    } else {
-      project = await this.projects.findBySlug(context.projectSlug);
-      if (!project) {
-        this.logger.warn(
-          {
-            projectSlug: context.projectSlug,
-            documentId: context.documentId,
-            sectionPath,
-          },
-          'Project slug did not resolve during draft bundle scope validation'
-        );
-        throw new DraftBundleValidationError([
-          buildConflict(
-            sectionPath,
-            `Project ${context.projectSlug} could not be resolved for document ${context.documentId}`,
-            { serverVersion: 0, serverContent: '' }
-          ),
-        ]);
-      }
-
-      if (project.id !== document.projectId) {
-        this.logger.warn(
-          {
-            projectSlug: context.projectSlug,
-            documentId: context.documentId,
-            sectionPath,
-            documentProjectId: document.projectId,
-            projectId: project.id,
-          },
-          'Document/project scope mismatch encountered during draft bundle processing'
-        );
-        throw new DraftBundleValidationError([
-          buildConflict(
-            sectionPath,
-            `Document ${context.documentId} is not part of project ${context.projectSlug}`,
-            { serverVersion: 0, serverContent: '' }
-          ),
-        ]);
-      }
+    if (document.projectId !== context.projectId) {
+      this.logger.warn(
+        {
+          projectId: context.projectId,
+          documentId: context.documentId,
+          sectionPath,
+          documentProjectId: document.projectId,
+        },
+        'Document/project scope mismatch encountered during draft bundle processing'
+      );
+      throw new DraftBundleValidationError([
+        buildConflict(
+          sectionPath,
+          `Document ${context.documentId} is not part of project ${context.projectId}`,
+          { serverVersion: 0, serverContent: '' }
+        ),
+      ]);
     }
 
-    const scope: DocumentScope = { document, project };
+    const scope: DocumentScope = { document };
     this.scopeCache.set(scopeKey, scope);
     return scope;
   }
@@ -371,7 +339,7 @@ export class DraftBundleRepositoryImpl implements DraftBundleRepository {
     if (section.docId !== scope.document.id) {
       this.logger.warn(
         {
-          projectSlug: context.projectSlug,
+          projectId: context.projectId,
           documentId: context.documentId,
           sectionId: section.id,
           sectionDocumentId: section.docId,
@@ -400,6 +368,6 @@ interface PreparedSectionApplication {
 
 type ApplicationContext = {
   documentId: string;
-  projectSlug: string;
+  projectId: string;
   authorId: string;
 };

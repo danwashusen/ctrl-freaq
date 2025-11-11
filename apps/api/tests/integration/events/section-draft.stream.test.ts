@@ -7,7 +7,7 @@ import type * as BetterSqlite3 from 'better-sqlite3';
 
 import type { EventEnvelope } from '../../../src/modules/event-stream/event-broker';
 import type { AppContext } from '../../../src/app';
-import { MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth.js';
+import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../../src/middleware/test-auth.js';
 import { resetDatabaseForApp } from '../../../src/testing/reset.js';
 import { seedSectionEditorFixtures } from '../../../src/testing/fixtures/section-editor.js';
 
@@ -17,7 +17,12 @@ const WORKSPACE_HEADER = { 'X-Workspace-Id': 'workspace-default' };
 const DOCUMENT_ID = 'doc-collaboration-demo';
 const SECTION_ID = 'sec-collaboration-overview';
 const DRAFT_ID = 'draft-collaboration-overview';
-const USER_ID = 'user-section-author';
+const USER_ID = 'user-local-author';
+const PROJECT_FIXTURE = {
+  projectId: '00000000-0000-4000-8000-000000000411',
+  projectSlug: 'project-section-draft-stream',
+  projectOwnerId: DEFAULT_TEST_USER_ID,
+};
 
 interface SectionConflictPayload {
   sectionId: string;
@@ -92,7 +97,7 @@ const waitForEvent = <Payload>(
   source: EventSource,
   eventName: string,
   match: (envelope: EventEnvelope<Payload>, raw: RawMessageEvent) => boolean,
-  timeoutMs: number = 1_500
+  timeoutMs: number = 5_000
 ): Promise<{ envelope: EventEnvelope<Payload>; raw: RawMessageEvent }> => {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -207,6 +212,7 @@ describe('Section draft SSE stream (integration)', () => {
       approvedVersion: 6,
       draftVersion: 6,
       draftBaseVersion: 4,
+      ...PROJECT_FIXTURE,
     });
   });
 

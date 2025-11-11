@@ -7,8 +7,11 @@ import { createApp } from '../../src/app';
 import { activateTemplateVersion, publishTemplateVersion } from '../contract/templates.helpers';
 import { DEFAULT_TEST_USER_ID, MOCK_JWT_TOKEN } from '../../src/middleware/test-auth.js';
 
+const AuthorizationHeader = { Authorization: `Bearer ${MOCK_JWT_TOKEN}` };
+
 interface InsertDocumentOptions {
   id: string;
+  projectId: string;
   templateId: string;
   templateVersion: string;
   templateSchemaHash: string;
@@ -26,6 +29,7 @@ describe('Template auto-upgrade integration', () => {
 
   function insertDocument({
     id,
+    projectId,
     templateId,
     templateVersion,
     templateSchemaHash,
@@ -47,7 +51,7 @@ describe('Template auto-upgrade integration', () => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), ?)`
     ).run(
       id,
-      'proj_auto_upgrade',
+      projectId,
       'Auto Upgrade Doc',
       JSON.stringify(content),
       templateId,
@@ -59,6 +63,16 @@ describe('Template auto-upgrade integration', () => {
   }
 
   test('auto-upgrades documents on load and logs migration', async () => {
+    const projectResponse = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: 'Auto Upgrade Coverage',
+        visibility: 'workspace',
+      });
+    expect(projectResponse.status).toBe(201);
+    const projectId = projectResponse.body.id as string;
+
     const baseVersion = await publishTemplateVersion(app, {
       templateId: 'architecture',
       version: '10.0.0',
@@ -68,6 +82,7 @@ describe('Template auto-upgrade integration', () => {
 
     insertDocument({
       id: 'doc-auto-upgrade-1',
+      projectId,
       templateId: 'architecture',
       templateVersion: '10.0.0',
       templateSchemaHash: baseVersion.body.version.schemaHash,
@@ -89,7 +104,7 @@ describe('Template auto-upgrade integration', () => {
 
     const response = await request(app)
       .get('/api/v1/documents/doc-auto-upgrade-1')
-      .set('Authorization', `Bearer ${MOCK_JWT_TOKEN}`);
+      .set(AuthorizationHeader);
 
     expect(response.status).toBe(200);
     expect(response.body.document).toMatchObject({

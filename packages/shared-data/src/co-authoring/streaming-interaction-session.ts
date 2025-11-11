@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SessionIdentifierSchema } from './session-identifiers.js';
+
 const IsoTimestampSchema = z
   .string()
   .min(1, 'Timestamp is required')
@@ -117,7 +119,7 @@ export type StreamingDeltaType = z.infer<typeof StreamingDeltaTypeSchema>;
 
 export const StreamingInteractionSessionSchema = z
   .object({
-    sessionId: z.string().uuid('sessionId must be a valid UUID'),
+    sessionId: SessionIdentifierSchema,
     documentId: z.string().uuid('documentId must be a valid UUID'),
     sectionId: z.string().uuid('sectionId must be a valid UUID'),
     workspaceId: z.string().uuid('workspaceId must be a valid UUID'),
@@ -200,7 +202,7 @@ export function createStreamingInteractionSession(
 
 export const StreamingProgressEventSchema = z
   .object({
-    sessionId: z.string().uuid('sessionId must be a valid UUID'),
+    sessionId: SessionIdentifierSchema,
     sequence: NonNegativeIntegerSchema,
     stageLabel: z.string().min(1, 'stageLabel is required'),
     timestamp: IsoTimestampSchema,
@@ -242,7 +244,7 @@ export type StreamingFallbackRootCause = z.infer<typeof StreamingFallbackRootCau
 
 export const StreamingFallbackRecordSchema = z
   .object({
-    sessionId: z.string().uuid('sessionId must be a valid UUID'),
+    sessionId: SessionIdentifierSchema,
     triggeredAt: IsoTimestampSchema,
     resolvedAt: NullableIsoTimestampSchema,
     rootCause: StreamingFallbackRootCauseSchema,

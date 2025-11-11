@@ -63,12 +63,12 @@
       ],
       "@ctrl-freaq/qa/*": ["./packages/qa/dist/*.d.ts", "./packages/qa/src/*"],
       "@ctrl-freaq/exporter": [
-        "./packages/exporter/dist/index.d.ts",
-        "./packages/exporter/src/index.ts"
+        "./packages/exporter/src/index.ts",
+        "./packages/exporter/dist/index.d.ts"
       ],
       "@ctrl-freaq/exporter/*": [
-        "./packages/exporter/dist/*.d.ts",
-        "./packages/exporter/src/*"
+        "./packages/exporter/src/*",
+        "./packages/exporter/dist/*.d.ts"
       ],
       "@ctrl-freaq/editor-core": [
         "./packages/editor-core/dist/index.d.ts",

@@ -11,7 +11,7 @@ import {
 } from '../../../src/services/drafts/draft-bundle.service';
 
 const baseRequest = {
-  projectSlug: 'project-test',
+  projectId: 'proj-test',
   documentId: 'doc-architecture-demo',
   submittedBy: 'user-author',
   sections: [
@@ -70,7 +70,7 @@ describe('DraftBundleService', () => {
       baseRequest.sections,
       expect.objectContaining({
         documentId: baseRequest.documentId,
-        projectSlug: baseRequest.projectSlug,
+        projectId: baseRequest.projectId,
         authorId: baseRequest.submittedBy,
       })
     );
@@ -133,7 +133,7 @@ describe('DraftBundleService', () => {
       expect.objectContaining({
         sectionPath: 'architecture-overview',
         documentId: baseRequest.documentId,
-        projectSlug: baseRequest.projectSlug,
+        projectId: baseRequest.projectId,
       })
     );
     expect(draftRepo.applySectionPatch).not.toHaveBeenCalled();
@@ -278,7 +278,7 @@ describe('DraftBundleService', () => {
       multiSectionRequest.sections,
       expect.objectContaining({
         documentId: multiSectionRequest.documentId,
-        projectSlug: multiSectionRequest.projectSlug,
+        projectId: multiSectionRequest.projectId,
         authorId: multiSectionRequest.submittedBy,
       })
     );

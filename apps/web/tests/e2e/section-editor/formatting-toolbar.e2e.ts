@@ -4,7 +4,7 @@ import { dismissDraftRecoveryGate } from '../support/draft-recovery';
 
 test.describe('Section Editor Formatting Toolbar & Hotkeys', () => {
   test('exposes formatting controls and honors keyboard shortcuts', async ({ page }) => {
-    await page.goto('/documents/demo-architecture/sections/sec-overview');
+    await page.goto('/documents/demo-architecture/sections/sec-overview?fixture=formatting');
 
     await page.waitForLoadState('networkidle');
     await dismissDraftRecoveryGate(page);

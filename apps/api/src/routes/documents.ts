@@ -5,7 +5,12 @@ import type { Logger } from 'pino';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
-import type { Document, DocumentTemplateMigration } from '@ctrl-freaq/shared-data';
+import { DocumentRepositoryImpl } from '@ctrl-freaq/shared-data';
+import type {
+  Document,
+  DocumentTemplateMigration,
+  ProjectRepositoryImpl,
+} from '@ctrl-freaq/shared-data';
 
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 import {
@@ -16,6 +21,15 @@ import {
   DraftBundleService,
   DraftBundleValidationError,
 } from '../services/drafts/draft-bundle.service.js';
+import type { ProjectDocumentDiscoveryService } from '../services/document-workflows/project-document-discovery.service.js';
+import { serializePrimaryDocumentSnapshot } from './serializers/project-document.serializer.js';
+import {
+  DocumentProvisioningService,
+  DocumentProvisioningError,
+  ProjectNotFoundError,
+  TemplateProvisioningError,
+} from '../services/document-provisioning.service.js';
+import { ProjectAccessError, requireProjectAccess } from './helpers/project-access.js';
 
 export const documentsRouter: Router = Router();
 
@@ -44,6 +58,24 @@ const DraftBundleBodySchema = z.object({
   submittedBy: z.string().min(1),
   sections: z.array(DraftSectionSchema).min(1),
 });
+
+const ProjectIdParamSchema = z.object({
+  projectId: z.string().min(1, 'projectId is required'),
+});
+
+const CreateDocumentRequestSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, 'title must include at least one character')
+      .max(200, 'title must be shorter than 200 characters')
+      .optional(),
+    templateId: z.string().trim().min(1).optional(),
+    templateVersion: z.string().trim().min(1).optional(),
+    seedStrategy: z.enum(['authoritative', 'empty', 'fixture']).optional(),
+  })
+  .optional();
 
 const sendErrorResponse = (
   res: Response,
@@ -95,17 +127,237 @@ function serializeMigration(migration: DocumentTemplateMigration) {
 }
 
 documentsRouter.get(
+  '/projects/:projectId/documents/primary',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const logger = req.services?.get('logger') as Logger | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const discoveryService = req.services?.get('projectDocumentDiscoveryService') as
+      | ProjectDocumentDiscoveryService
+      | undefined;
+
+    const requestId = req.requestId ?? 'unknown';
+
+    const paramsResult = ProjectIdParamSchema.safeParse(req.params);
+    if (!paramsResult.success) {
+      const [issue] = paramsResult.error.issues;
+      sendErrorResponse(
+        res,
+        400,
+        'BAD_REQUEST',
+        issue?.message ?? 'Invalid project identifier',
+        requestId,
+        { issues: paramsResult.error.issues }
+      );
+      return;
+    }
+
+    const projectId = paramsResult.data.projectId;
+    const authenticatedUser = req.auth?.userId ?? req.user?.userId;
+
+    if (!projectRepository || !discoveryService) {
+      logger?.error(
+        {
+          requestId,
+          projectId,
+          hasProjectRepository: Boolean(projectRepository),
+          hasDiscoveryService: Boolean(discoveryService),
+        },
+        'Project discovery dependencies unavailable'
+      );
+      sendErrorResponse(
+        res,
+        500,
+        'INTERNAL_ERROR',
+        'Project discovery dependencies unavailable',
+        requestId
+      );
+      return;
+    }
+
+    try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId: authenticatedUser,
+        requestId,
+        logger,
+      });
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
+        return;
+      }
+      throw error;
+    }
+
+    try {
+      const snapshot = await discoveryService.fetchPrimaryDocumentSnapshot(projectId);
+      res.status(200).json(serializePrimaryDocumentSnapshot(snapshot));
+    } catch (error) {
+      logger?.error(
+        {
+          requestId,
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to fetch primary project document snapshot'
+      );
+      sendErrorResponse(
+        res,
+        503,
+        'PROJECT_DOCUMENT_UNAVAILABLE',
+        'Primary document snapshot unavailable',
+        requestId
+      );
+    }
+  }
+);
+
+documentsRouter.post(
+  '/projects/:projectId/documents',
+  async (req: AuthenticatedRequest, res: Response) => {
+    const logger = req.services?.get('logger') as Logger | undefined;
+    const provisioningService = req.services?.get('documentProvisioningService') as
+      | DocumentProvisioningService
+      | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const requestId = req.requestId ?? 'unknown';
+
+    if (!provisioningService || !projectRepository) {
+      sendErrorResponse(
+        res,
+        500,
+        'SERVICE_UNAVAILABLE',
+        'Document provisioning dependencies are not available',
+        requestId
+      );
+      return;
+    }
+
+    const paramsResult = ProjectIdParamSchema.safeParse(req.params);
+    if (!paramsResult.success) {
+      const [issue] = paramsResult.error.issues;
+      sendErrorResponse(
+        res,
+        400,
+        'BAD_REQUEST',
+        issue?.message ?? 'Invalid project identifier',
+        requestId
+      );
+      return;
+    }
+
+    const projectId = paramsResult.data.projectId.trim();
+
+    const bodyResult = CreateDocumentRequestSchema.safeParse(req.body);
+    if (!bodyResult.success) {
+      const [issue] = bodyResult.error.issues;
+      sendErrorResponse(
+        res,
+        400,
+        'BAD_REQUEST',
+        issue?.message ?? 'Invalid request payload',
+        requestId
+      );
+      return;
+    }
+
+    const userId = req.user?.userId ?? req.auth?.userId ?? null;
+    const overrides = bodyResult.data ?? undefined;
+
+    try {
+      const project = await requireProjectAccess({
+        projectRepository,
+        projectId,
+        userId,
+        requestId,
+        logger,
+      });
+
+      const result = await provisioningService.provisionPrimaryDocument({
+        projectId,
+        requestedBy: userId ?? project.ownerUserId,
+        title: overrides?.title,
+        templateId: overrides?.templateId,
+        templateVersion: overrides?.templateVersion,
+        seedStrategy: overrides?.seedStrategy,
+      });
+
+      const statusCode = result.status === 'created' ? 201 : 200;
+      res.status(statusCode).json({
+        status: result.status,
+        documentId: result.documentId,
+        projectId: result.projectId,
+        firstSectionId: result.firstSectionId,
+        lifecycleStatus: result.lifecycleStatus,
+        title: result.title,
+        template: result.template,
+        lastModifiedAt: result.lastModifiedAt,
+      });
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
+        return;
+      }
+      if (error instanceof ProjectNotFoundError) {
+        sendErrorResponse(res, 404, 'PROJECT_NOT_FOUND', error.message, requestId);
+        return;
+      }
+      if (error instanceof TemplateProvisioningError) {
+        logger?.error(
+          {
+            requestId,
+            projectId,
+            error: error.message,
+          },
+          'Template provisioning failed during document creation'
+        );
+        sendErrorResponse(res, 503, 'TEMPLATE_UNAVAILABLE', error.message, requestId);
+        return;
+      }
+      if (error instanceof DocumentProvisioningError) {
+        logger?.error(
+          {
+            requestId,
+            projectId,
+            error: error.message,
+          },
+          'Document provisioning failed'
+        );
+        sendErrorResponse(res, 500, 'DOCUMENT_PROVISIONING_FAILED', error.message, requestId);
+        return;
+      }
+
+      logger?.error(
+        {
+          requestId,
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Unexpected failure provisioning project document'
+      );
+      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Failed to provision document', requestId);
+    }
+  }
+);
+
+documentsRouter.get(
   '/documents/:documentId',
   templateValidation,
   async (req: AuthenticatedRequest, res: Response) => {
     const logger = req.services?.get('logger') as Logger | undefined;
     const locals = res.locals as TemplateValidationLocals;
     const document = locals.document;
+    const requestId = req.requestId ?? 'unknown';
 
     if (!document) {
       logger?.error(
         {
-          requestId: req.requestId,
+          requestId,
           documentId: (req.params as { documentId?: string }).documentId,
         },
         'Document missing from template validation context'
@@ -114,10 +366,42 @@ documentsRouter.get(
       res.status(500).json({
         error: 'INTERNAL_ERROR',
         message: 'Document context unavailable after validation',
-        requestId: req.requestId ?? 'unknown',
+        requestId,
         timestamp: new Date().toISOString(),
       });
       return;
+    }
+
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    if (!projectRepository) {
+      logger?.error(
+        {
+          requestId,
+          documentId: document.id,
+        },
+        'Project repository unavailable for document authorization check'
+      );
+      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Project repository unavailable', requestId);
+      return;
+    }
+
+    const authenticatedUser = req.auth?.userId ?? req.user?.userId ?? null;
+    try {
+      await requireProjectAccess({
+        projectRepository,
+        projectId: document.projectId,
+        userId: authenticatedUser,
+        requestId,
+        logger,
+      });
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        sendErrorResponse(res, error.status, error.code, error.message, requestId);
+        return;
+      }
+      throw error;
     }
 
     const migration = locals.templateMigration;
@@ -125,7 +409,7 @@ documentsRouter.get(
 
     logger?.info(
       {
-        requestId: req.requestId,
+        requestId,
         documentId: document.id,
         templateId: document.templateId,
         templateVersion: document.templateVersion,
@@ -147,6 +431,12 @@ documentsRouter.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     const logger = req.services?.get('logger') as Logger | undefined;
     const service = req.services?.get('draftBundleService') as DraftBundleService | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const documentRepository = req.services?.get('documentRepository') as
+      | DocumentRepositoryImpl
+      | undefined;
     const requestId = req.requestId ?? 'unknown';
     const { projectSlug, documentId } = req.params as {
       projectSlug?: string;
@@ -164,7 +454,7 @@ documentsRouter.patch(
       return;
     }
 
-    if (!service) {
+    if (!service || !projectRepository) {
       sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Draft bundle service unavailable', requestId);
       return;
     }
@@ -206,9 +496,32 @@ documentsRouter.patch(
       return;
     }
 
+    const project = await projectRepository.findBySlug(projectSlug);
+    let resolvedProjectId = project?.id;
+    if (!resolvedProjectId && documentRepository) {
+      const documentRecord = await documentRepository.findById(documentId);
+      if (documentRecord && documentRecord.projectId === projectSlug) {
+        resolvedProjectId = documentRecord.projectId;
+        logger?.warn(
+          {
+            requestId,
+            projectSlug,
+            documentId,
+          },
+          'Draft bundle fallback: treating slug as canonical project id'
+        );
+      }
+    }
+    if (!resolvedProjectId) {
+      sendErrorResponse(res, 404, 'NOT_FOUND', 'Project not found', requestId, {
+        projectSlug,
+      });
+      return;
+    }
+
     try {
       const result = await service.applyBundle({
-        projectSlug,
+        projectId: resolvedProjectId,
         documentId,
         submittedBy: authenticatedUserId,
         sections: parsedBody.data.sections,
@@ -221,6 +534,7 @@ documentsRouter.patch(
           {
             requestId,
             projectSlug,
+            projectId: resolvedProjectId,
             documentId,
             conflicts: error.conflicts,
           },
@@ -237,6 +551,7 @@ documentsRouter.patch(
         {
           requestId,
           projectSlug,
+          projectId: resolvedProjectId,
           documentId,
           error: error instanceof Error ? error.message : String(error),
         },
@@ -251,6 +566,12 @@ documentsRouter.post(
   '/projects/:projectSlug/documents/:documentId/draft-compliance',
   async (req: AuthenticatedRequest, res: Response) => {
     const logger = req.services?.get('logger') as Logger | undefined;
+    const projectRepository = req.services?.get('projectRepository') as
+      | ProjectRepositoryImpl
+      | undefined;
+    const documentRepository = req.services?.get('documentRepository') as
+      | DocumentRepositoryImpl
+      | undefined;
     const requestId = req.requestId ?? 'unknown';
     const { projectSlug, documentId } = req.params as {
       projectSlug?: string;
@@ -321,6 +642,35 @@ documentsRouter.post(
       return;
     }
 
+    if (!projectRepository) {
+      sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Project repository unavailable', requestId);
+      return;
+    }
+
+    const project = await projectRepository.findBySlug(projectSlug);
+    let resolvedProjectId = project?.id;
+    if (!resolvedProjectId && documentRepository) {
+      const documentRecord = await documentRepository.findById(documentId);
+      if (documentRecord && documentRecord.projectId === projectSlug) {
+        resolvedProjectId = documentRecord.projectId;
+        logger?.warn(
+          {
+            requestId,
+            projectSlug,
+            documentId,
+          },
+          'Draft compliance fallback: treating slug as canonical project id'
+        );
+      }
+    }
+
+    if (!resolvedProjectId) {
+      sendErrorResponse(res, 404, 'NOT_FOUND', 'Project not found', requestId, {
+        projectSlug,
+      });
+      return;
+    }
+
     const normalizedContext: Record<string, string> =
       context && typeof context === 'object'
         ? Object.fromEntries(
@@ -339,6 +689,7 @@ documentsRouter.post(
           },
         },
         {
+          projectId: resolvedProjectId,
           projectSlug,
           documentSlug: documentId,
           authorId: authenticatedUserId,

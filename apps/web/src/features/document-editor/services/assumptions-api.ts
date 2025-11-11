@@ -9,6 +9,7 @@ import type {
   RespondToAssumptionRequest,
   StartAssumptionSessionResponse,
 } from '../types/assumption-session';
+import { createDocumentEditorApiClientOptions } from '@/lib/document-editor-client-config';
 
 export interface StartAssumptionSessionRequest {
   templateVersion: string;
@@ -47,16 +48,18 @@ export class AssumptionsApiService extends ApiClient {
 
   constructor(options: AssumptionsApiServiceOptions = {}) {
     const { queryClient, ...apiOptions } = options;
-    super(apiOptions);
+    super(createDocumentEditorApiClientOptions(apiOptions));
     this.queryClient = queryClient;
   }
 
   async startSession(
+    documentId: string,
     sectionId: string,
     request: StartAssumptionSessionRequest
   ): Promise<StartAssumptionSessionResponse> {
+    const sectionPath = this.buildSectionPath(documentId, sectionId);
     const response = await this['makeRequest']<StartAssumptionSessionResponse>(
-      `/sections/${sectionId}/assumptions/session`,
+      `${sectionPath}/assumptions/session`,
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -68,13 +71,15 @@ export class AssumptionsApiService extends ApiClient {
   }
 
   async respondToPrompt(
+    documentId: string,
     sectionId: string,
     assumptionId: string,
     request: RespondToAssumptionRequest,
     options: { sessionId?: string } = {}
   ): Promise<AssumptionPromptState> {
+    const sectionPath = this.buildSectionPath(documentId, sectionId);
     const prompt = await this['makeRequest']<AssumptionPromptState>(
-      `/sections/${sectionId}/assumptions/${assumptionId}/respond`,
+      `${sectionPath}/assumptions/${assumptionId}/respond`,
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -103,12 +108,14 @@ export class AssumptionsApiService extends ApiClient {
   }
 
   async createProposal(
+    documentId: string,
     sectionId: string,
     sessionId: string,
     request: CreateProposalRequest
   ): Promise<AssumptionProposal> {
+    const sectionPath = this.buildSectionPath(documentId, sectionId);
     const proposal = await this['makeRequest']<AssumptionProposal>(
-      `/sections/${sectionId}/assumptions/session/${sessionId}/proposals`,
+      `${sectionPath}/assumptions/session/${sessionId}/proposals`,
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -120,11 +127,13 @@ export class AssumptionsApiService extends ApiClient {
   }
 
   async listProposals(
+    documentId: string,
     sectionId: string,
     sessionId: string
   ): Promise<AssumptionProposalsListResponse> {
+    const sectionPath = this.buildSectionPath(documentId, sectionId);
     const response = await this['makeRequest']<AssumptionProposalsListResponse>(
-      `/sections/${sectionId}/assumptions/session/${sessionId}/proposals`
+      `${sectionPath}/assumptions/session/${sessionId}/proposals`
     );
 
     this.queryClient?.setQueryData(ASSUMPTION_QUERY_KEYS.proposals(sessionId), response.proposals);
@@ -132,14 +141,16 @@ export class AssumptionsApiService extends ApiClient {
   }
 
   async streamProposal(
+    documentId: string,
     sectionId: string,
     sessionId: string,
     request: CreateProposalRequest,
     callbacks: ProposalStreamCallbacks = {}
   ): Promise<AssumptionProposal> {
+    const sectionPath = this.buildSectionPath(documentId, sectionId);
     try {
       const response = await this.performStreamingRequest(
-        `/sections/${sectionId}/assumptions/session/${sessionId}/proposals`,
+        `${sectionPath}/assumptions/session/${sessionId}/proposals`,
         request
       );
 
@@ -179,11 +190,12 @@ export class AssumptionsApiService extends ApiClient {
       return finalProposal;
     } catch (error) {
       callbacks.onError?.(error);
-      return this.createProposal(sectionId, sessionId, request);
+      return this.createProposal(documentId, sectionId, sessionId, request);
     }
   }
 
   subscribeToStream(
+    documentId: string,
     sectionId: string,
     sessionId: string,
     handler: (event: { type: string; data: unknown }) => void
@@ -206,7 +218,7 @@ export class AssumptionsApiService extends ApiClient {
         }
 
         const response = await fetch(
-          `${client.baseUrl}/sections/${sectionId}/assumptions/session/${sessionId}/stream`,
+          `${client.baseUrl}${this.buildSectionPath(documentId, sectionId)}/assumptions/session/${sessionId}/stream`,
           {
             method: 'GET',
             headers,
@@ -360,6 +372,13 @@ export class AssumptionsApiService extends ApiClient {
     return response;
   }
 
+  private buildSectionPath(documentId: string, sectionId: string): string {
+    if (!documentId) {
+      throw new Error('documentId is required for assumption requests');
+    }
+    return `/documents/${documentId}/sections/${sectionId}`;
+  }
+
   private handleStreamChunk(
     rawEvent: string,
     callbacks: ProposalStreamCallbacks,
@@ -415,4 +434,5 @@ export class AssumptionsApiService extends ApiClient {
   }
 }
 
-export const assumptionsApi = new AssumptionsApiService();
+export const createAssumptionsApiService = (options?: AssumptionsApiServiceOptions) =>
+  new AssumptionsApiService(options);

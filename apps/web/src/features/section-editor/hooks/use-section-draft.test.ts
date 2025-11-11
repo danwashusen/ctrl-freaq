@@ -929,6 +929,88 @@ describe('useSectionDraft', () => {
     expect(draftStoreMock.saveDraft).toHaveBeenCalled();
   });
 
+  describe('conflict log hydration', () => {
+    it('fetches conflict logs once section and draft IDs are available', async () => {
+      const listConflictLogs = vi.fn().mockResolvedValue({
+        events: [
+          {
+            detectedAt: '2025-10-01T12:00:00.000Z',
+            detectedDuring: 'save',
+            previousApprovedVersion: 1,
+            latestApprovedVersion: 2,
+            resolutionNote: null,
+            resolvedBy: null,
+          },
+        ],
+      });
+
+      renderHook(() =>
+        useSectionDraft({
+          api: {
+            saveDraft: vi.fn(),
+            listConflictLogs,
+          },
+          sectionId: 'section-1',
+          initialContent: '# Intro',
+          approvedVersion: 1,
+          documentId: 'doc-1',
+          userId: 'user-1',
+          projectSlug: 'demo-project',
+          documentSlug: 'doc-1',
+          sectionTitle: 'Section Title',
+          sectionPath: 'section-1',
+          initialDraftId: 'draft-1',
+          loadPersistedDraft: false,
+          autoStartDiffPolling: false,
+        })
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(listConflictLogs).toHaveBeenCalled();
+      const callArgs = listConflictLogs.mock.calls[0]?.[0];
+      expect(callArgs).toMatchObject({
+        sectionId: 'section-1',
+        draftId: 'draft-1',
+      });
+      expect(callArgs?.signal).toBeInstanceOf(AbortSignal);
+      expect(useSectionDraftStore.getState().conflictEvents).toHaveLength(1);
+    });
+
+    it('skips hydration when draftId is missing', async () => {
+      const listConflictLogs = vi.fn();
+
+      renderHook(() =>
+        useSectionDraft({
+          api: {
+            saveDraft: vi.fn(),
+            listConflictLogs,
+          },
+          sectionId: 'section-1',
+          initialContent: '# Intro',
+          approvedVersion: 1,
+          documentId: 'doc-1',
+          userId: 'user-1',
+          projectSlug: 'demo-project',
+          documentSlug: 'doc-1',
+          sectionTitle: 'Section Title',
+          sectionPath: 'section-1',
+          initialDraftId: null,
+          loadPersistedDraft: false,
+          autoStartDiffPolling: false,
+        })
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(listConflictLogs).not.toHaveBeenCalled();
+    });
+  });
+
   describe('event hub integration', () => {
     it('subscribes to section events and hydrates local state from envelopes', async () => {
       const setIntervalSpy = vi.spyOn(window, 'setInterval');

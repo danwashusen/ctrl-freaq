@@ -1,4 +1,5 @@
 import ApiClient from '@/lib/api';
+import { createDocumentEditorApiClientOptions } from '@/lib/document-editor-client-config';
 
 export interface ProjectRetentionPolicy {
   policyId: string;
@@ -7,6 +8,10 @@ export interface ProjectRetentionPolicy {
 }
 
 class ProjectRetentionClient extends ApiClient {
+  constructor() {
+    super(createDocumentEditorApiClientOptions());
+  }
+
   async getRetentionPolicy(projectSlug: string): Promise<ProjectRetentionPolicy | null> {
     if (!projectSlug) {
       return null;
@@ -27,10 +32,17 @@ class ProjectRetentionClient extends ApiClient {
   }
 }
 
-const client = new ProjectRetentionClient();
+let cachedClient: ProjectRetentionClient | null = null;
+
+const getProjectRetentionClient = (): ProjectRetentionClient => {
+  if (!cachedClient) {
+    cachedClient = new ProjectRetentionClient();
+  }
+  return cachedClient;
+};
 
 export async function fetchProjectRetentionPolicy(
   projectSlug: string
 ): Promise<ProjectRetentionPolicy | null> {
-  return client.getRetentionPolicy(projectSlug);
+  return getProjectRetentionClient().getRetentionPolicy(projectSlug);
 }

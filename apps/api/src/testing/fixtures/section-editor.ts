@@ -2,10 +2,15 @@ import { randomUUID } from 'crypto';
 
 import type * as BetterSqlite3 from 'better-sqlite3';
 
+const DEFAULT_SECTION_PROJECT_ID = '00000000-0000-4000-8000-000000000001';
+
 interface SeedSectionParams {
   sectionId: string;
   documentId: string;
   userId: string;
+  projectId?: string;
+  projectSlug?: string;
+  projectOwnerId?: string;
   approvedVersion?: number;
   approvedContent?: string;
   templateId?: string;
@@ -54,15 +59,73 @@ export function seedUserFixture(db: BetterSqlite3.Database, userId: string | und
 
 export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSectionParams): void {
   const nowIso = new Date().toISOString();
+  const projectId = params.projectId ?? DEFAULT_SECTION_PROJECT_ID;
+  const projectSlug =
+    params.projectSlug ?? `${(params.projectId ?? DEFAULT_SECTION_PROJECT_ID).slice(0, 8)}-slug`;
+  const projectOwnerId = params.projectOwnerId ?? params.userId ?? 'user-local-author';
   const approvedVersion = Math.max(params.approvedVersion ?? 6, 1);
   const approvedContent = params.approvedContent ?? DEFAULT_APPROVED_CONTENT;
-  const templateId = params.templateId ?? 'architecture';
-  const templateVersion = params.templateVersion ?? '1.0.0';
-  const templateSchemaHash = params.templateSchemaHash ?? 'hash-architecture-v1';
+  const templateId = params.templateId ?? 'architecture-reference';
+  const templateVersion = params.templateVersion ?? '2.1.0';
+  const templateSchemaHash =
+    params.templateSchemaHash ?? 'e4da6c86723feba8843017296d64a4b31f9e2691a4df59012665356e39f564bb';
   const templateVersionId = params.templateVersionId ?? randomUUID();
 
   seedUserFixture(db, params.userId);
   seedUserFixture(db, 'user-reviewer-001');
+  seedUserFixture(db, projectOwnerId);
+
+  db.prepare(
+    `INSERT INTO projects (
+       id,
+       owner_user_id,
+       name,
+       slug,
+       description,
+       visibility,
+       status,
+       archived_status_before,
+       goal_target_date,
+       goal_summary,
+       created_at,
+       created_by,
+       updated_at,
+       updated_by,
+       deleted_at,
+       deleted_by
+     ) VALUES (
+       :id,
+       :owner_user_id,
+       :name,
+       :slug,
+       :description,
+       'workspace',
+       'active',
+       NULL,
+       NULL,
+       NULL,
+       :created_at,
+       :created_by,
+       :updated_at,
+       :updated_by,
+       NULL,
+       NULL
+     )
+     ON CONFLICT(id) DO UPDATE SET
+       owner_user_id = excluded.owner_user_id,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`
+  ).run({
+    id: projectId,
+    owner_user_id: projectOwnerId,
+    name: 'Architecture Reference Project',
+    slug: projectSlug,
+    description: 'Seeded project for section editor fixtures',
+    created_at: nowIso,
+    created_by: projectOwnerId,
+    updated_at: nowIso,
+    updated_by: projectOwnerId,
+  });
 
   const defaultSections = [
     {
@@ -230,7 +293,7 @@ export function seedSectionFixture(db: BetterSqlite3.Database, params: SeedSecti
      ) VALUES (?, ?, ?, '{}', ?, ?, ?, ?, 'system', ?, 'system', NULL, NULL)`
   ).run(
     params.documentId,
-    'project-test',
+    projectId,
     'Demo Architecture Document',
     templateId,
     templateVersion,

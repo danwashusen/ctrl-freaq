@@ -21,12 +21,16 @@ export * from './activity-log.js';
 
 // Document model
 export * from './document.js';
+export * from './project-retention-policy.js';
 
 // Document template catalog
 export * from './document-template.js';
 
 // Template version snapshots
 export * from './template-version.js';
+
+// Template decisions
+export * from './template-decision.js';
 
 // Document template migration events
 export * from './document-template-migration.js';
@@ -38,6 +42,7 @@ export * from './formatting-annotation.js';
 export * from './draft-conflict-log.js';
 export * from './section-review-summary.js';
 export * from './section-assumption.js';
+export * from './document-export-job.js';
 export {
   AssumptionSessionStatusSchema,
   type AssumptionSessionStatus,

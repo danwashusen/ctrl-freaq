@@ -4,6 +4,7 @@ import { useDraftPersistence } from '../../hooks/use-draft-persistence';
 import { registerDraftLogoutHandler } from '@/lib/draft-logout-registry';
 
 interface DraftStatusBadgeProps {
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   sectionTitle: string;
@@ -13,7 +14,15 @@ interface DraftStatusBadgeProps {
 }
 
 export function DraftStatusBadge(props: DraftStatusBadgeProps) {
-  const { projectSlug, documentSlug, sectionTitle, sectionPath, authorId, onDraftCleared } = props;
+  const {
+    projectId,
+    projectSlug,
+    documentSlug,
+    sectionTitle,
+    sectionPath,
+    authorId,
+    onDraftCleared,
+  } = props;
   const {
     statusLabel,
     ariaAnnouncement,
@@ -23,6 +32,7 @@ export function DraftStatusBadge(props: DraftStatusBadgeProps) {
     lastUpdatedLabel,
     lastUpdatedIso,
   } = useDraftPersistence({
+    projectId,
     projectSlug,
     documentSlug,
     sectionTitle,

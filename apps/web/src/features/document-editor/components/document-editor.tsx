@@ -1,15 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { useShallow } from 'zustand/shallow';
+import { Link, useLoaderData } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import type { DocumentRouteLoaderData } from '@/app/router/document-routes';
 
 import { logger } from '../utils/logger';
 import { performanceMonitor } from '../utils/performance';
 
 import { useEditorStore } from '../stores/editor-store';
 import { useDocumentStore } from '../stores/document-store';
+import { useDocumentQaStore } from '../stores/document-qa-store';
 import { useSessionStore } from '../stores/session-store';
 import { useDraftStateStore } from '../stores/draft-state';
 import type { SectionView } from '../types/section-view';
@@ -17,6 +20,7 @@ import type { SectionView } from '../types/section-view';
 import TableOfContentsComponent from './table-of-contents';
 import DocumentSectionPreview from './document-section-preview';
 import MilkdownEditor from './milkdown-editor';
+import { ApprovalPanelGate } from './approval-panel-gate';
 
 import { ManualSavePanel } from '@/features/section-editor/components/manual-save-panel';
 import type { DocumentFixture } from '@/lib/fixtures/e2e';
@@ -39,6 +43,7 @@ import {
   SectionEditorConflictError,
 } from '@/features/section-editor/api/section-editor.client';
 import { useDocumentFixtureBootstrap } from '../hooks/use-document-fixture';
+import { useDocumentBootstrap } from '../hooks/use-document-bootstrap';
 import { AssumptionsChecklist } from '../assumptions-flow/components/assumptions-checklist';
 import { useAssumptionsFlow } from '../assumptions-flow/hooks/use-assumptions-flow';
 import { CoAuthorSidebar } from './co-authoring';
@@ -48,6 +53,7 @@ import { useDocumentQualityStore } from '../quality-gates/stores/document-qualit
 import { useCoAuthorSession } from '../hooks/useCoAuthorSession';
 import { useDocumentQaSession } from '../hooks/useDocumentQaSession';
 import type { CoAuthoringIntent } from '../stores/co-authoring-store';
+import { getDocumentEditorClientConfig } from '@/lib/document-editor-client-config';
 
 export interface DocumentEditorProps {
   documentId: string;
@@ -82,6 +88,30 @@ const resolveSummaryForApproval = (
   return null;
 };
 
+type ConflictGuideStepStatus = 'idle' | 'pending' | 'done';
+
+interface ConflictGuideState {
+  sectionId: string | null;
+  note: string;
+  steps: {
+    refresh: ConflictGuideStepStatus;
+    diff: ConflictGuideStepStatus;
+    reapply: ConflictGuideStepStatus;
+  };
+}
+
+const DEFAULT_CONFLICT_NOTE = 'Your draft is still cached. Complete the steps below to reapply it.';
+
+const buildConflictGuideState = (sectionId: string | null): ConflictGuideState => ({
+  sectionId,
+  note: DEFAULT_CONFLICT_NOTE,
+  steps: {
+    refresh: 'idle',
+    diff: 'idle',
+    reapply: 'idle',
+  },
+});
+
 export const DocumentEditor = memo<DocumentEditorProps>(
   ({ documentId, className, initialSectionId, fixtureDocument }) => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -101,8 +131,33 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     const [selectedDecisionIds, setSelectedDecisionIds] = useState<string[]>([
       'decision:telemetry',
     ]);
+    const [conflictGuide, setConflictGuide] = useState<ConflictGuideState>(
+      buildConflictGuideState(null)
+    );
+    const [dismissedConflictSectionId, setDismissedConflictSectionId] = useState<string | null>(
+      null
+    );
     const editEntryTimerRef = useRef<(() => void) | null>(null);
     const editRenderTimerRef = useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+      const resetQaStore = useDocumentQaStore.getState().reset;
+      resetQaStore();
+      return () => {
+        useDocumentQaStore.getState().reset();
+      };
+    }, []);
+
+    const resetConflictGuide = useCallback((sectionId: string | null) => {
+      setConflictGuide(buildConflictGuideState(sectionId));
+    }, []);
+
+    const updateConflictGuide = useCallback(
+      (updater: (current: ConflictGuideState) => ConflictGuideState) => {
+        setConflictGuide(current => updater(current));
+      },
+      []
+    );
 
     useEffect(() => {
       if (typeof window === 'undefined') {
@@ -134,10 +189,21 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       };
     }, []);
 
-    useDocumentFixtureBootstrap({
+    const loaderData = useLoaderData<DocumentRouteLoaderData | undefined>();
+
+    const liveBootstrapState = useDocumentBootstrap({
+      documentId,
+      initialSectionId,
+      enabled: !fixtureDocument,
+      initialDocument: loaderData?.bootstrap?.document ?? null,
+      initialSections: loaderData?.bootstrap?.sections ?? null,
+    });
+
+    const bootstrapState = useDocumentFixtureBootstrap({
       documentId,
       fixtureDocument,
       initialSectionId,
+      liveState: liveBootstrapState,
     });
 
     const {
@@ -181,16 +247,41 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       setTableOfContents,
       getAssumptionSession,
       document: documentInfo,
+      isLoading: documentStoreLoading,
     } = useDocumentStore(
       useShallow(state => ({
         toc: state.toc,
         setTableOfContents: state.setTableOfContents,
         getAssumptionSession: state.getAssumptionSession,
         document: state.document,
+        isLoading: state.isLoading,
       }))
     );
 
-    const projectSlug = documentInfo?.projectSlug ?? fixtureDocument?.projectSlug ?? 'project-test';
+    const projectId =
+      documentInfo?.projectId ??
+      bootstrapState.projectId ??
+      fixtureDocument?.projectId ??
+      'project-test';
+
+    const projectSlug =
+      documentInfo?.projectSlug ??
+      bootstrapState.projectSlug ??
+      fixtureDocument?.projectSlug ??
+      'project-test';
+    const projectLink =
+      projectId && projectId.length > 0 ? `/project/${projectId}` : `/project/${projectSlug}`;
+    const projectDisplayName = bootstrapState.projectName
+      ? `Back to ${bootstrapState.projectName}`
+      : 'Back to project';
+
+    const isFixtureMode = Boolean(fixtureDocument);
+    const isLoadingDocument =
+      (!isFixtureMode &&
+        (documentStoreLoading ||
+          bootstrapState.status === 'idle' ||
+          bootstrapState.status === 'loading')) ||
+      false;
 
     const { updateScrollPosition, setActiveSection: setSessionActiveSection } = useSessionStore(
       useShallow(state => ({
@@ -262,13 +353,25 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }
     }, [pendingRehydratedDrafts]);
 
+    const { baseUrl: documentEditorBaseUrl, getAuthToken: documentEditorToken } =
+      getDocumentEditorClientConfig();
+
     const client = useMemo(() => {
-      const baseUrl =
-        fixtureDocument && typeof window !== 'undefined'
-          ? `${window.location.origin.replace(/\/$/, '')}/__fixtures/api`
-          : undefined;
-      return createSectionEditorClient(baseUrl ? { baseUrl } : undefined);
-    }, [fixtureDocument]);
+      const sharedOptions = {
+        baseUrl: documentEditorBaseUrl,
+        getAuthToken: documentEditorToken,
+      };
+
+      if (fixtureDocument && typeof window !== 'undefined') {
+        const origin = window.location.origin.replace(/\/$/, '');
+        return createSectionEditorClient({
+          ...sharedOptions,
+          baseUrl: `${origin}/__fixtures/api`,
+        });
+      }
+
+      return createSectionEditorClient(sharedOptions);
+    }, [documentEditorBaseUrl, documentEditorToken, fixtureDocument]);
 
     const sectionsList = useMemo(() => sortSections(sections), [sections]);
     const activeSection = activeSectionId ? (sections[activeSectionId] ?? null) : null;
@@ -327,10 +430,21 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       ? getAssumptionSession(activeSection.id)
       : null;
     const activeAssumptionSession = assumptionFlowState ?? assumptionSessionFromStore;
-    const assumptionFlowBlocking = Boolean(
-      shouldEnableAssumptionsFlow &&
-        (assumptionFlowState?.promptsRemaining ?? 0) + (assumptionFlowState?.overridesOpen ?? 0) > 0
+    const unresolvedPrompts = activeAssumptionSession?.promptsRemaining ?? 0;
+    const unresolvedOverrides = activeAssumptionSession?.overridesOpen ?? 0;
+    const unresolvedAssumptions = unresolvedPrompts + unresolvedOverrides;
+
+    const sectionLifecycleState = activeSection?.status;
+    const metadataIndicatesBlocking = Boolean(
+      sectionLifecycleState === 'assumptions' && activeSection?.assumptionsResolved === false
     );
+    const sessionIndicatesBlocking = Boolean(
+      activeAssumptionSession &&
+        unresolvedAssumptions > 0 &&
+        sectionLifecycleState === 'assumptions'
+    );
+    const assumptionFlowBlocking =
+      sessionIndicatesBlocking || (!activeAssumptionSession && metadataIndicatesBlocking);
 
     const sectionDraftState = useSectionDraftStore(
       useShallow(state => ({
@@ -358,8 +472,8 @@ export const DocumentEditor = memo<DocumentEditorProps>(
           payload: { sectionId: string } & Parameters<typeof client.checkConflicts>[1]
         ) => client.checkConflicts(payload.sectionId, payload),
         fetchDiff: (payload: { sectionId: string }) => client.getDiff(payload.sectionId),
-        listConflictLogs: (payload: { sectionId: string }) =>
-          client.listConflictLogs(payload.sectionId),
+        listConflictLogs: (payload: { sectionId: string; draftId: string; signal?: AbortSignal }) =>
+          client.listConflictLogs(payload),
       }),
       [client]
     );
@@ -435,6 +549,19 @@ export const DocumentEditor = memo<DocumentEditorProps>(
     } = documentQa;
 
     useEffect(() => {
+      if (typeof window === 'undefined') {
+        return undefined;
+      }
+      const registry = window as unknown as Record<string, unknown>;
+      registry.__qaEnsureSession = ensureDocumentQaSession;
+      return () => {
+        if (registry.__qaEnsureSession === ensureDocumentQaSession) {
+          delete registry.__qaEnsureSession;
+        }
+      };
+    }, [ensureDocumentQaSession]);
+
+    useEffect(() => {
       if (!coAuthorSessionState) {
         return;
       }
@@ -457,7 +584,10 @@ export const DocumentEditor = memo<DocumentEditorProps>(
         return;
       }
       void ensureDocumentQaSession();
-    }, [ensureDocumentQaSession, isDocumentQaOpen, activeSectionId]);
+      // ensureDocumentQaSession is stable for a given document/section; we only want to rerun
+      // when the panel is reopened or the active section changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDocumentQaOpen, activeSectionId]);
 
     useEffect(() => {
       if (!isDocumentQaOpen) {
@@ -765,6 +895,19 @@ export const DocumentEditor = memo<DocumentEditorProps>(
 
     useEffect(() => {
       if (!activeSection) {
+        setDismissedConflictSectionId(null);
+        return;
+      }
+      if (dismissedConflictSectionId && dismissedConflictSectionId !== activeSection.id) {
+        setDismissedConflictSectionId(null);
+      }
+    }, [activeSection, dismissedConflictSectionId]);
+
+    useEffect(() => {
+      if (!activeSection) {
+        if (conflictGuide.sectionId !== null) {
+          resetConflictGuide(null);
+        }
         return;
       }
 
@@ -785,21 +928,50 @@ export const DocumentEditor = memo<DocumentEditorProps>(
         });
       }
 
-      if (
-        draftState.conflictState === 'rebase_required' ||
-        draftState.conflictState === 'blocked'
-      ) {
+      if (nextConflictState === 'rebase_required' || nextConflictState === 'blocked') {
+        if (conflictGuide.sectionId !== activeSection.id) {
+          resetConflictGuide(activeSection.id);
+        }
+        if (dismissedConflictSectionId === activeSection.id) {
+          return;
+        }
         setIsConflictDialogOpen(true);
+        return;
       }
 
-      if (draftState.conflictState === 'clean') {
+      if (nextConflictState === 'clean') {
+        if (
+          conflictGuide.sectionId === activeSection.id &&
+          conflictGuide.steps.reapply !== 'done'
+        ) {
+          if (dismissedConflictSectionId === activeSection.id) {
+            setDismissedConflictSectionId(null);
+          }
+          setIsConflictDialogOpen(true);
+          return;
+        }
+        if (conflictGuide.sectionId === activeSection.id) {
+          resetConflictGuide(null);
+        }
+        setDismissedConflictSectionId(null);
+        setIsConflictDialogOpen(false);
+        return;
+      }
+
+      if (nextConflictState === 'rebased' && conflictGuide.sectionId === activeSection.id) {
+        resetConflictGuide(null);
+        setDismissedConflictSectionId(null);
         setIsConflictDialogOpen(false);
       }
     }, [
       activeSection,
+      conflictGuide.sectionId,
+      conflictGuide.steps.reapply,
       draftState.conflictState,
       sectionDraftState.conflictReason,
       sectionDraftState.latestApprovedVersion,
+      dismissedConflictSectionId,
+      resetConflictGuide,
       setConflictState,
     ]);
 
@@ -934,6 +1106,148 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       [activeSection, setSummary, updateSection]
     );
 
+    const handleDismissConflict = useCallback(() => {
+      if (activeSection) {
+        setDismissedConflictSectionId(activeSection.id);
+      } else {
+        setDismissedConflictSectionId(null);
+      }
+      resetConflictGuide(null);
+      setIsConflictDialogOpen(false);
+    }, [activeSection, resetConflictGuide]);
+
+    const handleConflictRefresh = useCallback(async () => {
+      if (!activeSection) {
+        return;
+      }
+      if (conflictGuide.sectionId !== activeSection.id) {
+        resetConflictGuide(activeSection.id);
+      }
+
+      updateConflictGuide(current => {
+        if (current.sectionId !== activeSection.id) {
+          return current;
+        }
+        return {
+          ...current,
+          steps: {
+            ...current.steps,
+            refresh: current.steps.refresh === 'done' ? 'done' : 'pending',
+          },
+        };
+      });
+      setIsResolvingConflict(true);
+
+      try {
+        await resolveConflicts();
+        updateConflictGuide(current => {
+          if (current.sectionId !== activeSection.id) {
+            return current;
+          }
+          return {
+            ...current,
+            note: 'Latest approved content loaded. Review the diff before you reapply your draft.',
+            steps: {
+              ...current.steps,
+              refresh: 'done',
+            },
+          };
+        });
+      } catch (error) {
+        logger.error(
+          {
+            sectionId: activeSection.id,
+            documentId,
+            reason: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to refresh section during conflict resolution'
+        );
+        updateConflictGuide(current => {
+          if (current.sectionId !== activeSection.id) {
+            return current;
+          }
+          return {
+            ...current,
+            steps: {
+              ...current.steps,
+              refresh: 'idle',
+            },
+          };
+        });
+      } finally {
+        setIsResolvingConflict(false);
+      }
+    }, [
+      activeSection,
+      conflictGuide.sectionId,
+      documentId,
+      resolveConflicts,
+      resetConflictGuide,
+      updateConflictGuide,
+    ]);
+
+    const handleConflictReapply = useCallback(() => {
+      if (!activeSection) {
+        return;
+      }
+
+      updateConflictGuide(current => {
+        if (current.sectionId !== activeSection.id) {
+          return current;
+        }
+        return {
+          ...current,
+          steps: {
+            ...current.steps,
+            reapply: current.steps.reapply === 'done' ? 'done' : 'pending',
+          },
+        };
+      });
+
+      const latestApprovedVersion = sectionDraftState.latestApprovedVersion ?? null;
+
+      useSectionDraftStore.setState(state => ({
+        ...state,
+        conflictState: 'rebased',
+        conflictReason: null,
+        latestApprovedVersion,
+      }));
+
+      setConflictState(activeSection.id, {
+        conflictState: 'rebased',
+        conflictReason: null,
+        latestApprovedVersion,
+      });
+
+      if (latestApprovedVersion !== null) {
+        setDraftMetadata(activeSection.id, {
+          draftBaseVersion: latestApprovedVersion,
+          latestApprovedVersion,
+        });
+      }
+
+      setManualSaveError(null);
+
+      updateConflictGuide(() => ({
+        sectionId: null,
+        note: 'Draft rebased. Save again when you are ready to commit your changes.',
+        steps: {
+          refresh: 'done',
+          diff: 'done',
+          reapply: 'done',
+        },
+      }));
+
+      setIsConflictDialogOpen(false);
+    }, [
+      activeSection,
+      sectionDraftState.latestApprovedVersion,
+      setConflictState,
+      setDraftMetadata,
+      updateConflictGuide,
+      setManualSaveError,
+    ]);
+
     const handleManualSave = useCallback(async () => {
       if (!activeSection) {
         return;
@@ -998,9 +1312,15 @@ export const DocumentEditor = memo<DocumentEditorProps>(
           return;
         }
 
+        if (conflictGuide.sectionId !== activeSection.id) {
+          resetConflictGuide(activeSection.id);
+        }
         setIsConflictDialogOpen(true);
       } catch (error) {
         if (error instanceof SectionEditorConflictError) {
+          if (conflictGuide.sectionId !== activeSection.id) {
+            resetConflictGuide(activeSection.id);
+          }
           setIsConflictDialogOpen(true);
           return;
         }
@@ -1015,6 +1335,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       }
     }, [
       activeSection,
+      conflictGuide.sectionId,
       manualSave,
       setDraftMetadata,
       recordManualSave,
@@ -1026,6 +1347,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       projectSlug,
       documentId,
       effectiveUserId,
+      resetConflictGuide,
     ]);
 
     useEffect(() => {
@@ -1122,6 +1444,62 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       toggleDiffView(true);
       setDiffView(true);
     }, [activeSection, refreshDiff, toggleDiffView, setDiffView]);
+
+    const handleConflictOpenDiff = useCallback(async () => {
+      if (!activeSection) {
+        return;
+      }
+      updateConflictGuide(current => {
+        if (current.sectionId !== activeSection.id) {
+          return current;
+        }
+        return {
+          ...current,
+          steps: {
+            ...current.steps,
+            diff: current.steps.diff === 'done' ? 'done' : 'pending',
+          },
+        };
+      });
+
+      try {
+        await handleOpenDiff();
+        updateConflictGuide(current => {
+          if (current.sectionId !== activeSection.id) {
+            return current;
+          }
+          return {
+            ...current,
+            note: 'Diff updated. Reapply your draft to finish resolving the conflict.',
+            steps: {
+              ...current.steps,
+              diff: 'done',
+            },
+          };
+        });
+      } catch (error) {
+        logger.error(
+          {
+            sectionId: activeSection.id,
+            documentId,
+            reason: error instanceof Error ? error.message : String(error),
+          },
+          'Failed to open diff during conflict resolution'
+        );
+        updateConflictGuide(current => {
+          if (current.sectionId !== activeSection.id) {
+            return current;
+          }
+          return {
+            ...current,
+            steps: {
+              ...current.steps,
+              diff: 'idle',
+            },
+          };
+        });
+      }
+    }, [activeSection, documentId, handleOpenDiff, updateConflictGuide]);
 
     const handleCloseDiff = useCallback(() => {
       toggleDiffView(false);
@@ -1271,6 +1649,37 @@ export const DocumentEditor = memo<DocumentEditorProps>(
       };
     })();
 
+    const isGuidedConflict = Boolean(activeSection && conflictGuide.sectionId === activeSection.id);
+
+    if (isLoadingDocument) {
+      return (
+        <div className={cn('flex h-full w-full flex-col', className)}>
+          <div className="text-muted-foreground mb-4 flex items-center text-sm">
+            <Link
+              to={projectLink}
+              className="text-muted-foreground hover:text-foreground inline-flex items-center rounded-md px-1.5 py-0.5 transition"
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              {projectDisplayName}
+            </Link>
+          </div>
+          <div
+            className="flex grow items-center justify-center rounded-lg border border-gray-200 bg-white px-6 py-8 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            tabIndex={-1}
+            data-testid="document-editor-loading"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Preparing sections…
+            </span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <>
         {!isE2EMode && hasPendingRehydrations && (
@@ -1327,6 +1736,22 @@ export const DocumentEditor = memo<DocumentEditorProps>(
             </div>
           </div>
         )}
+
+        <div className="text-muted-foreground mb-4 flex items-center text-sm">
+          <Link
+            to={projectLink}
+            className="text-muted-foreground hover:text-foreground inline-flex items-center rounded-md px-1.5 py-0.5 transition"
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            {projectDisplayName}
+          </Link>
+        </div>
+
+        {bootstrapState.status === 'error' ? (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {bootstrapState.error ?? 'Failed to load document content.'}
+          </div>
+        ) : null}
         {showQuotaBanner && (
           <div
             data-testid="draft-pruned-banner"
@@ -1533,6 +1958,7 @@ export const DocumentEditor = memo<DocumentEditorProps>(
                         section={activeSection}
                         assumptionSession={activeAssumptionSession}
                         documentId={documentId}
+                        projectId={projectId}
                         projectSlug={projectSlug}
                         onEnterEdit={handleEnterEdit}
                         isEditDisabled={
@@ -1653,8 +2079,10 @@ console.log('code snippet');
                             />
                           )}
 
-                          {(activeSection.status === 'review' ||
-                            activeSection.status === 'ready') && (
+                          <ApprovalPanelGate
+                            isEditing={isEditing}
+                            sectionStatus={activeSection.status}
+                          >
                             <div className="space-y-3">
                               {approvalError && (
                                 <div
@@ -1681,7 +2109,7 @@ console.log('code snippet');
                                 isDisabled={draftState.conflictState !== 'clean'}
                               />
                             </div>
-                          )}
+                          </ApprovalPanelGate>
                         </div>
                       )}
                     </div>
@@ -1746,9 +2174,63 @@ console.log('code snippet');
             rebasedDraft={sectionDraftState.rebasedDraft ?? undefined}
             events={sectionDraftState.conflictEvents}
             serverSnapshot={conflictServerSnapshot ?? undefined}
-            isProcessing={isResolvingConflict}
-            onConfirm={handleResolveConflicts}
-            onCancel={() => setIsConflictDialogOpen(false)}
+            resolutionNote={isGuidedConflict ? conflictGuide.note : undefined}
+            refreshStep={
+              isGuidedConflict
+                ? {
+                    status: conflictGuide.steps.refresh,
+                    onClick: handleConflictRefresh,
+                    disabled:
+                      conflictGuide.steps.refresh === 'pending' ||
+                      conflictGuide.steps.refresh === 'done',
+                    description:
+                      conflictGuide.steps.refresh === 'done'
+                        ? 'Latest approved content loaded. Review the diff before you reapply.'
+                        : undefined,
+                  }
+                : undefined
+            }
+            diffStep={
+              isGuidedConflict
+                ? {
+                    status: conflictGuide.steps.diff,
+                    onClick: handleConflictOpenDiff,
+                    disabled:
+                      conflictGuide.steps.refresh !== 'done' ||
+                      conflictGuide.steps.diff === 'pending' ||
+                      conflictGuide.steps.diff === 'done',
+                    description:
+                      conflictGuide.steps.diff === 'done'
+                        ? 'Diff ready. Reapply your draft to finish resolving the conflict.'
+                        : undefined,
+                  }
+                : undefined
+            }
+            reapplyStep={
+              isGuidedConflict
+                ? {
+                    status: conflictGuide.steps.reapply,
+                    onClick: handleConflictReapply,
+                    disabled:
+                      conflictGuide.steps.refresh !== 'done' ||
+                      conflictGuide.steps.diff !== 'done' ||
+                      conflictGuide.steps.reapply === 'pending' ||
+                      conflictGuide.steps.reapply === 'done',
+                    description:
+                      conflictGuide.steps.reapply === 'done'
+                        ? 'Cached edits restored on the refreshed content. Save when you are ready.'
+                        : undefined,
+                  }
+                : undefined
+            }
+            isProcessing={
+              isResolvingConflict ||
+              (isGuidedConflict &&
+                (conflictGuide.steps.refresh === 'pending' ||
+                  conflictGuide.steps.reapply === 'pending'))
+            }
+            onConfirm={isGuidedConflict ? undefined : handleResolveConflicts}
+            onCancel={handleDismissConflict}
           />
         </div>
       </>

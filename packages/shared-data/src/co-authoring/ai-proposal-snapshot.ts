@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SessionIdentifierSchema } from './session-identifiers.js';
+
 const IsoTimestampSchema = z
   .string()
   .min(1, 'Timestamp is required')
@@ -32,7 +34,7 @@ const DEFAULT_PROPOSAL_TTL_MS = 10 * 60 * 1000;
 export const AIProposalSnapshotSchema = z
   .object({
     proposalId: z.string().uuid('proposalId must be a valid UUID'),
-    sessionId: z.string().uuid('sessionId must be a valid UUID'),
+    sessionId: SessionIdentifierSchema,
     originTurnId: z.string().min(1, 'originTurnId is required'),
     diff: DiffSchema,
     renderMode: DiffRenderModeSchema,

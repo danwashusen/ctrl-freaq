@@ -1,5 +1,13 @@
 import { useAuth } from '@/lib/auth-provider';
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -15,6 +23,7 @@ import { logger } from './logger';
 import { E2EFixtureProvider, isE2EModeEnabled } from './fixtures/e2e/fixture-provider';
 import { createEventHub } from './streaming/event-hub';
 import type { EventHub, HubHealthState } from './streaming/event-hub';
+import { configureDocumentEditorClients } from './document-editor-client-config';
 
 interface ApiContextValue {
   apiClient: ApiClient;
@@ -32,6 +41,18 @@ const parseBooleanEnv = (value: string | undefined): boolean => {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 };
 
+const DEFAULT_API_BASE_URL = 'http://localhost:5001/api/v1';
+
+const resolveApiBaseUrl = (override?: string): string => {
+  const envValue =
+    override ?? (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? DEFAULT_API_BASE_URL;
+  const trimmed = envValue.trim();
+  if (trimmed.length === 0) {
+    return DEFAULT_API_BASE_URL;
+  }
+  return trimmed.replace(/\/+$/, '');
+};
+
 const ApiContext = createContext<ApiContextValue | null>(null);
 
 interface ApiProviderProps {
@@ -42,14 +63,15 @@ interface ApiProviderProps {
 export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
   const auth = useAuth();
   const isE2E = isE2EModeEnabled();
+  const resolvedBaseUrl = useMemo(() => resolveApiBaseUrl(baseUrl), [baseUrl]);
 
   useEffect(() => {
     if (isE2E) {
       logger.warn('VITE_E2E fixture mode enabled. API calls will be short-circuited.', {
-        baseUrl,
+        baseUrl: resolvedBaseUrl,
       });
     }
-  }, [isE2E, baseUrl]);
+  }, [isE2E, resolvedBaseUrl]);
 
   const tokenFetcher = useMemo(() => {
     const maybeAuth = auth as unknown as { getToken?: unknown };
@@ -67,10 +89,19 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     return async () => null;
   }, [auth]);
 
-  const tokenFetcherRef = useRef(tokenFetcher);
-  useEffect(() => {
-    tokenFetcherRef.current = tokenFetcher;
+  const getAuthToken = useCallback(async () => {
+    try {
+      return await tokenFetcher();
+    } catch (error) {
+      logger.error('Failed to get auth token', {}, error instanceof Error ? error : undefined);
+      return null;
+    }
   }, [tokenFetcher]);
+
+  const tokenFetcherRef = useRef(getAuthToken);
+  useEffect(() => {
+    tokenFetcherRef.current = getAuthToken;
+  }, [getAuthToken]);
 
   const eventHubRef = useRef<EventHub | null>(null);
   if (!eventHubRef.current) {
@@ -94,24 +125,28 @@ export function ApiProvider({ children, baseUrl }: ApiProviderProps) {
     () => !isE2E && parseBooleanEnv(import.meta.env?.VITE_ENABLE_SSE_HUB as string | undefined)
   );
 
+  const lastConfiguredRef = useRef<{ baseUrl: string; getAuthToken: typeof getAuthToken } | null>(
+    null
+  );
+  if (
+    !lastConfiguredRef.current ||
+    lastConfiguredRef.current.baseUrl !== resolvedBaseUrl ||
+    lastConfiguredRef.current.getAuthToken !== getAuthToken
+  ) {
+    configureDocumentEditorClients({
+      baseUrl: resolvedBaseUrl,
+      getAuthToken,
+    });
+    lastConfiguredRef.current = { baseUrl: resolvedBaseUrl, getAuthToken };
+  }
+
   const apiClient = useMemo(
     () =>
       createApiClient({
-        baseUrl,
-        getAuthToken: async () => {
-          try {
-            return await tokenFetcher();
-          } catch (error) {
-            logger.error(
-              'Failed to get auth token',
-              {},
-              error instanceof Error ? error : undefined
-            );
-            return null;
-          }
-        },
+        baseUrl: resolvedBaseUrl,
+        getAuthToken,
       }),
-    [baseUrl, tokenFetcher]
+    [resolvedBaseUrl, getAuthToken]
   );
 
   const authState = auth as { isSignedIn?: boolean; userId?: string | null };

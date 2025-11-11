@@ -1,8 +1,10 @@
+import '@/lib/immer-config';
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { beforeAll, afterAll, afterEach, vi } from 'vitest';
 
 import * as zustandMock from './__mocks__/zustand';
+import { configureDocumentEditorClients } from '@/lib/document-editor-client-config';
 
 const useShallowMock = <State, StateSlice>(selector: (state: State) => StateSlice) => selector;
 const createMatchMediaMock = () =>
@@ -32,6 +34,10 @@ beforeAll(() => {
   Object.defineProperty(window, 'scrollTo', {
     writable: true,
     value: vi.fn(),
+  });
+  configureDocumentEditorClients({
+    baseUrl: 'http://localhost:5001/api/v1',
+    getAuthToken: async () => 'fake-test-token',
   });
 });
 

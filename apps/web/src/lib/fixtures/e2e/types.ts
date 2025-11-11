@@ -315,6 +315,7 @@ export const documentFixtureSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   summary: z.string().min(1),
+  projectId: z.string().min(1).default('proj-fixture'),
   projectSlug: z.string().min(1).default('project-test'),
   tableOfContents: z.array(sectionReferenceSchema).min(1),
   updatedAt: z.string().min(1),

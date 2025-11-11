@@ -6,9 +6,10 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from 'pino';
 
-import { AssumptionSessionRepository } from '@ctrl-freaq/shared-data';
+import { AssumptionSessionRepository, DocumentRepositoryImpl } from '@ctrl-freaq/shared-data';
 import type { SectionStreamQueue } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
 import { mockAsyncFn, type MockedAsyncFn } from '@ctrl-freaq/test-support';
+import type { TemplateResolver, TemplateResolverResult } from '@ctrl-freaq/template-resolver';
 
 import {
   AssumptionSessionService,
@@ -17,20 +18,41 @@ import {
   type DocumentDecisionProvider,
 } from './assumption-session.service';
 
+type TemplateResolverMock = TemplateResolver & {
+  resolve: MockedAsyncFn<TemplateResolver['resolve']>;
+  resolveActiveVersion: MockedAsyncFn<TemplateResolver['resolveActiveVersion']>;
+};
+
+const createTemplateResolution = (
+  overrides: Partial<TemplateResolverResult['template']> = {}
+): TemplateResolverResult => ({
+  cacheHit: false,
+  template: {
+    templateId: 'architecture-reference',
+    version: '1.0.0',
+    schemaHash: 'hash-architecture-reference',
+    sections: [],
+    ...overrides,
+  },
+});
+
 describe('AssumptionSessionService', () => {
   let db: Database.Database;
   let service: AssumptionSessionService;
   let repository: AssumptionSessionRepository;
+  let documentRepository: DocumentRepositoryImpl;
   let decisionProvider: {
     getDecisionSnapshot: MockedAsyncFn<DocumentDecisionProvider['getDecisionSnapshot']>;
   };
+  let templateResolver: TemplateResolverMock;
   const fixedNow = new Date('2025-09-29T05:00:00.000Z');
-  const logger = {
+  const loggerMocks = {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  } as unknown as Logger;
+  };
+  const logger = loggerMocks as unknown as Logger;
 
   const promptTemplates: AssumptionPromptTemplate[] = [
     {
@@ -79,7 +101,21 @@ describe('AssumptionSessionService', () => {
     database.pragma('journal_mode = WAL');
     database.exec(
       `CREATE TABLE users (id TEXT PRIMARY KEY);
-       CREATE TABLE documents (id TEXT PRIMARY KEY);
+       CREATE TABLE documents (
+         id TEXT PRIMARY KEY,
+         project_id TEXT NOT NULL,
+         title TEXT NOT NULL,
+         content_json TEXT NOT NULL,
+         template_id TEXT,
+         template_version TEXT,
+         template_schema_hash TEXT,
+         created_at TEXT NOT NULL,
+         created_by TEXT NOT NULL,
+         updated_at TEXT NOT NULL,
+         updated_by TEXT NOT NULL,
+         deleted_at TEXT,
+         deleted_by TEXT
+       );
        CREATE TABLE section_records (
          id TEXT PRIMARY KEY,
          document_id TEXT NOT NULL,
@@ -94,7 +130,6 @@ describe('AssumptionSessionService', () => {
 
     const timestamp = fixedNow.toISOString();
     database.prepare('INSERT INTO users(id) VALUES (?)').run('user-assumption-author');
-    database.prepare('INSERT INTO documents(id) VALUES (?)').run('doc-new-content-flow');
     database
       .prepare(
         `INSERT INTO section_records (id, document_id, template_key, order_index, created_at, created_by, updated_at, updated_by)
@@ -120,16 +155,39 @@ describe('AssumptionSessionService', () => {
     return database;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db = bootstrapDatabase();
     repository = new AssumptionSessionRepository(db);
+    documentRepository = new DocumentRepositoryImpl(db);
+    await documentRepository.create({
+      id: 'doc-new-content-flow',
+      projectId: 'project-new-content-flow',
+      title: 'Surface Document',
+      content: {},
+      templateId: 'architecture-reference',
+      templateVersion: '2.1.0',
+      templateSchemaHash: 'e4da6c86723feba8843017296d64a4b31f9e2691a4df59012665356e39f564bb',
+      createdBy: 'user-assumption-author',
+      updatedBy: 'user-assumption-author',
+    });
     decisionProvider = {
       getDecisionSnapshot: mockAsyncFn<DocumentDecisionProvider['getDecisionSnapshot']>(),
     };
     decisionProvider.getDecisionSnapshot.mockResolvedValue(null);
+    templateResolver = {
+      resolve: mockAsyncFn<TemplateResolver['resolve']>(),
+      resolveActiveVersion: mockAsyncFn<TemplateResolver['resolveActiveVersion']>(),
+      clearCache: vi.fn(),
+      getCacheStats: vi.fn(() => ({ hits: 0, misses: 0, entries: 0 })),
+    } as TemplateResolverMock;
+    const defaultTemplate = createTemplateResolution();
+    templateResolver.resolve.mockResolvedValue(defaultTemplate);
+    templateResolver.resolveActiveVersion.mockResolvedValue(defaultTemplate);
     service = new AssumptionSessionService({
       repository,
       logger,
+      documentRepository,
+      templateResolver,
       promptProvider: {
         async getPrompts() {
           return promptTemplates;
@@ -151,7 +209,7 @@ describe('AssumptionSessionService', () => {
     const session = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -185,7 +243,7 @@ describe('AssumptionSessionService', () => {
     const session = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -207,6 +265,91 @@ describe('AssumptionSessionService', () => {
         status: 'decision_conflict',
         decisionId: 'doc-security-baseline',
       }),
+    });
+  });
+
+  describe('template resolution', () => {
+    it('falls back to the document template version when the requested version is unavailable', async () => {
+      templateResolver.resolve.mockImplementation(async ({ version }) => {
+        if (version === '2.1.0') {
+          return createTemplateResolution({ version: '2.1.0' });
+        }
+        return null;
+      });
+
+      await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '9.9.9',
+        startedBy: 'user-assumption-author',
+      });
+
+      expect(templateResolver.resolve).toHaveBeenCalledWith(
+        expect.objectContaining({ templateId: 'architecture-reference', version: '9.9.9' })
+      );
+      expect(templateResolver.resolve).toHaveBeenCalledWith(
+        expect.objectContaining({ templateId: 'architecture-reference', version: '2.1.0' })
+      );
+      expect(templateResolver.resolveActiveVersion).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the default template when the document lacks a template binding', async () => {
+      const persisted = await documentRepository.findById('doc-new-content-flow');
+      expect(persisted).toBeTruthy();
+      const docSpy = vi.spyOn(documentRepository, 'findById').mockResolvedValueOnce({
+        ...(persisted as NonNullable<typeof persisted>),
+        templateId: '',
+        templateVersion: '',
+        templateSchemaHash: '',
+      });
+
+      templateResolver.resolve.mockResolvedValue(null);
+      const fallbackTemplate = createTemplateResolution({ version: '2.1.0' });
+      templateResolver.resolveActiveVersion.mockResolvedValue(fallbackTemplate);
+
+      const session = await service.startSession({
+        sectionId: 'sec-new-content-flow',
+        documentId: 'doc-new-content-flow',
+        templateVersion: '2.1.0',
+        startedBy: 'user-assumption-author',
+      });
+
+      expect(session.prompts).toHaveLength(3);
+      expect(templateResolver.resolveActiveVersion).toHaveBeenCalledWith('architecture-reference');
+      const fallbackLog = loggerMocks.info.mock.calls.find(call => {
+        const [context] = call as [Record<string, unknown> | undefined];
+        return context?.reason === 'fallback_default_template';
+      });
+      expect(fallbackLog).toBeDefined();
+      docSpy.mockRestore();
+    });
+
+    it('throws a conflict error when the referenced template cannot be resolved', async () => {
+      await documentRepository.updateTemplateBinding({
+        documentId: 'doc-new-content-flow',
+        templateId: 'custom-template',
+        templateVersion: '3.0.0',
+        templateSchemaHash: 'schema-custom-template',
+        updatedBy: 'user-assumption-author',
+      });
+      templateResolver.resolve.mockResolvedValue(null);
+      templateResolver.resolveActiveVersion.mockResolvedValue(null);
+
+      await expect(
+        service.startSession({
+          sectionId: 'sec-new-content-flow',
+          documentId: 'doc-new-content-flow',
+          templateVersion: '3.0.0',
+          startedBy: 'user-assumption-author',
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'Template version unavailable for this document',
+        details: expect.objectContaining({
+          code: 'TEMPLATE_VERSION_MISSING',
+          templateId: 'custom-template',
+        }),
+      });
     });
   });
 
@@ -303,6 +446,8 @@ describe('AssumptionSessionService', () => {
       service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider: {
           async getPrompts() {
             return promptTemplates;
@@ -318,7 +463,7 @@ describe('AssumptionSessionService', () => {
       const session = await service.startSession({
         sectionId: 'sec-new-content-flow',
         documentId: 'doc-new-content-flow',
-        templateVersion: '1.0.0',
+        templateVersion: '2.1.0',
         startedBy: 'user-assumption-author',
       });
 
@@ -374,6 +519,8 @@ describe('AssumptionSessionService', () => {
       service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider: {
           async getPrompts() {
             return promptTemplates;
@@ -390,7 +537,7 @@ describe('AssumptionSessionService', () => {
       const session = await service.startSession({
         sectionId: 'sec-new-content-flow',
         documentId: 'doc-new-content-flow',
-        templateVersion: '1.0.0',
+        templateVersion: '2.1.0',
         startedBy: 'user-assumption-author',
       });
 
@@ -439,6 +586,8 @@ describe('AssumptionSessionService', () => {
       service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider: {
           async getPrompts() {
             return promptTemplates;
@@ -454,7 +603,7 @@ describe('AssumptionSessionService', () => {
       const session = await service.startSession({
         sectionId: 'sec-new-content-flow',
         documentId: 'doc-new-content-flow',
-        templateVersion: '1.0.0',
+        templateVersion: '2.1.0',
         startedBy: 'user-assumption-author',
       });
 
@@ -524,6 +673,8 @@ describe('AssumptionSessionService', () => {
       service = new AssumptionSessionService({
         repository,
         logger,
+        documentRepository,
+        templateResolver,
         promptProvider: {
           async getPrompts() {
             return promptTemplates;
@@ -540,7 +691,7 @@ describe('AssumptionSessionService', () => {
       const session = await service.startSession({
         sectionId: 'sec-new-content-flow',
         documentId: 'doc-new-content-flow',
-        templateVersion: '1.0.0',
+        templateVersion: '2.1.0',
         startedBy: 'user-assumption-author',
       });
 
@@ -591,6 +742,8 @@ describe('AssumptionSessionService', () => {
       service = new AssumptionSessionService({
         repository,
         logger: telemetryLogger,
+        documentRepository,
+        templateResolver,
         promptProvider: {
           async getPrompts() {
             return promptTemplates;
@@ -606,7 +759,7 @@ describe('AssumptionSessionService', () => {
       const session = await service.startSession({
         sectionId: 'sec-new-content-flow',
         documentId: 'doc-new-content-flow',
-        templateVersion: '1.0.0',
+        templateVersion: '2.1.0',
         startedBy: 'user-assumption-author',
       });
 
@@ -656,7 +809,7 @@ describe('AssumptionSessionService', () => {
     const session = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -693,7 +846,7 @@ describe('AssumptionSessionService', () => {
     const started = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -713,7 +866,7 @@ describe('AssumptionSessionService', () => {
     const started = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -754,7 +907,7 @@ describe('AssumptionSessionService', () => {
     const started = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -780,7 +933,7 @@ describe('AssumptionSessionService', () => {
     const started = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 
@@ -836,7 +989,7 @@ describe('AssumptionSessionService', () => {
     const started = await service.startSession({
       sectionId: 'sec-new-content-flow',
       documentId: 'doc-new-content-flow',
-      templateVersion: '1.0.0',
+      templateVersion: '2.1.0',
       startedBy: 'user-assumption-author',
     });
 

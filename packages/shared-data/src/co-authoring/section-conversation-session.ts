@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-export const CoAuthoringIntentSchema = z.enum(['explain', 'outline', 'improve']);
+import { SessionIdentifierSchema } from './session-identifiers.js';
+
+export const CoAuthoringIntentSchema = z.enum(['explain', 'outline', 'improve', 'summarize']);
 export type CoAuthoringIntent = z.infer<typeof CoAuthoringIntentSchema>;
 
 export const CoAuthoringStreamStateSchema = z.enum(['idle', 'streaming', 'awaiting-approval']);
@@ -47,7 +49,7 @@ const sanitizeStringList = (values: readonly string[] | undefined): string[] => 
 
 export const SectionConversationSessionSchema = z
   .object({
-    sessionId: z.string().uuid('sessionId must be a valid UUID'),
+    sessionId: SessionIdentifierSchema,
     documentId: z.string().min(1, 'documentId is required'),
     sectionId: z.string().min(1, 'sectionId is required'),
     authorId: z.string().min(1, 'authorId is required'),

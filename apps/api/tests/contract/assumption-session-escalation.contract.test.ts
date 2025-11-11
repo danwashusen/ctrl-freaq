@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import type * as BetterSqlite3 from 'better-sqlite3';
 
 import { createApp, type AppContext } from '../../src/app';
@@ -20,7 +20,9 @@ describe('Assumption Session Escalation Contract', () => {
     app = await createApp();
     const appContext = app.locals.appContext as AppContext;
     db = appContext.database;
+  });
 
+  beforeEach(async () => {
     seedAssumptionSessionFixtures(db, { sectionId: SECTION_ID });
 
     const startResponse = await request(app)

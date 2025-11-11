@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 import type {
   AssumptionOption,
   AssumptionSession,
+  DocumentRepositoryImpl,
   DraftProposal,
   DraftProposalCreateInput,
   DraftProposalRationale,
@@ -24,13 +25,15 @@ import {
   type QueueCancellationReason,
   type SectionStreamQueue,
 } from '@ctrl-freaq/editor-core/streaming/section-stream-queue.js';
+import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
 
 import { SectionEditorServiceError } from './section-editor.errors.js';
+import { DEFAULT_ARCHITECTURE_TEMPLATE_ID } from '../../../services/template/constants.js';
 
 export interface StartAssumptionSessionInput {
   sectionId: string;
   documentId: string;
-  templateVersion: string;
+  templateVersion?: string;
   startedBy: string;
   requestId?: string;
 }
@@ -205,6 +208,8 @@ export interface AssumptionSessionRepositoryContract {
 export interface AssumptionSessionServiceDependencies {
   repository: AssumptionSessionRepositoryContract;
   logger: Logger;
+  documentRepository: DocumentRepositoryImpl;
+  templateResolver: TemplateResolver;
   promptProvider?: AssumptionPromptProvider;
   timeProvider?: TimeProvider;
   decisionProvider?: DocumentDecisionProvider;
@@ -212,6 +217,11 @@ export interface AssumptionSessionServiceDependencies {
   streaming?: {
     provider?: AssumptionStreamingProvider;
   };
+}
+
+interface TemplateBindingResolution {
+  templateId: string;
+  version: string;
 }
 
 const DEFAULT_PROMPTS: AssumptionPromptTemplate[] = [
@@ -499,6 +509,8 @@ const NULL_DECISION_PROVIDER: DocumentDecisionProvider = {
 export class AssumptionSessionService {
   private readonly repository: AssumptionSessionRepositoryContract;
   private readonly logger: Logger;
+  private readonly documents: DocumentRepositoryImpl;
+  private readonly templateResolver: TemplateResolver;
   private readonly promptProvider: AssumptionPromptProvider;
   private readonly now: TimeProvider;
   private readonly decisionProvider: DocumentDecisionProvider;
@@ -512,6 +524,8 @@ export class AssumptionSessionService {
   constructor(deps: AssumptionSessionServiceDependencies) {
     this.repository = deps.repository;
     this.logger = deps.logger;
+    this.documents = deps.documentRepository;
+    this.templateResolver = deps.templateResolver;
     this.promptProvider = deps.promptProvider ?? new StaticPromptProvider();
     this.now = deps.timeProvider ?? DEFAULT_TIME_PROVIDER;
     this.decisionProvider = deps.decisionProvider ?? NULL_DECISION_PROVIDER;
@@ -528,10 +542,15 @@ export class AssumptionSessionService {
   async startSession(input: StartAssumptionSessionInput): Promise<StartedAssumptionSession> {
     const requestId = input.requestId ?? 'unknown';
     const startTime = performance.now();
+    const templateBinding = await this.resolveTemplateBinding({
+      documentId: input.documentId,
+      requestedVersion: input.templateVersion,
+      requestId,
+    });
     const prompts = await this.promptProvider.getPrompts({
       sectionId: input.sectionId,
       documentId: input.documentId,
-      templateVersion: input.templateVersion,
+      templateVersion: templateBinding.version,
     });
 
     if (prompts.length === 0) {
@@ -544,10 +563,13 @@ export class AssumptionSessionService {
       sectionId: input.sectionId,
     });
 
+    const sessionId = `${input.sectionId}-assumption-session-${randomUUID()}`;
+
     const createInput: CreateSessionWithPromptsInput = {
+      sessionId,
       sectionId: input.sectionId,
       documentId: input.documentId,
-      templateVersion: input.templateVersion,
+      templateVersion: templateBinding.version,
       startedBy: input.startedBy,
       startedAt,
       createdBy: input.startedBy,
@@ -592,6 +614,8 @@ export class AssumptionSessionService {
         requestId,
         sessionId: updatedSession.id,
         sectionId: updatedSession.sectionId,
+        templateId: templateBinding.templateId,
+        templateVersion: templateBinding.version,
         promptCount: persistedPrompts.length,
         action: 'session_started',
         overrideStatus: this.resolveOverrideStatus(updatedSession.unresolvedOverrideCount),
@@ -920,6 +944,112 @@ export class AssumptionSessionService {
         'Assumption streaming progress event'
       );
     }
+  }
+
+  private async resolveTemplateBinding(input: {
+    documentId: string;
+    requestedVersion?: string | null;
+    requestId: string;
+  }): Promise<TemplateBindingResolution> {
+    const document = await this.documents.findById(input.documentId);
+    if (!document) {
+      throw new SectionEditorServiceError('Document not found for assumption session', 404, {
+        documentId: input.documentId,
+      });
+    }
+
+    const documentTemplateId = this.normalizeIdentifier(document.templateId);
+    const requestedVersion = this.normalizeIdentifier(input.requestedVersion);
+    const documentVersion = this.normalizeIdentifier(document.templateVersion);
+    const templateId = documentTemplateId ?? DEFAULT_ARCHITECTURE_TEMPLATE_ID;
+    const hasDocumentTemplate = Boolean(documentTemplateId);
+
+    const candidates: Array<{ version: string; source: 'request' | 'document' }> = [];
+    if (requestedVersion) {
+      candidates.push({ version: requestedVersion, source: 'request' });
+    }
+    if (documentVersion && documentVersion !== requestedVersion) {
+      candidates.push({ version: documentVersion, source: 'document' });
+    }
+
+    for (const candidate of candidates) {
+      const resolved = await this.templateResolver.resolve({
+        templateId,
+        version: candidate.version,
+      });
+      if (resolved) {
+        if (candidate.source === 'request') {
+          this.logger.debug(
+            {
+              requestId: input.requestId,
+              documentId: document.id,
+              templateId,
+              version: candidate.version,
+            },
+            'Assumption session using template version from request payload'
+          );
+        }
+        return {
+          templateId: resolved.template.templateId,
+          version: resolved.template.version,
+        };
+      }
+
+      this.logger.warn(
+        {
+          requestId: input.requestId,
+          documentId: document.id,
+          templateId,
+          version: candidate.version,
+          source: candidate.source,
+        },
+        'Template version unavailable during assumption session bootstrap'
+      );
+    }
+
+    const activeVersion = await this.templateResolver.resolveActiveVersion(templateId);
+    if (activeVersion) {
+      const reason = hasDocumentTemplate
+        ? 'fallback_active_template_version'
+        : 'fallback_default_template';
+      this.logger.info(
+        {
+          requestId: input.requestId,
+          documentId: document.id,
+          templateId: activeVersion.template.templateId,
+          reason,
+        },
+        hasDocumentTemplate
+          ? 'Falling back to active template version for assumption session'
+          : 'Document missing template binding; using default template for assumption session'
+      );
+
+      return {
+        templateId: activeVersion.template.templateId,
+        version: activeVersion.template.version,
+      };
+    }
+
+    throw new SectionEditorServiceError(
+      hasDocumentTemplate
+        ? 'Template version unavailable for this document'
+        : 'Default template is not available for assumption sessions',
+      409,
+      {
+        code: 'TEMPLATE_VERSION_MISSING',
+        templateId,
+        version: requestedVersion ?? documentVersion ?? null,
+        documentId: document.id,
+      }
+    );
+  }
+
+  private normalizeIdentifier(value?: string | null): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   private publishOrBuffer(sessionId: string, payload: AssumptionStreamPayload): void {

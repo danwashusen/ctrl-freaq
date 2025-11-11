@@ -1,4 +1,5 @@
 import { AUTH_PROVIDER, ClerkProvider } from '@/lib/auth-provider';
+import '@/lib/immer-config';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 // React Router is handled inside App via RouterProvider

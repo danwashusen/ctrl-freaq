@@ -7,7 +7,12 @@ import type { Logger } from 'pino';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { AssumptionSessionRepository } from '@ctrl-freaq/shared-data';
+import {
+  AssumptionSessionRepository,
+  type Document,
+  type DocumentRepositoryImpl,
+} from '@ctrl-freaq/shared-data';
+import type { TemplateResolver } from '@ctrl-freaq/template-resolver';
 
 import {
   AssumptionSessionService,
@@ -90,6 +95,8 @@ describe('AssumptionSessionService observability performance', () => {
   let db: Database.Database;
   let repository: AssumptionSessionRepository;
   let service: AssumptionSessionService;
+  let documentRepository: DocumentRepositoryImpl;
+  let templateResolver: TemplateResolver;
   const infoSpy = vi.fn();
   const logger = {
     info: infoSpy,
@@ -101,9 +108,44 @@ describe('AssumptionSessionService observability performance', () => {
   beforeEach(() => {
     db = bootstrapDatabase();
     repository = new AssumptionSessionRepository(db);
+    const document: Document = {
+      id: 'doc-assumptions',
+      projectId: 'project-observability',
+      title: 'Observability Deep Dive',
+      content: {},
+      templateId: 'architecture-reference',
+      templateVersion: '1.0.0',
+      templateSchemaHash: 'hash-architecture-reference',
+      createdAt: fixedNow,
+      createdBy: 'user-observability',
+      updatedAt: fixedNow,
+      updatedBy: 'user-observability',
+      deletedAt: null,
+      deletedBy: null,
+    };
+    documentRepository = {
+      findById: vi.fn().mockResolvedValue(document),
+    } as unknown as DocumentRepositoryImpl;
+    const templateResolution = {
+      cacheHit: false,
+      template: {
+        templateId: 'architecture-reference',
+        version: '1.0.0',
+        schemaHash: 'hash-architecture-reference',
+        sections: [],
+      },
+    };
+    templateResolver = {
+      resolve: vi.fn().mockResolvedValue(templateResolution),
+      resolveActiveVersion: vi.fn().mockResolvedValue(templateResolution),
+      clearCache: vi.fn(),
+      getCacheStats: vi.fn(() => ({ hits: 0, misses: 0, entries: 0 })),
+    };
     service = new AssumptionSessionService({
       repository,
       logger,
+      documentRepository,
+      templateResolver,
       promptProvider: {
         async getPrompts(): Promise<AssumptionPromptTemplate[]> {
           return promptTemplates;

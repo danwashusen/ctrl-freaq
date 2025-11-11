@@ -1,4 +1,5 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
+import { CheckCircle2, FileDiff, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,13 +38,69 @@ export interface ConflictDialogProps {
     content: string;
     capturedAt?: string | null;
   } | null;
+  resolutionNote?: string | null;
+  refreshStep?: ConflictDialogStepDescriptor;
+  diffStep?: ConflictDialogStepDescriptor;
+  reapplyStep?: ConflictDialogStepDescriptor;
   isProcessing?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
   className?: string;
 }
+
+type ConflictStepStatus = 'idle' | 'pending' | 'done';
+
+export interface ConflictDialogStepDescriptor {
+  status: ConflictStepStatus;
+  onClick: () => void;
+  disabled?: boolean;
+  icon?: ReactNode;
+  label?: string;
+  description?: string;
+}
+
+const DEFAULT_STEP_CONTENT: Record<
+  'refresh' | 'diff' | 'reapply',
+  { label: string; description: string; icon: ReactNode }
+> = {
+  refresh: {
+    label: '1. Refresh section',
+    description: 'Pull the latest approved content into the editor before continuing.',
+    icon: <RefreshCw className="h-4 w-4" aria-hidden="true" />,
+  },
+  diff: {
+    label: '2. Review incoming diff',
+    description: 'Open the diff viewer to compare teammate updates with your draft.',
+    icon: <FileDiff className="h-4 w-4" aria-hidden="true" />,
+  },
+  reapply: {
+    label: '3. Reapply your draft',
+    description: 'Restore your cached edits on top of the refreshed content.',
+    icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
+  },
+};
+
+const renderStepStatus = (status: ConflictStepStatus) => {
+  if (status === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-600" aria-live="polite">
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+        Working…
+      </span>
+    );
+  }
+  if (status === 'done') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-emerald-600" aria-live="polite">
+        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+        Complete
+      </span>
+    );
+  }
+  return null;
+};
 
 export const ConflictDialog: FC<ConflictDialogProps> = ({
   open,
@@ -53,6 +110,10 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
   rebasedDraft,
   events,
   serverSnapshot,
+  resolutionNote,
+  refreshStep,
+  diffStep,
+  reapplyStep,
   isProcessing = false,
   confirmLabel = 'Rebase and continue',
   cancelLabel = 'Cancel',
@@ -66,6 +127,8 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
 
   const dialogTitleId = 'section-conflict-dialog-title';
   const descriptionId = 'section-conflict-dialog-description';
+  const hasGuidedSteps = Boolean(refreshStep || diffStep || reapplyStep);
+  const shouldRenderFooter = Boolean(onConfirm) && !hasGuidedSteps;
 
   return (
     <div
@@ -112,6 +175,124 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
               <span>v{latestApprovedVersion}</span>
             </div>
           )}
+
+          {resolutionNote && (
+            <div
+              className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-900"
+              data-testid="conflict-resolution-note"
+            >
+              {resolutionNote}
+            </div>
+          )}
+
+          {hasGuidedSteps ? (
+            <ol className="space-y-3" aria-live="polite">
+              {refreshStep ? (
+                <li
+                  data-testid="conflict-resolution-step"
+                  data-step="refresh"
+                  data-status={refreshStep.status}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      {refreshStep.icon ?? DEFAULT_STEP_CONTENT.refresh.icon}
+                      {refreshStep.label ?? DEFAULT_STEP_CONTENT.refresh.label}
+                    </div>
+                    {renderStepStatus(refreshStep.status)}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {refreshStep.description ?? DEFAULT_STEP_CONTENT.refresh.description}
+                  </p>
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      data-testid="conflict-step-refresh"
+                      onClick={refreshStep.onClick}
+                      disabled={
+                        refreshStep.disabled ||
+                        refreshStep.status === 'pending' ||
+                        refreshStep.status === 'done'
+                      }
+                    >
+                      Refresh section
+                    </Button>
+                  </div>
+                </li>
+              ) : null}
+
+              {diffStep ? (
+                <li
+                  data-testid="conflict-resolution-step"
+                  data-step="diff"
+                  data-status={diffStep.status}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      {diffStep.icon ?? DEFAULT_STEP_CONTENT.diff.icon}
+                      {diffStep.label ?? DEFAULT_STEP_CONTENT.diff.label}
+                    </div>
+                    {renderStepStatus(diffStep.status)}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {diffStep.description ?? DEFAULT_STEP_CONTENT.diff.description}
+                  </p>
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      data-testid="conflict-step-open-diff"
+                      onClick={diffStep.onClick}
+                      disabled={
+                        diffStep.disabled ||
+                        diffStep.status === 'pending' ||
+                        diffStep.status === 'done'
+                      }
+                    >
+                      Open diff
+                    </Button>
+                  </div>
+                </li>
+              ) : null}
+
+              {reapplyStep ? (
+                <li
+                  data-testid="conflict-resolution-step"
+                  data-step="reapply"
+                  data-status={reapplyStep.status}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      {reapplyStep.icon ?? DEFAULT_STEP_CONTENT.reapply.icon}
+                      {reapplyStep.label ?? DEFAULT_STEP_CONTENT.reapply.label}
+                    </div>
+                    {renderStepStatus(reapplyStep.status)}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {reapplyStep.description ?? DEFAULT_STEP_CONTENT.reapply.description}
+                  </p>
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      data-testid="conflict-step-reapply"
+                      onClick={reapplyStep.onClick}
+                      disabled={
+                        reapplyStep.disabled ||
+                        reapplyStep.status === 'pending' ||
+                        reapplyStep.status === 'done'
+                      }
+                    >
+                      Reapply cached draft
+                    </Button>
+                  </div>
+                </li>
+              ) : null}
+            </ol>
+          ) : null}
 
           {events && events.length > 0 && (
             <section aria-live="polite">
@@ -184,16 +365,18 @@ export const ConflictDialog: FC<ConflictDialogProps> = ({
               {cancelLabel}
             </Button>
           )}
-          <Button
-            variant="default"
-            onClick={onConfirm}
-            data-testid="confirm-rebase"
-            disabled={isProcessing}
-            aria-busy={isProcessing}
-            className="bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-600"
-          >
-            {isProcessing ? 'Applying…' : confirmLabel}
-          </Button>
+          {shouldRenderFooter ? (
+            <Button
+              variant="default"
+              onClick={onConfirm}
+              data-testid="confirm-rebase"
+              disabled={isProcessing}
+              aria-busy={isProcessing}
+              className="bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-600"
+            >
+              {isProcessing ? 'Applying…' : confirmLabel}
+            </Button>
+          ) : null}
         </footer>
       </div>
     </div>

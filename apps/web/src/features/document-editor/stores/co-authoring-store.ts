@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type CoAuthoringIntent = 'explain' | 'outline' | 'improve';
+export type CoAuthoringIntent = 'explain' | 'outline' | 'improve' | 'summarize';
 
 export interface SectionConversationSession {
   sessionId: string;
@@ -136,7 +136,7 @@ export const useCoAuthoringStore = create<CoAuthoringStoreState>((set, get) => (
       progress: {
         status: 'streaming',
         elapsedMs: 0,
-        retryCount: 0,
+        retryCount: state.progress.retryCount ?? 0,
         stageLabel: undefined,
         firstUpdateMs: null,
         cancelReason: null,

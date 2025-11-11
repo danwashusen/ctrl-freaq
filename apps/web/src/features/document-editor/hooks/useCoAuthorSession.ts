@@ -11,6 +11,7 @@ import {
   type ContextSection,
   type CoAuthoringStreamEvent,
   type ApplyResponseBody,
+  type TeardownSessionPayload,
 } from '../api/co-authoring.client';
 import {
   useCoAuthoringStore,
@@ -30,6 +31,7 @@ import {
   resolveFallbackCancelMessage,
 } from '../../../lib/streaming/fallback-messages';
 import { emitCoAuthorStreamingFallback } from '@/lib/telemetry/client-events';
+import { logger } from '@/lib/logger';
 
 export interface AnalyzeInput {
   intent: CoAuthoringIntent;
@@ -266,7 +268,11 @@ export function useCoAuthorSession(
   const postApply = api?.postApply ?? defaultPostApply;
   const subscribeToSession = api?.subscribeToSession ?? defaultSubscribeToSession;
   const postRejectProposal = api?.postRejectProposal ?? defaultPostRejectProposal;
-  const postTeardownSession = api?.postTeardownSession ?? defaultPostTeardownSession;
+  const postTeardownSession = useCallback(
+    (payload: TeardownSessionPayload) =>
+      (api?.postTeardownSession ?? defaultPostTeardownSession)(payload),
+    [api?.postTeardownSession]
+  );
 
   const session = useCoAuthoringStore(state => state.session);
   const turns = useCoAuthoringStore(state => state.turns);
@@ -384,6 +390,24 @@ export function useCoAuthorSession(
     firstProgressRecordedRef.current = false;
     setReplacementNotice(null);
 
+    const currentSession = useCoAuthoringStore.getState().session;
+    if (currentSession) {
+      const teardownPayload: TeardownSessionPayload = {
+        documentId: currentSession.documentId,
+        sectionId: currentSession.sectionId,
+        sessionId: currentSession.sessionId,
+        reason: 'author_cancelled',
+      };
+      postTeardownSession(teardownPayload).catch(error => {
+        logger.debug('Failed to notify co-author teardown during cancelStreaming', {
+          documentId: currentSession.documentId,
+          sectionId: currentSession.sectionId,
+          sessionId: currentSession.sessionId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
     const currentProgress = useCoAuthoringStore.getState().progress;
     const nextRetry = (currentProgress.retryCount ?? 0) + 1;
     const elapsedMs = currentProgress.elapsedMs ?? 0;
@@ -405,7 +429,7 @@ export function useCoAuthorSession(
       firstUpdateMs: currentProgress.firstUpdateMs ?? null,
     });
     forceRender();
-  }, [clearProgressTimer, setReplacementNotice, updateStreamProgress]);
+  }, [clearProgressTimer, setReplacementNotice, updateStreamProgress, postTeardownSession]);
 
   const teardown = useCallback(
     (reason: 'section-change' | 'navigation' | 'logout' | 'manual') => {
@@ -417,12 +441,13 @@ export function useCoAuthorSession(
       lastStreamLocationRef.current = null;
       const activeSessionId = session?.sessionId ?? null;
       if (activeSessionId && documentId && sectionId) {
-        void postTeardownSession({
+        const teardownPayload: TeardownSessionPayload = {
           documentId,
           sectionId,
           sessionId: activeSessionId,
           reason,
-        }).catch(() => {});
+        };
+        postTeardownSession(teardownPayload).catch(() => {});
       }
       if (reason === 'manual') {
         resetStore();
@@ -877,7 +902,7 @@ export function useCoAuthorSession(
         return null;
       }
 
-      if (session && session.sectionId === sectionId) {
+      if (session && session.sectionId === sectionId && progress.status !== 'canceled') {
         ensureSubscription(session.sessionId);
         return session;
       }
@@ -916,6 +941,7 @@ export function useCoAuthorSession(
       defaultIntent,
       documentId,
       ensureSubscription,
+      progress.status,
       session,
       sectionId,
       setReplacementNotice,

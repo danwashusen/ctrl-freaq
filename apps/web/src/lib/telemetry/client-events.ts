@@ -1,5 +1,6 @@
 interface DraftEventPayload {
   draftKey: string;
+  projectId: string;
   projectSlug: string;
   documentSlug: string;
   sectionPath: string;

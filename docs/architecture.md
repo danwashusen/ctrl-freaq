@@ -428,6 +428,22 @@ process.on('exit', () => clearInterval(interval));
 - No deletion in MVP
 - Rename allowed via PATCH API
 
+### Slug Usage Guidance {#slug-usage-guidance}
+
+- Treat a slug as a human-friendly, external identifier owned by the entity’s
+  repository. That repository may expose helpers such as `findBySlug` for
+  inbound requests that originate from user routes or APIs, but it must convert
+  the slug to the canonical `id` before returning results.
+- Downstream repositories and services (e.g. draft, document, or QA
+  repositories) must use the entity’s `id` for lookups and persistence. They
+  should never accept or store another entity’s slug; instead they should rely
+  on the owning repository to resolve the slug → id mapping at the boundary.
+- Example: API handlers can call `ProjectRepository.findBySlug(slug)` to resolve
+  a project, but `DraftBundleRepositoryImpl` and similar collaborators should
+  consume `project.id` only. This prevents cross-entity coupling on mutable
+  slugs and ensures slug formatting changes are isolated to the owning
+  repository.
+
 ## Components {#components}
 
 ### apps/api - Express.js API Server {#api-server}
@@ -458,6 +474,10 @@ middleware
 - Proposal Engine: Diff generation, preview, apply/reject workflow
 - QA & Traceability: Quality gates, trace links, citations
 - Exporter: Markdown file generation with sharding
+- Template Decisions: Persist project template validation approvals/deferrals
+  via `/api/v1/projects/:projectId/templates/:templateId/decisions`, wiring
+  shared repositories (`TemplateValidationDecisionRepository`) into document
+  discovery responses and API routing.
 - Streaming Client: SSE/Web Streams with <300ms TTFB
 - Observability: Assumption session service logs structured telemetry events
   (`assumption_session.completed`, `assumption_session.latency_ms`,
@@ -511,6 +531,8 @@ database migrations, transaction management
 - `SectionRepository`: Hierarchical section management
 - `AssumptionRepository`: Assumption tracking
 - `KnowledgeRepository`: Knowledge base access
+- `TemplateValidationDecisionRepository`: Project template validation decision
+  history used by discovery snapshots and auditing
 - Query interfaces with pagination support
 
 **Dependencies:** better-sqlite3, zod schemas
@@ -1407,6 +1429,12 @@ All data access must verify:
   - Emit structured warnings whenever simple mode is active (API + UI banner)
   - Mount `/auth/simple/*` endpoints only in simple mode; Clerk deployments
     bypass them entirely
+  - All document-editor networking (assumptions, section editor, persistence,
+    retention, co-authoring, document QA) MUST obtain both the API base URL and
+    bearer token via `configureDocumentEditorClients()` inside `ApiProvider`.
+    Never read `VITE_AUTH_PROVIDER`, cookies, or env vars directly inside these
+    feature clients—always call the shared `getAuthToken` so Clerk and simple
+    auth stay behaviorally identical.
 
 ### Secrets Management {#secrets-management}
 
