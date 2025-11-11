@@ -113,15 +113,34 @@ find_feature_dir_by_prefix() {
     if [[ ${#matches[@]} -eq 0 ]]; then
         # No match found - return the branch name path (will fail later with clear error)
         echo "$specs_dir/$branch_name"
-    elif [[ ${#matches[@]} -eq 1 ]]; then
-        # Exactly one match - perfect!
-        echo "$specs_dir/${matches[0]}"
-    else
-        # Multiple matches - this shouldn't happen with proper naming convention
-        echo "ERROR: Multiple spec directories found with prefix '$prefix': ${matches[*]}" >&2
-        echo "Please ensure only one spec directory exists per numeric prefix." >&2
-        echo "$specs_dir/$branch_name"  # Return something to avoid breaking the script
+        return 0
     fi
+
+    if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "$specs_dir/${matches[0]}"
+        return 0
+    fi
+
+    # Multiple matches found. Prefer exact branch/env match if available.
+    local exact_match=""
+    for candidate in "${matches[@]}"; do
+        if [[ "$candidate" == "$branch_name" ]]; then
+            exact_match="$candidate"
+            break
+        fi
+    done
+
+    if [[ -n "$exact_match" ]]; then
+        echo "[specify] Warning: Multiple spec directories share prefix '$prefix'; using '$exact_match'." >&2
+        echo "[specify] Hint: Set SPECIFY_FEATURE=<directory> to target a different spec." >&2
+        echo "$specs_dir/$exact_match"
+        return 0
+    fi
+
+    # Ambiguous situation: we do not know which directory to use.
+    echo "ERROR: Multiple spec directories found with prefix '$prefix': ${matches[*]}" >&2
+    echo "Set SPECIFY_FEATURE to the directory you want to target (example: SPECIFY_FEATURE=${matches[0]})." >&2
+    return 1
 }
 
 get_feature_paths() {
@@ -134,7 +153,10 @@ get_feature_paths() {
     fi
 
     # Use prefix-based lookup to support multiple branches per spec
-    local feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch")
+    local feature_dir
+    if ! feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch"); then
+        return 1
+    fi
 
     cat <<EOF
 REPO_ROOT='$repo_root'
@@ -153,4 +175,3 @@ EOF
 
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
-

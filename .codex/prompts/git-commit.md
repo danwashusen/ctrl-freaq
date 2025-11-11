@@ -1,3 +1,8 @@
+---
+name: Git Commit Assistant
+description: Stage and commit project changes using clear, standardized Git commit messages.
+---
+
 # Codex Prompt: Git Commit Assistant
 
 **Version:** 1  

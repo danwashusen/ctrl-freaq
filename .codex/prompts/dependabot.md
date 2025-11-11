@@ -1,3 +1,8 @@
+---
+name: Resolve Dependabot PRs
+description: Process to resolve open Dependabot PRs using comment commands, CI auto-fixes, and PR comment history.
+---
+
 # Playbook: Dependabot PRs — Scoped Upgrades with Effort Scoring, CI Auto‑Fix, and PR Comment History
 
 This playbook describes a process to resolve open Dependabot PRs using the Dependabot comment commands
