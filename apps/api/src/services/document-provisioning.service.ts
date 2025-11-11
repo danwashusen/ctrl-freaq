@@ -527,6 +527,7 @@ export class DocumentProvisioningService {
             'Failed to create section record during provisioning'
           );
         }
+        await this.dependencies.sections.seedSectionRecord(created);
 
         if (depth === 0) {
           roots.push(created);
@@ -582,6 +583,7 @@ export class DocumentProvisioningService {
       if (!fallbackSection) {
         throw new DocumentProvisioningError('Failed to seed fallback section during provisioning');
       }
+      await this.dependencies.sections.seedSectionRecord(fallbackSection);
       roots.push(fallbackSection);
       return roots;
     }

@@ -35,7 +35,7 @@ const SessionResponseSchema = z.object({
     })
   ),
   overridesOpen: z.number().nonnegative(),
-  documentDecisionSnapshotId: z.string().length(64),
+  documentDecisionSnapshotId: z.string().length(64).nullable(),
 });
 
 describe('Document assumption flow scoping', () => {
@@ -83,6 +83,47 @@ describe('Document assumption flow scoping', () => {
       .expect(404);
 
     expect(mismatch.body).toMatchObject({ code: 'DOCUMENT_SECTION_MISMATCH' });
+  });
+
+  test('starts an assumption session immediately after provisioning a document', async () => {
+    const uniqueSuffix = randomUUID().slice(0, 8);
+    const projectResponse = await request(app)
+      .post('/api/v1/projects')
+      .set(AuthorizationHeader)
+      .send({
+        name: `Bootstrap Project ${uniqueSuffix}`,
+        visibility: 'workspace',
+        goalSummary: 'Verify section records seed for new documents.',
+      })
+      .expect(201);
+
+    const projectId = projectResponse.body.id as string;
+    expect(projectId).toBeTruthy();
+
+    const provisionResponse = await request(app)
+      .post(`/api/v1/projects/${projectId}/documents`)
+      .set(AuthorizationHeader)
+      .send({})
+      .expect(201);
+
+    const bootstrapDocumentId = provisionResponse.body.documentId as string;
+    expect(bootstrapDocumentId).toBeTruthy();
+    const templateVersion =
+      (provisionResponse.body.template?.templateVersion as string | undefined) ?? '1.0.0';
+
+    const firstSectionId = provisionResponse.body.firstSectionId as string | undefined;
+    expect(firstSectionId).toBeTruthy();
+
+    const sessionResponse = await request(app)
+      .post(
+        `/api/v1/documents/${bootstrapDocumentId}/sections/${firstSectionId}/assumptions/session`
+      )
+      .set(AuthorizationHeader)
+      .send({ templateVersion, decisionSnapshotId: 'a'.repeat(64) })
+      .expect(201);
+
+    const parsed = SessionResponseSchema.safeParse(sessionResponse.body);
+    expect(parsed.success).toBe(true);
   });
 
   test('falls back to the stored template when the request references an unknown version', async () => {
