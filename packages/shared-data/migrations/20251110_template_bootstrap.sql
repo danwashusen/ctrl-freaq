@@ -79,7 +79,8 @@ VALUES (
   datetime('now'),
   'system_template_bootstrap'
 )
-ON CONFLICT(id) DO UPDATE SET
+ON CONFLICT(template_id, version) DO UPDATE SET
+  id = excluded.id,
   status = excluded.status,
   changelog = excluded.changelog,
   schema_hash = excluded.schema_hash,
