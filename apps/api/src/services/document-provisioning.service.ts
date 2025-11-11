@@ -18,7 +18,7 @@ import {
   type TemplateRecord,
 } from '@ctrl-freaq/templates';
 
-import { createTemplateLocator } from './templates/template-path-resolver.js';
+import { createTemplateLocator, type TemplateLocator } from './templates/template-path-resolver.js';
 
 interface DocumentProvisioningDependencies {
   logger: Logger;
@@ -106,10 +106,12 @@ function buildContentFromTemplate(templateVersion: string, sections: NormalizedT
 
 export class DocumentProvisioningService {
   private readonly templateEngine = new TemplateEngine();
-  private readonly templateLocator = createTemplateLocator(import.meta.url);
+  private readonly templateLocator: TemplateLocator;
   private readonly templateCache = new Map<string, TemplateRecord>();
 
-  constructor(private readonly dependencies: DocumentProvisioningDependencies) {}
+  constructor(private readonly dependencies: DocumentProvisioningDependencies) {
+    this.templateLocator = createTemplateLocator(import.meta.url, dependencies.logger);
+  }
 
   async provisionPrimaryDocument(options: {
     projectId: string;

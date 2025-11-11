@@ -33,7 +33,7 @@ export async function bootstrapDefaultTemplate({
 }: BootstrapDefaultTemplateOptions): Promise<void> {
   const templatePath =
     templateFile ??
-    createTemplateLocator(import.meta.url).resolveFile(DEFAULT_ARCHITECTURE_TEMPLATE_ID);
+    createTemplateLocator(import.meta.url, logger).resolveFile(DEFAULT_ARCHITECTURE_TEMPLATE_ID);
   const templateYaml = await readFile(templatePath, 'utf-8');
   const compilation = await compileTemplateSource({
     source: templateYaml,
