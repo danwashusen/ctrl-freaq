@@ -398,10 +398,10 @@ jobs:
           # Run tests with coverage if configured
           if grep -q '"coverage"' package.json; then
             echo "Running tests with coverage..."
-            pnpm test -- --coverage
+            pnpm test:ci -- --coverage
           else
             echo "Running tests without coverage..."
-            pnpm test
+            pnpm test:ci
           fi
 
       - name: Upload test results

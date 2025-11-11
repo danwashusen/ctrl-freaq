@@ -10,9 +10,8 @@ until all steps have been completed.
 2. Run the `pnpm format` command.
 3. Ensure the `pnpm lint:fix` command succeeds, fix any linting errors and warnings.
    - Prefer re-writing code over adding suppressions.
-4. Ensure the `pnpm typecheck` command succeeds, fix any type errors and warnings.
-5. Ensure the `pnpm build` command succeeds, fix any build errors and warnings.
-6. Ensure the `pnpm test` command succeeds, analyze the failures and suggest fixes.
+4. Ensure the `pnpm typecheck` command succeeds, fix any errors and warnings.
+5. Ensure the `pnpm test` command succeeds, analyze the failures and suggest fixes.
    - The command takes several minutes to complete; plan accordingly.
    - The command generates a lot of output; pipe the output to a file.
-7. Prepare a summary of all the previous steps.
+6. Prepare a summary of all the previous steps.
