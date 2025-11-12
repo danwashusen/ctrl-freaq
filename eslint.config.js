@@ -43,6 +43,7 @@ export default [
       '.bmad-core/**',
       'pnpm-lock.yaml',
       'packages/shared-data/src/**/*.js',
+      'worktrees/**',
     ],
   },
   {
