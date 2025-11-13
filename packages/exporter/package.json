@@ -49,7 +49,7 @@
   "devDependencies": {
     "@types/archiver": "^7.0.0",
     "@types/markdown-it": "^14.0.0",
-    "tsx": "^4.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.8"
   }
