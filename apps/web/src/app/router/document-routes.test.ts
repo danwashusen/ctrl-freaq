@@ -46,8 +46,14 @@ vi.mock('@/lib/auth-provider/loader-auth', () => ({
 
 import { documentRouteLoader } from './document-routes';
 
+type LoaderFunctionArgsWithPattern = LoaderFunctionArgs & {
+  unstable_pattern?: LoaderFunctionArgs extends { unstable_pattern: infer T }
+    ? T
+    : Record<string, never>;
+};
+
 const buildLoaderArgs = (
-  overrides?: Partial<LoaderFunctionArgs> & { search?: string }
+  overrides?: Partial<LoaderFunctionArgsWithPattern> & { search?: string }
 ): LoaderFunctionArgs => {
   const controller = new AbortController();
   const url = new URL('http://localhost/documents/doc-123');
@@ -56,14 +62,26 @@ const buildLoaderArgs = (
   }
   const defaultRequest = new Request(url, { signal: controller.signal });
 
-  return {
+  const loaderArgs = {
     params: overrides?.params ?? {
       documentId: 'doc-123',
       sectionId: 'sec-777',
     },
     request: overrides?.request ?? defaultRequest,
     context: overrides?.context ?? {},
-  };
+  } as LoaderFunctionArgsWithPattern;
+
+  if (
+    overrides?.unstable_pattern ||
+    // Newer React Router versions require unstable_pattern;
+    // older versions simply ignore the extra field.
+    'unstable_pattern' in loaderArgs
+  ) {
+    loaderArgs.unstable_pattern =
+      overrides?.unstable_pattern ?? ({} as LoaderFunctionArgsWithPattern['unstable_pattern']);
+  }
+
+  return loaderArgs;
 };
 
 describe('documentRouteLoader', () => {
