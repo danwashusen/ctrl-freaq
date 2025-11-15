@@ -1,5 +1,85 @@
 # Change Log
 
+## 097-injest-browser-logs
+
+> Feature scope: Deliver POST `/api/v1/logs` browser ingestion, security
+> guidance, and instrumentation docs per Story 097.
+
+### Overview
+
+Implemented a dedicated `/api/v1/logs` router with a sendBeacon-aware parser,
+strict Zod validation, enrichment, and audit logging so browsers can flush
+telemetry batches and always receive machine-readable outcomes. Delivered
+complete Spec Kit collateral, frontend contract docs, and stability fixes for
+the Project template workflow test harness to keep Story 097 self-contained and
+reproducible.
+
+### Highlights
+
+- Added the full ingestion module under
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs`
+  plus parser bypass + router wiring in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/app.ts`,
+  ensuring `/api/v1/logs` reuses auth/rate limits while enforcing the 1 MB/body
+  rules.
+- Created builders, logger spies, and exhaustive Vitest suites in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/{fixtures,contract,unit,integration}/logs`
+  so acceptance, auth, sendBeacon, enrichment, and limit cases stay guarded.
+- Expanded documentation in
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/docs/front-end-spec.md`,
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/specs/097-injest-browser-logs`,
+  and the new OWASP cheat sheet at
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/docs/reference/owasp-top10-2025-RC1.md`
+  to align instrumentation guidance and governance.
+- Hardened
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/web/src/pages/Project.tsx`
+  and
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/web/tests/integration/project.template-workflow.test.tsx`
+  with injectable timers so template upgrades remain deterministic in Vitest.
+
+### Requirement Coverage
+
+| Requirement | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-001      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/index.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/app.ts`                                                                                                                                                                                      |
+| FR-002      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/logs.schema.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/contract/logs/browser-logs.validation.contract.test.ts`                                                                                                                              |
+| FR-003      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/body-parser.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/integration/logs/browser-logs.limits.test.ts`                                                                                                                                        |
+| FR-004      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/app.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/contract/logs/browser-logs.auth.contract.test.ts`                                                                                                                                                        |
+| FR-005      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/index.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/contract/logs/browser-logs.acceptance.contract.test.ts`                                                                                                                                    |
+| FR-006      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/enrich-log-entry.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/emit-browser-log.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/tests/integration/logs/browser-logs.logger.test.ts` |
+| FR-007      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/index.ts`                                                                                                                                                                                                                                                                                               |
+| FR-008      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/services/audit-log.service.ts`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/routes/logs/logs.errors.ts`                                                                                                                                                         |
+| FR-009      | ✅     | `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/docs/front-end-spec.md`<br>`/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/specs/097-injest-browser-logs/quickstart.md`                                                                                                                                                                         |
+
+### Testing
+
+- API suites:
+  `pnpm --filter @ctrl-freaq/api test -- tests/contract/logs/browser-logs.acceptance.contract.test.ts tests/contract/logs/browser-logs.auth.contract.test.ts tests/contract/logs/browser-logs.validation.contract.test.ts tests/integration/logs/browser-logs.send-beacon.test.ts tests/integration/logs/browser-logs.logger.test.ts tests/integration/logs/browser-logs.limits.test.ts tests/integration/logs/logs-router.setup.test.ts tests/unit/routes/logs/enrich-log-entry.test.ts`.
+- Repo hygiene: `pnpm format`, `pnpm lint:fix`, `pnpm lint`,
+  `pnpm --filter @ctrl-freaq/api typecheck`.
+
+### Risks & Mitigations
+
+- `req.path.startsWith('/api/v1/logs')` guards the parser bypass; monitor future
+  sub-route additions to ensure they continue to receive the route-scoped parser
+  before touching the handler.
+- Browser log emission remains synchronous via Pino; continue enforcing the
+  100-entry/1 MB caps and consider backpressure metrics if log volume grows.
+- Audit logging depends on the request-scoped logger; if service-locator wiring
+  changes, ensure
+  `/Users/danwas/Development/Projects/ctrl-freaq/worktrees/097-injest-browser-logs/apps/api/src/services/audit-log.service.ts`
+  keeps rejection logging attached.
+
+### Clarifications
+
+- Session 2025-11-14 — Q: Should partially valid batches be accepted? → A: No;
+  reject the entire batch without partial processing.
+
+### Assumption Log
+
+- `specs/097-injest-browser-logs/tasks.md` does not record additional
+  assumptions for this feature.
+
 ## 001-upgrade-dashboard-view
 
 > Feature scope: Align the dashboard shell with Story 2.2 gradients, collapsible
