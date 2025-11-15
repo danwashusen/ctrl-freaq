@@ -78,6 +78,17 @@ interface ProjectLifecycleEventPayload {
 
 const DASHBOARD_ARCHIVE_NOTICE_STORAGE_KEY = 'ctrl-freaq:dashboard:archive-notice';
 
+const scheduleTimeout = (
+  handler: (...args: []) => void,
+  delay: number
+): ReturnType<typeof setTimeout> => {
+  const timer =
+    typeof window === 'undefined' || typeof window.setTimeout !== 'function'
+      ? setTimeout
+      : window.setTimeout.bind(window);
+  return timer(handler, delay);
+};
+
 const CREATE_DOCUMENT_STEPS = [
   {
     id: 'initializing',
@@ -214,7 +225,7 @@ export default function Project() {
     apiClient: client,
     onSuccess: result => {
       setCreateDocumentInFlight(false);
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setShowProvisioningHint(false);
       }, 500);
       setCreateDocumentError(null);
@@ -240,7 +251,7 @@ export default function Project() {
     },
     onError: error => {
       setCreateDocumentInFlight(false);
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setShowProvisioningHint(false);
       }, 250);
       const message =
@@ -586,7 +597,7 @@ export default function Project() {
           );
         }
         if (latest.status === 'queued' || latest.status === 'running') {
-          timeoutId = setTimeout(pollJobStatus, 2000);
+          timeoutId = scheduleTimeout(pollJobStatus, 2000);
         }
       } catch (statusError) {
         if (!cancelled) {
@@ -685,7 +696,7 @@ export default function Project() {
 
         void queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
 
-        window.setTimeout(() => {
+        scheduleTimeout(() => {
           setMutationState(current => (current.type === 'success' ? { type: 'idle' } : current));
         }, 4000);
       } catch (updateError) {
@@ -793,7 +804,7 @@ export default function Project() {
         );
       }
 
-      window.setTimeout(() => {
+      scheduleTimeout(() => {
         navigate('/dashboard');
       }, 1500);
     },

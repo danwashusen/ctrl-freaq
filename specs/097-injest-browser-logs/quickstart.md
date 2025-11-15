@@ -20,6 +20,9 @@ Follow these scenarios to validate `/api/v1/logs` end-to-end using fixture data.
 Goal: Confirm authenticated clients can submit ≤10-entry batches and receive
 HTTP 202 with a server `requestId`.
 
+Browser instrumentation accumulates at most **10 entries** or **5 seconds** of
+logs before posting to `/api/v1/logs`. The flow below mirrors that policy.
+
 1. Send a valid payload (≤1 MB) using curl:
    ```sh
    curl -X POST http://localhost:5001/api/v1/logs \
@@ -52,6 +55,15 @@ HTTP 202 with a server `requestId`.
 3. Tail API logs (`pnpm --filter @ctrl-freaq/api dev` or separate terminal) and
    confirm a `browser.log` entry is emitted with `sessionId`, `userId`, `ip`,
    and `userAgent`.
+4. Verify the `text/plain` sendBeacon path by sending stringified JSON:
+   ```sh
+   curl -X POST http://localhost:5001/api/v1/logs \
+     -H 'Authorization: Bearer mock-jwt-token' \
+     -H 'Content-Type: text/plain' \
+     -d '{"source":"browser","sessionId":"sess_fixture","logs":[{"timestamp":"2025-11-14T19:11:00.000Z","level":"INFO","message":"beacon flush","requestId":"req_send_beacon"}]}'
+   ```
+   The response mirrors the JSON sample, proving that browsers can flush from
+   `navigator.sendBeacon` while tabs unload.
 
 ## US2 – Ops teams correlate browser issues (D003)
 
@@ -119,10 +131,62 @@ Goal: Validate schema/rate-limit failures produce machine-readable errors.
 
 ### Body size / entry limit failure
 
-1. Create a >1 MB payload (e.g., `python - <<'PY'` to generate) or send `logs`
-   array with 101 entries.
-2. Expect HTTP 413 with `code: "PAYLOAD_TOO_LARGE"` and `message` referencing
-   the limit.
+1. Create a >1 MB payload and post it:
+
+   ```sh
+   python - <<'PY' | curl -X POST http://localhost:5001/api/v1/logs \
+     -H 'Authorization: Bearer mock-jwt-token' \
+     -H 'Content-Type: application/json' \
+     --data-binary @-
+   import json
+
+   payload = {
+     "source": "browser",
+     "sessionId": "sess_fixture",
+     "logs": [
+       {
+         "timestamp": "2025-11-14T19:17:00.000Z",
+         "level": "INFO",
+         "message": "x" * (1024 * 1024 + 1),
+         "requestId": "req_too_large"
+       }
+     ]
+   }
+   print(json.dumps(payload))
+   PY
+   ```
+
+   Expect HTTP 413 with
+
+   ```json
+   {
+     "code": "PAYLOAD_TOO_LARGE",
+     "message": "Batch body must be ≤1MB",
+     "requestId": "req_server"
+   }
+   ```
+
+2. For `logs.length > 100`, run:
+   ```sh
+   node - <<'JS' | curl -X POST http://localhost:5001/api/v1/logs \
+     -H 'Authorization: Bearer mock-jwt-token' \
+     -H 'Content-Type: application/json' \
+     --data-binary @-
+   const payload = {
+     source: 'browser',
+     sessionId: 'sess_fixture',
+     logs: Array.from({ length: 101 }, (_, index) => ({
+       timestamp: new Date().toISOString(),
+       level: 'INFO',
+       message: `entry ${index}`,
+       requestId: `req_${index}`,
+     })),
+   };
+   console.log(JSON.stringify(payload));
+   JS
+   ```
+   The response is HTTP 413 with `details.path: "logs"` and the logger spy shows
+   zero emitted events.
 
 ### Rate limiting
 
@@ -137,6 +201,7 @@ Goal: Validate schema/rate-limit failures produce machine-readable errors.
    done
    ```
 2. Observe HTTP 429 responses with `Retry-After` headers once the limit trips.
+   Clients must back off for the indicated number of seconds before retrying.
 
 ## Rollback / Cleanup
 
