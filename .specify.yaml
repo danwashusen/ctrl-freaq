@@ -44,6 +44,14 @@ spec-kit:
       documents:
         - path: 'docs/work-flow.md'
           context: 'Documents the implementation work-flow for the project and should be considered a primary source of truth.'
+        - path: 'docs/reference/owasp-top10-2025-RC1.md'
+          context: >
+            Treat the OWASP Top 10:2025 guidance as required design and coding controls throughout
+            implementation. For every task, confirm mitigations for A01–A10 (access control, security
+            configuration, supply chain, cryptography, injection, insecure design, authentication,
+            data integrity, logging/alerting, exceptional handling) are built in and documented.
+            Note any gaps or compensating controls in tasks.md and implementation logs before moving
+            on to subsequent phases.
   - audit:
       documents:
         - path: 'docs/prd.md'
@@ -54,6 +62,13 @@ spec-kit:
           context: 'Documents the UI architecture of the project and should be considered a primary source of truth, any deviations should be called out.'
         - path: 'docs/front-end-spec.md'
           context: 'Documents the front-end specifications and should be considered a primary source of truth, any deviations should be called out.'
+        - path: 'docs/reference/owasp-top10-2025-RC1.md'
+          context: >
+            Treat the OWASP Top 10:2025 mitigations as mandatory security controls.
+            During the Security & Privacy gate, confirm each change is evaluated
+            against A01–A10 guidance (access control, misconfiguration, supply chain, cryptography,
+            injection, insecure design, authentication, integrity, logging, exceptional handling)
+            and log supporting evidence or findings in audit.md.
   - changelog:
       documents:
         - path: 'docs/prd.md'

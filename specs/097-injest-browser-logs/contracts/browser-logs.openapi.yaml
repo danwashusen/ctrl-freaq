@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: Browser Log Ingestion Endpoint
+  version: 0.1.0
+  summary: Authenticated ingestion route for browser-originated telemetry batches.
+servers:
+  - url: https://api.ctrl-freaq.test
+paths:
+  /api/v1/logs:
+    post:
+      summary: Ingest browser log batches
+      description: >
+        Accepts authenticated browser telemetry batches containing 1–100 log entries (≤1 MB body).
+        Each entry must provide timestamp, level, message, and requestId. Valid payloads are enriched
+        with server metadata and emitted to Pino structured logs; no persistence occurs.
+      operationId: ingestBrowserLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserLogBatch'
+            examples:
+              sendBeaconJson:
+                summary: Standard JSON payload
+                value:
+                  source: browser
+                  sessionId: sess_123
+                  userId: user_abc
+                  logs:
+                    - timestamp: '2025-11-14T18:30:11.000Z'
+                      level: ERROR
+                      message: Draft autosave failed
+                      requestId: req_client_99
+                      context:
+                        sectionId: sec-1
+                        retries: 2
+                      attributes:
+                        stack: 'TypeError: failed to fetch'
+          text/plain:
+            schema:
+              $ref: '#/components/schemas/BrowserLogBatch'
+            examples:
+              sendBeaconText:
+                summary: sendBeacon `text/plain` payload (stringified JSON)
+                value: |
+                  {"source":"browser","sessionId":"sess_123","logs":[{"timestamp":"2025-11-14T18:30:11.000Z","level":"INFO","message":"flush","requestId":"req_client_99"}]}
+      responses:
+        '202':
+          description: Batch accepted; entries emitted to server-side logs.
+          headers:
+            X-Request-ID:
+              description: Server correlation identifier echoed back to the client.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+              examples:
+                accepted:
+                  value:
+                    requestId: req_abc123
+                    status: accepted
+                    receivedCount: 3
+        '400':
+          description: Schema validation failure; entire batch rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidEntry:
+                  value:
+                    code: INVALID_PAYLOAD
+                    message: 'logs[0].timestamp must be ISO 8601'
+                    requestId: req_abc123
+                    details:
+                      path: logs[0].timestamp
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Payload exceeded 1 MB limit or >100 entries; nothing processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                tooLarge:
+                  value:
+                    code: PAYLOAD_TOO_LARGE
+                    message: 'Batch body must be ≤1MB or ≤100 entries'
+                    requestId: req_abc123
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+        - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Clerk JWT bearer token or simple-mode test token.
+  responses:
+    Unauthorized:
+      description: Authentication required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missingToken:
+              value:
+                code: AUTH_REQUIRED
+                message: Authentication required.
+                requestId: req_abc123
+    TooManyRequests:
+      description: Request rate limit exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+            description: Seconds to wait before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            throttled:
+              value:
+                code: TOO_MANY_REQUESTS
+                message: Rate limit exceeded for user.
+                requestId: req_abc123
+  schemas:
+    BrowserLogBatch:
+      type: object
+      required:
+        - source
+        - sessionId
+        - logs
+      properties:
+        source:
+          type: string
+          const: browser
+        sessionId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        userId:
+          type: string
+          description: Optional override; defaults to authenticated user.
+        logs:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/BrowserLogEntry'
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional feature flags or client context.
+    BrowserLogEntry:
+      type: object
+      required:
+        - timestamp
+        - level
+        - message
+        - requestId
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [DEBUG, INFO, WARN, ERROR, FATAL]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        requestId:
+          type: string
+          minLength: 1
+        sessionId:
+          type: string
+          description: Optional override per entry.
+        event_type:
+          type: string
+          maxLength: 100
+        context:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        attributes:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          required:
+            - name
+            - message
+          properties:
+            name:
+              type: string
+            message:
+              type: string
+            stack:
+              type: string
+    AckResponse:
+      type: object
+      required:
+        - requestId
+        - status
+      properties:
+        requestId:
+          type: string
+        status:
+          type: string
+          enum: [accepted]
+        receivedCount:
+          type: integer
+          minimum: 1
+          maximum: 100
+        acceptedAt:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true

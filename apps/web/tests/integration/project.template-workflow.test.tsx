@@ -597,11 +597,11 @@ describe('Project template workflow', () => {
       expect(screen.getAllByText('Upgrade Failure Project')[0]).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId('template-upgrade-failed-banner')).toBeInTheDocument();
-    expect(screen.getByTestId('template-upgrade-failed-guidance')).toBeInTheDocument();
-    expect(screen.getByTestId('template-upgrade-failed-issues')).toHaveTextContent(
-      'Executive Summary is required'
-    );
+    const failedBanner = await screen.findByTestId('template-upgrade-failed-banner');
+    expect(failedBanner).toBeInTheDocument();
+    expect(await screen.findByTestId('template-upgrade-failed-guidance')).toBeInTheDocument();
+    const failedIssues = await screen.findByTestId('template-upgrade-failed-issues');
+    expect(failedIssues).toHaveTextContent('Executive Summary is required');
     expect(screen.queryByTestId('document-editor-form')).not.toBeInTheDocument();
   });
 });

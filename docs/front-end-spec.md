@@ -612,6 +612,59 @@ single authentication surface regardless of provider.
 calls the shared token getter and surfaces actionable errors when the getter
 returns null.
 
+##### Browser Telemetry Flush Contract {#browser-telemetry-flush}
+
+**Purpose:** Align frontend instrumentation with the `POST /api/v1/logs`
+ingestion surface so every browser emits consistent, traceable telemetry.
+
+**Payload Contract:**
+
+```json
+{
+  "source": "browser",
+  "sessionId": "sess_fixture_browser",
+  "userId": "user-local-author",
+  "logs": [
+    {
+      "timestamp": "2025-11-14T19:12:00.000Z",
+      "level": "ERROR",
+      "message": "autosave failed",
+      "requestId": "req_browser_123",
+      "event_type": "editor.autosave",
+      "context": {
+        "sectionId": "sec-1",
+        "retries": 2
+      },
+      "attributes": {
+        "stack": "Error: boom"
+      }
+    }
+  ]
+}
+```
+
+- The browser app batches at most **10 entries** or **5 seconds** of buffered
+  logs—whichever comes first—and then submits the payload.
+- `navigator.sendBeacon(url, serializedBatch)` is the default transport so
+  unload events flush reliably. When `sendBeacon` is unavailable, fall back to
+  `fetch` with `Content-Type: application/json`.
+- The API accepts both `application/json` and `text/plain` (stringified JSON)
+  payloads and responds with HTTP `202` plus
+  `{ status: 'accepted', receivedCount, requestId }`. The frontend must record
+  the echoed `requestId` for correlating retries.
+
+**Error Handling:**
+
+| Status | Code                  | Notes                                                                      |
+| ------ | --------------------- | -------------------------------------------------------------------------- |
+| 400    | `INVALID_PAYLOAD`     | Schema failures; `details.path` pinpoints the entry field to fix.          |
+| 413    | `PAYLOAD_TOO_LARGE`   | Body exceeds **1 MB** or `logs.length > 100`; nothing is partially logged. |
+| 429    | `RATE_LIMIT_EXCEEDED` | Shared rate limiter response; always honor `Retry-After` seconds.          |
+
+The UI should surface these errors in developer tooling (console banner + toast)
+so instrumentation owners can immediately correct payloads. Clients must back
+off per `Retry-After` to avoid cascading throttles.
+
 #### Floating AI Assistant Interface {#floating-ai-assistant-interface}
 
 **Purpose:** Persistent, repositionable AI chat interface for conversational

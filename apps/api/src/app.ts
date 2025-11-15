@@ -328,12 +328,18 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   );
 
   // Body parsing middleware
-  app.use(
-    express.json({
-      limit: '10mb',
-      type: ['application/json'],
-    })
-  );
+  const defaultJsonParser = express.json({
+    limit: '10mb',
+    type: ['application/json'],
+  });
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/v1/logs')) {
+      next();
+      return;
+    }
+    defaultJsonParser(req, res, next);
+  });
 
   app.use(
     express.urlencoded({
@@ -356,6 +362,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   const { coAuthoringRouter } = await import('./routes/co-authoring.js');
   const { documentQaRouter } = await import('./routes/document-qa.js');
   const { qualityGatesRouter } = await import('./routes/quality-gates.js');
+  const { logsRouter } = await import('./routes/logs/index.js');
   const { createEventsRouter } = await import('./routes/events.js');
   const { clerkAuthMiddleware, requireAuth, createUserRateLimit } = await import(
     './middleware/auth.js'
@@ -403,6 +410,7 @@ export async function createApp(config?: Partial<AppConfig>): Promise<Express> {
   app.use('/api/v1', projectSelectionRouter);
   app.use('/api/v1', templatesRouter);
   app.use('/api/v1', documentsRouter);
+  app.use('/api/v1', logsRouter);
   app.use('/api/v1', sectionsRouter);
   app.use('/api/v1', sessionsRouter);
   app.use('/api/v1', documentQaRouter);
