@@ -62,7 +62,7 @@
     "@axe-core/playwright": "^4.10.2",
     "@next/eslint-plugin-next": "^15.5.5",
     "@playwright/test": "^1.56.0",
-    "@tailwindcss/postcss": "^4.1.16",
+    "@tailwindcss/postcss": "^4.1.17",
     "@tailwindcss/vite": "^4.1.16",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.0.0",
